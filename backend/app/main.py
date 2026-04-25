@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.routers import auth, users, suppliers, jobs, payments, compliance, tracking, ratings, admin, webhooks, ws
+from app.routers import auth, users, documents, suppliers, jobs, payments, compliance, tracking, ratings, admin, webhooks, ws
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -55,6 +55,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 PREFIX = "/api/v1"
 app.include_router(auth.router,       prefix=PREFIX)
 app.include_router(users.router,      prefix=PREFIX)
+app.include_router(documents.router,  prefix=PREFIX)
 app.include_router(suppliers.router,  prefix=PREFIX)
 app.include_router(jobs.router,       prefix=PREFIX)
 app.include_router(payments.router,   prefix=PREFIX)

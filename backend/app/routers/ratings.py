@@ -7,10 +7,10 @@ from app.models.user import User
 from app.schemas.ratings import RatingCreateRequest, RatingOut, RatingListOut
 from app.services import ratings as ratings_svc
 
-router = APIRouter(prefix="/jobs", tags=["Ratings"])
+router = APIRouter(tags=["Ratings"])
 
 
-@router.post("/{job_id}/ratings", response_model=RatingOut, status_code=201)
+@router.post("/jobs/{job_id}/ratings", response_model=RatingOut, status_code=201)
 def create_rating(
     job_id: str,
     body: RatingCreateRequest,
