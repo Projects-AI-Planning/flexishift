@@ -14,8 +14,8 @@ graph TB
     end
 
     subgraph API["APPLICATION LAYER"]
-        REST["REST API Server<br/>(Node.js / Express)"]
-        WS["WebSocket Server<br/>(Socket.IO)<br/>GPS Tracking"]
+        REST["REST API Server<br/>(Python FastAPI<br/>Uvicorn / Gunicorn)"]
+        WS["WebSocket Server<br/>(FastAPI WS<br/>+ Redis Pub/Sub)<br/>GPS Tracking"]
     end
 
     subgraph SERVICES["INTERNAL SERVICES"]
@@ -33,8 +33,8 @@ graph TB
     end
 
     subgraph DATA["DATA LAYER"]
-        PG[("PostgreSQL<br/>(Primary DB)")]
-        RD[("Redis<br/>(Cache + Sessions<br/>+ Pub/Sub)")]
+        PG[("MySQL 8.0<br/>(InnoDB)<br/>Primary + Read Replica")]
+        RD[("Redis 7<br/>(Cache + Sessions<br/>+ Pub/Sub + Rate limit)")]
         S3["☁️ Cloud Storage<br/>(AWS S3 / GCS)<br/>Documents · Photos · PDFs"]
     end
 
