@@ -1,0 +1,87 @@
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
+from app.models.job import Job, JobStatus
+from app.models.quote import Quote, QuoteStatus
+from app.models.user import User, Role
+
+
+def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
+    if supplier.role not in (Role.DRIVER, Role.FIRM):
+        raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
+
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Job is not open for quotes")
+    if job.haulier_id == supplier.id:
+        raise HTTPException(status_code=403, detail="Cannot quote on your own job")
+
+    existing = db.query(Quote).filter(
+        Quote.job_id == job_id,
+        Quote.supplier_id == supplier.id,
+        Quote.status == QuoteStatus.ACTIVE,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="You already have an active quote on this job")
+
+    quote = Quote(job_id=job_id, supplier_id=supplier.id, price=price)
+    db.add(quote)
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def list_quotes(db: Session, job_id: str, current_user: User) -> dict:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if current_user.role not in (Role.ADMIN,) and job.haulier_id != current_user.id:
+        if current_user.role in (Role.DRIVER, Role.FIRM):
+            quotes = db.query(Quote).filter(
+                Quote.job_id == job_id, Quote.supplier_id == current_user.id
+            ).all()
+            return {"items": quotes, "total": len(quotes)}
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    quotes = db.query(Quote).filter(Quote.job_id == job_id).all()
+    return {"items": quotes, "total": len(quotes)}
+
+
+def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quote:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.haulier_id != haulier.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Job is not open")
+
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.job_id == job_id).first()
+    if not quote or quote.status != QuoteStatus.ACTIVE:
+        raise HTTPException(status_code=404, detail="Quote not found or not active")
+
+    db.query(Quote).filter(
+        Quote.job_id == job_id, Quote.id != quote_id
+    ).update({"status": QuoteStatus.REJECTED})
+
+    quote.status = QuoteStatus.SELECTED
+    job.status = JobStatus.BOOKED
+    job.selected_supplier_id = quote.supplier_id
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def withdraw_quote(db: Session, quote_id: str, supplier: User) -> Quote:
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.supplier_id == supplier.id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    if quote.status != QuoteStatus.ACTIVE:
+        raise HTTPException(status_code=422, detail="Quote cannot be withdrawn in current state")
+    quote.status = QuoteStatus.WITHDRAWN
+    db.commit()
+    db.refresh(quote)
+    return quote
