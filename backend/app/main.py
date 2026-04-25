@@ -7,7 +7,11 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.routers import auth, users, documents, suppliers, jobs, payments, compliance, tracking, ratings, admin, webhooks, ws
+from app.routers import (
+    auth, users, documents, availability,
+    suppliers, jobs, payments, compliance,
+    tracking, ratings, admin, webhooks, ws, dashboard,
+)
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -53,17 +57,19 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 PREFIX = "/api/v1"
-app.include_router(auth.router,       prefix=PREFIX)
-app.include_router(users.router,      prefix=PREFIX)
-app.include_router(documents.router,  prefix=PREFIX)
-app.include_router(suppliers.router,  prefix=PREFIX)
-app.include_router(jobs.router,       prefix=PREFIX)
-app.include_router(payments.router,   prefix=PREFIX)
-app.include_router(compliance.router, prefix=PREFIX)
-app.include_router(tracking.router,   prefix=PREFIX)
-app.include_router(ratings.router,    prefix=PREFIX)
-app.include_router(admin.router,      prefix=PREFIX)
-app.include_router(webhooks.router,   prefix=PREFIX)
+app.include_router(auth.router,         prefix=PREFIX)
+app.include_router(users.router,        prefix=PREFIX)
+app.include_router(documents.router,    prefix=PREFIX)
+app.include_router(availability.router, prefix=PREFIX)
+app.include_router(suppliers.router,    prefix=PREFIX)
+app.include_router(jobs.router,         prefix=PREFIX)
+app.include_router(payments.router,     prefix=PREFIX)
+app.include_router(compliance.router,   prefix=PREFIX)
+app.include_router(tracking.router,     prefix=PREFIX)
+app.include_router(ratings.router,      prefix=PREFIX)
+app.include_router(dashboard.router,    prefix=PREFIX)
+app.include_router(admin.router,        prefix=PREFIX)
+app.include_router(webhooks.router,     prefix=PREFIX)
 app.include_router(ws.router)
 
 

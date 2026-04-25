@@ -9,6 +9,10 @@ from app.models.user import User, Role
 def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
     if supplier.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
+    if not supplier.profile_complete:
+        raise HTTPException(status_code=403, detail="Complete your profile before submitting quotes")
+    if not supplier.verified:
+        raise HTTPException(status_code=403, detail="Your account must be verified before submitting quotes")
 
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
@@ -33,6 +37,27 @@ def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quot
     return quote
 
 
+def edit_quote(db: Session, job_id: str, quote_id: str, supplier: User, new_price: float) -> Quote:
+    quote = db.query(Quote).filter(
+        Quote.id == quote_id,
+        Quote.job_id == job_id,
+        Quote.supplier_id == supplier.id,
+    ).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    if quote.status != QuoteStatus.ACTIVE:
+        raise HTTPException(status_code=422, detail="Only active quotes can be edited")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if job and job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Job is no longer open")
+
+    quote.price = new_price
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
 def list_quotes(db: Session, job_id: str, current_user: User) -> dict:
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
@@ -50,7 +75,7 @@ def list_quotes(db: Session, job_id: str, current_user: User) -> dict:
     return {"items": quotes, "total": len(quotes)}
 
 
-def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quote:
+async def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quote:
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -63,6 +88,11 @@ def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quot
     if not quote or quote.status != QuoteStatus.ACTIVE:
         raise HTTPException(status_code=404, detail="Quote not found or not active")
 
+    rejected_quotes = db.query(Quote).filter(
+        Quote.job_id == job_id, Quote.id != quote_id, Quote.status == QuoteStatus.ACTIVE
+    ).all()
+    rejected_supplier_ids = [q.supplier_id for q in rejected_quotes]
+
     db.query(Quote).filter(
         Quote.job_id == job_id, Quote.id != quote_id
     ).update({"status": QuoteStatus.REJECTED})
@@ -72,6 +102,26 @@ def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quot
     job.selected_supplier_id = quote.supplier_id
     db.commit()
     db.refresh(quote)
+
+    # Notify selected supplier
+    from app.services.notifications import create_notification
+    await create_notification(
+        db, quote.supplier_id, "JOB_BOOKED",
+        "Quote Accepted!",
+        f"Your quote for job {job.job_ref} has been accepted. Please await payment.",
+        {"job_id": job_id, "job_ref": job.job_ref},
+    )
+
+    # Notify rejected suppliers
+    for supplier_id in rejected_supplier_ids:
+        await create_notification(
+            db, supplier_id, "QUOTE_REJECTED",
+            "Quote Not Selected",
+            f"Your quote for job {job.job_ref} was not selected.",
+            {"job_id": job_id, "job_ref": job.job_ref},
+        )
+
+    db.commit()
     return quote
 
 

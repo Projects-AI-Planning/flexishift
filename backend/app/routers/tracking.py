@@ -6,6 +6,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.user import User, Role
 from app.schemas.tracking import TrackingPointIn, TrackingPointOut, TrackingListOut
 from app.services import tracking as track_svc
+from app.services.eta import get_eta
 
 router = APIRouter(prefix="/jobs", tags=["Tracking"])
 
@@ -29,3 +30,12 @@ def list_tracking(
     current_user: User = Depends(get_current_user),
 ):
     return track_svc.list_tracking(db, job_id, current_user.id)
+
+
+@router.get("/{job_id}/eta")
+async def job_eta(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await get_eta(db, job_id)

@@ -20,6 +20,9 @@ def _gen_load_code() -> str:
 
 
 async def create_job(db: Session, haulier: User, data: dict) -> Job:
+    if not haulier.profile_complete:
+        raise HTTPException(status_code=403, detail="Complete your profile before posting a job")
+
     route = await get_route_info(
         data["pickup_lat"], data["pickup_lng"],
         data["drop_lat"], data["drop_lng"],

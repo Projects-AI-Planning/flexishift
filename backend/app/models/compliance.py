@@ -12,6 +12,7 @@ class ComplianceRecord(Base):
 
     id:                      Mapped[str]      = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     job_id:                  Mapped[str]      = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False, unique=True)
+    load_code_verified_at:   Mapped[datetime] = mapped_column(DateTime, nullable=True)
     step1_completed_at:      Mapped[datetime] = mapped_column(DateTime, nullable=True)
     checklist_data:          Mapped[dict]     = mapped_column(JSON, nullable=True)
     condition_photo_urls:    Mapped[list]     = mapped_column(JSON, nullable=True)

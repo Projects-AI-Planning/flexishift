@@ -59,6 +59,17 @@ def submit_quote(
     return quotes_svc.submit_quote(db, job_id, current_user, body.price)
 
 
+@router.patch("/{job_id}/quotes/{quote_id}", response_model=QuoteOut)
+def edit_quote(
+    job_id: str,
+    quote_id: str,
+    body: QuoteCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
+):
+    return quotes_svc.edit_quote(db, job_id, quote_id, current_user, body.price)
+
+
 @router.get("/{job_id}/quotes", response_model=QuoteListOut)
 def list_quotes(
     job_id: str,
@@ -69,13 +80,13 @@ def list_quotes(
 
 
 @router.patch("/{job_id}/quotes/{quote_id}/select", response_model=QuoteOut)
-def select_quote(
+async def select_quote(
     job_id: str,
     quote_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    return quotes_svc.select_quote(db, job_id, quote_id, current_user)
+    return await quotes_svc.select_quote(db, job_id, quote_id, current_user)
 
 
 @router.delete("/{job_id}/quotes/{quote_id}", status_code=204)

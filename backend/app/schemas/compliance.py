@@ -4,6 +4,10 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 
+class LoadCodeRequest(BaseModel):
+    load_code: str
+
+
 class Step1Request(BaseModel):
     checklist_data: Dict[str, Any]
     condition_photo_urls: List[str]
@@ -24,6 +28,7 @@ class DisputeRequest(BaseModel):
 class ComplianceOut(BaseModel):
     id: str
     job_id: str
+    load_code_verified_at: Optional[datetime] = None
     step1_completed_at: Optional[datetime] = None
     checklist_data: Optional[Dict[str, Any]] = None
     condition_photo_urls: Optional[List[str]] = None

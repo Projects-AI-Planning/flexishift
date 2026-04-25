@@ -5,7 +5,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User, Role
 from app.models.compliance import ComplianceRecord
-from app.schemas.compliance import Step1Request, Step2Request, DisputeRequest, ComplianceOut
+from app.schemas.compliance import LoadCodeRequest, Step1Request, Step2Request, DisputeRequest, ComplianceOut
 from app.services import compliance as comp_svc
 
 router = APIRouter(prefix="/jobs", tags=["Compliance"])
@@ -21,6 +21,16 @@ def get_compliance(
     if not record:
         raise HTTPException(status_code=404, detail="Compliance record not found")
     return record
+
+
+@router.post("/{job_id}/compliance/verify-load-code", response_model=ComplianceOut)
+def verify_load_code(
+    job_id: str,
+    body: LoadCodeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
+):
+    return comp_svc.verify_load_code(db, job_id, current_user.id, body.load_code)
 
 
 @router.post("/{job_id}/compliance/step1", response_model=ComplianceOut)
@@ -44,12 +54,12 @@ def complete_step2(
 
 
 @router.post("/{job_id}/compliance/approve", response_model=ComplianceOut)
-def approve_delivery(
+async def approve_delivery(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
-    return comp_svc.approve_delivery(db, job_id)
+    return await comp_svc.approve_delivery(db, job_id, current_user.id)
 
 
 @router.post("/{job_id}/compliance/dispute", response_model=ComplianceOut)
@@ -57,6 +67,6 @@ def raise_dispute(
     job_id: str,
     body: DisputeRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN, Role.HAULIER)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
-    return comp_svc.raise_dispute(db, job_id, body.dispute_reason)
+    return comp_svc.raise_dispute(db, job_id, current_user.id, body.dispute_reason)
