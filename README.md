@@ -46,6 +46,27 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 | Data Privacy & Security Assessment | [docs/phase5-quality-security/data-privacy-security-assessment.md](docs/phase5-quality-security/data-privacy-security-assessment.md) |
 | Compliance & Regulatory Checklist | [docs/phase5-quality-security/compliance-regulatory-checklist.md](docs/phase5-quality-security/compliance-regulatory-checklist.md) |
 
+### Diagrams & Flow Diagrams
+| # | Diagram | Type |
+|---|---|---|
+| 01 | [System Architecture](docs/diagrams/01-system-architecture.md) | Architecture |
+| 02 | [Entity Relationship Diagram (ERD)](docs/diagrams/02-entity-relationship-diagram.md) | ERD |
+| 03 | [User Registration & Login Flow](docs/diagrams/03-user-registration-login-flow.md) | Flowchart |
+| 04 | [Supplier Onboarding & Verification Flow](docs/diagrams/04-supplier-onboarding-flow.md) | Flowchart |
+| 05 | [Job Posting & Supplier Matching Flow](docs/diagrams/05-job-posting-matching-flow.md) | Flowchart |
+| 06 | [Booking & Escrow Payment Flow](docs/diagrams/06-booking-payment-flow.md) | Flowchart |
+| 07 | [Compliance Workflow (3-Step Chain)](docs/diagrams/07-compliance-workflow.md) | Flowchart + Sequence |
+| 08 | [Live GPS Tracking & ETA Flow](docs/diagrams/08-live-tracking-eta-flow.md) | Flowchart + Sequence + State |
+| 09 | [Job Status State Machine (FSM)](docs/diagrams/09-job-status-state-machine.md) | State Diagram |
+| 10 | [End-to-End Sequence Diagrams](docs/diagrams/10-end-to-end-sequence.md) | Sequence |
+| 11 | [User Role & Navigation Flow](docs/diagrams/11-user-role-navigation.md) | Flowchart + Journey |
+| 12 | [Notification Flow](docs/diagrams/12-notification-flow.md) | Flowchart |
+| 13 | [Deployment & Infrastructure](docs/diagrams/13-deployment-infrastructure.md) | Architecture |
+| 14 | [Data Flow Diagrams (DFD)](docs/diagrams/14-data-flow-diagram.md) | DFD |
+| 15 | [Security & Authentication Flow](docs/diagrams/15-security-flow.md) | Sequence + Flowchart |
+
+> All diagrams use Mermaid syntax — they render automatically on GitHub. See the [Diagrams README](docs/diagrams/README.md) for viewing instructions.
+
 ## Platform Summary
 
 | Item | Detail |
