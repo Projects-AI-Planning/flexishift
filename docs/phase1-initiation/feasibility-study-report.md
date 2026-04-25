@@ -8,11 +8,13 @@ This report assesses whether FreightFlex can be successfully developed, deployed
 ### 2.1 Technology Stack Assessment
 | Layer | Proposed Technology | Feasibility |
 |---|---|---|
-| Frontend (Web) | React.js + TypeScript | High – mature ecosystem |
-| Mobile App | React Native (iOS & Android) | High – shared codebase with web |
-| Backend API | Node.js (Express) or Python (FastAPI) | High – proven for marketplace apps |
-| Database | PostgreSQL (relational) + Redis (cache) | High – widely supported |
-| Real-time Tracking | WebSockets / Socket.IO | High – low-latency updates |
+| Frontend (Web) | React.js + TypeScript | High – mature ecosystem, rich component libraries |
+| Mobile App | React Native (iOS & Android) | High – shared JS codebase with web layer |
+| Backend API | Python 3.11 + FastAPI | High – async-native, auto OpenAPI docs, Pydantic validation |
+| ORM / Migrations | SQLAlchemy 2.0 + Alembic | High – industry standard for Python / MySQL |
+| Database (Primary) | MySQL 8.0 | High – widely supported, ACID compliant, JSON column support |
+| Cache / Sessions | Redis 7 | High – fast key-value store; supports Pub/Sub for WebSocket scaling |
+| Real-time Tracking | FastAPI WebSocket + Redis Pub/Sub | High – built-in async WebSocket support in FastAPI |
 | Maps & Routing | Google Maps Platform (Directions API) | High – industry standard |
 | Payment Gateway | Razorpay / Stripe (with escrow support) | High – available in target markets |
 | File Storage | AWS S3 / Google Cloud Storage | High – scalable, cost-effective |

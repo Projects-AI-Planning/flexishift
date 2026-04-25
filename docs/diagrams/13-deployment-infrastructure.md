@@ -21,13 +21,13 @@ graph TB
         end
 
         subgraph PRIVATE_SUBNET_API["PRIVATE SUBNET — Application"]
-            ECS_API["ECS Fargate\nREST API\n(auto-scaling)"]
-            ECS_WS["ECS Fargate\nWebSocket Server\n(auto-scaling)"]
+            ECS_API["ECS Fargate\nPython FastAPI\nUvicorn+Gunicorn\n(auto-scaling)"]
+            ECS_WS["ECS Fargate\nFastAPI WebSocket\n+ Celery Workers\n(auto-scaling)"]
         end
 
         subgraph PRIVATE_SUBNET_DATA["PRIVATE SUBNET — Data"]
-            RDS_P[("RDS PostgreSQL\n(Primary)\nMulti-AZ")]
-            RDS_R[("RDS PostgreSQL\n(Read Replica)")]
+            RDS_P[("RDS MySQL 8.0\n(Primary)\nMulti-AZ")]
+            RDS_R[("RDS MySQL 8.0\n(Read Replica)\nAnalytics + Matching)")]
             REDIS[("ElastiCache Redis\n(Cache + Pub/Sub)")]
         end
 
@@ -53,7 +53,7 @@ graph TB
 
     subgraph CICD["CI/CD PIPELINE"]
         GH["GitHub\n(Source)"]
-        GHA["GitHub Actions\n(Build · Test · Deploy)"]
+        GHA["GitHub Actions\n(Pytest · Playwright\nDocker Build · Deploy)"]
         GHA --> ECR
         ECR --> ECS_API
         ECR --> ECS_WS

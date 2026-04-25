@@ -45,8 +45,10 @@ FreightFlex is a standalone SaaS product. It integrates with:
 ### 2.3 Operating Environment
 - Web: Chrome 110+, Firefox 110+, Safari 16+, Edge 110+
 - Mobile: Android 9+, iOS 14+
-- Backend: Node.js 20 LTS / Python 3.11+ on Linux containers
-- Database: PostgreSQL 15+
+- Backend: Python 3.11+ with FastAPI on Linux containers (Docker / AWS ECS Fargate)
+- Database: MySQL 8.0 (InnoDB engine, UTF8MB4 charset)
+- Cache: Redis 7 (sessions, Pub/Sub, rate-limit counters)
+- ORM / Migrations: SQLAlchemy 2.0 + Alembic
 
 ## 3. Functional Requirements
 

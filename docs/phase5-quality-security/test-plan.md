@@ -38,34 +38,35 @@
 
 ### 4.1 Unit Testing
 - **Owner:** Developers
-- **Target:** All backend service methods; React component rendering
-- **Framework:** Jest (Node.js), Pytest (Python), React Testing Library
-- **Coverage Target:** ≥ 80% line coverage per service
-- **Execution:** On every PR commit via CI
+- **Target:** All FastAPI service methods; React / React Native component rendering
+- **Framework (Backend):** Pytest 7 + pytest-asyncio; SQLAlchemy in-memory MySQL (or sqlite for unit tests)
+- **Framework (Frontend):** Vitest + React Testing Library (web); Jest + React Native Testing Library (mobile)
+- **Coverage Target:** ≥ 80% line coverage per service module
+- **Execution:** On every PR commit via GitHub Actions CI
 
 ### 4.2 Integration Testing
 - **Owner:** Developers + QA
-- **Target:** API endpoint contracts, database interactions, third-party API sandbox calls
-- **Framework:** Supertest (Node.js) / Pytest + httpx
+- **Target:** FastAPI endpoint contracts, MySQL interactions, Redis operations, third-party API sandbox calls
+- **Framework:** Pytest + `httpx.AsyncClient` (FastAPI's built-in test client); real MySQL instance in Docker
 - **Coverage Target:** All 60+ API endpoints (happy path + key error paths)
 - **Execution:** On every merge to `develop` via CI
 
 ### 4.3 End-to-End (E2E) Testing
 - **Owner:** QA
 - **Target:** Critical user journeys through web and mobile UIs
-- **Framework:** Playwright (web), Detox / Appium (mobile)
+- **Framework:** Playwright (web — Chrome, Firefox, Safari); Detox / Maestro (React Native mobile)
 - **Coverage Target:** All happy-path flows per user story
 - **Execution:** Nightly on staging; blocking for UAT
 
 ### 4.4 Performance Testing
 - **Owner:** QA + DevOps
-- **Target:** API throughput, WebSocket concurrency, page load times
-- **Tool:** k6 (API), Lighthouse (web)
+- **Target:** FastAPI throughput, MySQL query latency, WebSocket concurrency, React page load
+- **Tool:** k6 (API + WebSocket load tests), Lighthouse (React web), py-spy (Python profiling)
 - **Execution:** Sprint 6 (hardening)
 
 ### 4.5 Security Testing
 - **Owner:** DevOps + External Pen Tester (optional)
-- **Tool:** OWASP ZAP, Snyk, npm audit
+- **Tool:** OWASP ZAP (dynamic), Bandit (Python static analysis), pip-audit (dependency CVEs), Snyk
 - **Coverage:** OWASP Top 10; see Security Assessment doc
 - **Execution:** Sprint 6
 

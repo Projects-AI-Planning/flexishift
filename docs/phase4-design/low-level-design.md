@@ -5,265 +5,645 @@
 |---|---|
 | Project | FreightFlex |
 | Document | Low-Level Design (LLD) |
-| Version | 1.0 |
+| Version | 2.0 |
 | Date | 2026-04-25 |
 | Author | Development Lead |
+| Stack | Python 3.11 · FastAPI 0.110 · SQLAlchemy 2.0 · MySQL 8.0 · Pydantic v2 |
 
-## 2. Purpose
-Describes the internal logic, class/module structure, algorithms, and data contracts for key FreightFlex services.
+## 2. Project Structure
 
----
-
-## 3. Module: Auth Service
-
-### 3.1 Responsibilities
-- User registration with email verification
-- JWT issuance (access + refresh)
-- Password hashing and reset flow
-- Role-based redirect logic
-
-### 3.2 Key Functions
 ```
-registerUser(input: RegisterDTO): Promise<void>
-  - Validate input (class-validator)
-  - Check email uniqueness → throw ConflictException if duplicate
-  - Hash password: bcrypt.hash(password, 12)
-  - Create user record (status = INACTIVE)
-  - Generate verificationToken = crypto.randomBytes(32).toString('hex')
-  - Store token hash in DB with expiry (24h)
-  - Send verification email via NotificationService
-
-verifyEmail(token: string): Promise<void>
-  - Hash incoming token; find matching record not expired
-  - Set user.status = ACTIVE; clear token
-
-login(email, password): Promise<{ accessToken, refreshToken }>
-  - Find user by email; throw UnauthorizedException if not found
-  - bcrypt.compare(password, hash); throw if mismatch
-  - Generate accessToken: jwt.sign({ sub: userId, role }, privateKey, { expiresIn: '24h', algorithm: 'RS256' })
-  - Generate refreshToken: uuid v4; store hash in Redis (TTL 30d)
-  - Return both tokens
-
-refreshAccessToken(refreshToken): Promise<string>
-  - Hash token; check Redis; throw if not found/expired
-  - Issue new accessToken
-
-resetPassword(token, newPassword): Promise<void>
-  - Validate token; hash new password; update user; invalidate all refresh tokens for user
-```
-
-### 3.3 Middleware: authGuard
-```
-authGuard(req, res, next)
-  - Extract Bearer token from Authorization header
-  - jwt.verify(token, publicKey); attach decoded payload to req.user
-  - next() or throw 401
-
-roleGuard(allowedRoles: Role[])
-  - Check req.user.role in allowedRoles → next() or throw 403
-```
-
----
-
-## 4. Module: Job Service
-
-### 4.1 Key Functions
-```
-createJob(haulierId, input: CreateJobDTO): Promise<Job>
-  - Validate Haulier profile complete
-  - Geocode pickup and drop via MapsService.geocode()
-  - Calculate distance/duration via MapsService.getDirections()
-  - Generate jobRef: 'FF-' + nanoid(8).toUpperCase()
-  - Generate loadCode: crypto.randomBytes(3).toString('hex').toUpperCase()  // 6-char hex
-  - Insert job record (status = OPEN)
-  - Return job with ref and load code
-
-getMatchedSuppliers(jobId): Promise<SupplierMatch[]>
-  - Load job (vehicle type, pickup lat/lng, date)
-  - Query suppliers:
-      WHERE verified = true
-        AND available on job date
-        AND vehicle_type matches
-        AND ST_Distance(location, pickup_point) < MAX_RADIUS_KM
-  - Order by distance ASC, avg_rating DESC
-  - Return supplier summaries
-
-transitionStatus(jobId, newStatus, actorId, actorRole)
-  - Validate allowed transition (see FSM below)
-  - Update job.status; record transition log
-  - Trigger relevant notifications
-
-Job Status FSM:
-  OPEN → BOOKED (haulier selects supplier)
-  BOOKED → PAYMENT_PENDING (payment initiated)
-  PAYMENT_PENDING → PAYMENT_SECURED (escrow webhook)
-  PAYMENT_SECURED → IN_TRANSIT (compliance step 2 complete)
-  IN_TRANSIT → DELIVERY_SUBMITTED (driver submits delivery report)
-  DELIVERY_SUBMITTED → COMPLETED (haulier approves)
-  DELIVERY_SUBMITTED → DISPUTED (haulier disputes)
-  Any non-terminal → CANCELLED (by haulier before IN_TRANSIT)
+freightflex-api/
+├── app/
+│   ├── main.py                 # FastAPI app factory, router mounts, middleware
+│   ├── config.py               # pydantic-settings: env vars, secrets
+│   ├── database.py             # SQLAlchemy engine, SessionLocal, Base
+│   ├── dependencies.py         # Shared FastAPI Depends (get_db, get_current_user, require_role)
+│   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── user.py
+│   │   ├── job.py
+│   │   ├── quote.py
+│   │   ├── payment.py
+│   │   ├── compliance.py
+│   │   ├── tracking.py
+│   │   └── rating.py
+│   ├── schemas/                # Pydantic request/response models
+│   │   ├── auth.py
+│   │   ├── user.py
+│   │   ├── job.py
+│   │   ├── payment.py
+│   │   └── ...
+│   ├── routers/                # FastAPI APIRouter per domain
+│   │   ├── auth.py
+│   │   ├── users.py
+│   │   ├── suppliers.py
+│   │   ├── jobs.py
+│   │   ├── payments.py
+│   │   ├── compliance.py
+│   │   ├── tracking.py
+│   │   ├── ratings.py
+│   │   ├── admin.py
+│   │   ├── webhooks.py
+│   │   └── ws.py               # WebSocket endpoint
+│   ├── services/               # Business logic (pure Python, no HTTP concern)
+│   │   ├── auth_service.py
+│   │   ├── job_service.py
+│   │   ├── matching_service.py
+│   │   ├── payment_service.py
+│   │   ├── compliance_service.py
+│   │   ├── tracking_service.py
+│   │   ├── notification_service.py
+│   │   ├── invoice_service.py
+│   │   └── maps_service.py
+│   ├── core/
+│   │   ├── security.py         # JWT, bcrypt, token helpers
+│   │   ├── connection_manager.py  # WebSocket room manager
+│   │   └── exceptions.py       # Custom HTTP exceptions
+│   └── tasks/                  # Celery background tasks
+│       ├── email_tasks.py
+│       └── notification_tasks.py
+├── alembic/                    # Database migrations
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── Dockerfile
+├── docker-compose.yml          # dev: FastAPI + MySQL + Redis
+└── requirements.txt
 ```
 
 ---
 
-## 5. Module: Matching Service
+## 3. Core Infrastructure
 
-### 5.1 Algorithm
-```
-matchSuppliers(job: Job): SupplierMatch[]
-  1. Build filter:
-     - verified = true
-     - not_available.date NOT IN job.date
-     - supplier.vehicle_types CONTAINS job.vehicle_type
-  2. Spatial filter:
-     - Use PostGIS ST_DWithin(supplier.location, job.pickup_point, 100km)
-     - Or Haversine formula if PostGIS not available
-  3. Sort:
-     - Primary: distance ASC
-     - Secondary: avg_rating DESC
-     - Tertiary: completed_jobs DESC
-  4. Return top 20 matches with fields:
-     { supplierId, name, vehicleType, vehicleReg, avgRating, jobCount, distanceKm }
-```
+### 3.1 `app/database.py` – SQLAlchemy + MySQL
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from app.config import settings
 
----
+engine = create_engine(
+    settings.DATABASE_URL,           # mysql+pymysql://user:pass@host/db
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,              # reconnect on stale connections
+    pool_recycle=3600,               # recycle every 1h (MySQL wait_timeout)
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-## 6. Module: Payment Service
+class Base(DeclarativeBase):
+    pass
 
-### 6.1 Escrow Initiation
-```
-initiateEscrow(jobId, haulierId): Promise<PaymentOrder>
-  - Load job; verify status = BOOKED; verify caller is haulier
-  - Load accepted quote for job
-  - Create order at Razorpay/Stripe:
-      amount = quote.price (in smallest currency unit)
-      currency = 'INR' | 'GBP'
-      notes = { jobId, jobRef }
-  - Store order_id, status = PENDING in payments table
-  - Return { orderId, paymentUrl }
-
-handleWebhook(body, signature): Promise<void>
-  - Verify HMAC signature (gateway secret)
-  - Parse event type:
-      'payment.captured' → updatePaymentStatus(orderId, ESCROWED)
-      'payment.failed'   → updatePaymentStatus(orderId, FAILED); notify haulier
-  - Idempotency: check if event already processed (event_id in DB)
-
-releasePayment(jobId): Promise<void>
-  - Verify job.status = COMPLETED
-  - Initiate payout to supplier.bankAccountId via gateway payout API
-  - Update payment.status = RELEASED
-  - Call InvoiceService.generate(jobId)
-  - Notify supplier
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 ```
 
-### 6.2 Invoice Generation
-```
-generateInvoice(jobId): Promise<string>  // returns S3 URL
-  - Load job, quote, haulier, supplier
-  - Calculate tax (GST 18% or VAT 20% based on jurisdiction flag)
-  - Render HTML template with data
-  - Convert to PDF via Puppeteer / pdfmake
-  - Upload PDF to S3 with path: invoices/{jobRef}.pdf
-  - Store S3 URL in job.invoice_url
-  - Return pre-signed URL (expiry 7 days, refreshable)
-```
+### 3.2 `app/config.py` – Pydantic Settings
+```python
+from pydantic_settings import BaseSettings
 
----
+class Settings(BaseSettings):
+    DATABASE_URL: str                    # mysql+pymysql://...
+    REDIS_URL: str                       # redis://...
+    JWT_PRIVATE_KEY: str                 # RS256 PEM (from Secrets Manager)
+    JWT_PUBLIC_KEY: str
+    ACCESS_TOKEN_EXPIRE_HOURS: int = 24
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    AWS_S3_BUCKET_DOCS: str
+    AWS_S3_BUCKET_INVOICES: str
+    GOOGLE_MAPS_API_KEY: str
+    RAZORPAY_KEY_ID: str
+    RAZORPAY_KEY_SECRET: str
+    SENDGRID_API_KEY: str
+    FCM_SERVER_KEY: str
 
-## 7. Module: Compliance Service
+    class Config:
+        env_file = ".env"
 
-### 7.1 Step State Machine
-```
-Step 1 – Load Code:
-  driver enters code → verify vs job.load_code
-  match: compliance.step1 = COMPLETE; unlock step 2
-  no match: return error; driver stays at step 1
-
-Step 2 – Handover Check:
-  driver submits checklist + photos → compliance.checklist = SUBMITTED
-  driver signs → compliance.driver_signed = true
-  haulier signs → compliance.haulier_signed = true
-  both signed → compliance.step2 = COMPLETE; job.status = IN_TRANSIT
-
-Step 3 – Delivery Report:
-  driver submits photo + recipient sig + notes → compliance.delivery_submitted = true
-  haulier approves → job.status = COMPLETED; PaymentService.releasePayment()
-  haulier disputes → job.status = DISPUTED; DisputeService.open()
+settings = Settings()
 ```
 
----
+### 3.3 `app/core/security.py` – JWT & Password
+```python
+from datetime import datetime, timedelta, timezone
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from app.config import settings
 
-## 8. Module: Tracking Service
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
-### 8.1 GPS Ingestion (WebSocket)
+def hash_password(plain: str) -> str:
+    return pwd_context.hash(plain)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def create_access_token(user_id: str, role: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
+    return jwt.encode(
+        {"sub": user_id, "role": role, "exp": expire},
+        settings.JWT_PRIVATE_KEY,
+        algorithm="RS256",
+    )
+
+def decode_access_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, settings.JWT_PUBLIC_KEY, algorithms=["RS256"])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 ```
-onLocationUpdate(socket, { jobId, lat, lng, timestamp })
-  - Verify socket authenticated and driver assigned to jobId
-  - Verify job.status = IN_TRANSIT
-  - Store { jobId, lat, lng, timestamp } in tracking_points table
-  - redis.publish(`job:${jobId}:location`, { lat, lng, timestamp })
-  - SocketIO room `job:${jobId}` broadcasts to all haulier sockets in room
 
-onJobRoomJoin(socket, { jobId })  // Haulier connects
-  - Verify haulier owns jobId
-  - socket.join(`job:${jobId}`)
-  - Return last known location from DB
-```
+### 3.4 `app/dependencies.py` – FastAPI Auth Dependencies
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from app.core.security import decode_access_token
+from app.database import get_db
+from app.models.user import User, Role
 
-### 8.2 ETA Calculation
-```
-calculateETA(jobId): Promise<ETAResult>
-  - Load last tracking_point for jobId
-  - Load job.drop_lat, job.drop_lng
-  - Call Google Maps Directions API (origin = last point, dest = drop)
-  - Return { durationMinutes, arrivalTime }
-  - Compare with job.original_eta; if delta > 30 min → send delay alert
+bearer_scheme = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    payload = decode_access_token(credentials.credentials)
+    user = db.get(User, payload["sub"])
+    if not user or user.status != "ACTIVE":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user
+
+def require_role(*roles: Role):
+    def checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+    return checker
 ```
 
 ---
 
-## 9. Module: Notification Service
+## 4. Module: Auth Service
 
-### 9.1 Dispatch Logic
-```
-send(userId, notification: Notification): Promise<void>
-  - Load user.push_token (if push)
-  - Load user.email (if email)
-  - Route to appropriate adapter:
-      PUSH  → FCMAdapter.send(push_token, title, body, data)
-      EMAIL → SendGridAdapter.send(email, template_id, dynamic_data)
-  - Store notification record in DB (for in-app notification centre)
-  - Retry up to 3 times with exponential backoff on failure
+### 4.1 `app/services/auth_service.py`
+```python
+import hashlib, secrets
+from uuid import uuid4
+from sqlalchemy.orm import Session
+from app.models.user import User, UserStatus
+from app.models.email_verification import EmailVerification
+from app.core.security import hash_password, verify_password, create_access_token
+from app.tasks.email_tasks import send_verification_email
+import aioredis
+
+async def register_user(db: Session, redis: aioredis.Redis, data: RegisterRequest) -> None:
+    if db.query(User).filter(User.email == data.email).first():
+        raise HTTPException(409, "Email already registered")
+
+    user = User(
+        id=str(uuid4()),
+        full_name=data.full_name,
+        email=data.email,
+        phone=data.phone,
+        password_hash=hash_password(data.password),
+        role=data.role,
+        status=UserStatus.INACTIVE,
+    )
+    db.add(user)
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    verification = EmailVerification(
+        id=str(uuid4()),
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    db.add(verification)
+    db.commit()
+
+    send_verification_email.delay(user.email, raw_token)   # Celery task
+
+async def verify_email(db: Session, token: str) -> None:
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    record = (
+        db.query(EmailVerification)
+        .filter(
+            EmailVerification.token_hash == token_hash,
+            EmailVerification.used_at.is_(None),
+            EmailVerification.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if not record:
+        raise HTTPException(410, "Verification link expired or already used")
+
+    db.execute(
+        update(User).where(User.id == record.user_id).values(status=UserStatus.ACTIVE)
+    )
+    record.used_at = datetime.now(timezone.utc)
+    db.commit()
+
+async def login(db: Session, redis: aioredis.Redis, email: str, password: str) -> TokenPair:
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not verify_password(password, user.password_hash):
+        raise HTTPException(401, "Invalid credentials")
+    if user.status == UserStatus.INACTIVE:
+        raise HTTPException(403, "Please verify your email first")
+    if user.status == UserStatus.SUSPENDED:
+        raise HTTPException(403, "Account suspended")
+
+    access_token = create_access_token(user.id, user.role)
+    refresh_token = secrets.token_urlsafe(32)
+    rt_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    await redis.setex(
+        f"refresh:{rt_hash}",
+        settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        user.id,
+    )
+    return TokenPair(access_token=access_token, refresh_token=refresh_token)
 ```
 
 ---
 
-## 10. Error Handling Standards
-| Scenario | HTTP Status | Error Code | Message |
-|---|---|---|---|
-| Validation error | 400 | VALIDATION_ERROR | Field-level errors array |
-| Unauthenticated | 401 | UNAUTHORIZED | "Authentication required" |
-| Forbidden | 403 | FORBIDDEN | "Insufficient permissions" |
-| Resource not found | 404 | NOT_FOUND | "Resource not found" |
-| Conflict (duplicate) | 409 | CONFLICT | "Email already registered" |
-| Unprocessable | 422 | UNPROCESSABLE | Business rule violation detail |
-| Rate limit exceeded | 429 | RATE_LIMITED | "Too many requests" |
-| Internal error | 500 | INTERNAL_ERROR | "An unexpected error occurred" |
+## 5. Module: Job Service
 
-All error responses follow the shape:
-```json
-{
-  "status": 400,
-  "code": "VALIDATION_ERROR",
-  "message": "Validation failed",
-  "errors": [{ "field": "email", "message": "Invalid email format" }]
-}
+### 5.1 `app/services/job_service.py`
+```python
+import nanoid, secrets
+from app.services.maps_service import geocode, get_directions
+
+async def create_job(db: Session, haulier_id: str, data: CreateJobRequest) -> Job:
+    # Profile completeness gate
+    user = db.get(User, haulier_id)
+    if not user.profile_complete:
+        raise HTTPException(403, "Complete your profile before posting a job")
+
+    pickup = await geocode(data.pickup_address)        # returns (lat, lng)
+    drop = await geocode(data.drop_address)
+    route = await get_directions(pickup, drop)          # returns (distance_km, duration_min)
+
+    job_ref = "FF-" + nanoid.generate(size=8).upper()
+    load_code = secrets.token_hex(3).upper()            # 6-char hex e.g. "4F9A2B"
+
+    job = Job(
+        id=str(uuid4()),
+        haulier_id=haulier_id,
+        job_ref=job_ref,
+        load_code=load_code,
+        pickup_address=data.pickup_address,
+        pickup_lat=pickup[0], pickup_lng=pickup[1],
+        drop_address=data.drop_address,
+        drop_lat=drop[0], drop_lng=drop[1],
+        goods_type=data.goods_type,
+        weight_kg=data.weight_kg,
+        vehicle_type=data.vehicle_type,
+        job_date=data.job_date,
+        time_slot=data.time_slot,
+        distance_km=route["distance_km"],
+        duration_min=route["duration_min"],
+        status=JobStatus.OPEN,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+def transition_status(db: Session, job_id: str, new_status: JobStatus, actor_id: str) -> Job:
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    # FSM: validate allowed transition
+    ALLOWED = {
+        JobStatus.OPEN: [JobStatus.BOOKED, JobStatus.CANCELLED],
+        JobStatus.BOOKED: [JobStatus.PAYMENT_PENDING, JobStatus.CANCELLED],
+        JobStatus.PAYMENT_PENDING: [JobStatus.PAYMENT_SECURED, JobStatus.BOOKED],
+        JobStatus.PAYMENT_SECURED: [JobStatus.IN_TRANSIT, JobStatus.CANCELLED],
+        JobStatus.IN_TRANSIT: [JobStatus.DELIVERY_SUBMITTED],
+        JobStatus.DELIVERY_SUBMITTED: [JobStatus.COMPLETED, JobStatus.DISPUTED],
+        JobStatus.DISPUTED: [JobStatus.COMPLETED, JobStatus.CANCELLED],
+    }
+    if new_status not in ALLOWED.get(job.status, []):
+        raise HTTPException(422, f"Cannot transition from {job.status} to {new_status}")
+    job.status = new_status
+    db.commit()
+    return job
 ```
+
+---
+
+## 6. Module: Matching Service
+
+### 6.1 `app/services/matching_service.py`
+```python
+from math import radians, cos, sin, asin, sqrt
+
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Calculate great-circle distance in km (no PostGIS needed with MySQL)."""
+    R = 6371
+    dlat = radians(lat2 - lat1)
+    dlng = radians(lng2 - lng1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng/2)**2
+    return R * 2 * asin(sqrt(a))
+
+def get_matched_suppliers(db: Session, job: Job) -> list[SupplierMatch]:
+    # Load verified, role-appropriate suppliers
+    candidates = (
+        db.query(User)
+        .filter(
+            User.role.in_([Role.DRIVER, Role.FIRM]),
+            User.verified == True,
+            User.status == UserStatus.ACTIVE,
+        )
+        .all()
+    )
+
+    # Filter by vehicle type, availability, and proximity
+    matches = []
+    for supplier in candidates:
+        if not _has_vehicle_type(db, supplier.id, job.vehicle_type):
+            continue
+        if not _is_available(db, supplier.id, job.job_date):
+            continue
+        dist = haversine_km(supplier.location_lat, supplier.location_lng,
+                            job.pickup_lat, job.pickup_lng)
+        if dist > 100:                              # 100km radius
+            continue
+        quote = _get_active_quote(db, supplier.id, job.id)
+        matches.append(SupplierMatch(
+            supplier_id=supplier.id,
+            name=supplier.full_name,
+            avg_rating=supplier.avg_rating,
+            completed_jobs=supplier.completed_jobs,
+            distance_km=round(dist, 1),
+            quote=quote,
+        ))
+
+    return sorted(matches, key=lambda m: (m.distance_km, -m.avg_rating))[:20]
+```
+
+---
+
+## 7. Module: Payment Service
+
+### 7.1 `app/services/payment_service.py`
+```python
+import razorpay, hashlib, hmac
+
+client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+async def initiate_escrow(db: Session, job_id: str, haulier_id: str) -> PaymentOrder:
+    job = db.get(Job, job_id)
+    if job.haulier_id != haulier_id or job.status != JobStatus.BOOKED:
+        raise HTTPException(422, "Job not eligible for payment")
+
+    quote = (
+        db.query(Quote)
+        .filter(Quote.job_id == job_id, Quote.status == QuoteStatus.SELECTED)
+        .first()
+    )
+    amount_paise = int(quote.price * 100)              # Razorpay uses smallest unit
+
+    order = client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "notes": {"job_id": job_id, "job_ref": job.job_ref},
+    })
+    payment = Payment(
+        id=str(uuid4()), job_id=job_id,
+        gateway_order_id=order["id"],
+        amount=quote.price, currency="INR",
+        status=PaymentStatus.PENDING,
+    )
+    db.add(payment)
+    db.commit()
+    return PaymentOrder(order_id=order["id"], amount=quote.price, currency="INR")
+
+async def handle_webhook(body: bytes, signature: str) -> None:
+    # Verify HMAC-SHA256
+    expected = hmac.new(
+        settings.RAZORPAY_KEY_SECRET.encode(), body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid webhook signature")
+
+    event = json.loads(body)
+    gateway_event_id = event["payload"]["payment"]["entity"]["id"]
+
+    # Idempotency: skip if already processed
+    if db.query(PaymentEvent).filter_by(gateway_event_id=gateway_event_id).first():
+        return
+
+    db.add(PaymentEvent(id=str(uuid4()), gateway_event_id=gateway_event_id,
+                        event_type=event["event"]))
+
+    if event["event"] == "payment.captured":
+        order_id = event["payload"]["payment"]["entity"]["order_id"]
+        payment = db.query(Payment).filter_by(gateway_order_id=order_id).first()
+        payment.status = PaymentStatus.ESCROWED
+        payment.escrowed_at = datetime.now(timezone.utc)
+        db.execute(update(Job).where(Job.id == payment.job_id)
+                   .values(status=JobStatus.PAYMENT_SECURED))
+        db.commit()
+        notify_supplier_payment_secured.delay(payment.job_id)
+```
+
+### 7.2 Invoice Generation
+```python
+from weasyprint import HTML
+from jinja2 import Environment, FileSystemLoader
+
+async def generate_invoice(db: Session, job_id: str) -> str:
+    job = db.get(Job, job_id)
+    payment = db.query(Payment).filter_by(job_id=job_id).first()
+    supplier = db.get(User, job.selected_supplier_id)
+    haulier = db.get(User, job.haulier_id)
+
+    tax_rate = Decimal("0.18")                          # GST 18%
+    tax_amount = payment.amount * tax_rate
+    total = payment.amount + tax_amount
+
+    env = Environment(loader=FileSystemLoader("app/templates"))
+    html = env.get_template("invoice.html").render(
+        job=job, payment=payment,
+        supplier=supplier, haulier=haulier,
+        tax_rate=tax_rate, tax_amount=tax_amount, total=total,
+    )
+    pdf_bytes = HTML(string=html).write_pdf()
+
+    key = f"invoices/{job.job_ref}.pdf"
+    s3_client.put_object(Bucket=settings.AWS_S3_BUCKET_INVOICES,
+                         Key=key, Body=pdf_bytes, ContentType="application/pdf")
+    url = f"https://{settings.AWS_S3_BUCKET_INVOICES}.s3.amazonaws.com/{key}"
+    db.execute(update(Job).where(Job.id == job_id).values(invoice_url=url))
+    db.commit()
+    return url
+```
+
+---
+
+## 8. Module: Compliance Service
+
+### 8.1 `app/services/compliance_service.py`
+```python
+async def verify_load_code(db: Session, job_id: str, driver_id: str, code: str) -> bool:
+    job = db.get(Job, job_id)
+    if job.selected_supplier_id != driver_id:
+        raise HTTPException(403, "Not assigned to this job")
+    if job.status != JobStatus.PAYMENT_SECURED:
+        raise HTTPException(422, "Job not ready for compliance")
+    if code.upper() != job.load_code:
+        raise HTTPException(422, "Load code does not match")
+
+    record = db.query(ComplianceRecord).filter_by(job_id=job_id).first()
+    record.step1_completed_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+async def complete_dual_signoff(db: Session, job_id: str) -> None:
+    """Called after either party signs — checks if both have signed."""
+    record = db.query(ComplianceRecord).filter_by(job_id=job_id).first()
+    if record.driver_signed_at and record.haulier_signed_at:
+        record.step2_completed_at = datetime.now(timezone.utc)
+        db.execute(update(Job).where(Job.id == job_id)
+                   .values(status=JobStatus.IN_TRANSIT,
+                           original_eta=_calculate_original_eta(db, job_id)))
+        db.commit()
+        # Activate GPS tracking
+        await redis.set(f"tracking_active:{job_id}", "1")
+
+async def approve_delivery(db: Session, job_id: str, haulier_id: str) -> None:
+    job = db.get(Job, job_id)
+    if job.haulier_id != haulier_id:
+        raise HTTPException(403, "Not your job")
+    if job.status != JobStatus.DELIVERY_SUBMITTED:
+        raise HTTPException(422, "Delivery report not submitted yet")
+
+    record = db.query(ComplianceRecord).filter_by(job_id=job_id).first()
+    record.step3_approved_at = datetime.now(timezone.utc)
+    db.execute(update(Job).where(Job.id == job_id)
+               .values(status=JobStatus.COMPLETED))
+    db.commit()
+    await PaymentService.release_payment(db, job_id)
+```
+
+---
+
+## 9. Module: WebSocket Tracking
+
+### 9.1 `app/core/connection_manager.py`
+```python
+from fastapi import WebSocket
+import aioredis, json
+
+class ConnectionManager:
+    def __init__(self):
+        self.active: dict[str, set[WebSocket]] = {}    # job_id → set of WS connections
+
+    async def connect(self, job_id: str, ws: WebSocket):
+        await ws.accept()
+        self.active.setdefault(job_id, set()).add(ws)
+
+    def disconnect(self, job_id: str, ws: WebSocket):
+        self.active.get(job_id, set()).discard(ws)
+
+    async def broadcast(self, job_id: str, message: dict):
+        dead = set()
+        for ws in self.active.get(job_id, set()):
+            try:
+                await ws.send_json(message)
+            except Exception:
+                dead.add(ws)
+        self.active.get(job_id, set()).difference_update(dead)
+
+manager = ConnectionManager()
+```
+
+### 9.2 `app/routers/ws.py`
+```python
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.core.connection_manager import manager
+from app.services.tracking_service import record_location, calculate_eta
+from app.core.security import decode_access_token
+
+ws_router = APIRouter()
+
+@ws_router.websocket("/ws/jobs/{job_id}/track")
+async def tracking_endpoint(job_id: str, ws: WebSocket, token: str):
+    payload = decode_access_token(token)
+    await manager.connect(job_id, ws)
+    try:
+        while True:
+            data = await ws.receive_json()
+            if payload["role"] == "DRIVER" and data.get("type") == "location_update":
+                await record_location(job_id, data["lat"], data["lng"])
+                eta = await calculate_eta(job_id, data["lat"], data["lng"])
+                await manager.broadcast(job_id, {
+                    "type": "location_updated",
+                    "lat": data["lat"], "lng": data["lng"],
+                    "eta": eta,
+                })
+    except WebSocketDisconnect:
+        manager.disconnect(job_id, ws)
+```
+
+---
+
+## 10. Error Handling
+
+### 10.1 Custom Exception Handlers
+```python
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=400, content={
+        "success": False, "code": "VALIDATION_ERROR",
+        "message": "Validation failed",
+        "errors": [{"field": ".".join(str(l) for l in e["loc"][1:]),
+                    "message": e["msg"]} for e in exc.errors()],
+    })
+
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={
+        "success": False, "code": exc.detail.upper().replace(" ", "_"),
+        "message": exc.detail,
+    })
+```
+
+---
 
 ## 11. Logging Standards
-- Use structured JSON logging (pino / winston).
-- Every request logged: `{ requestId, method, path, statusCode, durationMs, userId }`.
-- Errors logged with full stack trace.
-- Sensitive fields (password, token, card number) masked before logging.
-- Log levels: ERROR, WARN, INFO, DEBUG (INFO in prod, DEBUG in dev/staging).
+```python
+import structlog
+
+logger = structlog.get_logger()
+
+# Every request logged via middleware:
+# {"event": "request", "method": "POST", "path": "/api/v1/jobs",
+#  "status": 201, "duration_ms": 145, "user_id": "uuid", "request_id": "uuid"}
+
+# Sensitive fields never logged: password, token, card_number, bank_account_id
+```
+
+---
+
+## 12. Alembic Migration Convention
+```
+alembic/versions/
+  0001_create_users_table.py
+  0002_create_jobs_table.py
+  0003_create_quotes_table.py
+  ...
+
+# Run migration:
+alembic upgrade head
+
+# Generate new:
+alembic revision --autogenerate -m "add_compliance_records_table"
+```

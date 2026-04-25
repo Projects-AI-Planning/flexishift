@@ -67,6 +67,11 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 
 > All diagrams use Mermaid syntax — they render automatically on GitHub. See the [Diagrams README](docs/diagrams/README.md) for viewing instructions.
 
+### Storytelling
+| Document | Description |
+|---|---|
+| [FreightFlex Story](docs/storytelling/freightflex-story.md) | Narrative walkthrough of the platform through the eyes of Arjun (Haulier), Priya (Driver), and Meera (Admin) — every epic and user story told as a human story, with the technology mapped at the end |
+
 ## Platform Summary
 
 | Item | Detail |
@@ -75,5 +80,9 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 | User Stories | 20 |
 | Roles | Driver (mobile), Haulier (web), Admin (web) |
 | Core Features | Job marketplace, escrow payment, 3-step compliance, live GPS tracking |
-| Tech Stack | React.js, React Native, Node.js, PostgreSQL, Redis, WebSockets, Google Maps, Razorpay/Stripe |
+| Backend | Python 3.11 + FastAPI + SQLAlchemy 2.0 + Alembic |
+| Frontend | React.js 18 + TypeScript (web) · React Native 0.73 (mobile) |
+| Database | MySQL 8.0 (InnoDB) + Redis 7 |
+| Infrastructure | AWS ECS Fargate · RDS MySQL · S3 · CloudFront |
+| Integrations | Google Maps Platform · Razorpay/Stripe · Firebase FCM · SendGrid |
 | Target Go-Live | Week 20 |

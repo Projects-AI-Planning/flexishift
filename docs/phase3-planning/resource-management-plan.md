@@ -54,15 +54,19 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 ## 5. Skills Matrix
 | Skill | Required | Current Team | Gap |
 |---|---|---|---|
-| React.js / TypeScript | Yes | FE Dev | Confirm at hire |
-| React Native | Yes | Mobile Dev | Confirm at hire |
-| Node.js / Python API | Yes | Backend Dev | Confirm at hire |
-| PostgreSQL | Yes | Backend Dev | Confirm at hire |
-| WebSockets (Socket.IO) | Yes | Backend Dev | Potential gap — assess at Sprint 4 |
-| Google Maps Platform API | Yes | Backend / FE Dev | Training may be needed |
-| Payment gateway integration | Yes | Backend Dev | External advisor as backup |
-| Docker / Kubernetes | Yes | DevOps | Confirm at hire |
-| Automated testing (Playwright/Appium) | Yes | QA | Confirm at hire |
+| React.js 18 / TypeScript | Yes | FE Dev | Confirm at hire |
+| React Native 0.73 / TypeScript | Yes | Mobile Dev | Confirm at hire |
+| Python 3.11 + FastAPI | Yes | Backend Dev | Confirm at hire |
+| SQLAlchemy 2.0 + Alembic | Yes | Backend Dev | Confirm at hire |
+| MySQL 8.0 (InnoDB, JSON columns) | Yes | Backend Dev | Confirm at hire |
+| Redis 7 (Pub/Sub, sessions) | Yes | Backend Dev | Potential gap — brief training Week 1 |
+| FastAPI WebSockets (async) | Yes | Backend Dev | Potential gap — assess at Sprint 4 |
+| Pydantic v2 data validation | Yes | Backend Dev | Confirm at hire |
+| Celery background tasks | Yes | Backend Dev | Confirm at hire |
+| Google Maps Platform API | Yes | Backend / FE Dev | Self-paced training |
+| Razorpay / Stripe SDK (Python) | Yes | Backend Dev | External advisor as backup |
+| Docker / AWS ECS | Yes | DevOps | Confirm at hire |
+| Automated testing (Pytest + Playwright) | Yes | QA | Confirm at hire |
 | Figma / UI design | Yes | Designer | Available |
 
 ## 6. Onboarding Plan
@@ -77,8 +81,15 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 ## 7. Training Needs
 | Training | Who | When |
 |---|---|---|
+| FastAPI async patterns + WebSocket | Backend Dev | Week 1 (self-paced) |
+| SQLAlchemy 2.0 async sessions + Alembic | Backend Dev | Week 1 |
+| MySQL 8.0 JSON columns + indexing | Backend Dev | Week 1 |
+| Redis Pub/Sub patterns | Backend Dev | Week 1–2 |
 | Google Maps Platform APIs | Backend + FE Dev | Week 1 (self-paced) |
-| Payment gateway SDK + escrow setup | Backend Dev | Week 1–2 |
+| Razorpay / Stripe Python SDK + escrow setup | Backend Dev | Week 1–2 |
+| React Hook Form + Zod validation | FE Dev + Mobile Dev | Week 1 |
+| WeasyPrint / Jinja2 PDF templating | Backend Dev | Sprint 3 (pre-invoice feature) |
+| Pytest + httpx async testing | QA + Backend | Week 2 |
 | GDPR / DPDPA basics | All | Week 1 (1-hour session) |
 | Admin panel walkthrough | Admin Team | Week 18 (pre-UAT) |
 
@@ -98,5 +109,5 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 | Payment Gateway (Razorpay/Stripe) | Razorpay / Stripe | Account + escrow agreement | 3–5 business days |
 | Email service (SendGrid) | Twilio SendGrid | Direct sign-up | Immediate |
 | Push notifications (FCM) | Google | Firebase Console | Immediate |
-| PDF generation library | Open-source (pdfmake / Puppeteer) | npm install | Immediate |
-| Security scanning (Snyk) | Snyk | Free tier / paid | Immediate |
+| PDF generation (WeasyPrint) | Open-source | pip install | Immediate |
+| Security scanning (Snyk / pip-audit) | Snyk + pip-audit | CLI install | Immediate |
