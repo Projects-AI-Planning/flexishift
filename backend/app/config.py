@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "FreightFlex API"
 
     DATABASE_URL: str
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = ""  # optional — leave blank to use in-memory fallback
 
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     FCM_SERVER_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
 
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    CELERY_BROKER_URL: str = ""  # optional — Celery disabled when blank
+    CELERY_RESULT_BACKEND: str = ""
 
     class Config:
         env_file = ".env"
