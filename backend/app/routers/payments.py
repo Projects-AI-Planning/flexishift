@@ -1,100 +1,146 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional
 
+from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.job import Job
-from app.models.payment import Payment, PaymentStatus
+from app.models.payment import Payment
 from app.models.user import User, Role
-from app.schemas.payments import PaymentOrderOut, PaymentVerifyRequest, PaymentOut
 from app.services import payments as pay_svc
 
 router = APIRouter(prefix="/jobs", tags=["Payments"])
-
 flat = APIRouter(prefix="/payments", tags=["Payments"])
 
 
 class InitiateRequest(BaseModel):
-    booking_id: str
+    booking_id: str = Field(..., alias="bookingId")
+    model_config = {"populate_by_name": True}
+
+
+class PaymentVerifyRequest(BaseModel):
+    razorpay_order_id: str = Field(..., alias="razorpayOrderId")
+    razorpay_payment_id: str = Field(..., alias="razorpayPaymentId")
+    razorpay_signature: str = Field(..., alias="razorpaySignature")
+    model_config = {"populate_by_name": True}
 
 
 class PaymentMethodRequest(BaseModel):
-    account_number: str
-    ifsc_code: str
-    account_name: str
-    account_type: str = "savings"
+    account_number: str = Field(..., alias="accountNumber")
+    ifsc_code: str = Field(..., alias="ifscCode")
+    account_name: str = Field(..., alias="accountName")
+    account_type: str = Field("savings", alias="accountType")
+    model_config = {"populate_by_name": True}
 
 
-# ── Job-scoped endpoints (legacy/canonical) ────────────────────────────────────
+def _payment_dict(p: Payment) -> dict:
+    return {
+        "paymentId": p.id,
+        "jobId": p.job_id,
+        "gatewayOrderId": p.gateway_order_id,
+        "gatewayPaymentId": p.gateway_payment_id,
+        "gatewayPayoutId": p.gateway_payout_id,
+        "amount": float(p.amount),
+        "currency": p.currency,
+        "status": p.status.value,
+        "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
+        "releasedAt": p.released_at.isoformat() if p.released_at else None,
+        "createdAt": p.created_at.isoformat() if p.created_at else None,
+    }
 
-@router.post("/{job_id}/payment", response_model=PaymentOrderOut, status_code=201)
+
+# ── Job-scoped endpoints ───────────────────────────────────────────────────────
+
+@router.post("/{job_id}/payment", status_code=201)
 def create_payment_order(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    return pay_svc.create_payment_order(db, job_id, current_user.id)
+    order = pay_svc.create_payment_order(db, job_id, current_user.id)
+    return created(
+        data={
+            "paymentId": order.payment_id,
+            "gatewayOrderId": order.gateway_order_id,
+            "amount": order.amount,
+            "currency": order.currency,
+            "keyId": order.key_id,
+        },
+        message="Payment order created",
+    )
 
 
-@router.post("/{job_id}/payment/verify", response_model=PaymentOut)
+@router.post("/{job_id}/payment/verify")
 def verify_payment(
     job_id: str,
     body: PaymentVerifyRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    return pay_svc.verify_payment(
+    p = pay_svc.verify_payment(
         db, job_id,
         body.razorpay_order_id,
         body.razorpay_payment_id,
         body.razorpay_signature,
     )
+    return ok(data=_payment_dict(p), message="Payment verified and escrowed")
 
 
-@router.post("/{job_id}/payment/release", response_model=PaymentOut)
+@router.post("/{job_id}/payment/release")
 def release_payment(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.ADMIN)),
 ):
-    return pay_svc.release_payment(db, job_id)
+    p = pay_svc.release_payment(db, job_id)
+    return ok(data=_payment_dict(p), message="Payment released to supplier")
 
 
-@router.post("/{job_id}/payment/refund", response_model=PaymentOut)
+@router.post("/{job_id}/payment/refund")
 def refund_payment(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
 ):
-    return pay_svc.refund_payment(db, job_id, current_user.id)
+    p = pay_svc.refund_payment(db, job_id, current_user.id)
+    return ok(data=_payment_dict(p), message="Payment refunded")
 
 
-@router.get("/{job_id}/payment", response_model=PaymentOut)
+@router.get("/{job_id}/payment")
 def get_payment(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    payment = db.query(Payment).filter(Payment.job_id == job_id).first()
-    if not payment:
+    p = db.query(Payment).filter(Payment.job_id == job_id).first()
+    if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
-    return payment
+    return ok(data=_payment_dict(p), message="Payment retrieved")
 
 
 # ── Flat /payments/* endpoints ─────────────────────────────────────────────────
 
-@flat.post("/initiate", response_model=PaymentOrderOut, status_code=201)
+@flat.post("/initiate", status_code=201)
 def initiate_payment(
     body: InitiateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    return pay_svc.create_payment_order(db, body.booking_id, current_user.id)
+    order = pay_svc.create_payment_order(db, body.booking_id, current_user.id)
+    return created(
+        data={
+            "paymentId": order.payment_id,
+            "gatewayOrderId": order.gateway_order_id,
+            "amount": order.amount,
+            "currency": order.currency,
+            "keyId": order.key_id,
+        },
+        message="Payment initiated",
+    )
 
 
-@flat.post("/verify", response_model=PaymentOut)
+@flat.post("/verify")
 def verify_payment_flat(
     body: PaymentVerifyRequest,
     db: Session = Depends(get_db),
@@ -105,42 +151,45 @@ def verify_payment_flat(
     ).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    return pay_svc.verify_payment(
+    p = pay_svc.verify_payment(
         db, payment.job_id,
         body.razorpay_order_id,
         body.razorpay_payment_id,
         body.razorpay_signature,
     )
+    return ok(data=_payment_dict(p), message="Payment verified")
 
 
-@flat.get("/status/{booking_id}", response_model=PaymentOut)
+@flat.get("/status/{booking_id}")
 def get_payment_status(
     booking_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    payment = db.query(Payment).filter(Payment.job_id == booking_id).first()
-    if not payment:
+    p = db.query(Payment).filter(Payment.job_id == booking_id).first()
+    if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
-    return payment
+    return ok(data=_payment_dict(p), message="Payment status retrieved")
 
 
-@flat.post("/release/{booking_id}", response_model=PaymentOut)
+@flat.post("/release/{booking_id}")
 def release_escrow(
     booking_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
 ):
-    return pay_svc.release_payment(db, booking_id)
+    p = pay_svc.release_payment(db, booking_id)
+    return ok(data=_payment_dict(p), message="Payment released")
 
 
-@flat.post("/refund/{booking_id}", response_model=PaymentOut)
+@flat.post("/refund/{booking_id}")
 def refund_payment_flat(
     booking_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.ADMIN)),
 ):
-    return pay_svc.refund_payment(db, booking_id, current_user.id)
+    p = pay_svc.refund_payment(db, booking_id, current_user.id)
+    return ok(data=_payment_dict(p), message="Payment refunded")
 
 
 @flat.get("/history")
@@ -159,20 +208,23 @@ def payment_history(
     rows = q.order_by(Payment.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     items = [
         {
-            "payment_id": p.id,
-            "job_id": j.id,
-            "job_ref": j.job_ref,
+            "paymentId": p.id,
+            "jobId": j.id,
+            "jobRef": j.job_ref,
             "amount": float(p.amount),
             "currency": p.currency,
             "status": p.status.value,
-            "created_at": p.created_at,
+            "createdAt": p.created_at.isoformat() if p.created_at else None,
         }
         for p, j in rows
     ]
-    return {"items": items, "total": total, "page": page, "per_page": per_page}
+    return ok(
+        data={"items": items, "total": total, "page": page, "perPage": per_page},
+        message="Payment history retrieved",
+    )
 
 
-# ── Payment Methods (bank accounts) ───────────────────────────────────────────
+# ── Payment Methods ─────────────────────────────────────────────────────────────
 
 @flat.post("/methods/add", status_code=201)
 def add_payment_method(
@@ -183,28 +235,27 @@ def add_payment_method(
     fund_account_id = f"fa_{current_user.id[:8]}_{body.account_number[-4:]}"
     current_user.bank_account_id = fund_account_id
     db.commit()
-    return {
-        "method_id": fund_account_id,
-        "account_name": body.account_name,
-        "account_number": f"****{body.account_number[-4:]}",
-        "ifsc_code": body.ifsc_code,
-        "account_type": body.account_type,
-    }
+    return created(
+        data={
+            "methodId": fund_account_id,
+            "accountName": body.account_name,
+            "accountNumber": f"****{body.account_number[-4:]}",
+            "ifscCode": body.ifsc_code,
+            "accountType": body.account_type,
+        },
+        message="Payment method added",
+    )
 
 
 @flat.get("/methods/list")
-def list_payment_methods(
-    current_user: User = Depends(get_current_user),
-):
-    if not current_user.bank_account_id:
-        return {"methods": [], "total": 0}
-    return {
-        "methods": [{"method_id": current_user.bank_account_id, "type": "bank_account"}],
-        "total": 1,
-    }
+def list_payment_methods(current_user: User = Depends(get_current_user)):
+    methods = []
+    if current_user.bank_account_id:
+        methods = [{"methodId": current_user.bank_account_id, "type": "bank_account"}]
+    return ok(data={"methods": methods, "total": len(methods)}, message="Payment methods retrieved")
 
 
-@flat.delete("/methods/delete/{method_id}", status_code=204)
+@flat.delete("/methods/delete/{method_id}")
 def delete_payment_method(
     method_id: str,
     db: Session = Depends(get_db),
@@ -214,3 +265,4 @@ def delete_payment_method(
         raise HTTPException(status_code=404, detail="Payment method not found")
     current_user.bank_account_id = None
     db.commit()
+    return ok(data=None, message="Payment method deleted")

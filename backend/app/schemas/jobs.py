@@ -1,63 +1,67 @@
 from __future__ import annotations
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobCreateRequest(BaseModel):
-    pickup_address: str
-    pickup_lat: float
-    pickup_lng: float
-    drop_address: str
-    drop_lat: float
-    drop_lng: float
-    goods_type: str
-    weight_kg: float
-    vehicle_type: str
-    job_date: date
-    time_slot: str
+    pickup_address: str = Field(..., alias="pickupAddress")
+    pickup_lat: float = Field(..., alias="pickupLat")
+    pickup_lng: float = Field(..., alias="pickupLng")
+    drop_address: str = Field(..., alias="dropAddress")
+    drop_lat: float = Field(..., alias="dropLat")
+    drop_lng: float = Field(..., alias="dropLng")
+    goods_type: str = Field(..., alias="goodsType")
+    weight_kg: float = Field(..., alias="weightKg")
+    vehicle_type: str = Field(..., alias="vehicleType")
+    job_date: date = Field(..., alias="jobDate")
+    time_slot: str = Field(..., alias="timeSlot")
+
+    model_config = {"populate_by_name": True}
 
 
 class JobOut(BaseModel):
-    id: str
-    haulier_id: str
-    job_ref: str
-    load_code: str
-    pickup_address: str
-    pickup_lat: float
-    pickup_lng: float
-    drop_address: str
-    drop_lat: float
-    drop_lng: float
-    goods_type: str
-    weight_kg: float
-    vehicle_type: str
-    job_date: date
-    time_slot: str
-    distance_km: Optional[float] = None
-    duration_min: Optional[int] = None
+    jobId: str = Field(..., alias="id")
+    haulierId: str = Field(..., alias="haulier_id")
+    jobRef: str = Field(..., alias="job_ref")
+    loadCode: str = Field(..., alias="load_code")
+    pickupAddress: str = Field(..., alias="pickup_address")
+    pickupLat: float = Field(..., alias="pickup_lat")
+    pickupLng: float = Field(..., alias="pickup_lng")
+    dropAddress: str = Field(..., alias="drop_address")
+    dropLat: float = Field(..., alias="drop_lat")
+    dropLng: float = Field(..., alias="drop_lng")
+    goodsType: str = Field(..., alias="goods_type")
+    weightKg: float = Field(..., alias="weight_kg")
+    vehicleType: str = Field(..., alias="vehicle_type")
+    jobDate: date = Field(..., alias="job_date")
+    timeSlot: str = Field(..., alias="time_slot")
+    distanceKm: Optional[float] = Field(None, alias="distance_km")
+    durationMin: Optional[int] = Field(None, alias="duration_min")
     status: str
-    selected_supplier_id: Optional[str] = None
-    original_eta: Optional[datetime] = None
-    invoice_url: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    selectedSupplierId: Optional[str] = Field(None, alias="selected_supplier_id")
+    originalEta: Optional[datetime] = Field(None, alias="original_eta")
+    invoiceUrl: Optional[str] = Field(None, alias="invoice_url")
+    createdAt: datetime = Field(..., alias="created_at")
+    updatedAt: datetime = Field(..., alias="updated_at")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class JobUpdateRequest(BaseModel):
-    pickup_address: Optional[str] = None
-    pickup_lat: Optional[float] = None
-    pickup_lng: Optional[float] = None
-    drop_address: Optional[str] = None
-    drop_lat: Optional[float] = None
-    drop_lng: Optional[float] = None
-    goods_type: Optional[str] = None
-    weight_kg: Optional[float] = None
-    vehicle_type: Optional[str] = None
-    job_date: Optional[date] = None
-    time_slot: Optional[str] = None
+    pickup_address: Optional[str] = Field(None, alias="pickupAddress")
+    pickup_lat: Optional[float] = Field(None, alias="pickupLat")
+    pickup_lng: Optional[float] = Field(None, alias="pickupLng")
+    drop_address: Optional[str] = Field(None, alias="dropAddress")
+    drop_lat: Optional[float] = Field(None, alias="dropLat")
+    drop_lng: Optional[float] = Field(None, alias="dropLng")
+    goods_type: Optional[str] = Field(None, alias="goodsType")
+    weight_kg: Optional[float] = Field(None, alias="weightKg")
+    vehicle_type: Optional[str] = Field(None, alias="vehicleType")
+    job_date: Optional[date] = Field(None, alias="jobDate")
+    time_slot: Optional[str] = Field(None, alias="timeSlot")
+
+    model_config = {"populate_by_name": True}
 
 
 class JobListOut(BaseModel):

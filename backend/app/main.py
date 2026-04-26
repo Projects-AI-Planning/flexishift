@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,25 +36,38 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={
+        "status": False,
+        "code": exc.status_code,
+        "message": exc.detail,
+        "data": None,
+    })
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(status_code=400, content={
-        "success": False,
-        "code": "VALIDATION_ERROR",
+    return JSONResponse(status_code=422, content={
+        "status": False,
+        "code": 422,
         "message": "Validation failed",
-        "errors": [
-            {"field": ".".join(str(l) for l in e["loc"][1:]), "message": e["msg"]}
-            for e in exc.errors()
-        ],
+        "data": {
+            "errors": [
+                {"field": ".".join(str(l) for l in e["loc"][1:]), "message": e["msg"]}
+                for e in exc.errors()
+            ]
+        },
     })
 
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={
-        "success": False,
-        "code": "INTERNAL_ERROR",
+        "status": False,
+        "code": 500,
         "message": "An unexpected error occurred",
+        "data": None,
     })
 
 

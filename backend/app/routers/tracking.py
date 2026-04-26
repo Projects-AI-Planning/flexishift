@@ -1,9 +1,10 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
 
+from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.job import Job
@@ -21,20 +22,25 @@ flat = APIRouter(prefix="/tracking", tags=["Tracking"])
 
 
 class UpdateLocationRequest(BaseModel):
-    job_id: str
+    job_id: str = Field(..., alias="jobId")
     lat: float
     lng: float
-    recorded_at: Optional[datetime] = None
+    recorded_at: Optional[datetime] = Field(None, alias="recordedAt")
+    model_config = {"populate_by_name": True}
 
 
-@flat.post("/update-location", response_model=TrackingPointOut, status_code=201)
+@flat.post("/update-location", status_code=201)
 async def update_location(
     body: UpdateLocationRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    return await track_svc.add_tracking_point(
+    point = await track_svc.add_tracking_point(
         db, body.job_id, current_user.id, body.lat, body.lng, body.recorded_at
+    )
+    return created(
+        data={"jobId": body.job_id, "lat": body.lat, "lng": body.lng},
+        message="Location updated",
     )
 
 
@@ -52,16 +58,20 @@ def get_live_location(
     )
     if not last:
         raise HTTPException(status_code=404, detail="No tracking data yet")
-    return {"job_id": job_id, "lat": last.lat, "lng": last.lng, "recorded_at": last.recorded_at}
+    return ok(
+        data={"jobId": job_id, "lat": last.lat, "lng": last.lng, "recordedAt": last.recorded_at.isoformat()},
+        message="Live location retrieved",
+    )
 
 
-@flat.get("/history/{job_id}", response_model=TrackingListOut)
+@flat.get("/history/{job_id}")
 def get_tracking_history(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return track_svc.list_tracking(db, job_id, current_user.id)
+    result = track_svc.list_tracking(db, job_id, current_user.id)
+    return ok(data=result, message="Tracking history retrieved")
 
 
 @flat.get("/eta/{job_id}")
@@ -70,7 +80,8 @@ async def flat_job_eta(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await get_eta(db, job_id)
+    eta = await get_eta(db, job_id)
+    return ok(data=eta, message="ETA retrieved")
 
 
 @flat.post("/start/{job_id}")
@@ -93,7 +104,7 @@ async def flat_start_tracking(
         data={"job_id": job_id},
     )
     db.commit()
-    return {"detail": "Tracking started", "job_id": job_id, "status": job.status.value}
+    return ok(data={"jobId": job_id, "status": job.status.value}, message="Tracking started")
 
 
 @flat.post("/stop/{job_id}")
@@ -112,7 +123,7 @@ async def flat_stop_tracking(
         data={"job_id": job_id},
     )
     db.commit()
-    return {"detail": "Tracking stopped", "job_id": job_id, "status": job.status.value}
+    return ok(data={"jobId": job_id, "status": job.status.value}, message="Tracking stopped")
 
 
 @flat.post("/delay-alert/{job_id}")
@@ -131,31 +142,33 @@ async def flat_delay_alert(
         data={"job_id": job_id, "job_ref": job.job_ref},
     )
     db.commit()
-    return {"detail": "Delay alert sent"}
+    return ok(data=None, message="Delay alert sent")
 
 
 router = APIRouter(prefix="/jobs", tags=["Tracking"])
 
 
-@router.post("/{job_id}/tracking", response_model=TrackingPointOut, status_code=201)
+@router.post("/{job_id}/tracking", status_code=201)
 async def add_tracking_point(
     job_id: str,
     body: TrackingPointIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    return await track_svc.add_tracking_point(
+    point = await track_svc.add_tracking_point(
         db, job_id, current_user.id, body.lat, body.lng, body.recorded_at
     )
+    return created(data={"jobId": job_id, "lat": body.lat, "lng": body.lng}, message="Location recorded")
 
 
-@router.get("/{job_id}/tracking", response_model=TrackingListOut)
+@router.get("/{job_id}/tracking")
 def list_tracking(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return track_svc.list_tracking(db, job_id, current_user.id)
+    result = track_svc.list_tracking(db, job_id, current_user.id)
+    return ok(data=result, message="Tracking history retrieved")
 
 
 @router.get("/{job_id}/eta")
@@ -164,7 +177,8 @@ async def job_eta(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await get_eta(db, job_id)
+    eta = await get_eta(db, job_id)
+    return ok(data=eta, message="ETA retrieved")
 
 
 @router.post("/{job_id}/tracking/start")
@@ -173,7 +187,6 @@ async def start_tracking(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    """Signal that the driver has started the trip; transitions PAYMENT_SECURED → IN_TRANSIT."""
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -192,7 +205,7 @@ async def start_tracking(
         data={"job_id": job_id},
     )
     db.commit()
-    return {"detail": "Tracking started", "job_id": job_id, "status": job.status.value}
+    return ok(data={"jobId": job_id, "status": job.status.value}, message="Tracking started")
 
 
 @router.post("/{job_id}/tracking/stop")
@@ -201,7 +214,6 @@ async def stop_tracking(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    """Signal that the driver has reached the destination and stopped GPS tracking."""
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -214,7 +226,7 @@ async def stop_tracking(
         data={"job_id": job_id},
     )
     db.commit()
-    return {"detail": "Tracking stopped", "job_id": job_id, "status": job.status.value}
+    return ok(data={"jobId": job_id, "status": job.status.value}, message="Tracking stopped")
 
 
 @router.post("/{job_id}/tracking/delay-alert")
@@ -223,21 +235,16 @@ async def send_delay_alert(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    """Manually trigger a delay notification to the haulier."""
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.selected_supplier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
-
     from app.services.notifications import create_notification
     await create_notification(
-        db,
-        job.haulier_id,
-        "DELAY_ALERT",
-        "Delivery Delay Alert",
-        f"Driver has reported a delay on job {job.job_ref}. Please check ETA.",
+        db, job.haulier_id, "DELAY_ALERT",
+        "Delivery Delay Alert", f"Driver has reported a delay on job {job.job_ref}. Please check ETA.",
         data={"job_id": job_id, "job_ref": job.job_ref},
     )
     db.commit()
-    return {"detail": "Delay alert sent to haulier"}
+    return ok(data=None, message="Delay alert sent to haulier")

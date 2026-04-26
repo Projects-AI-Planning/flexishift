@@ -1,8 +1,9 @@
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.core.response import ok
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.config import settings
@@ -19,12 +20,13 @@ class ValidateAddressRequest(BaseModel):
 
 
 class CalculateRouteRequest(BaseModel):
-    origin_address: str | None = None
-    origin_lat: float | None = None
-    origin_lng: float | None = None
-    dest_address: str | None = None
-    dest_lat: float | None = None
-    dest_lng: float | None = None
+    origin_address: str = Field(None, alias="originAddress")
+    origin_lat: float = Field(None, alias="originLat")
+    origin_lng: float = Field(None, alias="originLng")
+    dest_address: str = Field(None, alias="destAddress")
+    dest_lat: float = Field(None, alias="destLat")
+    dest_lng: float = Field(None, alias="destLng")
+    model_config = {"populate_by_name": True}
 
 
 async def _geocode(address: str) -> dict:
@@ -54,7 +56,16 @@ async def validate_address(
     body: ValidateAddressRequest,
     current_user: User = Depends(get_current_user),
 ):
-    return await _geocode(body.address)
+    data = await _geocode(body.address)
+    return ok(
+        data={
+            "formattedAddress": data["formatted_address"],
+            "lat": data["lat"],
+            "lng": data["lng"],
+            "placeId": data["place_id"],
+        },
+        message="Address validated",
+    )
 
 
 @router.get("/autocomplete")
@@ -75,13 +86,10 @@ async def autocomplete_address(
     if data.get("status") not in ("OK", "ZERO_RESULTS"):
         raise HTTPException(status_code=422, detail="Autocomplete failed")
     predictions = [
-        {
-            "description": p["description"],
-            "place_id": p["place_id"],
-        }
+        {"description": p["description"], "placeId": p["place_id"]}
         for p in data.get("predictions", [])
     ]
-    return {"predictions": predictions, "total": len(predictions)}
+    return ok(data={"predictions": predictions, "total": len(predictions)}, message="Autocomplete results")
 
 
 @router.post("/calculate-route")
@@ -106,11 +114,14 @@ async def calculate_route(
         dlat, dlng = body.dest_lat, body.dest_lng
 
     route = await get_route_info(olat, olng, dlat, dlng)
-    return {
-        "origin_lat": olat,
-        "origin_lng": olng,
-        "dest_lat": dlat,
-        "dest_lng": dlng,
-        "distance_km": route["distance_km"],
-        "duration_min": route["duration_min"],
-    }
+    return ok(
+        data={
+            "originLat": olat,
+            "originLng": olng,
+            "destLat": dlat,
+            "destLng": dlng,
+            "distanceKm": route["distance_km"],
+            "durationMin": route["duration_min"],
+        },
+        message="Route calculated",
+    )

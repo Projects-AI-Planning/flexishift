@@ -1,52 +1,58 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserProfileOut(BaseModel):
-    photo_url: Optional[str] = None
-    licence_number: Optional[str] = None
-    vehicle_type: Optional[str] = None
-    vehicle_registration: Optional[str] = None
-    company_name: Optional[str] = None
-    company_address: Optional[str] = None
-    coverage_area: Optional[str] = None
+    photoUrl: Optional[str] = Field(None, alias="photo_url")
+    licenceNumber: Optional[str] = Field(None, alias="licence_number")
+    vehicleType: Optional[str] = Field(None, alias="vehicle_type")
+    vehicleRegistration: Optional[str] = Field(None, alias="vehicle_registration")
+    companyName: Optional[str] = Field(None, alias="company_name")
+    companyAddress: Optional[str] = Field(None, alias="company_address")
+    coverageArea: Optional[str] = Field(None, alias="coverage_area")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class UserOut(BaseModel):
-    id: str
-    full_name: str
+    userId: str = Field(..., alias="id")
+    name: str = Field(..., alias="full_name")
     email: str
     phone: str
     role: str
     status: str
-    profile_complete: bool
-    verified: bool
-    avg_rating: float
-    completed_jobs: int
-    location_lat: Optional[float] = None
-    location_lng: Optional[float] = None
-    created_at: datetime
+    profileComplete: bool = Field(..., alias="profile_complete")
+    isVerified: bool = Field(..., alias="verified")
+    avgRating: float = Field(..., alias="avg_rating")
+    completedJobs: int = Field(..., alias="completed_jobs")
+    locationLat: Optional[float] = Field(None, alias="location_lat")
+    locationLng: Optional[float] = Field(None, alias="location_lng")
+    createdAt: datetime = Field(..., alias="created_at")
     profile: Optional[UserProfileOut] = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = Field(None, alias="name")
     full_name: Optional[str] = None
     phone: Optional[str] = None
-    photo_url: Optional[str] = None
-    licence_number: Optional[str] = None
-    vehicle_type: Optional[str] = None
-    vehicle_registration: Optional[str] = None
-    company_name: Optional[str] = None
-    company_address: Optional[str] = None
-    coverage_area: Optional[str] = None
-    bank_account_id: Optional[str] = None
-    push_token: Optional[str] = None
+    photo_url: Optional[str] = Field(None, alias="photoUrl")
+    licence_number: Optional[str] = Field(None, alias="licenceNumber")
+    vehicle_type: Optional[str] = Field(None, alias="vehicleType")
+    vehicle_registration: Optional[str] = Field(None, alias="vehicleRegistration")
+    company_name: Optional[str] = Field(None, alias="companyName")
+    company_address: Optional[str] = Field(None, alias="companyAddress")
+    coverage_area: Optional[str] = Field(None, alias="coverageArea")
+    bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
+    push_token: Optional[str] = Field(None, alias="pushToken")
+
+    model_config = {"populate_by_name": True}
+
+    def get_full_name(self) -> Optional[str]:
+        return self.name or self.full_name
 
 
 class UpdateLocationRequest(BaseModel):
@@ -55,5 +61,7 @@ class UpdateLocationRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str
-    new_password: str
+    old_password: str = Field(..., alias="currentPassword")
+    new_password: str = Field(..., alias="newPassword")
+
+    model_config = {"populate_by_name": True}

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import structlog
 
+from app.core.response import ok
 from app.database import get_db
 from app.dependencies import require_role
 from app.models.user import User, Role
@@ -19,7 +20,7 @@ _log_buffer: list[str] = []
 def health_db(db: Session = Depends(get_db)):
     try:
         db.execute(__import__("sqlalchemy").text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        return ok(data={"database": "connected"}, message="Database healthy")
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
 
@@ -31,17 +32,20 @@ class ConfigUpdateRequest(BaseModel):
 
 @router.get("/system/config")
 def get_system_config(_: User = Depends(require_role(Role.ADMIN))):
-    return {
-        "app_name": settings.APP_NAME,
-        "app_env": settings.APP_ENV,
-        "google_maps_configured": bool(settings.GOOGLE_MAPS_API_KEY),
-        "aws_configured": bool(settings.AWS_ACCESS_KEY_ID),
-        "razorpay_configured": bool(settings.RAZORPAY_KEY_ID),
-        "sendgrid_configured": bool(settings.SENDGRID_API_KEY),
-        "redis_configured": bool(settings.REDIS_URL),
-        "celery_configured": bool(settings.CELERY_BROKER_URL),
-        "firebase_configured": bool(settings.FIREBASE_CREDENTIALS_JSON),
-    }
+    return ok(
+        data={
+            "appName": settings.APP_NAME,
+            "appEnv": settings.APP_ENV,
+            "googleMapsConfigured": bool(settings.GOOGLE_MAPS_API_KEY),
+            "awsConfigured": bool(settings.AWS_ACCESS_KEY_ID),
+            "razorpayConfigured": bool(settings.RAZORPAY_KEY_ID),
+            "sendgridConfigured": bool(settings.SENDGRID_API_KEY),
+            "redisConfigured": bool(settings.REDIS_URL),
+            "celeryConfigured": bool(settings.CELERY_BROKER_URL),
+            "firebaseConfigured": bool(settings.FIREBASE_CREDENTIALS_JSON),
+        },
+        message="System config retrieved",
+    )
 
 
 @router.put("/system/config/update")
@@ -52,8 +56,8 @@ def update_system_config(
     updated = []
     if body.app_env:
         settings.APP_ENV = body.app_env
-        updated.append("app_env")
-    return {"updated": updated, "message": "Runtime config updated (restart for full effect)"}
+        updated.append("appEnv")
+    return ok(data={"updated": updated}, message="Runtime config updated (restart for full effect)")
 
 
 @router.get("/system/logs")
@@ -67,8 +71,7 @@ def get_system_logs(
     if os.path.exists(log_path):
         with open(log_path, "r") as f:
             lines = f.readlines()[-limit:]
-    return {
-        "log_file": log_path,
-        "lines": [l.rstrip() for l in lines],
-        "total_shown": len(lines),
-    }
+    return ok(
+        data={"logFile": log_path, "lines": [l.rstrip() for l in lines], "totalShown": len(lines)},
+        message="Logs retrieved",
+    )
