@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.database import get_db
-from app.dependencies import get_redis
+from app.dependencies import get_redis, get_current_user
+from app.models.user import User
+from app.core.security import verify_password, hash_password
 from app.schemas.auth import (
     RegisterRequest, VerifyEmailRequest, LoginRequest,
     TokenResponse, RefreshRequest, ForgotPasswordRequest, ResetPasswordRequest,
@@ -58,3 +61,21 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 async def resend_verification(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     await auth_svc.resend_verification(db, body.email)
     return {"success": True, "message": "If that email is registered and unverified, a new link has been sent."}
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.put("/change-password", status_code=204)
+def change_password_auth(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Change password while logged in — PUT /auth/change-password."""
+    if not verify_password(body.old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Old password is incorrect")
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()

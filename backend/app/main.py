@@ -84,7 +84,8 @@ app.include_router(invoices.router,         prefix=PREFIX)
 # Compliance & tracking
 app.include_router(compliance.router,       prefix=PREFIX)
 app.include_router(compliance_flat.router,  prefix=PREFIX)
-app.include_router(tracking.router,         prefix=PREFIX)
+app.include_router(tracking.router,         prefix=PREFIX)   # /jobs/:id/tracking/*
+app.include_router(tracking.flat,           prefix=PREFIX)   # /tracking/* (mobile flat paths)
 
 # Ratings, notifications, dashboard
 app.include_router(ratings.router,          prefix=PREFIX)

@@ -47,7 +47,7 @@ def complete_step2(
 def approve_delivery(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
 ):
     return comp_svc.approve_delivery(db, job_id)
 

@@ -116,6 +116,16 @@ def toggle_availability(
     return avail_svc.toggle_slot(db, slot_id, current_user)
 
 
+@router.get("/availability/me")
+def get_my_availability(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(SupplierDep),
+):
+    slots = avail_svc.list_slots(db, current_user.id)
+    blocks = avail_svc.list_blocks(db, current_user.id)
+    return {"slots": slots, "blocks": blocks}
+
+
 @router.get("/availability/{supplier_id}")
 def get_supplier_availability(
     supplier_id: str,

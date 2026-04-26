@@ -97,6 +97,25 @@ def review_document(
     return doc_svc.review_document(db, doc_id, admin, body.status, body.rejection_reason)
 
 
+@router.put("/documents/approve/{doc_id}", response_model=DocumentOut)
+def approve_document(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(AdminDep),
+):
+    return doc_svc.review_document(db, doc_id, admin, "APPROVED", None)
+
+
+@router.put("/documents/reject/{doc_id}", response_model=DocumentOut)
+def reject_document(
+    doc_id: str,
+    reason: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(AdminDep),
+):
+    return doc_svc.review_document(db, doc_id, admin, "REJECTED", reason)
+
+
 @router.get("/jobs")
 def list_all_jobs(
     status: str | None = Query(None),
