@@ -29,7 +29,7 @@ AdminDep = require_role(Role.ADMIN)
 
 class LoadCodeRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
-    code: str
+    load_code: str = Field(..., alias="loadCode")
     model_config = {"populate_by_name": True}
 
 
@@ -44,12 +44,15 @@ def verify_load_code(
     db: Session = Depends(get_db),
     current_user: User = Depends(DriverDep),
 ):
-    record = comp_svc.verify_load_code(db, body.job_id, current_user.id, body.code)
+    record = comp_svc.verify_load_code(db, body.job_id, current_user.id, body.load_code)
+    job = db.query(Job).filter(Job.id == body.job_id).first()
     return ok(
         data={
             "jobId": body.job_id,
+            "jobRef": job.job_ref if job else None,
             "verified": True,
             "loadCodeVerifiedAt": record.load_code_verified_at.isoformat() if record.load_code_verified_at else None,
+            "verifiedBy": current_user.id,
         },
         message="Load code verified",
     )
@@ -85,6 +88,7 @@ async def resend_load_code(
         raise HTTPException(status_code=403, detail="Forbidden")
     if not job.selected_supplier_id:
         raise HTTPException(status_code=422, detail="No supplier assigned to this job")
+    supplier = db.query(User).filter(User.id == job.selected_supplier_id).first()
     from app.services.notifications import create_notification
     await create_notification(
         db,
@@ -95,7 +99,14 @@ async def resend_load_code(
         data={"job_id": job.id, "load_code": job.load_code},
     )
     db.commit()
-    return ok(data=None, message="Load code resent to supplier")
+    return ok(
+        data={
+            "jobId": job.id,
+            "sentTo": job.selected_supplier_id,
+            "sentVia": "PUSH_NOTIFICATION",
+        },
+        message="Load code resent to supplier",
+    )
 
 
 # ── Handover (Step 1) ─────────────────────────────────────────────────────────
@@ -114,7 +125,7 @@ class PhotosUploadRequest(BaseModel):
 
 class SignRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
-    signature_url: str = Field(..., alias="signatureUrl")
+    signature_data: str = Field(..., alias="signatureData")
     model_config = {"populate_by_name": True}
 
 
@@ -130,7 +141,14 @@ def submit_handover_checklist(
     record = comp_svc.get_or_create_compliance(db, body.job_id)
     record.checklist_data = body.checklist_data
     db.commit()
-    return ok(data={"jobId": body.job_id, "checklistSaved": True}, message="Checklist submitted")
+    return ok(
+        data={
+            "checklistId": record.id,
+            "jobId": body.job_id,
+            "checklistSaved": True,
+        },
+        message="Checklist submitted",
+    )
 
 
 @router.post("/handover/photos/upload")
@@ -170,12 +188,18 @@ def driver_sign_handover(
     if not job or job.selected_supplier_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found or forbidden")
     record = comp_svc.get_or_create_compliance(db, body.job_id)
-    record.driver_signature_url = body.signature_url
+    record.driver_signature_url = body.signature_data
     record.driver_signed_at = datetime.now(timezone.utc)
     _try_complete_step1(record, job, db)
     db.commit()
     return ok(
-        data={"jobId": body.job_id, "driverSigned": True, "step1Completed": bool(record.step1_completed_at)},
+        data={
+            "jobId": body.job_id,
+            "driverSigned": True,
+            "driverSignedAt": record.driver_signed_at.isoformat() if record.driver_signed_at else None,
+            "step1Completed": bool(record.step1_completed_at),
+            "step1CompletedAt": record.step1_completed_at.isoformat() if record.step1_completed_at else None,
+        },
         message="Driver signature recorded",
     )
 
@@ -191,12 +215,18 @@ def haulier_sign_handover(
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found or forbidden")
     record = comp_svc.get_or_create_compliance(db, body.job_id)
-    record.haulier_signature_url = body.signature_url
+    record.haulier_signature_url = body.signature_data
     record.haulier_signed_at = datetime.now(timezone.utc)
     _try_complete_step1(record, job, db)
     db.commit()
     return ok(
-        data={"jobId": body.job_id, "haulierSigned": True, "step1Completed": bool(record.step1_completed_at)},
+        data={
+            "jobId": body.job_id,
+            "haulierSigned": True,
+            "haulierSignedAt": record.haulier_signed_at.isoformat() if record.haulier_signed_at else None,
+            "step1Completed": bool(record.step1_completed_at),
+            "step1CompletedAt": record.step1_completed_at.isoformat() if record.step1_completed_at else None,
+        },
         message="Haulier signature recorded",
     )
 
@@ -224,7 +254,9 @@ def get_handover_status(
             "jobId": job_id,
             "checklistSubmitted": bool(record and record.checklist_data),
             "driverSigned": bool(record and record.driver_signature_url),
+            "driverSignedAt": record.driver_signed_at.isoformat() if record and record.driver_signed_at else None,
             "haulierSigned": bool(record and record.haulier_signature_url),
+            "haulierSignedAt": record.haulier_signed_at.isoformat() if record and record.haulier_signed_at else None,
             "step1Completed": bool(record and record.step1_completed_at),
             "step1CompletedAt": record.step1_completed_at.isoformat() if record and record.step1_completed_at else None,
         },
@@ -238,6 +270,7 @@ class DeliverySubmitRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
     delivery_photo_url: str = Field(..., alias="deliveryPhotoUrl")
     recipient_signature_url: str = Field(..., alias="recipientSignatureUrl")
+    recipient_name: Optional[str] = Field(None, alias="recipientName")
     delivery_notes: Optional[str] = Field(None, alias="deliveryNotes")
     model_config = {"populate_by_name": True}
 
@@ -262,9 +295,11 @@ def submit_delivery(
     record = comp_svc.complete_step2(db, body.job_id, current_user.id, body.model_dump(by_alias=False))
     return ok(
         data={
+            "deliveryId": record.id,
             "jobId": body.job_id,
             "deliverySubmitted": True,
             "step2CompletedAt": record.step2_completed_at.isoformat() if record.step2_completed_at else None,
+            "paymentOnHold": True,
         },
         message="Delivery submitted",
     )
@@ -300,6 +335,7 @@ def approve_delivery(
             "jobId": job_id,
             "approved": True,
             "step3ApprovedAt": record.step3_approved_at.isoformat() if record.step3_approved_at else None,
+            "paymentReleaseInitiated": True,
         },
         message="Delivery approved",
     )
@@ -318,9 +354,12 @@ def raise_dispute(
     record = comp_svc.raise_dispute(db, job_id, body.dispute_reason)
     return ok(
         data={
+            "disputeId": record.id,
             "jobId": job_id,
             "disputed": True,
+            "disputeReason": body.dispute_reason,
             "disputedAt": record.disputed_at.isoformat() if record.disputed_at else None,
+            "paymentOnHold": True,
         },
         message="Dispute raised",
     )
@@ -342,6 +381,7 @@ def get_delivery_status(
             "step3ApprovedAt": record.step3_approved_at.isoformat() if record and record.step3_approved_at else None,
             "disputed": bool(record and record.disputed_at),
             "disputeReason": record.dispute_reason if record else None,
+            "paymentOnHold": bool(record and record.disputed_at and not record.step3_approved_at),
         },
         message="Delivery status retrieved",
     )
@@ -352,6 +392,8 @@ def get_delivery_status(
 class ResolveDisputeRequest(BaseModel):
     resolution: str
     notes: Optional[str] = None
+    expected_resolution_by: Optional[str] = Field(None, alias="expectedResolutionBy")
+    model_config = {"populate_by_name": True}
 
 
 @router.get("/dispute/list")
@@ -364,16 +406,20 @@ def list_disputes(
     q = db.query(Job).filter(Job.status == JobStatus.DISPUTED, Job.deleted_at.is_(None))
     total = q.count()
     items = q.order_by(Job.updated_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    dispute_items = []
+    for j in items:
+        record = j.compliance
+        dispute_items.append({
+            "disputeId": record.id if record else None,
+            "jobId": j.id,
+            "jobRef": j.job_ref,
+            "status": j.status.value,
+            "disputeReason": record.dispute_reason if record else None,
+            "disputedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "updatedAt": j.updated_at.isoformat() if j.updated_at else None,
+        })
     return ok(
-        data={
-            "items": [
-                {"jobId": j.id, "jobRef": j.job_ref, "status": j.status.value, "updatedAt": j.updated_at.isoformat()}
-                for j in items
-            ],
-            "total": total,
-            "page": page,
-            "perPage": per_page,
-        },
+        data={"items": dispute_items, "total": total, "page": page, "perPage": per_page},
         message="Disputes retrieved",
     )
 
@@ -388,9 +434,12 @@ def resolve_dispute(
     record = comp_svc.resolve_dispute(db, job_id, body.resolution, body.notes)
     return ok(
         data={
+            "disputeId": record.id,
             "jobId": job_id,
             "resolution": body.resolution,
+            "notes": body.notes,
             "step3ApprovedAt": record.step3_approved_at.isoformat() if record.step3_approved_at else None,
+            "expectedResolutionBy": body.expected_resolution_by,
         },
         message="Dispute resolved",
     )

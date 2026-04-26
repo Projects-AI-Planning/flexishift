@@ -14,8 +14,6 @@ from app.schemas.tracking import TrackingPointIn, TrackingPointOut, TrackingList
 from app.services import tracking as track_svc
 from app.services.eta import get_eta
 
-router = APIRouter(prefix="/jobs", tags=["Tracking"])
-
 # ── Flat /tracking/* router (Mobile spec paths) ───────────────────────────────
 
 flat = APIRouter(prefix="/tracking", tags=["Tracking"])
@@ -23,8 +21,11 @@ flat = APIRouter(prefix="/tracking", tags=["Tracking"])
 
 class UpdateLocationRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
-    lat: float
-    lng: float
+    latitude: float
+    longitude: float
+    speed: Optional[float] = None
+    heading: Optional[float] = None
+    accuracy: Optional[float] = None
     recorded_at: Optional[datetime] = Field(None, alias="recordedAt")
     model_config = {"populate_by_name": True}
 
@@ -36,10 +37,19 @@ async def update_location(
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
     point = await track_svc.add_tracking_point(
-        db, body.job_id, current_user.id, body.lat, body.lng, body.recorded_at
+        db, body.job_id, current_user.id, body.latitude, body.longitude, body.recorded_at
     )
     return created(
-        data={"jobId": body.job_id, "lat": body.lat, "lng": body.lng},
+        data={
+            "trackingId": point.id,
+            "jobId": body.job_id,
+            "latitude": body.latitude,
+            "longitude": body.longitude,
+            "speed": body.speed,
+            "heading": body.heading,
+            "accuracy": body.accuracy,
+            "recordedAt": point.recorded_at.isoformat() if point.recorded_at else None,
+        },
         message="Location updated",
     )
 
@@ -59,7 +69,13 @@ def get_live_location(
     if not last:
         raise HTTPException(status_code=404, detail="No tracking data yet")
     return ok(
-        data={"jobId": job_id, "lat": last.lat, "lng": last.lng, "recordedAt": last.recorded_at.isoformat()},
+        data={
+            "trackingId": last.id,
+            "jobId": job_id,
+            "latitude": float(last.lat),
+            "longitude": float(last.lng),
+            "recordedAt": last.recorded_at.isoformat() if last.recorded_at else None,
+        },
         message="Live location retrieved",
     )
 
@@ -71,7 +87,16 @@ def get_tracking_history(
     current_user: User = Depends(get_current_user),
 ):
     result = track_svc.list_tracking(db, job_id, current_user.id)
-    return ok(data=result, message="Tracking history retrieved")
+    points = [
+        {
+            "trackingId": p.id,
+            "latitude": float(p.lat),
+            "longitude": float(p.lng),
+            "recordedAt": p.recorded_at.isoformat() if p.recorded_at else None,
+        }
+        for p in result["items"]
+    ]
+    return ok(data={"jobId": job_id, "items": points, "total": result["total"]}, message="Tracking history retrieved")
 
 
 @flat.get("/eta/{job_id}")
@@ -145,6 +170,8 @@ async def flat_delay_alert(
     return ok(data=None, message="Delay alert sent")
 
 
+# ── Job-scoped /jobs/:id/tracking/* endpoints ─────────────────────────────────
+
 router = APIRouter(prefix="/jobs", tags=["Tracking"])
 
 
@@ -158,7 +185,16 @@ async def add_tracking_point(
     point = await track_svc.add_tracking_point(
         db, job_id, current_user.id, body.lat, body.lng, body.recorded_at
     )
-    return created(data={"jobId": job_id, "lat": body.lat, "lng": body.lng}, message="Location recorded")
+    return created(
+        data={
+            "trackingId": point.id,
+            "jobId": job_id,
+            "latitude": float(point.lat),
+            "longitude": float(point.lng),
+            "recordedAt": point.recorded_at.isoformat() if point.recorded_at else None,
+        },
+        message="Location recorded",
+    )
 
 
 @router.get("/{job_id}/tracking")
@@ -168,7 +204,16 @@ def list_tracking(
     current_user: User = Depends(get_current_user),
 ):
     result = track_svc.list_tracking(db, job_id, current_user.id)
-    return ok(data=result, message="Tracking history retrieved")
+    points = [
+        {
+            "trackingId": p.id,
+            "latitude": float(p.lat),
+            "longitude": float(p.lng),
+            "recordedAt": p.recorded_at.isoformat() if p.recorded_at else None,
+        }
+        for p in result["items"]
+    ]
+    return ok(data={"jobId": job_id, "items": points, "total": result["total"]}, message="Tracking history retrieved")
 
 
 @router.get("/{job_id}/eta")
