@@ -43,6 +43,15 @@ def release_payment(
     return pay_svc.release_payment(db, job_id)
 
 
+@router.post("/{job_id}/payment/refund", response_model=PaymentOut)
+def refund_payment(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
+):
+    return pay_svc.refund_payment(db, job_id, current_user.id)
+
+
 @router.get("/{job_id}/payment", response_model=PaymentOut)
 def get_payment(
     job_id: str,

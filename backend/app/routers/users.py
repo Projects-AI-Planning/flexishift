@@ -18,6 +18,18 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@router.get("/{user_id}", response_model=UserOut)
+def get_user_profile(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
 @router.patch("/me", response_model=UserOut)
 def update_me(
     body: UpdateProfileRequest,

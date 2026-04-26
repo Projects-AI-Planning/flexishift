@@ -46,6 +46,20 @@ class JobOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class JobUpdateRequest(BaseModel):
+    pickup_address: Optional[str] = None
+    pickup_lat: Optional[float] = None
+    pickup_lng: Optional[float] = None
+    drop_address: Optional[str] = None
+    drop_lat: Optional[float] = None
+    drop_lng: Optional[float] = None
+    goods_type: Optional[str] = None
+    weight_kg: Optional[float] = None
+    vehicle_type: Optional[str] = None
+    job_date: Optional[date] = None
+    time_slot: Optional[str] = None
+
+
 class JobListOut(BaseModel):
     items: List[JobOut]
     total: int

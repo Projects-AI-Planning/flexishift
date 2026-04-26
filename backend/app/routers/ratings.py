@@ -31,3 +31,12 @@ def list_user_ratings(
     current_user: User = Depends(get_current_user),
 ):
     return ratings_svc.list_ratings(db, user_id, page, per_page)
+
+
+@router.get("/ratings/jobs/{job_id}", response_model=RatingListOut)
+def list_job_ratings(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ratings_svc.list_job_ratings(db, job_id)

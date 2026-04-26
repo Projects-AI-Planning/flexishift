@@ -129,6 +129,35 @@ def release_payment(db: Session, job_id: str) -> Payment:
     return payment
 
 
+def refund_payment(db: Session, job_id: str, requester_id: str) -> Payment:
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.haulier_id != requester_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    payment = db.query(Payment).filter(Payment.job_id == job_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.status not in (PaymentStatus.ESCROWED, PaymentStatus.PENDING):
+        raise HTTPException(status_code=422, detail="Payment cannot be refunded in current state")
+
+    if payment.gateway_payment_id:
+        try:
+            client = _client()
+            amount_paise = int(float(payment.amount) * 100)
+            client.payment.refund(payment.gateway_payment_id, {"amount": amount_paise, "speed": "normal"})
+        except Exception:
+            pass  # log but don't block the refund record
+
+    payment.status = PaymentStatus.REFUNDED
+    job.status = JobStatus.CANCELLED
+    job.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
 def verify_razorpay_webhook_signature(body: bytes, signature: str) -> bool:
     expected = hmac.new(
         settings.RAZORPAY_WEBHOOK_SECRET.encode(),

@@ -84,6 +84,19 @@ def list_jobs(
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
+def update_job(db: Session, job_id: str, current_user: User, data: dict) -> Job:
+    job = get_job(db, job_id)
+    if job.haulier_id != current_user.id and current_user.role.value != "ADMIN":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job.status not in (JobStatus.OPEN,):
+        raise HTTPException(status_code=422, detail="Only OPEN jobs can be updated")
+    for k, v in data.items():
+        setattr(job, k, v)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
 def cancel_job(db: Session, job_id: str, current_user: User) -> Job:
     job = get_job(db, job_id)
     if job.haulier_id != current_user.id and current_user.role.value != "ADMIN":

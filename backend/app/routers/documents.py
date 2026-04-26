@@ -21,6 +21,19 @@ def list_my_documents(
     return {"items": items, "total": len(items)}
 
 
+@router.get("/{doc_id}", response_model=DocumentOut)
+def get_my_document(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from fastapi import HTTPException
+    doc = db.query(Document).filter(Document.id == doc_id, Document.user_id == current_user.id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+
 @router.get("/upload-url")
 def get_upload_url(
     doc_type: str = Query(..., description="One of: DRIVING_LICENCE, VEHICLE_REG, VEHICLE_INSURANCE, COMPANY_REG, FLEET_INSURANCE"),

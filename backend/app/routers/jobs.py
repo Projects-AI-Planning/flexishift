@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User, Role
-from app.schemas.jobs import JobCreateRequest, JobOut, JobListOut
+from app.models.quote import Quote
+from app.schemas.jobs import JobCreateRequest, JobUpdateRequest, JobOut, JobListOut
 from app.schemas.quotes import QuoteCreateRequest, QuoteOut, QuoteListOut
 from app.services import jobs as jobs_svc, quotes as quotes_svc
 
@@ -40,6 +42,16 @@ def get_job(
     return jobs_svc.get_job(db, job_id)
 
 
+@router.put("/{job_id}", response_model=JobOut)
+def update_job(
+    job_id: str,
+    body: JobUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    return jobs_svc.update_job(db, job_id, current_user, body.model_dump(exclude_none=True))
+
+
 @router.delete("/{job_id}", status_code=204)
 def cancel_job(
     job_id: str,
@@ -66,6 +78,19 @@ def list_quotes(
     current_user: User = Depends(get_current_user),
 ):
     return quotes_svc.list_quotes(db, job_id, current_user)
+
+
+@router.get("/{job_id}/quotes/{quote_id}", response_model=QuoteOut)
+def get_quote(
+    job_id: str,
+    quote_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.job_id == job_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    return quote
 
 
 @router.patch("/{job_id}/quotes/{quote_id}/select", response_model=QuoteOut)
