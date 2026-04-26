@@ -116,6 +116,7 @@ app.include_router(webhooks.router,         prefix=PREFIX)
 app.include_router(ws.router)
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "app": settings.APP_NAME}
+@app.get("/api/v1/health")
+def health_root():
+    from app.routers.system import health_check
+    return health_check()
