@@ -9,6 +9,7 @@ from app.models.quote import Quote
 from app.schemas.jobs import JobCreateRequest, JobUpdateRequest, JobOut, JobListOut
 from app.schemas.quotes import QuoteCreateRequest, QuoteOut, QuoteListOut
 from app.services import jobs as jobs_svc, quotes as quotes_svc
+from app.services import suppliers as sup_svc
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -50,6 +51,45 @@ def update_job(
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     return jobs_svc.update_job(db, job_id, current_user, body.model_dump(exclude_none=True))
+
+
+@router.get("/my-jobs", response_model=JobListOut)
+def my_jobs(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return jobs_svc.list_my_jobs(db, current_user, page, per_page)
+
+
+@router.put("/close/{job_id}", response_model=JobOut)
+def close_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    return jobs_svc.close_job(db, job_id, current_user)
+
+
+@router.get("/match-suppliers/{job_id}")
+def match_suppliers(
+    job_id: str,
+    radius_km: float = Query(50.0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    job = jobs_svc.get_job(db, job_id)
+    if job.haulier_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = sup_svc.search_suppliers(
+        db,
+        lat=job.pickup_lat,
+        lng=job.pickup_lng,
+        radius_km=radius_km,
+        vehicle_type=job.vehicle_type,
+    )
+    return result
 
 
 @router.delete("/{job_id}", status_code=204)

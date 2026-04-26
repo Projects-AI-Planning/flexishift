@@ -52,3 +52,9 @@ async def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get
 def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     auth_svc.reset_password(db, body.token, body.new_password)
     return {"success": True, "message": "Password reset successfully."}
+
+
+@router.post("/resend-verification", status_code=202)
+async def resend_verification(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    await auth_svc.resend_verification(db, body.email)
+    return {"success": True, "message": "If that email is registered and unverified, a new link has been sent."}

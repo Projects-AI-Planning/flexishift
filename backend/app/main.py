@@ -12,6 +12,7 @@ from app.routers import (
     suppliers, jobs, payments, compliance,
     tracking, ratings, admin, webhooks, ws, dashboard,
     maps, bookings, invoices, notifications,
+    profile, supplier, quotes, files, system, compliance_flat,
 )
 
 limiter = Limiter(key_func=get_remote_address)
@@ -58,23 +59,46 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 PREFIX = "/api/v1"
-app.include_router(auth.router,          prefix=PREFIX)
-app.include_router(users.router,         prefix=PREFIX)
-app.include_router(documents.router,     prefix=PREFIX)
-app.include_router(availability.router,  prefix=PREFIX)
-app.include_router(suppliers.router,     prefix=PREFIX)
-app.include_router(jobs.router,          prefix=PREFIX)
-app.include_router(payments.router,      prefix=PREFIX)
-app.include_router(compliance.router,    prefix=PREFIX)
-app.include_router(tracking.router,      prefix=PREFIX)
-app.include_router(ratings.router,       prefix=PREFIX)
-app.include_router(dashboard.router,     prefix=PREFIX)
-app.include_router(admin.router,         prefix=PREFIX)
-app.include_router(webhooks.router,      prefix=PREFIX)
-app.include_router(maps.router,          prefix=PREFIX)
-app.include_router(bookings.router,      prefix=PREFIX)
-app.include_router(invoices.router,      prefix=PREFIX)
-app.include_router(notifications.router, prefix=PREFIX)
+
+# Core auth & user
+app.include_router(auth.router,             prefix=PREFIX)
+app.include_router(users.router,            prefix=PREFIX)
+app.include_router(profile.router,          prefix=PREFIX)
+
+# Documents & availability
+app.include_router(documents.router,        prefix=PREFIX)
+app.include_router(availability.router,     prefix=PREFIX)
+app.include_router(supplier.router,         prefix=PREFIX)
+
+# Jobs, quotes & suppliers
+app.include_router(jobs.router,             prefix=PREFIX)
+app.include_router(quotes.router,           prefix=PREFIX)
+app.include_router(suppliers.router,        prefix=PREFIX)
+
+# Bookings, payments & invoices
+app.include_router(bookings.router,         prefix=PREFIX)
+app.include_router(payments.router,         prefix=PREFIX)   # job-scoped
+app.include_router(payments.flat,           prefix=PREFIX)   # /payments/* flat
+app.include_router(invoices.router,         prefix=PREFIX)
+
+# Compliance & tracking
+app.include_router(compliance.router,       prefix=PREFIX)
+app.include_router(compliance_flat.router,  prefix=PREFIX)
+app.include_router(tracking.router,         prefix=PREFIX)
+
+# Ratings, notifications, dashboard
+app.include_router(ratings.router,          prefix=PREFIX)
+app.include_router(notifications.router,    prefix=PREFIX)
+app.include_router(dashboard.router,        prefix=PREFIX)
+
+# Admin, maps, files, system
+app.include_router(admin.router,            prefix=PREFIX)
+app.include_router(maps.router,             prefix=PREFIX)
+app.include_router(files.router,            prefix=PREFIX)
+app.include_router(system.router,           prefix=PREFIX)
+
+# Webhooks & WebSocket
+app.include_router(webhooks.router,         prefix=PREFIX)
 app.include_router(ws.router)
 
 

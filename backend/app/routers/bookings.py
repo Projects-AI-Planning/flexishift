@@ -7,6 +7,7 @@ from app.models.job import Job, JobStatus
 from app.models.user import User, Role
 from app.schemas.jobs import JobOut
 from app.services import quotes as quotes_svc
+from app.services.jobs import cancel_job
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
@@ -52,6 +53,16 @@ def list_bookings(
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
+@router.get("/list", response_model=dict)
+def list_bookings_alias(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return list_bookings(page, per_page, db, current_user)
+
+
 @router.get("/{booking_id}", response_model=JobOut)
 def get_booking(
     booking_id: str,
@@ -66,8 +77,20 @@ def get_booking(
     ).first()
     if not job:
         raise HTTPException(status_code=404, detail="Booking not found")
-
     if current_user.role not in (Role.ADMIN,):
         if job.haulier_id != current_user.id and job.selected_supplier_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
     return job
+
+
+@router.put("/cancel/{booking_id}", response_model=JobOut)
+def cancel_booking(
+    booking_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
+):
+    """Cancel a booking (job must be BOOKED or PAYMENT_PENDING)."""
+    job = db.query(Job).filter(Job.id == booking_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return cancel_job(db, booking_id, current_user)

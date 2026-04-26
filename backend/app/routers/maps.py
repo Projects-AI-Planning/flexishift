@@ -57,6 +57,33 @@ async def validate_address(
     return await _geocode(body.address)
 
 
+@router.get("/autocomplete")
+async def autocomplete_address(
+    input: str,
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.GOOGLE_MAPS_API_KEY:
+        raise HTTPException(status_code=503, detail="Google Maps API key not configured")
+    AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            AUTOCOMPLETE_URL,
+            params={"input": input, "key": settings.GOOGLE_MAPS_API_KEY, "types": "address"},
+            timeout=10,
+        )
+    data = resp.json()
+    if data.get("status") not in ("OK", "ZERO_RESULTS"):
+        raise HTTPException(status_code=422, detail="Autocomplete failed")
+    predictions = [
+        {
+            "description": p["description"],
+            "place_id": p["place_id"],
+        }
+        for p in data.get("predictions", [])
+    ]
+    return {"predictions": predictions, "total": len(predictions)}
+
+
 @router.post("/calculate-route")
 async def calculate_route(
     body: CalculateRouteRequest,

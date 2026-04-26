@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,37 @@ async def generate_invoice(
     return {"invoice_url": url, "job_ref": job.job_ref}
 
 
+@router.get("/list")
+def list_invoices(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all jobs that have generated invoices."""
+    q = db.query(Job).filter(Job.invoice_url.isnot(None), Job.deleted_at.is_(None))
+    if current_user.role not in (Role.ADMIN,):
+        if current_user.role.value in ("DRIVER", "FIRM"):
+            q = q.filter(Job.selected_supplier_id == current_user.id)
+        else:
+            q = q.filter(Job.haulier_id == current_user.id)
+
+    total = q.count()
+    items = q.order_by(Job.updated_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+    result = []
+    for job in items:
+        payment = db.query(Payment).filter(Payment.job_id == job.id).first()
+        result.append({
+            "job_id": job.id,
+            "job_ref": job.job_ref,
+            "invoice_url": job.invoice_url,
+            "amount": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else "INR",
+        })
+    return {"items": result, "total": total, "page": page, "per_page": per_page}
+
+
 @router.get("/{booking_id}")
 def get_invoice(
     booking_id: str,
@@ -72,7 +103,6 @@ async def download_invoice(
     """Download the invoice PDF directly."""
     job, payment = _get_job_and_payment(db, booking_id, current_user)
 
-    # Regenerate if not yet created
     if not job.invoice_url:
         from app.services.invoice import generate_and_upload_invoice
         url = await generate_and_upload_invoice(job, payment)

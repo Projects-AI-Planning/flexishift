@@ -85,3 +85,22 @@ def withdraw_quote(db: Session, quote_id: str, supplier: User) -> Quote:
     db.commit()
     db.refresh(quote)
     return quote
+
+
+def edit_quote(db: Session, quote_id: str, supplier: User, new_price: float) -> Quote:
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.supplier_id == supplier.id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    if quote.status != QuoteStatus.ACTIVE:
+        raise HTTPException(status_code=422, detail="Only active quotes can be edited")
+    quote.price = new_price
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def list_my_quotes(db: Session, supplier_id: str, page: int = 1, per_page: int = 20) -> dict:
+    q = db.query(Quote).filter(Quote.supplier_id == supplier_id)
+    total = q.count()
+    items = q.order_by(Quote.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
