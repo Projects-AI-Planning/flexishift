@@ -9,7 +9,7 @@ from app.models.job import Job
 from app.models.user import User, Role
 from app.models.quote import Quote
 from app.schemas.jobs import JobCreateRequest, JobUpdateRequest
-from app.schemas.quotes import QuoteCreateRequest
+from app.schemas.quotes import QuoteCreateRequest, QuoteOut
 from app.services import jobs as jobs_svc, quotes as quotes_svc
 from app.services import suppliers as sup_svc
 
@@ -241,7 +241,7 @@ def get_quote(
 
 @router.patch("/{job_id}/accept-quote")
 @router.patch("/{job_id}/quotes/{quote_id}/select")
-def select_quote(
+async def select_quote(
     job_id: str,
     quote_id: str = None,
     db: Session = Depends(get_db),
