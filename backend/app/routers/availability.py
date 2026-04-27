@@ -16,6 +16,20 @@ router = APIRouter(prefix="/users/me/availability", tags=["Availability"])
 SupplierDep = require_role(Role.DRIVER, Role.FIRM)
 
 
+@router.get("/slots/{slot_id}", response_model=AvailabilitySlotOut)
+def get_slot(
+    slot_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(SupplierDep),
+):
+    from fastapi import HTTPException
+    from app.models.availability import AvailabilitySlot
+    slot = db.get(AvailabilitySlot, slot_id)
+    if not slot or slot.driver_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    return slot
+
+
 @router.get("/slots", response_model=List[AvailabilitySlotOut])
 def list_slots(
     db: Session = Depends(get_db),

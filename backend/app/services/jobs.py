@@ -87,6 +87,51 @@ def list_jobs(
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
+def update_job(db: Session, job_id: str, current_user: User, data: dict) -> Job:
+    job = get_job(db, job_id)
+    if job.haulier_id != current_user.id and current_user.role.value != "ADMIN":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job.status not in (JobStatus.OPEN,):
+        raise HTTPException(status_code=422, detail="Only OPEN jobs can be updated")
+    for k, v in data.items():
+        setattr(job, k, v)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def close_job(db: Session, job_id: str, current_user: User) -> Job:
+    """Close an OPEN job to new quotes (withdraws active quotes, soft-cancels job)."""
+    job = get_job(db, job_id)
+    if job.haulier_id != current_user.id and current_user.role.value != "ADMIN":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Only OPEN jobs can be closed")
+    from app.models.quote import Quote, QuoteStatus
+    db.query(Quote).filter(
+        Quote.job_id == job_id, Quote.status == QuoteStatus.ACTIVE
+    ).update({"status": QuoteStatus.WITHDRAWN})
+    job.status = JobStatus.CANCELLED
+    job.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def list_my_jobs(db: Session, current_user: User, page: int = 1, per_page: int = 20) -> dict:
+    if current_user.role in (Role.DRIVER, Role.FIRM):
+        q = db.query(Job).filter(
+            Job.selected_supplier_id == current_user.id, Job.deleted_at.is_(None)
+        )
+    else:
+        q = db.query(Job).filter(
+            Job.haulier_id == current_user.id, Job.deleted_at.is_(None)
+        )
+    total = q.count()
+    items = q.order_by(Job.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+
 def cancel_job(db: Session, job_id: str, current_user: User) -> Job:
     job = get_job(db, job_id)
     if job.haulier_id != current_user.id and current_user.role.value != "ADMIN":

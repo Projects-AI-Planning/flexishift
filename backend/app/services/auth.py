@@ -141,6 +141,21 @@ def logout(r, refresh_token: str) -> None:
     _revoke_refresh(r, refresh_token)
 
 
+async def resend_verification(db: Session, email: str) -> None:
+    user = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
+    if not user or user.verified:
+        return  # silent — don't reveal state
+    raw_token = generate_token()
+    ev = EmailVerification(
+        user_id=user.id,
+        token_hash=hash_token(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    db.add(ev)
+    db.commit()
+    await send_verification_email(email, user.full_name, raw_token)
+
+
 async def forgot_password(db: Session, email: str) -> None:
     user = db.query(User).filter(User.email == email).first()
     if not user:

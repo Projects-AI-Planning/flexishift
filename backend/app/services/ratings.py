@@ -49,3 +49,11 @@ def list_ratings(db: Session, user_id: str, page: int = 1, per_page: int = 20) -
     items = q.order_by(Rating.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     avg = db.query(func.avg(Rating.stars)).filter(Rating.rated_id == user_id).scalar() or 0.0
     return {"items": items, "total": total, "avg_rating": round(float(avg), 2)}
+
+
+def list_job_ratings(db: Session, job_id: str) -> dict:
+    q = db.query(Rating).filter(Rating.job_id == job_id)
+    total = q.count()
+    items = q.order_by(Rating.created_at.asc()).all()
+    avg = db.query(func.avg(Rating.stars)).filter(Rating.job_id == job_id).scalar() or 0.0
+    return {"items": items, "total": total, "avg_rating": round(float(avg), 2)}

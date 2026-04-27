@@ -1,13 +1,20 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional
 import re
 
 
 class RegisterRequest(BaseModel):
-    full_name: str
+    name: Optional[str] = None
+    full_name: Optional[str] = None
     email: EmailStr
     phone: str
     password: str
     role: str
+
+    model_config = {"populate_by_name": True}
+
+    def get_name(self) -> str:
+        return self.name or self.full_name or ""
 
     @field_validator("password")
     @classmethod
@@ -29,7 +36,12 @@ class RegisterRequest(BaseModel):
 
 
 class VerifyEmailRequest(BaseModel):
-    token: str
+    token: Optional[str] = None
+    otp: Optional[str] = None
+    email: Optional[str] = None
+
+    def get_token(self) -> str:
+        return self.token or self.otp or ""
 
 
 class LoginRequest(BaseModel):
@@ -44,7 +56,9 @@ class TokenResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(..., alias="refreshToken")
+
+    model_config = {"populate_by_name": True}
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -53,9 +67,11 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(..., alias="newPassword")
 
-    @field_validator("new_password")
+    model_config = {"populate_by_name": True}
+
+    @field_validator("new_password", mode="before")
     @classmethod
     def password_strength(cls, v: str) -> str:
         if len(v) < 8:
@@ -65,3 +81,14 @@ class ResetPasswordRequest(BaseModel):
         if not re.search(r"\d", v):
             raise ValueError("Password must contain a digit")
         return v
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., alias="currentPassword")
+    new_password: str = Field(..., alias="newPassword")
+    old_password: Optional[str] = None
+
+    model_config = {"populate_by_name": True}
+
+    def get_current_password(self) -> str:
+        return self.current_password or self.old_password or ""

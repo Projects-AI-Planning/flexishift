@@ -142,6 +142,140 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
     return record
 
 
+def verify_load_code(db: Session, job_id: str, driver_id: str, code: str) -> ComplianceRecord:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.selected_supplier_id != driver_id:
+        raise HTTPException(status_code=403, detail="Only the assigned supplier can verify the load code")
+    if job.load_code.upper() != code.strip().upper():
+        raise HTTPException(status_code=400, detail="Invalid load code")
+    record = get_or_create_compliance(db, job_id)
+    if record.load_code_verified_at:
+        raise HTTPException(status_code=409, detail="Load code already verified")
+    record.load_code_verified_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def resolve_dispute(db: Session, job_id: str, resolution: str, notes: str | None = None) -> ComplianceRecord:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.DISPUTED:
+        raise HTTPException(status_code=422, detail="Job is not in DISPUTED state")
+    record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Compliance record not found")
+    now = datetime.now(timezone.utc)
+    if resolution == "APPROVE":
+        record.step3_approved_at = now
+        job.status = JobStatus.COMPLETED
+        if job.supplier:
+            job.supplier.completed_jobs += 1
+    elif resolution == "REJECT":
+        job.status = JobStatus.CANCELLED
+        job.deleted_at = now
+    else:
+        raise HTTPException(status_code=422, detail="resolution must be APPROVE or REJECT")
+    if notes:
+        record.delivery_notes = (record.delivery_notes or "") + f"\n[Admin resolution: {notes}]"
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def verify_load_code(db: Session, job_id: str, driver_id: str, code: str) -> ComplianceRecord:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.selected_supplier_id != driver_id:
+        raise HTTPException(status_code=403, detail="Only the assigned supplier can verify the load code")
+    if job.load_code.upper() != code.strip().upper():
+        raise HTTPException(status_code=400, detail="Invalid load code")
+    record = get_or_create_compliance(db, job_id)
+    if record.load_code_verified_at:
+        raise HTTPException(status_code=409, detail="Load code already verified")
+    record.load_code_verified_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def resolve_dispute(db: Session, job_id: str, resolution: str, notes: str | None = None) -> ComplianceRecord:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.DISPUTED:
+        raise HTTPException(status_code=422, detail="Job is not in DISPUTED state")
+    record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Compliance record not found")
+    now = datetime.now(timezone.utc)
+    if resolution == "APPROVE":
+        record.step3_approved_at = now
+        job.status = JobStatus.COMPLETED
+        if job.supplier:
+            job.supplier.completed_jobs += 1
+    elif resolution == "REJECT":
+        job.status = JobStatus.CANCELLED
+        job.deleted_at = now
+    else:
+        raise HTTPException(status_code=422, detail="resolution must be APPROVE or REJECT")
+    if notes:
+        record.delivery_notes = (record.delivery_notes or "") + f"\n[Admin resolution: {notes}]"
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_full_status(db: Session, job_id: str) -> dict:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    r = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+    return {
+        "job_id": job_id,
+        "job_ref": job.job_ref,
+        "job_status": job.status.value,
+        "load_code_verified": bool(r and r.load_code_verified_at),
+        "load_code_verified_at": r.load_code_verified_at if r else None,
+        "step1_handover_completed": bool(r and r.step1_completed_at),
+        "step1_completed_at": r.step1_completed_at if r else None,
+        "step2_delivery_submitted": bool(r and r.step2_completed_at),
+        "step2_completed_at": r.step2_completed_at if r else None,
+        "step3_approved": bool(r and r.step3_approved_at),
+        "step3_approved_at": r.step3_approved_at if r else None,
+        "disputed": bool(r and r.disputed_at),
+        "disputed_at": r.disputed_at if r else None,
+        "dispute_reason": r.dispute_reason if r else None,
+    }
+
+
+def get_full_status(db: Session, job_id: str) -> dict:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    r = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+    return {
+        "job_id": job_id,
+        "job_ref": job.job_ref,
+        "job_status": job.status.value,
+        "load_code_verified": bool(r and r.load_code_verified_at),
+        "load_code_verified_at": r.load_code_verified_at if r else None,
+        "step1_handover_completed": bool(r and r.step1_completed_at),
+        "step1_completed_at": r.step1_completed_at if r else None,
+        "step2_delivery_submitted": bool(r and r.step2_completed_at),
+        "step2_completed_at": r.step2_completed_at if r else None,
+        "step3_approved": bool(r and r.step3_approved_at),
+        "step3_approved_at": r.step3_approved_at if r else None,
+        "disputed": bool(r and r.disputed_at),
+        "disputed_at": r.disputed_at if r else None,
+        "dispute_reason": r.dispute_reason if r else None,
+    }
+
+
 def raise_dispute(db: Session, job_id: str, haulier_id: str, dispute_reason: str) -> ComplianceRecord:
     """Haulier raises a dispute on the delivery submission."""
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()

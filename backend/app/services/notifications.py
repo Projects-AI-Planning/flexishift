@@ -30,6 +30,20 @@ async def create_notification(
         if user and user.push_token:
             await fcm.send_push(user.push_token, title, body, data)
 
+    # Real-time push via WebSocket if user is connected
+    try:
+        from app.core.connection_manager import manager
+        await manager.push_to_user(user_id, {
+            "event": "notification",
+            "id": notif.id,
+            "type": type,
+            "title": title,
+            "body": body,
+            "data": data,
+        })
+    except Exception:
+        pass
+
     return notif
 
 
