@@ -2,8 +2,6 @@
 
 Digital freight-brokerage platform connecting Hauliers with verified Drivers and Transport Firms.
 
-<<<<<<< HEAD
-=======
 ## Project Structure
 
 - **`backend/`**: Python FastAPI backend with MySQL, Redis, and Celery.
@@ -11,7 +9,6 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 - **`mobile/`**: React Native application for the Driver mobile app.
 - **`docs/`**: Comprehensive project documentation, diagrams, and phase reports.
 
->>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
 ## Document Index
 
 ### Phase 1 – Initiation
@@ -23,7 +20,7 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 | Stakeholder Register | [docs/phase1-initiation/stakeholder-register.md](docs/phase1-initiation/stakeholder-register.md) |
 
 ### Phase 2 – Requirements
-| Document | Path |
+| Document | Path |backend/frontend
 |---|---|
 | Business Requirements Document (BRD) | [docs/phase2-requirements/business-requirements-document.md](docs/phase2-requirements/business-requirements-document.md) |
 | Software Requirements Specification (SRS) | [docs/phase2-requirements/software-requirements-specification.md](docs/phase2-requirements/software-requirements-specification.md) |
