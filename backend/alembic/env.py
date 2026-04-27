@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """
 FreightFlex – Alembic Environment Configuration
 Handles both online and offline migration modes
@@ -48,39 +49,65 @@ from app.models.notification import Notification
 target_metadata = Base.metadata
 
 # ── Override DB URL from app config ───────────────────────────────────────────
+=======
+from logging.config import fileConfig
+from sqlalchemy import engine_from_config, pool
+from alembic import context
+
+config = context.config
+if config.config_file_name:
+    fileConfig(config.config_file_name)
+
+from app.config import settings
+from app.database import Base
+import app.models  # noqa: F401 — registers all models with Base metadata
+
+target_metadata = Base.metadata
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 def run_migrations_offline() -> None:
+<<<<<<< HEAD
     """
     Run migrations in offline mode.
     Does not require a live DB connection.
     Generates SQL script instead.
     """
+=======
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+<<<<<<< HEAD
         compare_type=True,
         compare_server_default=True,
     )
 
+=======
+    )
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
+<<<<<<< HEAD
     """
     Run migrations in online mode.
     Requires a live DB connection.
     """
+=======
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+<<<<<<< HEAD
 
     with connectable.connect() as connection:
         context.configure(
@@ -90,6 +117,10 @@ def run_migrations_online() -> None:
             compare_server_default=True,
         )
 
+=======
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
         with context.begin_transaction():
             context.run_migrations()
 
@@ -97,4 +128,8 @@ def run_migrations_online() -> None:
 if context.is_offline_mode():
     run_migrations_offline()
 else:
+<<<<<<< HEAD
     run_migrations_online()
+=======
+    run_migrations_online()
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528

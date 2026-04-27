@@ -2,6 +2,16 @@
 
 Digital freight-brokerage platform connecting Hauliers with verified Drivers and Transport Firms.
 
+<<<<<<< HEAD
+=======
+## Project Structure
+
+- **`backend/`**: Python FastAPI backend with MySQL, Redis, and Celery.
+- **`frontend/`**: React.js (Vite + TypeScript) web application for Haulier and Admin dashboards.
+- **`mobile/`**: React Native application for the Driver mobile app.
+- **`docs/`**: Comprehensive project documentation, diagrams, and phase reports.
+
+>>>>>>> 82ea429cf7a4f2f184df450b98ade63816a05528
 ## Document Index
 
 ### Phase 1 – Initiation
