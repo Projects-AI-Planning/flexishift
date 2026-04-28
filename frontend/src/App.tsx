@@ -18,22 +18,28 @@ import HaulierJobsPage from './pages/haulier/Jobs';
 // Shared
 import SettingsPage from './pages/shared/Settings';
 
+const normalizeRole = (role?: string) => (
+  role === 'SUPPLIER' || role === 'FIRM' ? 'HAULIER' : role
+);
+
 const ProtectedRoute = ({ children, role }: { children: React.ReactNode, role?: string }) => {
   const { user, isLoading } = useAuth();
+  const userRole = normalizeRole(user?.role);
 
   if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FreightFlex...</div>;
-  if (!user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (role && userRole !== role) return <Navigate to="/" replace />;
 
   return <Layout>{children}</Layout>;
 };
 
 function AppRoutes() {
   const { user } = useAuth();
+  const userRole = normalizeRole(user?.role);
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       
       {/* Admin Section */}
       <Route 
@@ -70,9 +76,9 @@ function AppRoutes() {
 
       <Route path="/" element={
         user ? (
-          <Navigate to={user.role === 'ADMIN' ? '/admin' : '/haulier'} />
+          <Navigate to={userRole === 'ADMIN' ? '/admin' : '/haulier'} replace />
         ) : (
-          <Navigate to="/login" />
+          <Navigate to="/login" replace />
         )
       } />
     </Routes>

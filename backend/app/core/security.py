@@ -22,12 +22,18 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(user_id: str, role: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
     payload = {"sub": user_id, "role": role, "exp": expire}
-    return jwt.encode(payload, settings.JWT_PRIVATE_KEY, algorithm="RS256")
+    algorithm = settings.JWT_ALGORITHM.upper()
+    if algorithm == "RS256":
+        return jwt.encode(payload, settings.JWT_PRIVATE_KEY, algorithm=algorithm)
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=algorithm)
 
 
 def decode_access_token(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.JWT_PUBLIC_KEY, algorithms=["RS256"])
+        algorithm = settings.JWT_ALGORITHM.upper()
+        if algorithm == "RS256":
+            return jwt.decode(token, settings.JWT_PUBLIC_KEY, algorithms=[algorithm])
+        return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[algorithm])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 

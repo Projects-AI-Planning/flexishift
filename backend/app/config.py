@@ -20,8 +20,10 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = ""
 
-    JWT_PRIVATE_KEY: str
-    JWT_PUBLIC_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_SECRET_KEY: str = "dev-secret-change-me"
+    JWT_PRIVATE_KEY: str = ""
+    JWT_PUBLIC_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_HOURS: int = 24
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 

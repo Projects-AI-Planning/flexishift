@@ -1,23 +1,55 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import client from '../api/client';
 import { Truck } from 'lucide-react';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login for now - ideally call backend POST /auth/login
-    // For development, we'll allow an 'admin@example.com' to login as ADMIN
-    const role = email.includes('admin') ? 'ADMIN' : 'SUPPLIER';
-    login('mock-token', {
-      userId: '1',
-      email,
-      name: email.split('@')[0],
-      role: role as any
-    });
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const loginResponse = await client.post('/auth/login', { email, password });
+      const authData = loginResponse.data?.data;
+      const accessToken = authData?.accessToken;
+      const refreshToken = authData?.refreshToken ?? null;
+
+      if (!accessToken) {
+        throw new Error('Login response did not include an access token.');
+      }
+
+      const profileResponse = await client.get('/profile/me', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const profile = profileResponse.data?.data;
+
+      login(accessToken, refreshToken, {
+        userId: profile?.userId ?? authData?.userId,
+        email: profile?.email ?? email,
+        name: profile?.name ?? email.split('@')[0],
+        role: profile?.role ?? authData?.role,
+      });
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.message || err.response?.data?.detail || 'Login failed');
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Login failed');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -54,17 +86,23 @@ const Login: React.FC = () => {
               required
             />
           </div>
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          ) : null}
           <button 
             type="submit"
+            disabled={isSubmitting}
             className="w-full bg-navy text-white font-bold py-3 rounded-lg hover:bg-navy/90 transition-colors shadow-md"
           >
-            Sign In
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
         
         <div className="mt-8 text-center text-xs text-gray-400">
           <p>FreightFlex Logistics Platform v1.0</p>
-          <p className="mt-1">Use 'admin@' in email to login as Admin</p>
+          <p className="mt-1">Use a real backend account to sign in</p>
         </div>
       </div>
     </div>

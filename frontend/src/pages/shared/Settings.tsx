@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Shield, Bell, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import adminService from '../../api/adminService';
-import { SystemConfig } from '../../types';
+import type { SystemConfig } from '../../types';
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuth();
