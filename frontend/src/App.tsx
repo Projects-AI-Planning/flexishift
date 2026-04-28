@@ -13,6 +13,7 @@ import AdminJobsPage from './pages/admin/Jobs';
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
 import FleetPage from './pages/haulier/Fleet';
+import HaulierJobsPage from './pages/haulier/Jobs';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
@@ -38,7 +39,7 @@ function AppRoutes() {
       <Route 
         path="/admin/*" 
         element={
-          // <ProtectedRoute role="ADMIN">
+          <ProtectedRoute role="ADMIN">
             <Routes>
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UsersPage />} />
@@ -47,7 +48,7 @@ function AppRoutes() {
               <Route path="jobs" element={<AdminJobsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Routes>
-          // </ProtectedRoute>
+          </ProtectedRoute>
         } 
       />
 
@@ -58,7 +59,7 @@ function AppRoutes() {
           <ProtectedRoute role="SUPPLIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
-              <Route path="jobs" element={<AdminJobsPage />} /> {/* Reusing list view for now */}
+              <Route path="jobs" element={<HaulierJobsPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="fleet" element={<FleetPage />} />
               <Route path="profile" element={<SettingsPage />} />

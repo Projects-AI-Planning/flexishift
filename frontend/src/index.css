@@ -5,6 +5,30 @@
   --color-amber: #F2994A;
   --color-surface: #F8F9FA;
   --font-inter: "Inter", sans-serif;
+
+  /* Stitch Admin Theme Colors */
+  --color-primary: #041627;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1a2b3c;
+  --color-on-primary-container: #8192a7;
+  --color-secondary: #904d00;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #ffa454;
+  --color-on-secondary-container: #713b00;
+  --color-tertiary: #211200;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #38260b;
+  --color-on-tertiary-container: #a88c69;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-on-background: #191c1d;
+  --color-on-surface: #191c1d;
+  --color-surface-variant: #e1e3e4;
+  --color-on-surface-variant: #44474c;
+  --color-outline: #74777d;
+  --color-outline-variant: #c4c6cd;
 }
 
 :root {
@@ -12,9 +36,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,10 +48,8 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
   background-color: var(--color-surface);
-  color: var(--color-navy);
+  color: var(--color-on-surface);
 }

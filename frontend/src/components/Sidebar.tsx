@@ -1,80 +1,91 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  Truck, 
-  LogOut,
-  Settings,
-  CreditCard,
-  Boxes
-} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
 
   const adminLinks = [
-    { to: '/admin', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { to: '/admin/users', icon: <Users size={20} />, label: 'Users' },
-    { to: '/admin/documents', icon: <FileText size={20} />, label: 'Documents' },
-    { to: '/admin/jobs', icon: <Truck size={20} />, label: 'All Jobs' },
-    { to: '/admin/payments', icon: <CreditCard size={20} />, label: 'Financials' },
-    { to: '/admin/settings', icon: <Settings size={20} />, label: 'Settings' },
+    { to: '/admin', icon: 'dashboard', label: 'Dashboard' },
+    { to: '/admin/users', icon: 'group', label: 'User Management' },
+    { to: '/admin/jobs', icon: 'local_shipping', label: 'Live Jobs' },
+    { to: '/admin/documents', icon: 'verified_user', label: 'Verifications' },
+    { to: '/admin/payments', icon: 'payments', label: 'Revenue Reports' },
+    { to: '/admin/settings', icon: 'settings', label: 'Settings' },
   ];
 
   const haulierLinks = [
-    { to: '/haulier', icon: <LayoutDashboard size={20} />, label: 'Overview' },
-    { to: '/haulier/jobs', icon: <Truck size={20} />, label: 'My Jobs' },
-    { to: '/haulier/fleet', icon: <Boxes size={20} />, label: 'Fleet' },
-    { to: '/haulier/payments', icon: <CreditCard size={20} />, label: 'Payments' },
-    { to: '/haulier/profile', icon: <Settings size={20} />, label: 'Profile' },
+    { to: '/haulier', icon: 'dashboard', label: 'Dashboard' },
+    { to: '/haulier/jobs', icon: 'local_shipping', label: 'Shipments' },
+    { to: '/haulier/fleet', icon: 'manage_accounts', label: 'Fleet Management' },
+    { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
+    { to: '/haulier/profile', icon: 'settings', label: 'Account Settings' },
   ];
 
   const links = user?.role === 'ADMIN' ? adminLinks : haulierLinks;
 
   return (
-    <div className="w-64 bg-navy text-white h-screen flex flex-col fixed left-0 top-0 overflow-y-auto">
-      <div className="p-6 text-xl font-bold border-b border-white/10 flex items-center gap-2">
-        <div className="w-8 h-8 bg-amber rounded flex items-center justify-center text-navy font-black text-sm">FF</div>
-        <span className="tracking-tight">FreightFlex</span>
+    <aside className="w-64 h-screen fixed left-0 top-0 z-50 bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col h-full gap-2 antialiased">
+      <div className="px-6 py-8">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-amber-500 rounded flex items-center justify-center">
+            <span className="material-symbols-outlined text-slate-900 font-bold">local_shipping</span>
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white uppercase">FreightFlex</h1>
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+              {user?.role === 'ADMIN' ? 'Admin Panel' : 'Haulier Portal'}
+            </p>
+          </div>
+        </div>
       </div>
       
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 px-2 space-y-1">
         {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
             end={link.to === '/admin' || link.to === '/haulier'}
             className={({ isActive }) => 
-              `flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+              `flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all duration-200 font-bold text-sm ${
                 isActive 
-                  ? 'bg-amber text-navy font-bold shadow-lg shadow-amber/20' 
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/10' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`
             }
           >
-            {link.icon}
-            <span className="text-sm tracking-wide">{link.label}</span>
+            <span className="material-symbols-outlined">{link.icon}</span>
+            <span>{link.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10 mt-auto bg-navy">
-        <div className="mb-4 px-3 py-2 bg-white/5 rounded-lg">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Logged in as</p>
-          <p className="text-xs font-bold truncate">{user?.name}</p>
+      <div className="mt-auto p-4 bg-slate-800/30 m-4 rounded-xl border border-slate-700/50">
+        <div className="flex items-center gap-3 mb-4 px-2">
+          <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-black text-xs">
+            {user?.name?.charAt(0) || 'U'}
+          </div>
+          <div className="overflow-hidden">
+            <p className="text-white text-xs font-bold truncate">{user?.name}</p>
+            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-tighter">{user?.role}</p>
+          </div>
         </div>
         <button 
           onClick={logout}
-          className="flex items-center gap-3 p-3 w-full rounded-lg hover:bg-red-500/10 transition-colors text-left text-gray-400 hover:text-red-400"
+          className="w-full bg-slate-800 hover:bg-red-500/10 text-slate-400 hover:text-red-400 font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
         >
-          <LogOut size={20} />
-          <span className="text-sm font-medium">Logout</span>
+          <span className="material-symbols-outlined text-sm">logout</span>
+          Logout
         </button>
       </div>
-    </div>
+
+      <div className="px-4 pb-6">
+        <a className="flex items-center gap-3 text-slate-500 hover:text-white px-4 py-2 mx-2 transition-colors text-xs font-bold" href="#">
+          <span className="material-symbols-outlined text-sm">help</span>
+          <span>Support</span>
+        </a>
+      </div>
+    </aside>
   );
 };
 
