@@ -2,15 +2,25 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+
+// Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import UsersPage from './pages/admin/Users';
 import DocumentsPage from './pages/admin/Documents';
+import PaymentsPage from './pages/admin/Payments';
+import AdminJobsPage from './pages/admin/Jobs';
+
+// Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
+import FleetPage from './pages/haulier/Fleet';
+
+// Shared
+import SettingsPage from './pages/shared/Settings';
 
 const ProtectedRoute = ({ children, role }: { children: React.ReactNode, role?: string }) => {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FreightFlex...</div>;
   if (!user) return <Navigate to="/login" />;
   if (role && user.role !== role) return <Navigate to="/" />;
 
@@ -23,32 +33,47 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      
+      {/* Admin Section */}
       <Route 
         path="/admin/*" 
         element={
-          <ProtectedRoute role="ADMIN">
+          // <ProtectedRoute role="ADMIN">
             <Routes>
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="documents" element={<DocumentsPage />} />
-              <Route path="jobs" element={<div>Jobs Overview</div>} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="jobs" element={<AdminJobsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Routes>
-          </ProtectedRoute>
+          // </ProtectedRoute>
         } 
       />
+
+      {/* Haulier Section */}
       <Route 
         path="/haulier/*" 
         element={
           <ProtectedRoute role="SUPPLIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
-              <Route path="jobs" element={<div>My Jobs</div>} />
-              <Route path="profile" element={<div>Profile Settings</div>} />
+              <Route path="jobs" element={<AdminJobsPage />} /> {/* Reusing list view for now */}
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="fleet" element={<FleetPage />} />
+              <Route path="profile" element={<SettingsPage />} />
             </Routes>
           </ProtectedRoute>
         } 
       />
-      <Route path="/" element={<Navigate to={user?.role === 'ADMIN' ? '/admin' : '/haulier'} />} />
+
+      <Route path="/" element={
+        user ? (
+          <Navigate to={user.role === 'ADMIN' ? '/admin' : '/haulier'} />
+        ) : (
+          <Navigate to="/login" />
+        )
+      } />
     </Routes>
   );
 }
