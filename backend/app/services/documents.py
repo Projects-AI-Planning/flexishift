@@ -49,8 +49,10 @@ def review_document(db: Session, doc_id: str, admin: User, status: str, rejectio
     return doc
 
 
-def list_pending_documents(db: Session, page: int = 1, per_page: int = 20) -> dict:
+def list_pending_documents(db: Session, page: int = 1, per_page: int = 20, doc_type: str | None = None) -> dict:
     q = db.query(Document).filter(Document.status == DocStatus.PENDING)
+    if doc_type:
+        q = q.filter(Document.doc_type == DocType(doc_type.upper()))
     total = q.count()
     items = q.order_by(Document.created_at.asc()).offset((page - 1) * per_page).limit(per_page).all()
     return {"items": items, "total": total}

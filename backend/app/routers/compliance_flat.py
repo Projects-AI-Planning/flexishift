@@ -389,40 +389,7 @@ def get_delivery_status(
 
 # ── Disputes ──────────────────────────────────────────────────────────────────
 
-class ResolveDisputeRequest(BaseModel):
-    resolution: str
-    notes: Optional[str] = None
-    expected_resolution_by: Optional[str] = Field(None, alias="expectedResolutionBy")
-    model_config = {"populate_by_name": True}
-
-
-@router.get("/dispute/list")
-def list_disputes(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
-):
-    q = db.query(Job).filter(Job.status == JobStatus.DISPUTED, Job.deleted_at.is_(None))
-    total = q.count()
-    items = q.order_by(Job.updated_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
-    dispute_items = []
-    for j in items:
-        record = j.compliance
-        dispute_items.append({
-            "disputeId": record.id if record else None,
-            "jobId": j.id,
-            "jobRef": j.job_ref,
-            "status": j.status.value,
-            "disputeReason": record.dispute_reason if record else None,
-            "disputedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
-            "updatedAt": j.updated_at.isoformat() if j.updated_at else None,
-        })
-    return ok(
-        data={"items": dispute_items, "total": total, "page": page, "perPage": per_page},
-        message="Disputes retrieved",
-    )
-
+from app.schemas.admin import ResolveDisputeRequest
 
 @router.put("/dispute/resolve/{job_id}")
 def resolve_dispute(
@@ -431,17 +398,25 @@ def resolve_dispute(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    record = comp_svc.resolve_dispute(db, job_id, body.resolution, body.notes)
+    record = comp_svc.resolve_dispute(
+        db, job_id,
+        resolution=body.resolution,
+        notes=body.admin_note,
+        refund_amount=body.refund_amount,
+        release_amount=body.release_amount
+    )
     return ok(
         data={
             "disputeId": record.id,
             "jobId": job_id,
             "resolution": body.resolution,
-            "notes": body.notes,
-            "step3ApprovedAt": record.step3_approved_at.isoformat() if record.step3_approved_at else None,
-            "expectedResolutionBy": body.expected_resolution_by,
+            "refundAmount": body.refund_amount,
+            "releaseAmount": body.release_amount,
+            "adminNote": body.admin_note,
+            "status": "resolved",
+            "resolvedAt": record.step3_approved_at.isoformat() if record.step3_approved_at else None,
         },
-        message="Dispute resolved",
+        message="Dispute resolved successfully",
     )
 
 

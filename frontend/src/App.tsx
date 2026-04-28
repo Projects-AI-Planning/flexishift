@@ -56,7 +56,7 @@ function AppRoutes() {
       <Route 
         path="/haulier/*" 
         element={
-          <ProtectedRoute role="SUPPLIER">
+          <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
               <Route path="jobs" element={<HaulierJobsPage />} />

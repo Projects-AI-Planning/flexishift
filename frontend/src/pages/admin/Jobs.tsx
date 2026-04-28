@@ -12,7 +12,7 @@ const AdminJobsPage: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Active Shipments</h2>
+          <h2 className="text-3xl font-black text-primary tracking-tight">Jobs Monitor</h2>
           <p className="text-on-surface-variant font-medium">Real-time tracking of platform freight movements.</p>
         </div>
         <div className="flex gap-3">
@@ -33,7 +33,13 @@ const AdminJobsPage: React.FC = () => {
                 onClick={() => setParams({ ...params, status: '' })}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${!params.status ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
               >
-                All Shipments
+                All Jobs
+              </button>
+              <button 
+                onClick={() => setParams({ ...params, status: 'OPEN' })}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${params.status === 'OPEN' ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
+              >
+                Open
               </button>
               <button 
                 onClick={() => setParams({ ...params, status: 'IN_TRANSIT' })}
@@ -51,7 +57,7 @@ const AdminJobsPage: React.FC = () => {
           </div>
         </div>
         <div className="bg-primary p-6 rounded-xl shadow-lg text-white flex flex-col justify-center">
-          <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Total Jobs</p>
+          <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Live Jobs</p>
           <div className="flex items-end gap-2 mt-1">
             <span className="text-3xl font-black">{data?.total || 0}</span>
           </div>
@@ -72,7 +78,8 @@ const AdminJobsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <h3 className="font-black text-primary tracking-tight">{shipment.jobReference}</h3>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                        shipment.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'
+                        shipment.status === 'completed' || shipment.status === 'delivered' ? 'bg-green-100 text-green-700 border-green-200' : 
+                        shipment.status === 'in_transit' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'
                       }`}>
                         {shipment.status}
                       </span>
@@ -87,11 +94,11 @@ const AdminJobsPage: React.FC = () => {
                   <div className="flex flex-col gap-3">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Origin</p>
-                      <p className="text-sm font-bold text-primary truncate">{shipment.pickupLocation || 'N/A'}</p>
+                      <p className="text-sm font-bold text-primary truncate">{shipment.pickupLocation?.address || shipment.pickupLocation || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destination</p>
-                      <p className="text-sm font-bold text-primary truncate">{shipment.dropLocation || 'N/A'}</p>
+                      <p className="text-sm font-bold text-primary truncate">{shipment.dropLocation?.address || shipment.dropLocation || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -119,7 +126,7 @@ const AdminJobsPage: React.FC = () => {
                   </div>
                 </div>
                 <button className="text-xs font-black text-amber-600 hover:text-amber-700 transition-colors uppercase tracking-wider">
-                  Live Tracking
+                  View Details
                 </button>
               </div>
             </div>
@@ -150,7 +157,5 @@ const AdminJobsPage: React.FC = () => {
     </div>
   );
 };
-
-export default AdminJobsPage;
 
 export default AdminJobsPage;

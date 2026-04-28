@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 // Mock hook for structural consistency
 const useFleet = () => {
-  const [data, setData] = useState<any>({
+  const [data] = useState<any>({
     vehicles: [
       { id: '1', plate: 'LX72 BNX', type: '40ft Curtainsider', status: 'On Route', driver: 'M. Thompson', statusColor: 'bg-blue-100 text-blue-700' },
       { id: '2', plate: 'FF68 FLEX', type: 'Refrigerated Unit', status: 'Available', driver: 'S. Richards', statusColor: 'bg-green-100 text-green-700' },
@@ -14,7 +14,7 @@ const useFleet = () => {
       { id: 3, name: 'James Wilson', license: 'C (Class 2)', status: 'Active', statusColor: 'bg-green-100 text-green-700', phone: '+44 7700 900789', avatar: 'https://i.pravatar.cc/150?u=james' },
     ]
   });
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   return { data, loading };
 };
 
@@ -27,6 +27,7 @@ const FleetPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-primary tracking-tight">Fleet & Personnel</h2>
           <p className="text-on-surface-variant font-medium">Manage your vehicles and driver assignments.</p>
@@ -74,7 +75,7 @@ const FleetPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {vehicles.map((v) => (
+                {data.vehicles.map((v: any) => (
                   <tr key={v.id} className="hover:bg-slate-50/50 transition-colors text-sm">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -117,7 +118,7 @@ const FleetPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {drivers.map((d) => (
+                {data.drivers.map((d: any) => (
                   <tr key={d.id} className="hover:bg-slate-50/50 transition-colors text-sm">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
