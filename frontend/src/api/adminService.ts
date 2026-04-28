@@ -90,5 +90,5 @@ const adminService = {
   deleteFile: (fileId: string) => client.delete(`/files/delete/${fileId}`).then(res => res.data),
   getSignedUrl: (fileId: string) => client.get(`/files/get/${fileId}`).then(res => res.data.data),
 };
-
+//latest
 export default adminService;
