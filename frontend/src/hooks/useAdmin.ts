@@ -59,7 +59,7 @@ export const useAdminJobs = (params?: any) => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const result = await adminService.listJobs(params);
+      const result = await adminService.monitorJobs(params);
       setData(result);
     } catch (err) {
       setError('Failed to load jobs monitor');
@@ -75,6 +75,30 @@ export const useAdminJobs = (params?: any) => {
   return { data, loading, error, refresh: fetchJobs };
 };
 
+export const useAdminDisputes = (params?: any) => {
+  const [data, setData] = useState<{ items: any[], total: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDisputes = async () => {
+    try {
+      setLoading(true);
+      const result = await adminService.listDisputes(params);
+      setData(result);
+    } catch (err) {
+      setError('Failed to load disputes list');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDisputes();
+  }, [JSON.stringify(params)]);
+
+  return { data, loading, error, refresh: fetchDisputes };
+};
+
 export const useAdminVerifications = (params?: any) => {
   const [data, setData] = useState<{ pendingVerifications: any[], totalPending: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,7 +107,7 @@ export const useAdminVerifications = (params?: any) => {
   const fetchVerifications = async () => {
     try {
       setLoading(true);
-      const result = await adminService.listPendingVerifications(params);
+      const result = await adminService.getPendingVerifications(params);
       setData(result);
     } catch (err) {
       setError('Failed to load pending verifications');
@@ -107,7 +131,7 @@ export const useAdminRevenue = (params?: any) => {
   const fetchRevenue = async () => {
     try {
       setLoading(true);
-      const result = await adminService.getStats(); // Reusing stats or creating specific one
+      const result = await adminService.getRevenueReport(params);
       setData(result);
     } catch (err) {
       setError('Failed to load revenue data');
@@ -118,7 +142,7 @@ export const useAdminRevenue = (params?: any) => {
 
   useEffect(() => {
     fetchRevenue();
-  }, []);
+  }, [JSON.stringify(params)]);
 
   return { data, loading, error, refresh: fetchRevenue };
 };

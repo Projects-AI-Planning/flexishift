@@ -182,13 +182,16 @@ def release_escrow(
     return ok(data=_payment_dict(p), message="Payment released")
 
 
+from app.schemas.admin import ProcessRefundRequest
+
 @flat.post("/refund/{booking_id}")
 def refund_payment_flat(
     booking_id: str,
+    body: ProcessRefundRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.ADMIN)),
 ):
-    p = pay_svc.refund_payment(db, booking_id, current_user.id)
+    p = pay_svc.refund_payment(db, booking_id, current_user.id, amount=body.refund_amount, reason=body.reason)
     return ok(data=_payment_dict(p), message="Payment refunded")
 
 

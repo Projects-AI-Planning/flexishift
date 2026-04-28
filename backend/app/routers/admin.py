@@ -10,7 +10,7 @@ from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.document import Document, DocStatus
 from app.schemas.documents import DocumentReviewRequest
-from app.schemas.admin import UpdateUserStatusRequest
+from app.schemas.admin import UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
 from app.services import documents as doc_svc
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -102,20 +102,21 @@ def update_user_status(
     return ok(data={"userId": user_id, "status": body.status}, message="User status updated")
 
 
-@router.get("/documents")
+@router.get("/documents/pending")
 def list_pending_documents(
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
+    document_type: str = Query(None, alias="documentType"),
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    result = doc_svc.list_pending_documents(db, page, per_page)
+    result = doc_svc.list_pending_documents(db, page, limit, document_type)
     return ok(
         data={
             "items": [_doc_dict(d) for d in result.get("items", [])],
             "total": result.get("total", 0),
             "page": page,
-            "perPage": per_page,
+            "perPage": limit,
         },
         message="Pending documents retrieved",
     )
@@ -135,21 +136,22 @@ def review_document(
 @router.put("/documents/approve/{doc_id}")
 def approve_document(
     doc_id: str,
+    body: ApproveDocumentRequest = ApproveDocumentRequest(),
     db: Session = Depends(get_db),
     admin: User = Depends(AdminDep),
 ):
-    doc = doc_svc.review_document(db, doc_id, admin, "APPROVED", None)
+    doc = doc_svc.review_document(db, doc_id, admin, "APPROVED", body.remarks)
     return ok(data=_doc_dict(doc), message="Document approved")
 
 
 @router.put("/documents/reject/{doc_id}")
 def reject_document(
     doc_id: str,
-    reason: str,
+    body: RejectDocumentRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(AdminDep),
 ):
-    doc = doc_svc.review_document(db, doc_id, admin, "REJECTED", reason)
+    doc = doc_svc.review_document(db, doc_id, admin, "REJECTED", body.rejection_reason)
     return ok(data=_doc_dict(doc), message="Document rejected")
 
 

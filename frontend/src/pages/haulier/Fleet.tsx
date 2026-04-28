@@ -78,7 +78,6 @@ const useFleet = () => {
     ],
   });
   const [loading] = useState(false);
-
   return { data, loading };
 };
 
