@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vehicle Handover Check - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#2f1500",
+                        "surface-container-highest": "#e1e3e4",
+                        "secondary-container": "#ffa454",
+                        "surface-dim": "#d9dadb",
+                        "surface-variant": "#e1e3e4",
+                        "on-tertiary-container": "#a88c69",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "primary": "#041627",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#44474c",
+                        "on-primary-fixed": "#0b1d2d",
+                        "on-surface": "#191c1d",
+                        "surface-container-high": "#e7e8e9",
+                        "outline-variant": "#c4c6cd",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "on-primary-fixed-variant": "#38485a",
+                        "on-secondary": "#ffffff",
+                        "outline": "#74777d",
+                        "on-tertiary-fixed": "#281802",
+                        "background": "#f8f9fa",
+                        "tertiary-container": "#38260b",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#feddb5",
+                        "primary-fixed": "#d2e4fb",
+                        "primary-fixed-dim": "#b7c8de",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1d",
+                        "tertiary": "#211200",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#4f6073",
+                        "secondary-fixed": "#ffdcc3",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "primary-container": "#1a2b3c",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "inverse-on-surface": "#f0f1f2",
+                        "surface": "#f8f9fa",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-container": "#edeeef",
+                        "on-secondary-container": "#713b00",
+                        "on-primary-container": "#8192a7",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#b7c8de",
+                        "inverse-surface": "#2e3132",
+                        "secondary": "#904d00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .signature-pad {
+            background-image: radial-gradient(circle, #e1e3e4 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- SideNavBar Component -->
+<nav class="fixed left-0 top-0 h-full flex flex-col z-40 bg-[#041627] dark:bg-slate-950 h-screen w-64 border-r border-slate-800 shadow-xl font-['Inter'] text-sm font-medium antialiased">
+<div class="p-6">
+<div class="text-xl font-bold text-white tracking-tight mb-2">Logistics Core</div>
+<div class="text-on-primary-container text-xs uppercase tracking-widest mb-8">Haulier Portal</div>
+<button class="w-full bg-[#ffa454] text-[#041627] font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 mb-8 transition-all duration-200 ease-in-out hover:translate-x-1">
+<span class="material-symbols-outlined">add_circle</span>
+                Post New Job
+            </button>
+<div class="space-y-1">
+<a class="text-slate-400 hover:text-white px-4 py-3 flex items-center gap-3 transition-colors hover:bg-[#1a2b3c] group" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Dashboard
+                </a>
+<a class="bg-[#1a2b3c] text-[#ffa454] border-l-4 border-[#ffa454] px-4 py-3 flex items-center gap-3 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+                    Shipments
+                </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 flex items-center gap-3 transition-colors hover:bg-[#1a2b3c] group" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+                    Escrow Payments
+                </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 flex items-center gap-3 transition-colors hover:bg-[#1a2b3c] group" href="#">
+<span class="material-symbols-outlined" data-icon="conveyor_belt">conveyor_belt</span>
+                    Fleet
+                </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 flex items-center gap-3 transition-colors hover:bg-[#1a2b3c] group" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                    Analytics
+                </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 flex items-center gap-3 transition-colors hover:bg-[#1a2b3c] group" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                    Payments
+                </a>
+</div>
+</div>
+<div class="mt-auto p-6 border-t border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
+<img alt="Dispatcher Profile" class="w-full h-full object-cover" data-alt="Close-up professional headshot of a logistics dispatcher in a clean office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBh2eomRdEaLA741VNwEZfbe9ALnSB_yWbWt3E_ESLr87drZRkZRFdjebauf3cpjqlWXQXOdZ-4zIkb-aV3MEh50RnBSpBlN4bG2T-8loa_b6xrwCmnXbn6en9Z1zx7a83LzuVm_Y4L3KEv4Ea4yTI9xBl5ulc1oRGHIiKwKHEdju9oOCHtIuNX6mSRhxT0e8vXAHegUaj5N1eHmL1HrEcqMPIJWb0FyzYcaIPBD3z50HoTLbAmdjglZDBeC0HhVypTuGE3gB1ss9Q"/>
+</div>
+<div>
+<p class="text-white text-sm font-semibold">Alex Chen</p>
+<p class="text-slate-500 text-xs">Lead Dispatcher</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar Component -->
+<header class="sticky top-0 right-0 flex items-center justify-between px-6 z-30 w-full h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center gap-4">
+<h1 class="font-['Inter'] text-lg font-semibold text-[#041627]">Vehicle Handover Check</h1>
+<span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-xs font-bold">REF: #FR-99203-BX</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-[#ffa454] outline-none" placeholder="Search shipments..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="hover:bg-slate-50 rounded-full p-2 transition-colors relative">
+<span class="material-symbols-outlined text-[#041627]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+<button class="hover:bg-slate-50 rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined text-[#041627]">help_outline</span>
+</button>
+</div>
+</div>
+</header>
+<main class="p-8 max-w-7xl mx-auto w-full">
+<!-- Progress Stepper -->
+<div class="mb-10 flex items-center justify-between max-w-4xl mx-auto">
+<div class="flex flex-col items-center gap-2 relative">
+<div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-xs font-bold text-primary uppercase tracking-tighter">Arrival</span>
+<div class="absolute left-full top-5 w-40 h-0.5 bg-primary"></div>
+</div>
+<div class="flex flex-col items-center gap-2 relative">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container border-4 border-primary flex items-center justify-center ring-4 ring-orange-100">
+<span class="material-symbols-outlined">pending</span>
+</div>
+<span class="text-xs font-bold text-primary uppercase tracking-tighter">Handover</span>
+<div class="absolute left-full top-5 w-40 h-0.5 bg-surface-container-highest"></div>
+</div>
+<div class="flex flex-col items-center gap-2 relative">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-outline flex items-center justify-center">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<span class="text-xs font-bold text-outline-variant uppercase tracking-tighter">Departure</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Checklist & Signatures -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Checklist Bento Grid -->
+<section class="bg-white p-6 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined">rule</span>
+                                Pre-Departure Inspection
+                            </h2>
+<span class="bg-green-100 text-green-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider border border-green-200">All Passed</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white rounded shadow-sm">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">External Lights</p>
+<p class="text-xs text-on-surface-variant">Headlamps, Brakes, Indicators</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white rounded shadow-sm">
+<span class="material-symbols-outlined text-primary">tire_repair</span>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">Tire Integrity</p>
+<p class="text-xs text-on-surface-variant">Pressure &amp; Tread depth</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white rounded shadow-sm">
+<span class="material-symbols-outlined text-primary">water_drop</span>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">Fluid Levels</p>
+<p class="text-xs text-on-surface-variant">Oil, Coolant, AdBlue</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white rounded shadow-sm">
+<span class="material-symbols-outlined text-primary">minor_crash</span>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">Body &amp; Chassis</p>
+<p class="text-xs text-on-surface-variant">No new dents or structural damage</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+</section>
+<!-- Photo Evidence -->
+<section class="bg-white p-6 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100">
+<h2 class="text-xl font-bold text-primary mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined">photo_library</span>
+                            Inspection Gallery
+                        </h2>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="group relative rounded-lg overflow-hidden border border-slate-200 aspect-square bg-slate-100">
+<img class="w-full h-full object-cover" data-alt="front view of a large clean white logistics semi-truck cab in a bright daylight warehouse yard" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9lwDmFEYXDEiAmHFRENansvLECfQezvfSx2wZUogkYO3FmpWfcYdpEWnEPRcJfiwWPilW6yN-YCcNrTBHYF6d1IKLLQXXN2Zb7Z3qFZ4XH62X3hbtp9b9VOURwksZis67dULe5JHxlr9j2Lqfi74mWQCxx9FVX2vpu9-X5d2FFyjalmO7i_6sFw_vBZj9E-A7Az-cFW0mBpDYYKEKqlHqsZUurMgMTGx6sxRI3gcLeLEHDc-nSCvI_lfeDXKZSv_aKmnCJ2XxvEs"/>
+<div class="absolute bottom-0 inset-x-0 bg-primary/80 backdrop-blur-sm p-2">
+<p class="text-[10px] font-bold text-white uppercase text-center">Front View</p>
+</div>
+</div>
+<div class="group relative rounded-lg overflow-hidden border border-slate-200 aspect-square bg-slate-100">
+<img class="w-full h-full object-cover" data-alt="side profile of a long silver logistics trailer parked on asphalt under clear blue sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTFca97vttk4s4PELOropdIwq2RDG8cKZrFhGHZmC7KfEmLve2JOHsrA2mzBAH8J4GrZn4HRnhWbDjPyXtP7u3XMjFX-b1ch_QWhtbX_dm2VkaF8x9nLo9KTzrpqy9s40yPLlDEnw7G-BsJXHcHyLwdodUM-1sutWdMXRmmzKkEyhnigiViC3NF9C_Irt7TimG9dfeViHxQYWh2kk3ENJXebYpHIxNfh7yAvgf-pPIc2IDRdLMBNfE1hAc13E1yT38ej3doOQmzc4"/>
+<div class="absolute bottom-0 inset-x-0 bg-primary/80 backdrop-blur-sm p-2">
+<p class="text-[10px] font-bold text-white uppercase text-center">Side Profile</p>
+</div>
+</div>
+<div class="group relative rounded-lg overflow-hidden border border-slate-200 aspect-square bg-slate-100">
+<img class="w-full h-full object-cover" data-alt="rear view of truck trailer doors closed tight with heavy duty metal latches" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrpZ_77aznOeLgcnrpDmML9zPhdqrr1-aFKOcT6Tcj2DQHu979g9FNd2IFlMh-TK9oO-dq9AKaotGXYSNwNxpeUDytLXTe9rLIpegh33iXGL1J3PywN-3zYDD7ZHkDrG6Ypgtr6GJuwldDiprqDZOlSjzKBdXYJy4sWN1vxMCVRMOF8nsjj8tEB0kgGM-CqBJGXA4R1vs5IAIRjyvquAXPMb82db0Q_GJIPGNYbYegk3caoX4NK06JTxd3giHynnt6XMLapsfOvRw"/>
+<div class="absolute bottom-0 inset-x-0 bg-primary/80 backdrop-blur-sm p-2">
+<p class="text-[10px] font-bold text-white uppercase text-center">Rear Doors</p>
+</div>
+</div>
+<div class="group relative rounded-lg overflow-hidden border border-slate-200 aspect-square bg-slate-100">
+<img class="w-full h-full object-cover" data-alt="interior view of a truck trailer with wooden cargo pallets secured with orange industrial ratchet straps" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRsc1d-T7kQ1s5As5QkDI7f70uNAInVfIDZVvWCSCnbRlo-0EC2W2wIFL1Tg41jOq-oiNqPU_tY_SKvtgL3lHTjf81TH7Nfq4nQdAlEUxcUk49aoJk4Sar0ilYbX3Ovzf--Z4R1hqAirgNP3X2JvREkefvhFnLpY0Z1lPqVGe_7uTjqcW_hyQlV9PmhoeK_zU4y_BCY1nO89VRTRmF6lAHxS61HlmvDlI2PZfV2O6ZsV4TfyQaWZ0p3AiW93uBnvNO6ngXL5U6ChE"/>
+<div class="absolute bottom-0 inset-x-0 bg-primary/80 backdrop-blur-sm p-2">
+<p class="text-[10px] font-bold text-white uppercase text-center">Cargo Secure</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Signatures & Actions -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Driver Signature (Filled) -->
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-primary uppercase">Driver Signature</span>
+<span class="text-[10px] text-on-surface-variant font-medium">VERIFIED 14:22 PM</span>
+</div>
+<div class="bg-white rounded-lg p-4 flex items-center justify-center mb-2 h-24 border border-outline-variant/30">
+<p class="font-['Cedarville_Cursive',_cursive] text-2xl text-primary transform -rotate-2">Marco Rodriguez</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-600 text-sm">verified_user</span>
+<span class="text-[10px] text-on-surface-variant italic">Identity confirmed via Biometric ID-Scan</span>
+</div>
+</div>
+<!-- Haulier Signature Pad (Active) -->
+<div class="bg-white p-6 rounded-xl shadow-lg border-2 border-secondary-container">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-on-secondary-container uppercase">Haulier Confirmation Required</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-4">I hereby confirm that I have inspected the vehicle and load, and accept responsibility for the shipment #FR-99203-BX.</p>
+<div class="signature-pad w-full h-48 rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center relative cursor-crosshair group overflow-hidden">
+<div class="absolute inset-0 bg-white/10 group-hover:bg-transparent transition-colors"></div>
+<span class="material-symbols-outlined text-outline-variant text-4xl mb-2">draw</span>
+<p class="text-xs font-medium text-outline">Sign here to authorize</p>
+</div>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-2 px-4 rounded-lg border border-outline-variant text-xs font-bold hover:bg-slate-50 transition-colors uppercase">Clear</button>
+<button class="flex-[2] py-2 px-4 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-container transition-colors uppercase">Save Sign</button>
+</div>
+</div>
+<!-- Final Action -->
+<div class="space-y-4 pt-4">
+<button class="w-full bg-slate-200 text-slate-400 py-5 rounded-xl font-bold text-lg flex items-center justify-center gap-3 cursor-not-allowed border-b-4 border-slate-300" disabled="">
+                            Confirm &amp; Start Trip
+                            <span class="material-symbols-outlined">lock</span>
+</button>
+<p class="text-[10px] text-center text-on-surface-variant px-8">
+                            Awaiting Haulier signature. Once confirmed, the digital manifest will be issued and the trip timer will commence.
+                        </p>
+</div>
+<!-- Metadata Card -->
+<div class="p-4 bg-surface-container rounded-lg border border-outline-variant/50">
+<div class="space-y-3">
+<div class="flex justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Vehicle ID</span>
+<span class="text-xs font-bold text-primary">SCANIA-R500-2024</span>
+</div>
+<div class="flex justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Registration</span>
+<span class="text-xs font-bold text-primary">K-BH 8802</span>
+</div>
+<div class="flex justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Load Weight</span>
+<span class="text-xs font-bold text-primary">24,500 KG</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

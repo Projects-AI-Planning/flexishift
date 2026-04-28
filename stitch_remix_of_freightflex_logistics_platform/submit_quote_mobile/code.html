@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"primary-fixed-dim": "#b7c8de", "tertiary-fixed-dim": "#e1c29b", "on-primary": "#ffffff", "surface-bright": "#f8f9fa", "tertiary-fixed": "#feddb5", "on-tertiary-container": "#a88c69", "on-secondary-fixed": "#2f1500", "on-surface-variant": "#44474c", "on-secondary-container": "#713b00", "primary-container": "#1a2b3c", primary: "#041627", "on-error-container": "#93000a", "surface-container-high": "#e7e8e9", "secondary-container": "#ffa454", "surface-tint": "#4f6073", "inverse-surface": "#2e3132", "on-error": "#ffffff", outline: "#74777d", background: "#f8f9fa", "outline-variant": "#c4c6cd", error: "#ba1a1a", "surface-dim": "#d9dadb", "on-primary-fixed": "#0b1d2d", tertiary: "#211200", "tertiary-container": "#38260b", "surface-container-lowest": "#ffffff", "on-primary-container": "#8192a7", secondary: "#904d00", "inverse-primary": "#b7c8de", "on-primary-fixed-variant": "#38485a", "on-tertiary-fixed-variant": "#584326", "on-surface": "#191c1d", "surface-container": "#edeeef", "surface-container-highest": "#e1e3e4", "secondary-fixed": "#ffdcc3", "on-background": "#191c1d", "surface-variant": "#e1e3e4", "error-container": "#ffdad6", "surface-container-low": "#f3f4f5", surface: "#f8f9fa", "primary-fixed": "#d2e4fb", "on-secondary": "#ffffff", "on-tertiary-fixed": "#281802", "on-tertiary": "#ffffff", "secondary-fixed-dim": "#ffb77d", "on-secondary-fixed-variant": "#6e3900", "inverse-on-surface": "#f0f1f2"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {gutter: "16px", sm: "12px", "margin-desktop": "32px", lg: "40px", md: "24px", base: "8px", xs: "4px", "margin-mobile": "16px"}, fontFamily: {h3: ["Inter"], "body-sm": ["Inter"], "label-bold": ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"], h2: ["Inter"], "stats-display": ["Inter"], h1: ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-b border-slate-100 dark:border-slate-800 docked full-width top-0 sticky z-50">
+<div class="flex items-center px-4 h-16 w-full max-w-7xl mx-auto">
+<button class="mr-4 active:opacity-70 transition-opacity p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-50" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] text-base font-semibold tracking-tight text-slate-900 dark:text-slate-50">Submit Quote</h1>
+<div class="ml-auto">
+<span class="bg-amber-100 text-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Open</span>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+<!-- Reference & Status Hero Section (Mobile First / High Impact) -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+<div>
+<p class="font-label-bold text-on-surface-variant uppercase tracking-widest text-[10px]">Reference Number</p>
+<h2 class="font-h2 text-primary">FR-99203-BX</h2>
+</div>
+<div class="hidden md:flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-500" data-icon="timer" data-weight="fill">timer</span>
+<p class="font-body-sm text-on-surface-variant italic">Bidding ends in 2h 45m</p>
+</div>
+</div>
+<!-- Job Overview Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Route Card (Asymmetric Span) -->
+<div class="md:col-span-2 bg-white rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] overflow-hidden flex flex-col md:flex-row">
+<div class="relative h-48 md:h-full md:w-1/3 min-h-[180px]">
+<img class="absolute inset-0 w-full h-full object-cover" data-alt="Modern satellite view map showing a direct navigation route between two industrial cities with clean blue line overlay" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxWkYRLhCm7mqaTlSkok1jou2fsO1l6QdjxQw1snJTNnauBikJhUJsbJjjLNbRy8Qw7BkYZjrTLG7Z79Ma7LUCA9_hZVNVh5SBxvAxl8B-cOjTMF1gdwup9XwVQUsKgafSmi6zQH7MEwzRPib7mUz1K69B5cRnLZSwg1THIq8M1QuN0ar6kcaK8v63Jw5t5Zs1rvFjfN7fw6mpNLuKwx1VL5yatouS45VheASu960amJGFZjBp78pmrgcLl9tdH0Cxb7UsjKGc0KA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+<div class="absolute bottom-4 left-4 text-white">
+<p class="font-label-bold text-[10px] uppercase">Route</p>
+<p class="font-h3">482 km</p>
+</div>
+</div>
+<div class="p-6 md:w-2/3 flex flex-col justify-center">
+<div class="space-y-6 relative">
+<!-- Origin/Destination Line -->
+<div class="absolute left-2.5 top-2 bottom-2 w-px bg-slate-200"></div>
+<div class="flex items-start gap-4 relative z-10">
+<div class="w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-[10px]" data-icon="circle">circle</span>
+</div>
+<div>
+<p class="font-label-bold text-on-surface-variant text-[10px] uppercase">Pickup: Berlin, DE</p>
+<p class="font-body-lg font-semibold text-primary">Siemens Logistics Hub</p>
+</div>
+</div>
+<div class="flex items-start gap-4 relative z-10">
+<div class="w-5 h-5 bg-amber-400 text-primary rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-[10px]" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="font-label-bold text-on-surface-variant text-[10px] uppercase">Delivery: Warsaw, PL</p>
+<p class="font-body-lg font-semibold text-primary">PKN Orlen Terminal 4</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Cargo Info Card -->
+<div class="bg-primary text-white rounded-lg p-6 shadow-[0px_4px_12px_rgba(26,43,60,0.05)] flex flex-col justify-between">
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white/10 rounded-lg">
+<span class="material-symbols-outlined text-amber-400" data-icon="category">category</span>
+</div>
+<div>
+<p class="font-label-bold text-slate-400 uppercase text-[10px]">Cargo Type</p>
+<p class="font-body-md font-medium">Industrial Equipment</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white/10 rounded-lg">
+<span class="material-symbols-outlined text-amber-400" data-icon="monitor_weight">monitor_weight</span>
+</div>
+<div>
+<p class="font-label-bold text-slate-400 uppercase text-[10px]">Weight</p>
+<p class="font-body-md font-medium">24,000 kg (24 Tons)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="p-2 bg-white/10 rounded-lg">
+<span class="material-symbols-outlined text-amber-400" data-icon="local_shipping">local_shipping</span>
+</div>
+<div>
+<p class="font-label-bold text-slate-400 uppercase text-[10px]">Equipment</p>
+<p class="font-body-md font-medium">Flatbed Trailer Required</p>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-white/10">
+<button class="w-full text-center text-[12px] font-bold uppercase tracking-widest text-amber-400 hover:text-amber-300 transition-colors">
+                        View Manifest Details
+                    </button>
+</div>
+</div>
+</div>
+<!-- Quote Submission Form -->
+<div class="bg-white rounded-lg shadow-[0px_8px_24px_rgba(26,43,60,0.12)] p-6 md:p-8 space-y-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+<!-- Quote Input Section -->
+<div class="space-y-4">
+<label class="block">
+<span class="font-h3 text-primary block mb-2">Your Quote</span>
+<span class="text-body-sm text-on-surface-variant mb-4 block">Enter your total bidding amount including VAT and standard fees.</span>
+<div class="relative mt-4">
+<div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+<span class="font-stats-display text-slate-300">€</span>
+</div>
+<input class="block w-full pl-14 pr-6 py-6 font-stats-display bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-400/20 focus:border-amber-400 transition-all text-primary placeholder:text-slate-300" placeholder="0.00" type="number"/>
+</div>
+</label>
+<div class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+<span class="material-symbols-outlined text-blue-600 text-[18px]" data-icon="info">info</span>
+<p class="font-body-sm text-blue-800">The average winning bid for this route is <span class="font-bold">€1,140.00</span></p>
+</div>
+</div>
+<!-- Notes Section -->
+<div class="space-y-4">
+<label class="block">
+<span class="font-h3 text-primary block mb-2">Notes to Haulier</span>
+<span class="text-body-sm text-on-surface-variant mb-4 block">Specify any exclusions, extra services, or timeline details.</span>
+<textarea class="block w-full p-4 font-body-md bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-400/20 focus:border-amber-400 transition-all text-primary placeholder:text-slate-400" placeholder="e.g. Includes all fuel surcharges, driver assistance for unloading..." rows="4"></textarea>
+</label>
+</div>
+</div>
+<!-- Checklist / Terms -->
+<div class="bg-surface-container-low rounded-lg p-4 space-y-3 border border-slate-200">
+<div class="flex items-center gap-3">
+<input class="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="font-body-sm text-on-surface">I confirm I have the required flatbed equipment available for the selected dates.</span>
+</div>
+<div class="flex items-center gap-3">
+<input class="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="font-body-sm text-on-surface">I agree to the <a class="text-primary font-bold underline" href="#">Carrier Terms of Service</a>.</span>
+</div>
+</div>
+<!-- Submit Button (Large & Prominent) -->
+<button class="w-full bg-amber-400 hover:bg-amber-500 text-primary font-bold py-5 px-8 rounded-xl shadow-lg shadow-amber-400/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+<span class="text-lg">Submit Quote</span>
+</button>
+</div>
+<!-- Secondary Info -->
+<div class="text-center pb-8">
+<p class="font-body-sm text-on-surface-variant">Need help with this quote? <a class="font-bold text-primary" href="#">Contact Support</a></p>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 pb-safe z-50 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)]">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 active:scale-95 transition-transform duration-150 hover:text-slate-900 dark:hover:text-slate-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-wider mt-1">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 active:scale-95 transition-transform duration-150 hover:text-slate-900 dark:hover:text-slate-200" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-wider mt-1">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-amber-400 dark:bg-amber-500 text-slate-900 rounded-lg px-4 py-1 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="request_quote">request_quote</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-wider mt-1">Quotes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 active:scale-95 transition-transform duration-150 hover:text-slate-900 dark:hover:text-slate-200" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-wider mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

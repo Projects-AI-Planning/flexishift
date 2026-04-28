@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payment Release Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"outline-variant": "#c4c6cd", "tertiary-container": "#38260b", "surface-tint": "#4f6073", "surface-bright": "#f8f9fa", "inverse-primary": "#b7c8de", "on-primary-container": "#8192a7", "inverse-surface": "#2e3132", secondary: "#904d00", error: "#ba1a1a", tertiary: "#211200", "secondary-fixed-dim": "#ffb77d", "on-error": "#ffffff", "surface-container-high": "#e7e8e9", "secondary-container": "#ffa454", "on-primary-fixed": "#0b1d2d", outline: "#74777d", "surface-container": "#edeeef", "primary-fixed": "#d2e4fb", "on-secondary-container": "#713b00", "on-error-container": "#93000a", "on-tertiary-fixed": "#281802", "surface-container-lowest": "#ffffff", "on-tertiary-fixed-variant": "#584326", "on-secondary-fixed": "#2f1500", "on-secondary": "#ffffff", "primary-container": "#1a2b3c", "error-container": "#ffdad6", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "surface-container-highest": "#e1e3e4", surface: "#f8f9fa", "tertiary-fixed-dim": "#e1c29b", "primary-fixed-dim": "#b7c8de", "on-tertiary-container": "#a88c69", "surface-variant": "#e1e3e4", "on-background": "#191c1d", "tertiary-fixed": "#feddb5", "surface-container-low": "#f3f4f5", "on-surface": "#191c1d", background: "#f8f9fa", primary: "#041627", "on-tertiary": "#ffffff", "on-surface-variant": "#44474c", "surface-dim": "#d9dadb", "secondary-fixed": "#ffdcc3", "on-secondary-fixed-variant": "#6e3900", "on-primary-fixed-variant": "#38485a"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {xs: "4px", lg: "40px", "margin-mobile": "16px", md: "24px", gutter: "16px", base: "8px", "margin-desktop": "32px", sm: "12px"}, fontFamily: {"label-bold": ["Inter"], "stats-display": ["Inter"], h3: ["Inter"], "body-sm": ["Inter"], "body-md": ["Inter"], h1: ["Inter"], h2: ["Inter"], "body-lg": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-24">
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center px-4 h-16">
+<div class="flex items-center gap-4">
+<button class="active:opacity-70 transition-all duration-150 text-slate-900 dark:text-slate-50">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-sans text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-50">Payment Release</h1>
+</div>
+<button class="active:opacity-70 transition-all duration-150 text-slate-900 dark:text-slate-50">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<main class="pt-20 px-margin-mobile max-w-md mx-auto">
+<!-- Status Header Section -->
+<section class="flex flex-col items-center text-center py-md space-y-base">
+<div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mb-base">
+<span class="material-symbols-outlined text-[40px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="font-h2 text-h2 text-primary">Payment Released</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-[280px]">
+                Your payment for Job #FR-99203-BX has been approved and released to your account.
+            </p>
+</section>
+<!-- Invoice Summary Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-md mb-md border border-outline-variant/20">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-primary" data-icon="description">description</span>
+<h3 class="font-h3 text-h3 text-primary">Invoice Summary</h3>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between items-center py-xs border-b border-surface-container-high">
+<span class="font-label-bold text-label-bold text-on-surface-variant uppercase tracking-wider">Job Reference</span>
+<span class="font-body-md text-body-md font-semibold text-primary">#FR-99203-BX</span>
+</div>
+<div class="flex justify-between items-center py-xs">
+<span class="font-label-bold text-label-bold text-on-surface-variant uppercase tracking-wider">Completion Date</span>
+<span class="font-body-md text-body-md text-on-surface">Oct 28, 2023</span>
+</div>
+</div>
+</div>
+<!-- Financial Breakdown Card -->
+<div class="bg-primary-container text-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-md mb-md">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-secondary-container" data-icon="account_balance_wallet">account_balance_wallet</span>
+<h3 class="font-h3 text-h3 text-on-primary">Financial Breakdown</h3>
+</div>
+<div class="space-y-sm font-body-md">
+<div class="flex justify-between items-center">
+<span class="text-on-primary-container">Agreed Price</span>
+<span class="font-medium">€1,100.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-on-primary-container">VAT (21%)</span>
+<span class="font-medium">€231.00</span>
+</div>
+<div class="pt-sm mt-sm border-t border-on-primary-container/30 flex justify-between items-center">
+<span class="font-h3 text-h3 text-on-primary">Total Amount</span>
+<span class="font-stats-display text-2xl text-secondary-container">€1,331.00</span>
+</div>
+</div>
+</div>
+<!-- Download Action -->
+<button class="w-full bg-secondary text-on-secondary flex items-center justify-center gap-base py-md rounded-lg font-label-bold uppercase tracking-widest shadow-lg active:scale-[0.98] transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+            Download PDF Invoice
+        </button>
+<!-- Transaction Timeline (Extra context for high-end UI) -->
+<div class="mt-lg pt-md">
+<h4 class="font-label-bold text-label-bold text-on-surface-variant uppercase mb-md px-xs">Payment Timeline</h4>
+<div class="relative pl-gutter space-y-lg before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant">
+<div class="relative flex items-center gap-md">
+<div class="absolute -left-[21px] w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
+<div>
+<p class="font-body-sm font-bold text-primary">Funds Released</p>
+<p class="text-[12px] text-on-surface-variant">Today, 10:45 AM</p>
+</div>
+</div>
+<div class="relative flex items-center gap-md">
+<div class="absolute -left-[21px] w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
+<div>
+<p class="font-body-sm font-bold text-primary">Job Approved</p>
+<p class="text-[12px] text-on-surface-variant">Oct 29, 2:15 PM</p>
+</div>
+</div>
+<div class="relative flex items-center gap-md opacity-60">
+<div class="absolute -left-[21px] w-3 h-3 bg-outline rounded-full border-2 border-white"></div>
+<div>
+<p class="font-body-sm font-bold text-primary">Invoice Submitted</p>
+<p class="text-[12px] text-on-surface-variant">Oct 28, 5:30 PM</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] flex justify-around items-center px-4 py-2">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 hover:text-slate-900 dark:hover:text-slate-100 active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-sans text-[10px] font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 hover:text-slate-900 dark:hover:text-slate-100 active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-sans text-[10px] font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-amber-400 dark:bg-amber-500 text-slate-900 rounded-lg py-1 px-3 active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-sans text-[10px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

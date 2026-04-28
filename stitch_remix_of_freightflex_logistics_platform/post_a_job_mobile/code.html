@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Post a Job - FreightFlex</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-primary-container": "#8192a7", "secondary-fixed": "#ffdcc3", secondary: "#904d00", "secondary-container": "#ffa454", "inverse-primary": "#b7c8de", "on-tertiary-fixed-variant": "#584326", "on-error-container": "#93000a", "on-background": "#191c1d", "surface-bright": "#f8f9fa", "on-surface-variant": "#44474c", "secondary-fixed-dim": "#ffb77d", "surface-container-lowest": "#ffffff", "outline-variant": "#c4c6cd", "on-primary-fixed": "#0b1d2d", "error-container": "#ffdad6", "surface-container-low": "#f3f4f5", outline: "#74777d", "tertiary-fixed-dim": "#e1c29b", "on-secondary-container": "#713b00", "on-tertiary": "#ffffff", "surface-dim": "#d9dadb", "on-secondary-fixed-variant": "#6e3900", "on-error": "#ffffff", error: "#ba1a1a", "on-tertiary-fixed": "#281802", "surface-container-high": "#e7e8e9", "primary-fixed-dim": "#b7c8de", "on-tertiary-container": "#a88c69", "surface-tint": "#4f6073", "on-primary-fixed-variant": "#38485a", "on-primary": "#ffffff", "on-secondary-fixed": "#2f1500", "surface-container": "#edeeef", surface: "#f8f9fa", "surface-container-highest": "#e1e3e4", "on-secondary": "#ffffff", "primary-fixed": "#d2e4fb", "tertiary-fixed": "#feddb5", "primary-container": "#1a2b3c", primary: "#041627", "inverse-on-surface": "#f0f1f2", "on-surface": "#191c1d", background: "#f8f9fa", "inverse-surface": "#2e3132", "surface-variant": "#e1e3e4", "tertiary-container": "#38260b", tertiary: "#211200"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {xs: "4px", md: "24px", base: "8px", gutter: "16px", sm: "12px", "margin-mobile": "16px", lg: "40px", "margin-desktop": "32px"}, fontFamily: {h3: ["Inter"], h1: ["Inter"], "body-lg": ["Inter"], "stats-display": ["Inter"], h2: ["Inter"], "body-md": ["Inter"], "label-bold": ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-b border-slate-100 dark:border-slate-800 docked full-width top-0 fixed z-50">
+<div class="flex items-center justify-between px-4 h-16 w-full">
+<div class="flex items-center gap-3">
+<button class="transition-colors duration-200 active:opacity-70 hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-full">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-50">arrow_back</span>
+</button>
+<h1 class="font-inter font-semibold text-lg text-slate-900 dark:text-slate-50">Post a Job</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Open</span>
+<span class="text-on-surface-variant font-label-bold text-[11px]">Ref: J-8829-PX</span>
+</div>
+</div>
+</header>
+<main class="mt-20 px-gutter space-y-md">
+<!-- Section 1: Route Details -->
+<section class="space-y-base">
+<h2 class="font-h3 text-h3 text-primary">Route Details</h2>
+<div class="bg-surface-container-lowest rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] overflow-hidden">
+<div class="p-4 space-y-4">
+<div class="relative">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary mt-2">location_on</span>
+<div class="w-full">
+<label class="font-label-bold text-on-surface-variant mb-1 block">Pickup Location</label>
+<input class="w-full border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Enter origin city or warehouse" type="text"/>
+</div>
+</div>
+<div class="ml-6 border-l-2 border-dashed border-outline-variant h-8 my-1"></div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-2">near_me</span>
+<div class="w-full">
+<label class="font-label-bold text-on-surface-variant mb-1 block">Drop-off Location</label>
+<input class="w-full border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Enter destination address" type="text"/>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 text-body-sm text-on-primary-container">
+<span class="material-symbols-outlined text-sm">verified_user</span>
+<span>Address validated via Google Maps</span>
+</div>
+</div>
+<!-- Map Preview Container -->
+<div class="h-40 w-full relative">
+<img class="w-full h-full object-cover" data-alt="stylized vector map with a highlighted route line between two points on a minimalist blue and grey background" data-location="Berlin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnKSMiU43kvxQIEAhBVvEHVlarVVd73CBcjEoSErMUUMfvIgSeX68tkeRx0lbXfnGJ7mChqOGBrhIJ23ZFv8v-nJnbAbIGjrJuqhljC8I2ICwuIzK4Nm33jX6zvKI9hKC2L_s3PsLUIMyJM0E8aY_U14DoLCiHBurN93KM3dH9TnAj0zQV76MAXnJp0ttPMrLUn0eAkZ7NtLFgOwtNRuNGXzoCWPINYwhjpzH81G12clqqrfzZ_nhPru08VXkI9qX2bZwKXXz0Ji4"/>
+<div class="absolute inset-0 bg-primary/10 flex items-center justify-center">
+<div class="bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-white/20">
+<span class="text-body-sm font-bold text-primary">Route Optimized</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Cargo Details -->
+<section class="space-y-base">
+<h2 class="font-h3 text-h3 text-primary">Cargo Details</h2>
+<div class="bg-surface-container-lowest rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-4 space-y-4">
+<div>
+<label class="font-label-bold text-on-surface-variant mb-1 block">Goods Type</label>
+<select class="w-full border border-outline-variant rounded-lg p-3 text-body-md bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>Industrial Equipment</option>
+<option>Perishables</option>
+<option>Consumer Electronics</option>
+<option>Construction Materials</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="font-label-bold text-on-surface-variant mb-1 block">Total Weight (kg)</label>
+<input class="w-full border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="24000" type="number"/>
+</div>
+<div>
+<label class="font-label-bold text-on-surface-variant mb-1 block">Packaging</label>
+<select class="w-full border border-outline-variant rounded-lg p-3 text-body-md bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>Pallets</option>
+<option>Bulk</option>
+<option>Crates</option>
+<option>Drums</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Vehicle Type -->
+<section class="space-y-base">
+<h2 class="font-h3 text-h3 text-primary">Vehicle Type</h2>
+<div class="flex overflow-x-auto gap-4 pb-2 no-scrollbar">
+<!-- Tautliner Card -->
+<div class="flex-shrink-0 w-32 bg-primary border-2 border-primary p-4 rounded-xl text-white text-center">
+<span class="material-symbols-outlined text-3xl mb-2 block" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+<span class="text-body-sm font-bold">Tautliner</span>
+</div>
+<!-- Reefer Card -->
+<div class="flex-shrink-0 w-32 bg-white border border-outline-variant p-4 rounded-xl text-on-surface-variant text-center">
+<span class="material-symbols-outlined text-3xl mb-2 block">ac_unit</span>
+<span class="text-body-sm font-medium">Reefer</span>
+</div>
+<!-- Flatbed Card -->
+<div class="flex-shrink-0 w-32 bg-white border border-outline-variant p-4 rounded-xl text-on-surface-variant text-center">
+<span class="material-symbols-outlined text-3xl mb-2 block">view_agenda</span>
+<span class="text-body-sm font-medium">Flatbed</span>
+</div>
+</div>
+</section>
+<!-- Section 4: Scheduling -->
+<section class="space-y-base">
+<h2 class="font-h3 text-h3 text-primary">Scheduling</h2>
+<div class="bg-surface-container-lowest rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-4 space-y-4">
+<div>
+<label class="font-label-bold text-on-surface-variant mb-1 block">Pickup Date</label>
+<div class="relative">
+<input class="w-full border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none" type="date"/>
+</div>
+</div>
+<div><label class="font-label-bold text-on-surface-variant mb-1 block">Pickup Time</label>
+<div class="flex gap-3 items-center">
+<div class="flex-1">
+<div class="relative">
+<input class="w-full border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white" type="time" value="14:00"/>
+</div>
+</div>
+<div class="flex flex-col text-on-surface-variant">
+<span class="text-body-sm font-medium">Local Time</span>
+</div>
+</div></div>
+</div>
+</section>
+<!-- Section 5: Summary -->
+<section class="space-y-base">
+<h2 class="font-h3 text-h3 text-primary">Summary</h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white border border-slate-100 rounded-lg p-4 shadow-sm">
+<p class="text-body-sm text-on-surface-variant">Est. Distance</p>
+<p class="font-stats-display text-h2 text-primary">482 <span class="text-lg">km</span></p>
+</div>
+<div class="bg-white border border-slate-100 rounded-lg p-4 shadow-sm">
+<p class="text-body-sm text-on-surface-variant">Trip Duration</p>
+<p class="font-stats-display text-h2 text-primary">6h <span class="text-lg">15m</span></p>
+</div>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Action Area -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-950 shadow-[0px_-4px_12px_rgba(26,43,60,0.1)] p-4 border-t border-slate-100 dark:border-slate-800 z-50">
+<div class="max-w-md mx-auto space-y-4">
+<div class="flex justify-between items-center px-1">
+<span class="text-on-surface-variant font-medium">Estimated Tolls</span>
+<span class="font-bold text-primary">€42.50</span>
+</div>
+<button class="w-full bg-secondary-container hover:bg-secondary-container/90 text-on-secondary-container font-h2 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform duration-150 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_box</span>
+                Post Job
+            </button>
+</div>
+</div>
+<!-- BottomNavBar (Shared Component Logic) -->
+<nav class="hidden fixed bottom-0 w-full z-40 rounded-t-lg bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex justify-around items-center h-20 w-full px-2 pb-safe">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-inter text-[12px] font-medium tracking-tight">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-inter text-[12px] font-medium tracking-tight">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-amber-400 dark:bg-amber-500 text-[#1A2B3C] rounded-lg px-3 py-1.5 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_box</span>
+<span class="font-inter text-[12px] font-medium tracking-tight">Post</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">person</span>
+<span class="font-inter text-[12px] font-medium tracking-tight">Profile</span>
+</div>
+</div>
+</nav>
+</body></html>

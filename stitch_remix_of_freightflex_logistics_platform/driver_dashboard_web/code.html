@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FreightFlow | Driver Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-primary-fixed-variant": "#38485a", "surface-tint": "#4f6073", primary: "#041627", "on-primary-fixed": "#0b1d2d", "surface-container-high": "#e7e8e9", "on-tertiary": "#ffffff", "surface-variant": "#e1e3e4", "secondary-container": "#ffa454", "on-secondary": "#ffffff", "on-tertiary-fixed-variant": "#584326", "on-error-container": "#93000a", surface: "#f8f9fa", "on-surface-variant": "#44474c", "on-surface": "#191c1d", "primary-fixed": "#d2e4fb", "outline-variant": "#c4c6cd", secondary: "#904d00", error: "#ba1a1a", "on-secondary-container": "#713b00", "tertiary-container": "#38260b", "surface-container": "#edeeef", "error-container": "#ffdad6", "surface-container-low": "#f3f4f5", "primary-container": "#1a2b3c", "on-background": "#191c1d", "on-tertiary-container": "#a88c69", "surface-container-highest": "#e1e3e4", "on-primary": "#ffffff", "surface-dim": "#d9dadb", "secondary-fixed": "#ffdcc3", "on-error": "#ffffff", "inverse-primary": "#b7c8de", background: "#f8f9fa", "inverse-on-surface": "#f0f1f2", "tertiary-fixed-dim": "#e1c29b", "tertiary-fixed": "#feddb5", "surface-container-lowest": "#ffffff", outline: "#74777d", "on-secondary-fixed": "#2f1500", "on-secondary-fixed-variant": "#6e3900", "inverse-surface": "#2e3132", "secondary-fixed-dim": "#ffb77d", "primary-fixed-dim": "#b7c8de", "surface-bright": "#f8f9fa", "on-tertiary-fixed": "#281802", "on-primary-container": "#8192a7", tertiary: "#211200"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {sm: "12px", gutter: "16px", base: "8px", md: "24px", "margin-mobile": "16px", "margin-desktop": "32px", lg: "40px", xs: "4px"}, fontFamily: {h2: ["Inter"], "stats-display": ["Inter"], "label-bold": ["Inter"], h1: ["Inter"], "body-sm": ["Inter"], h3: ["Inter"], "body-lg": ["Inter"], "body-md": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { background-color: #f8f9fa; }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r bg-[#1A2B3C] dark:bg-slate-950 border-slate-800 shadow-xl flex flex-col py-6 z-50">
+<div class="px-6 mb-10">
+<h1 class="text-xl font-black tracking-tighter text-white uppercase">FreightFlow</h1>
+<p class="font-label-bold text-amber-500 uppercase tracking-widest text-[10px] mt-1">Driver Portal</p>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="bg-amber-500 text-[#1A2B3C] font-bold rounded-lg my-1 mx-2 p-3 flex items-center gap-3 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-bold">Dashboard</span>
+</a>
+<a class="text-slate-300 hover:text-white flex items-center gap-3 p-3 mx-2 my-1 hover:bg-slate-800 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-body-md">Jobs</span>
+</a>
+<a class="text-slate-300 hover:text-white flex items-center gap-3 p-3 mx-2 my-1 hover:bg-slate-800 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-body-md">Earnings</span>
+</a>
+<a class="text-slate-300 hover:text-white flex items-center gap-3 p-3 mx-2 my-1 hover:bg-slate-800 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-body-md">Documents</span>
+</a>
+<a class="text-slate-300 hover:text-white flex items-center gap-3 p-3 mx-2 my-1 hover:bg-slate-800 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-md">Settings</span>
+</a>
+</nav>
+<div class="px-2 mt-auto">
+<a class="text-slate-300 hover:text-white flex items-center gap-3 p-3 mx-2 my-1 hover:bg-slate-800 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-body-md">Help &amp; Support</span>
+</a>
+</div>
+</aside>
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8">
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container rounded-lg border-none focus:ring-2 focus:ring-amber-500 w-64 text-sm" placeholder="Search loads, documents..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4 border-r border-slate-200 pr-6">
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-primary transition-colors" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-primary transition-colors" data-icon="apps">apps</span>
+</div>
+<div class="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity">
+<div class="text-right">
+<p class="font-label-bold text-primary">Alex Rodriguez</p>
+<p class="text-[10px] text-outline uppercase tracking-wider">CDL Class A</p>
+</div>
+<img alt="Driver Profile" class="w-10 h-10 rounded-full border-2 border-amber-500 object-cover" data-alt="Professional headshot of a Hispanic male truck driver in his 30s with a friendly expression and short hair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5Qs9JmdYv65V_OWB1J_hdEj7sbj_6ZIH9cyG5AY4tJnh24Vg0xCpIjtkgctOOglMFMdqpglrVi2p652RDjengJH5pgSOJ9Rj1gg-YjvMnGSjfkKya0K1XljQ_OD_1Gmvt058yOXk8_WJLQozVrZut31sjiSQWlwLAJ5Ig9al7QuLTjggUOIhcg6W_6QTMhXN4qBN_LOQmVgzEvPubCoP2djL9Ka9UtKizPDi327KWrLXJW6g3rkEzjyLZOzK3QmVR__nHvuEND1M"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen p-8">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Earnings & Stats Header (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Main Earnings Card -->
+<div class="md:col-span-2 bg-primary-container text-white p-8 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] relative overflow-hidden">
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div>
+<p class="text-on-primary-container font-label-bold uppercase tracking-widest mb-2">Weekly Earnings Overview</p>
+<h2 class="font-stats-display text-white">$3,420.50</h2>
+<div class="flex items-center gap-2 mt-2">
+<span class="bg-amber-500 text-primary font-bold px-2 py-0.5 rounded text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+                                    +12.4%
+                                </span>
+<span class="text-on-primary-container text-sm">vs last week</span>
+</div>
+</div>
+<div class="mt-8 flex items-end gap-1 h-12">
+<div class="flex-1 bg-on-primary-container/20 h-4 rounded-sm"></div>
+<div class="flex-1 bg-on-primary-container/20 h-6 rounded-sm"></div>
+<div class="flex-1 bg-on-primary-container/20 h-3 rounded-sm"></div>
+<div class="flex-1 bg-on-primary-container/20 h-8 rounded-sm"></div>
+<div class="flex-1 bg-amber-500 h-12 rounded-sm"></div>
+<div class="flex-1 bg-on-primary-container/20 h-5 rounded-sm"></div>
+<div class="flex-1 bg-on-primary-container/20 h-9 rounded-sm"></div>
+</div>
+</div>
+<!-- Decorative background element -->
+<div class="absolute -right-10 -bottom-10 opacity-10">
+<span class="material-symbols-outlined text-[200px]" data-icon="payments">payments</span>
+</div>
+</div>
+<!-- Secondary Stat Card -->
+<div class="bg-white p-8 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 flex flex-col justify-between">
+<div>
+<p class="text-outline font-label-bold uppercase tracking-widest mb-2">Total Deliveries</p>
+<h2 class="font-stats-display text-primary">24</h2>
+<p class="text-sm text-outline mt-1">This payment cycle</p>
+</div>
+<div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-xs text-outline">On-time rate</span>
+<span class="font-h3 text-primary">98%</span>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-amber-500 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-600" data-icon="verified">verified</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Active Job Command Center -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Job Details & Actions -->
+<div class="lg:col-span-2 bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 overflow-hidden">
+<div class="bg-slate-50 px-8 py-4 border-b border-slate-100 flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="bg-amber-500 text-primary text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">In Transit</span>
+<h3 class="font-h3 text-primary">Job #FF-90210</h3>
+</div>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="text-sm font-medium">ETA: 14:45</span>
+</div>
+</div>
+<div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
+<!-- Route Timeline -->
+<div class="relative space-y-12">
+<div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-200 border-dashed border-l"></div>
+<div class="relative flex gap-6">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0 z-10">
+<div class="w-2 h-2 rounded-full bg-white"></div>
+</div>
+<div>
+<p class="font-label-bold text-outline uppercase text-[10px] tracking-widest">Pickup</p>
+<p class="font-h3 text-primary">Elizabeth, NJ</p>
+<p class="text-sm text-outline">Terminal B - Gate 14</p>
+</div>
+</div>
+<div class="relative flex gap-6">
+<div class="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0 z-10 shadow-lg shadow-amber-200">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="location_on" data-weight="fill">location_on</span>
+</div>
+<div>
+<p class="font-label-bold text-amber-600 uppercase text-[10px] tracking-widest">Current Location</p>
+<p class="font-h3 text-primary">Trenton, NJ</p>
+<p class="text-sm text-outline">I-95 Southbound</p>
+</div>
+</div>
+<div class="relative flex gap-6">
+<div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0 z-10">
+<div class="w-2 h-2 rounded-full bg-slate-400"></div>
+</div>
+<div>
+<p class="font-label-bold text-outline uppercase text-[10px] tracking-widest">Delivery</p>
+<p class="font-h3 text-primary">Philadelphia, PA</p>
+<p class="text-sm text-outline">Dock 4A - Center City</p>
+</div>
+</div>
+</div>
+<!-- Job Info & Commands -->
+<div class="space-y-6">
+<div class="bg-surface-container-low p-4 rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" data-icon="inventory_2">inventory_2</span>
+<div>
+<p class="text-xs text-outline">Freight Type</p>
+<p class="font-bold text-primary">Frozen Goods</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs text-outline">Weight</p>
+<p class="font-bold text-primary">12,400 lbs</p>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<button class="w-full bg-amber-500 text-primary font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="navigation">navigation</span>
+                                    Start Navigation
+                                </button>
+<button class="w-full bg-primary text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="update">update</span>
+                                    Update Status
+                                </button>
+<button class="w-full border border-slate-300 text-primary font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="upload_file">upload_file</span>
+                                    Upload Proof
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Live Route Map Integration -->
+<div class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 overflow-hidden flex flex-col">
+<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+<span class="font-label-bold text-primary uppercase text-xs tracking-wider">Live Route Map</span>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<span class="text-[10px] font-bold text-emerald-600 uppercase">Live GPS</span>
+</div>
+</div>
+<div class="flex-1 relative min-h-[300px] bg-slate-200">
+<!-- Mock Map Background -->
+<div class="absolute inset-0 grayscale opacity-40 bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&amp;fit=crop&amp;q=80&amp;w=800')]" data-alt="abstract stylized aerial map view of highway interchanges and urban grid patterns in grayscale" data-location="Trenton" style="background-size: cover; background-position: center;"></div>
+<!-- Route Line Overlay (CSS SVG simulation) -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative w-full h-full">
+<!-- Start Marker -->
+<div class="absolute top-1/4 left-1/4 w-3 h-3 bg-primary rounded-full border-2 border-white shadow-lg"></div>
+<!-- Path -->
+<div class="absolute top-[25%] left-[25%] w-[40%] h-[50%] border-l-4 border-b-4 border-amber-500 rounded-bl-3xl opacity-80"></div>
+<!-- Vehicle Marker -->
+<div class="absolute bottom-1/4 left-[65%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="bg-primary text-white p-1 rounded-lg shadow-xl mb-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="local_shipping">local_shipping</span>
+<span class="text-[10px] font-bold">FF-90210</span>
+</div>
+<div class="w-4 h-4 bg-amber-500 rounded-full border-2 border-white animate-bounce"></div>
+</div>
+</div>
+</div>
+<!-- Map Controls -->
+<div class="absolute bottom-4 right-4 flex flex-col gap-2">
+<button class="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center text-primary hover:bg-slate-50">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+<button class="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center text-primary hover:bg-slate-50">
+<span class="material-symbols-outlined" data-icon="remove">remove</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Upcoming Schedule -->
+<section class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 overflow-hidden">
+<div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+<h3 class="font-h3 text-primary">Upcoming Schedule</h3>
+<button class="text-amber-600 font-bold text-sm hover:underline">View Full Calendar</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-8 py-4 font-label-bold text-outline text-[10px] uppercase tracking-widest">Time &amp; Date</th>
+<th class="px-8 py-4 font-label-bold text-outline text-[10px] uppercase tracking-widest">Load Details</th>
+<th class="px-8 py-4 font-label-bold text-outline text-[10px] uppercase tracking-widest">Destination</th>
+<th class="px-8 py-4 font-label-bold text-outline text-[10px] uppercase tracking-widest">Est. Payout</th>
+<th class="px-8 py-4 font-label-bold text-outline text-[10px] uppercase tracking-widest text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<!-- Job 1 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-8 py-6">
+<p class="font-bold text-primary">Today, 17:30</p>
+<p class="text-xs text-outline">After current route</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-600" data-icon="laptop_mac">laptop_mac</span>
+</div>
+<div>
+<p class="font-bold text-primary">Electronics Delivery</p>
+<p class="text-xs text-outline">68 Units • LTL</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6">
+<p class="text-sm font-medium text-primary">Baltimore, MD</p>
+<p class="text-xs text-outline">94 miles from PHL</p>
+</td>
+<td class="px-8 py-6">
+<p class="font-bold text-emerald-600">$420.00</p>
+</td>
+<td class="px-8 py-6 text-right">
+<button class="bg-primary text-white text-xs font-bold px-4 py-2 rounded hover:bg-primary-container transition-colors">Accept Load</button>
+</td>
+</tr>
+<!-- Job 2 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-8 py-6">
+<p class="font-bold text-primary">Tomorrow, 08:00</p>
+<p class="text-xs text-outline">Scheduled Shift</p>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-amber-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-600" data-icon="construction">construction</span>
+</div>
+<div>
+<p class="font-bold text-primary">Bulk Industrial Freight</p>
+<p class="text-xs text-outline">Full Truckload (FTL)</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6">
+<p class="text-sm font-medium text-primary">Washington, DC</p>
+<p class="text-xs text-outline">138 miles total</p>
+</td>
+<td class="px-8 py-6">
+<p class="font-bold text-emerald-600">$840.50</p>
+</td>
+<td class="px-8 py-6 text-right">
+<button class="bg-primary text-white text-xs font-bold px-4 py-2 rounded hover:bg-primary-container transition-colors">Accept Load</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+<!-- Contextual FAB (Only for Dashboard/Home) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-amber-500 rounded-full shadow-2xl flex items-center justify-center text-primary hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-2xl" data-icon="qr_code_scanner">qr_code_scanner</span>
+</button>
+</body></html>

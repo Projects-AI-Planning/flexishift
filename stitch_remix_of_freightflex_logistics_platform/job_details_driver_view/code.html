@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Job Command Center - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d9dadb",
+                        "surface-container-high": "#e7e8e9",
+                        "on-tertiary-container": "#a88c69",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#ffdcc3",
+                        "surface-variant": "#e1e3e4",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d2e4fb",
+                        "surface-tint": "#4f6073",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-primary-fixed-variant": "#38485a",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "surface-container-low": "#f3f4f5",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "on-background": "#191c1d",
+                        "inverse-primary": "#b7c8de",
+                        "secondary-container": "#ffa454",
+                        "background": "#f8f9fa",
+                        "surface": "#f8f9fa",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#38260b",
+                        "surface-container": "#edeeef",
+                        "on-secondary-container": "#713b00",
+                        "outline": "#74777d",
+                        "inverse-surface": "#2e3132",
+                        "primary-container": "#1a2b3c",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "on-primary-fixed": "#0b1d2d",
+                        "primary": "#041627",
+                        "inverse-on-surface": "#f0f1f2",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#feddb5",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#281802",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary": "#904d00",
+                        "primary-fixed-dim": "#b7c8de",
+                        "on-primary-container": "#8192a7",
+                        "outline-variant": "#c4c6cd",
+                        "surface-bright": "#f8f9fa",
+                        "on-surface": "#191c1d",
+                        "tertiary": "#211200",
+                        "on-surface-variant": "#44474c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface">
+<!-- TopAppBar -->
+<header class="bg-[#041627] dark:bg-slate-950 text-white shadow-md docked full-width top-0 z-50 flex justify-between items-center w-full px-4 h-16">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white cursor-pointer hover:bg-slate-800 p-2 rounded-lg transition-colors">menu</span>
+<h1 class="font-['Inter'] text-lg font-bold leading-tight">Logistics Core</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex flex-col items-end hidden md:flex">
+<span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Driver Mode</span>
+<span class="text-sm font-bold">Jan Kowalski</span>
+</div>
+<img alt="Driver Profile" class="w-10 h-10 rounded-full border-2 border-slate-700" data-alt="Professional headshot of a middle-aged male logistics driver wearing a clean uniform with a friendly expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaDhReolSoEE8ARHXNKrq_C5TwiHGRftXVwkSN22sJ9R3pb3DCHv3PLGQf716eLVCxmFAy1_fAUPsFXFVNbLISN6GqJWpUmyiih3-3l3hDrINxocmmUjBParc59gEdIUlkG9ZNc14RIbrT_z5sRQm6X3F0hvVVUqQjRh_VVbAYWd7KWiuJOBcJbxjY3Nhp9ydcEL4SvUCSiQBoRFql8UVGNLS1xRiCvGUh3XK0qO4G0MOUoW809rgT85Lo6jiC8EgdL2R2ix3lQG0"/>
+</div>
+</header>
+<main class="pb-32 max-w-5xl mx-auto px-4 md:px-8 mt-6">
+<!-- Job Header & Status Section -->
+<section class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-secondary text-sm">assignment</span>
+<span class="text-on-surface-variant font-['Inter'] text-xs font-bold uppercase tracking-widest">Job Reference</span>
+</div>
+<h2 class="text-2xl md:text-3xl font-black text-primary tracking-tight">#FR-99203-BX</h2>
+</div>
+<div class="flex items-center gap-3">
+<span class="bg-secondary-container text-on-secondary-container px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                    Booked
+                </span>
+<span class="bg-surface-container-highest text-on-surface px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest">
+                    Standard Duty
+                </span>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Left Column: Map and Route -->
+<div class="lg:col-span-7 space-y-6">
+<!-- Map View Card -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden h-80 relative">
+<img class="w-full h-full object-cover" data-alt="Simplified top-down map view showing a highlighted logistics route connecting Berlin and Warsaw with location pins" data-location="Berlin to Warsaw" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDf8CFzdZ6FlT7c4i0oYv75o3aL4A5E8CvKRYb32KV6-A730Wfk7SSKHOd8TwEpp2IY0h_eIsmPcpc-siWyLmu-MZ4JBdwl15ceIjOMbD7GCIo5VvE4rKutdH9fSRh5nK5ABbld6Efq4GTxlcaPO9hyMOMKHkByjOk0bdPjUBD3ZPeopvnn9g1xw2zuSYSLtLiLvwBGaaAQF6uR3SVGosx0e4MZ6ZO9gsvWLTua6T6-SOD3KLXnx3hNDh0vz4i9GW6qckfj1Fehvec"/>
+<div class="absolute top-4 left-4 right-4 flex justify-between pointer-events-none">
+<div class="bg-white/95 backdrop-blur shadow-md p-3 rounded-lg flex items-center gap-3 border border-outline-variant/30">
+<div class="bg-primary text-white w-8 h-8 rounded flex items-center justify-center font-bold">A</div>
+<div>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Pickup</p>
+<p class="text-sm font-bold text-primary">Berlin, DE</p>
+</div>
+</div>
+<div class="bg-white/95 backdrop-blur shadow-md p-3 rounded-lg flex items-center gap-3 border border-outline-variant/30">
+<div class="bg-secondary text-white w-8 h-8 rounded flex items-center justify-center font-bold">B</div>
+<div>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Delivery</p>
+<p class="text-sm font-bold text-primary">Warsaw, PL</p>
+</div>
+</div>
+</div>
+<div class="absolute bottom-4 left-4">
+<div class="bg-primary text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">route</span>
+                            574 KM
+                        </div>
+</div>
+</div>
+<!-- Detailed Route Information -->
+<div class="space-y-4">
+<!-- Pickup Card -->
+<div class="bg-white p-5 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-primary">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded">PICKUP</span>
+<span class="text-sm text-on-surface-variant font-bold">Sept 24 • 08:00 AM</span>
+</div>
+<span class="material-symbols-outlined text-outline">content_copy</span>
+</div>
+<h3 class="text-lg font-bold text-primary mb-1">Logistics Hub West-End</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Industriestraße 45-47, 10115 Berlin, Germany</p>
+<div class="mt-4 pt-4 border-t border-surface-container flex gap-4">
+<div class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
+<span class="material-symbols-outlined text-base">person</span>
+                                Klaus Weber
+                            </div>
+<div class="flex items-center gap-2 text-xs font-bold text-primary underline">
+<span class="material-symbols-outlined text-base">call</span>
+                                +49 30 123456
+                            </div>
+</div>
+</div>
+<!-- Delivery Card -->
+<div class="bg-white p-5 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-secondary">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<span class="bg-secondary text-white text-[10px] font-bold px-2 py-0.5 rounded">DELIVERY</span>
+<span class="text-sm text-on-surface-variant font-bold">Sept 25 • 04:00 PM</span>
+</div>
+<span class="material-symbols-outlined text-outline">content_copy</span>
+</div>
+<h3 class="text-lg font-bold text-primary mb-1">Warsaw Central Distribution</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Aleje Jerozolimskie 120, 00-001 Warszawa, Poland</p>
+<div class="mt-4 pt-4 border-t border-surface-container flex gap-4">
+<div class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
+<span class="material-symbols-outlined text-base">person</span>
+                                Marek Nowak
+                            </div>
+<div class="flex items-center gap-2 text-xs font-bold text-primary underline">
+<span class="material-symbols-outlined text-base">call</span>
+                                +48 22 987654
+                            </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Cargo and Contact -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Cargo Details Bento Section -->
+<div class="bg-primary text-white p-6 rounded-xl shadow-lg">
+<h3 class="text-sm font-bold uppercase tracking-widest text-on-primary-container mb-6">Cargo Specifications</h3>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-1">
+<p class="text-[10px] uppercase font-bold text-on-primary-container">Total Weight</p>
+<p class="text-2xl font-bold">24 <span class="text-sm font-normal text-on-primary-container">tons</span></p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase font-bold text-on-primary-container">Cargo Type</p>
+<p class="text-lg font-bold leading-tight">Industrial Equipment</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase font-bold text-on-primary-container">Handling</p>
+<div class="flex gap-2 mt-2">
+<span class="material-symbols-outlined text-secondary-container" title="Fragile">flaky</span>
+<span class="material-symbols-outlined text-secondary-container" title="No stacking">layers_clear</span>
+</div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase font-bold text-on-primary-container">Hazmat</p>
+<p class="text-lg font-bold text-green-400">NONE</p>
+</div>
+</div>
+</div>
+<!-- Haulier Contact Info -->
+<div class="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
+<h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Contractor Details</h3>
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl">apartment</span>
+</div>
+<div>
+<p class="font-bold text-primary">Global Freight Solutions Ltd.</p>
+<p class="text-xs text-on-surface-variant">Dispatcher ID: #DFS-881</p>
+</div>
+</div>
+<div class="space-y-3">
+<a class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors group" href="tel:+1234567890">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">phone_in_talk</span>
+<span class="text-sm font-bold text-on-surface">Emergency Support</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</a>
+<button class="w-full flex items-center justify-between p-3 bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">chat</span>
+<span class="text-sm font-bold text-on-surface">Chat with Dispatch</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Quick Actions for Mobile-First -->
+<div class="flex flex-col gap-3">
+<button class="bg-secondary text-on-secondary w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">directions</span>
+                        Navigate to Pickup
+                    </button>
+<button class="bg-white border-2 border-primary text-primary w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined">description</span>
+                        View Manifest Details
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden bg-white dark:bg-slate-900 fixed bottom-0 w-full z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] flex justify-around items-center w-full h-20 pb-safe px-2">
+<div class="flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 text-[#041627] dark:text-amber-500 rounded-xl px-3 py-1 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Notifications</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">history</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Profile</span>
+</div>
+</nav>
+</body></html>

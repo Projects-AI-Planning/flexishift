@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FreightFlex Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-background": "#191c1d", "primary-container": "#1a2b3c", surface: "#f8f9fa", "on-error": "#ffffff", "tertiary-container": "#38260b", "primary-fixed-dim": "#b7c8de", "on-tertiary-fixed-variant": "#584326", tertiary: "#211200", "surface-container-high": "#e7e8e9", "on-secondary-fixed-variant": "#6e3900", "on-tertiary-container": "#a88c69", "surface-bright": "#f8f9fa", "outline-variant": "#c4c6cd", "inverse-primary": "#b7c8de", "on-secondary-fixed": "#2f1500", secondary: "#904d00", "surface-container": "#edeeef", "secondary-fixed": "#ffdcc3", background: "#f8f9fa", "tertiary-fixed": "#feddb5", "on-primary-fixed-variant": "#38485a", "inverse-surface": "#2e3132", outline: "#74777d", "on-primary": "#ffffff", "tertiary-fixed-dim": "#e1c29b", "surface-variant": "#e1e3e4", "on-secondary-container": "#713b00", "on-primary-container": "#8192a7", "surface-tint": "#4f6073", "primary-fixed": "#d2e4fb", "inverse-on-surface": "#f0f1f2", "on-tertiary": "#ffffff", "on-surface-variant": "#44474c", "surface-container-lowest": "#ffffff", "on-surface": "#191c1d", "on-primary-fixed": "#0b1d2d", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "on-error-container": "#93000a", "surface-container-low": "#f3f4f5", error: "#ba1a1a", "surface-dim": "#d9dadb", primary: "#041627", "secondary-container": "#ffa454", "on-tertiary-fixed": "#281802", "error-container": "#ffdad6", "on-secondary": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {base: "8px", xs: "4px", "margin-desktop": "32px", gutter: "16px", sm: "12px", "margin-mobile": "16px", lg: "40px", md: "24px"}, fontFamily: {h2: ["Inter"], h1: ["Inter"], "body-sm": ["Inter"], "label-bold": ["Inter"], h3: ["Inter"], "body-lg": ["Inter"], "body-md": ["Inter"], "stats-display": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e1e3e4;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface">
+<!-- Sidebar Navigation Shell -->
+<aside class="bg-slate-900 dark:bg-black h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col border-r border-slate-800 shadow-2xl z-50">
+<div class="flex flex-col h-full py-6">
+<!-- Header/Brand -->
+<div class="px-6 mb-8">
+<h1 class="text-xl font-black text-white tracking-tight">Logistics Admin</h1>
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Fleet Control Center</p>
+</div>
+<!-- Main Navigation -->
+<nav class="flex-1 space-y-1">
+<!-- Dashboard Active -->
+<a class="bg-slate-800 text-amber-500 border-l-4 border-amber-500 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Dashboard
+                </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+                    User Management
+                </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+                    Live Jobs
+                </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+                    Verifications
+                </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                    Revenue Reports
+                </a>
+</nav>
+<!-- CTA -->
+<div class="px-4 mt-6">
+<button class="w-full bg-secondary-container text-on-secondary-container font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    New Job
+                </button>
+</div>
+<!-- Footer Navigation -->
+<div class="mt-auto border-t border-slate-800 pt-4">
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Settings
+                </a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 flex items-center gap-3 font-inter text-sm font-medium transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                    Support
+                </a>
+<div class="px-4 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-slate-700">
+<img class="w-full h-full object-cover" data-alt="portrait of a professional male logistics administrator in a modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmCSIzM3np-Y06Qu88gKTljXZVXPGHn1c-uFqYOhI53H1k5AKnPr8_z36DAv1lnlDFDpbYVhVlGfU6MlXivdn7g9AEVQcclSdnAPjZeBFB8XtFaZH-BKc8UpOJJRx2Yh4l4JVGhtsSxMzuDgnsc6crY-XPjSeieZxY8FdOGlg5kJGY5LRVxUiho5ClcRtuO0hP2AN9xhmyO_VdffTO9VGbRzlbtMu1PMOzJ0CO_v4t-8Uj7a12ihOdakg_f3ivDApJer60nnzw3cQ"/>
+</div>
+<div class="flex flex-col">
+<span class="text-white text-xs font-bold">Admin Avatar</span>
+<span class="text-slate-500 text-[10px]">Superuser</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Shell (Responsive) -->
+<header class="fixed top-0 right-0 w-full lg:w-[calc(100%-16rem)] z-40 bg-white border-b border-slate-200 shadow-sm h-16 flex items-center justify-between px-6">
+<div class="flex items-center gap-4">
+<span class="text-lg font-bold text-slate-900 lg:hidden">FreightFlex</span>
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="bg-surface-container border-none rounded-full pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="Search orders, users..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="lg:ml-64 pt-16 min-h-screen pb-20 lg:pb-10">
+<div class="p-6 md:p-8 space-y-8">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h2 class="font-h1 text-h1 text-primary">Logistics Core</h2>
+<p class="text-on-surface-variant font-body-md">System dashboard for real-time fleet operations.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm" data-icon="file_download">file_download</span>
+                        Export Data
+                    </button>
+<button class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-colors shadow-md">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+                        Refresh
+                    </button>
+</div>
+</div>
+<!-- Platform Overview (KPI Bento Grid) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Total Users -->
+<div class="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 group hover:border-amber-200 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-slate-50 rounded-lg text-slate-700">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</div>
+<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px] font-bold" data-icon="trending_up">trending_up</span>
+                            +12%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-bold uppercase tracking-wider text-[10px]">Total Users</p>
+<h3 class="font-stats-display text-stats-display text-primary mt-1">1,482</h3>
+<div class="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-4/5"></div>
+</div>
+</div>
+<!-- Active Jobs -->
+<div class="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 group hover:border-amber-200 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-slate-50 rounded-lg text-slate-700">
+<span class="material-symbols-outlined" data-icon="query_stats">query_stats</span>
+</div>
+<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px] font-bold" data-icon="trending_up">trending_up</span>
+                            +8%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-bold uppercase tracking-wider text-[10px]">Active Jobs</p>
+<h3 class="font-stats-display text-stats-display text-primary mt-1">342</h3>
+<div class="mt-4 flex gap-1 h-8 items-end">
+<div class="bg-primary-container/20 h-4 w-full rounded-sm"></div>
+<div class="bg-primary-container/40 h-6 w-full rounded-sm"></div>
+<div class="bg-primary-container/20 h-3 w-full rounded-sm"></div>
+<div class="bg-primary-container/60 h-8 w-full rounded-sm"></div>
+<div class="bg-primary-container h-5 w-full rounded-sm"></div>
+</div>
+</div>
+<!-- Monthly Revenue -->
+<div class="bg-primary-container p-6 rounded-xl shadow-xl border border-slate-700 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-6xl text-white" data-icon="payments">payments</span>
+</div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="p-2 bg-white/10 rounded-lg text-white">
+<span class="material-symbols-outlined" data-icon="currency_pound">currency_pound</span>
+</div>
+<span class="bg-amber-500 text-slate-900 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px] font-bold" data-icon="trending_up">trending_up</span>
+                            +24%
+                        </span>
+</div>
+<p class="text-on-primary-container font-label-bold uppercase tracking-wider text-[10px] relative z-10">Monthly Revenue</p>
+<h3 class="font-stats-display text-stats-display text-white mt-1 relative z-10">£84.2k</h3>
+<p class="text-on-primary-container text-[10px] mt-2 relative z-10">Projected £92k by month end</p>
+</div>
+</section>
+<!-- Main Workspace Area -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+<!-- Left Column: Analytics & User Table -->
+<div class="xl:col-span-8 space-y-8">
+<!-- Analytics Chart Placeholder -->
+<div class="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h3 class="font-h3 text-h3 text-primary">Revenue Trends</h3>
+<p class="text-sm text-on-surface-variant">Transaction volume over the last 30 days</p>
+</div>
+<div class="flex bg-surface-container rounded-lg p-1">
+<button class="px-3 py-1 text-xs font-bold bg-white shadow-sm rounded-md">30D</button>
+<button class="px-3 py-1 text-xs font-medium text-slate-500">90D</button>
+<button class="px-3 py-1 text-xs font-medium text-slate-500">1Y</button>
+</div>
+</div>
+<!-- Simplified SVG Chart Representation -->
+<div class="h-64 w-full relative flex items-end justify-between px-2">
+<div class="absolute inset-0 flex flex-col justify-between py-2 border-l border-b border-slate-100">
+<div class="w-full h-px bg-slate-50"></div>
+<div class="w-full h-px bg-slate-50"></div>
+<div class="w-full h-px bg-slate-50"></div>
+<div class="w-full h-px bg-slate-50"></div>
+</div>
+<div class="relative w-full h-full flex items-end">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 800 200">
+<path d="M0,180 Q100,160 200,100 T400,120 T600,40 T800,60" fill="none" stroke="#041627" stroke-linecap="round" stroke-width="4"></path>
+<path d="M0,180 Q100,160 200,100 T400,120 T600,40 T800,60 V200 H0 Z" fill="url(#chart-grad)" opacity="0.1"></path>
+<defs>
+<lineargradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#041627"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</div>
+<div class="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
+<span>01 Oct</span>
+<span>10 Oct</span>
+<span>20 Oct</span>
+<span>30 Oct</span>
+</div>
+</div>
+<!-- User Management Table -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden">
+<div class="p-6 border-b border-slate-50 flex items-center justify-between">
+<h3 class="font-h3 text-h3 text-primary">User Management</h3>
+<button class="text-sm font-bold text-primary flex items-center gap-1 hover:underline">
+                                View All
+                                <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<tr>
+<th class="px-6 py-4">Name</th>
+<th class="px-6 py-4">Joined</th>
+<th class="px-6 py-4">Role</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="headshot of a smiling young man in a casual denim shirt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMu5gM9LAssWwPlIlrd7dj81pE83KDEpoPXGEaLzByjRrsHS0uTRV0zkyPkinSpbHB2Gs4Uywvj6Iu5Qoj_-G2rMdH2AUqeim5DwTaw1Udcc2bWQrAugaibZTxcLZ-jXtTOMj-43HKCuYPUQhg_DZWe0APn1kmCp8UqyEbvks3b8w3U_a8W_AK0u7XNahz7lMkPeps2mG-0Y8b0CA1VuHGPNkaV_oQWGDs0lOPjKcTnv4Wd7pW4eAKxTdYPHTRrjuD5LqgXqJnySw"/>
+<span class="font-bold text-slate-900">Julian Reed</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">12 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">Driver</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-1 rounded-full">Verified</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="confident professional woman looking directly at the camera in a corporate setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCemOwH4gjyi4byqjWyWlgrZryfJcN6cTCs1vvkdmq94iGiuAkx3qtIdqh2a809tpp5qaoJtBcgsKtww0sv32b8Zf0ZSxI7hy6xhCA10QVrRXHsTDftV3GpHfjeE1rc1cafE76-oHZzVHgQjsdr3uSnvYHf7PT8jN6_BAd2Gmx-WzxkTRXU508C8xSxyaQ6spthqilHqqr4uECjv-UpFsDn8nQicHtSKjTAZLStTDV6MGGlMm9jCcyAAomHCbGQ4imnnB6PqtzAbjs"/>
+<span class="font-bold text-slate-900">Elena Vance</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">14 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">Carrier</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 px-2 py-1 rounded-full">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="middle-aged man with glasses and a professional look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkwHhO_jzHdE0Du-b3sGBjLTaEkIwA4FmMW0QJyE-q6AoWf0_YOZD2UFKjnrKvdwZNGH6SievWsWrCcjOzm9qWmVGPBwLaZUyP80qZzGn2HWsAt-cgUfA4LCixA8TMpxu62WyNACpRXB19X25c7mSQDF7ZiLoVcb-J3isZ67OfKtlnOmEyuwVKBL41rS0JImb9jGmQ1R7PSzPnBnES9-V1AhgMKt_SP0LrC5_AWpnwGft_SdF42iGjm0Kk6GKbxuGtnkQ337pV680"/>
+<span class="font-bold text-slate-900">Marcus Thorne</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">15 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">Driver</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 px-2 py-1 rounded-full">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: Verification & Live Feed -->
+<div class="xl:col-span-4 space-y-8">
+<!-- Pending Verifications -->
+<div class="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-amber-500" data-icon="shield_person">shield_person</span>
+<h3 class="font-h3 text-h3 text-primary">Pending Reviews</h3>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-slate-50 rounded-lg border border-slate-100">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="driver headshot for verification portal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1FjmTB8WKFURU5bvXwqwDeaL70XrtGey5dvPhF0uTbDIofVAM-nLrwo6t80svkfbXbjGhBPHVgl564CdeyQCQyrl2Z0ZKGkNcud5voAyViQvVs1Z30JV5-m-7bOfB3b2TQvDMF5B8ughsr4nuRtjLRwqq6PKz61PIK4WvpxexwDSQlkcIuIIZcPSNhjLa7I1lGi9k9nxm89f5HEyKdbY20l1AylVwsR_3thsCcG2co01hVUcSj6GZRPldR18zaj_N1eKubYES92A"/>
+</div>
+<div>
+<p class="font-bold text-sm text-primary">Marcus Thorne</p>
+<p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Driver Credentials</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-primary text-white text-[10px] font-bold py-2 rounded uppercase tracking-wider hover:opacity-90">Review</button>
+<button class="px-3 border border-outline-variant rounded hover:bg-white">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</div>
+</div>
+<div class="p-4 bg-slate-50 rounded-lg border border-slate-100">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="female driver headshot for license review" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0SDinVdDU-14_ZCOUM3p47dpKxLUQPX-a8ckrnIlbq0cnarMfZm4KsFP9RnXRyqIhKrNHazYu2FjiBGKazpmrbapr0OpfLGTAwCzdK5gn3zHNH3PzjlBgbBtyuMvFHr9LtnkpBlQH55vDI6WC6fuN8PYqJ0LZWEOgypCDxxJ-NzUJnIYGh-3H2Ho3FugDBXVi2WYLhBGPiC0KjVdWNhPcCqxwns4j3MFAW1P-1og2vXi69nRHiHlze3eHxgD9bTLy_buPQpYGu98"/>
+</div>
+<div>
+<p class="font-bold text-sm text-primary">Sarah Jenkins</p>
+<p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Insurance Docs</p>
+</div>
+</div>
+<button class="w-full bg-primary text-white text-[10px] font-bold py-2 rounded uppercase tracking-wider hover:opacity-90">Review Credentials</button>
+</div>
+</div>
+</div>
+<!-- Live Job Monitor -->
+<div class="bg-slate-900 p-6 rounded-xl shadow-2xl relative overflow-hidden">
+<!-- Decorative Map Pattern -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="stylized map pattern with glowing data lines for logistics background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZyTZL-WuXe7o5663clssKCjFrG7yY1JEJcA7MqfM3xbZo_ReNqWcWKEuOIkRwBL6YblArWCNJ9BffTncqxsdURfARpIOfxZkhrAYkIOY3ZXxZUfJU73k0y0ofgXlCqX7vBhYqhTzFwoWVaj8C4e-6QCHhkudC9twLuefAJBELDWh74D5vQ7gnYV5IWEXBP0baCFtR7-ExYkQWgAXKWeNO-WlK9h0Fd4otmFb7dhWVzjMG1J3pPeIiAnmDxZYc--PnJD8cmMpxmf0"/>
+</div>
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-h3 text-h3 text-white">Live Monitor</h3>
+<span class="flex h-2 w-2 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+</span>
+</div>
+<div class="space-y-4 max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
+<!-- Job 1 -->
+<div class="flex items-start gap-4 pb-4 border-b border-slate-800">
+<div class="mt-1">
+<span class="material-symbols-outlined text-amber-500" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-white text-sm">#FF-9021</p>
+<span class="text-[9px] font-black bg-amber-500 text-slate-900 px-1.5 py-0.5 rounded">IN TRANSIT</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Manchester → London</p>
+<div class="mt-2 w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+<div class="bg-amber-500 h-full w-2/3"></div>
+</div>
+</div>
+</div>
+<!-- Job 2 -->
+<div class="flex items-start gap-4 pb-4 border-b border-slate-800">
+<div class="mt-1">
+<span class="material-symbols-outlined text-slate-500" data-icon="bookmark">bookmark</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-white text-sm">#FF-9025</p>
+<span class="text-[9px] font-black bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">BOOKED</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Birmingham → Cardiff</p>
+</div>
+</div>
+<!-- Job 3 -->
+<div class="flex items-start gap-4 pb-4 border-b border-slate-800">
+<div class="mt-1 text-green-500">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-white text-sm">#FF-8998</p>
+<span class="text-[9px] font-black bg-green-900 text-green-400 px-1.5 py-0.5 rounded">COMPLETED</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Leeds → Glasgow</p>
+</div>
+</div>
+<!-- Job 4 -->
+<div class="flex items-start gap-4 pb-4 border-b border-slate-800">
+<div class="mt-1">
+<span class="material-symbols-outlined text-amber-500" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-white text-sm">#FF-9018</p>
+<span class="text-[9px] font-black bg-amber-500 text-slate-900 px-1.5 py-0.5 rounded">IN TRANSIT</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Newcastle → Liverpool</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 border border-slate-700 text-slate-400 text-xs font-bold rounded hover:bg-slate-800 transition-colors">
+                                Expand Live Feed
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Mobile Only) -->
+<nav class="fixed bottom-0 w-full z-50 lg:hidden border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex justify-around items-center h-16 px-4 pb-safe">
+<a class="flex flex-col items-center justify-center text-amber-600 bg-amber-50 rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="query_stats">query_stats</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Jobs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="rule">rule</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Verify</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

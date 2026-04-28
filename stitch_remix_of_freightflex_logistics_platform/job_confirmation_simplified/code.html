@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#feddb5",
+                        "on-tertiary-fixed": "#281802",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "secondary-fixed": "#ffdcc3",
+                        "secondary": "#904d00",
+                        "tertiary-container": "#38260b",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "outline": "#74777d",
+                        "surface-container-highest": "#e1e3e4",
+                        "primary-container": "#1a2b3c",
+                        "outline-variant": "#c4c6cd",
+                        "on-primary-fixed": "#0b1d2d",
+                        "on-primary-container": "#8192a7",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#a88c69",
+                        "on-secondary-container": "#713b00",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "surface-variant": "#e1e3e4",
+                        "on-secondary-fixed": "#2f1500",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-high": "#e7e8e9",
+                        "inverse-primary": "#b7c8de",
+                        "on-primary-fixed-variant": "#38485a",
+                        "primary": "#041627",
+                        "on-surface-variant": "#44474c",
+                        "tertiary": "#211200",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#b7c8de",
+                        "on-surface": "#191c1d",
+                        "secondary-container": "#ffa454",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#f0f1f2",
+                        "surface-tint": "#4f6073",
+                        "surface-dim": "#d9dadb",
+                        "surface-container": "#edeeef",
+                        "primary-fixed": "#d2e4fb",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-primary": "#ffffff",
+                        "on-background": "#191c1d",
+                        "background": "#f8f9fa"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#f8f9fa] dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 w-full z-50">
+<div class="flex justify-between items-center w-full px-4 h-16">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 rounded-full">
+<span class="material-symbols-outlined text-[#041627] dark:text-slate-100">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold text-[#041627] dark:text-slate-100 font-['Inter']">Job Confirmation</h1>
+</div>
+<div class="hidden md:flex gap-6 items-center">
+<a class="text-slate-500 dark:text-slate-400 font-medium hover:text-[#041627] transition-colors" href="#">Dashboard</a>
+<a class="text-[#041627] dark:text-white font-bold transition-colors" href="#">Routes</a>
+<a class="text-slate-500 dark:text-slate-400 font-medium hover:text-[#041627] transition-colors" href="#">Profile</a>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-24 pb-20 px-4 md:px-8 max-w-5xl mx-auto w-full flex flex-col justify-center">
+<!-- Success Hero Section -->
+<div class="flex flex-col items-center text-center mb-12">
+<div class="w-20 h-20 bg-secondary-container flex items-center justify-center rounded-full mb-6 shadow-[0px_4px_12px_rgba(144,77,0,0.15)]">
+<span class="material-symbols-outlined text-on-secondary-container text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="text-3xl font-bold text-primary tracking-tight mb-4">Job Posted Successfully</h2>
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full text-sm font-bold tracking-wider">#FR-99203-BX</span>
+<span class="bg-secondary text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Open</span>
+</div>
+<p class="text-on-surface-variant max-w-lg text-lg leading-relaxed">
+                Your job has been published and is now visible to matched suppliers. You will be notified as quotes are submitted.
+            </p>
+</div>
+<!-- Call to Actions -->
+<div class="flex flex-col md:flex-row gap-4 items-center justify-center">
+<button class="w-full md:w-auto px-8 py-4 bg-primary text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">analytics</span>
+                Track Shipment
+            </button>
+<button class="w-full md:w-auto px-8 py-4 border-2 border-primary text-primary rounded-lg font-bold text-lg hover:bg-primary/5 transition-all active:scale-[0.98]">
+                Go to Dashboard
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)] md:hidden">
+<div class="flex justify-around items-center w-full h-16 pb-safe">
+<a class="flex flex-col items-center justify-center bg-[#1a2b3c] text-[#8192a7] rounded-2xl px-4 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">route</span>
+<span class="font-['Inter'] text-xs font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#44474c] dark:text-slate-400 px-4 py-1 active:scale-95 transition-transform hover:text-[#041627] dark:hover:text-white" href="#">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-['Inter'] text-xs font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#44474c] dark:text-slate-400 px-4 py-1 active:scale-95 transition-transform hover:text-[#041627] dark:hover:text-white" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-xs font-medium">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

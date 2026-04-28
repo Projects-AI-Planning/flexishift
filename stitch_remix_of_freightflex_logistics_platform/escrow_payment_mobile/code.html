@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"surface-bright": "#f8f9fa", primary: "#041627", "tertiary-fixed": "#feddb5", "primary-fixed": "#d2e4fb", error: "#ba1a1a", surface: "#f8f9fa", "surface-dim": "#d9dadb", "tertiary-container": "#38260b", "outline-variant": "#c4c6cd", "on-tertiary-fixed": "#281802", "on-surface": "#191c1d", "on-primary-fixed": "#0b1d2d", "primary-container": "#1a2b3c", "inverse-surface": "#2e3132", "on-tertiary-container": "#a88c69", "on-secondary": "#ffffff", "on-primary-container": "#8192a7", "surface-container-highest": "#e1e3e4", "on-surface-variant": "#44474c", "inverse-primary": "#b7c8de", "on-secondary-container": "#713b00", "surface-variant": "#e1e3e4", "surface-tint": "#4f6073", "primary-fixed-dim": "#b7c8de", outline: "#74777d", "on-secondary-fixed": "#2f1500", "on-error-container": "#93000a", "tertiary-fixed-dim": "#e1c29b", "secondary-fixed-dim": "#ffb77d", "on-error": "#ffffff", "secondary-container": "#ffa454", "secondary-fixed": "#ffdcc3", background: "#f8f9fa", "surface-container": "#edeeef", "on-background": "#191c1d", "error-container": "#ffdad6", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "surface-container-lowest": "#ffffff", "surface-container-low": "#f3f4f5", secondary: "#904d00", "on-tertiary-fixed-variant": "#584326", "on-secondary-fixed-variant": "#6e3900", "on-primary-fixed-variant": "#38485a", "surface-container-high": "#e7e8e9", tertiary: "#211200", "on-tertiary": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"margin-mobile": "16px", "margin-desktop": "32px", md: "24px", lg: "40px", xs: "4px", gutter: "16px", base: "8px", sm: "12px"}, fontFamily: {"stats-display": ["Inter"], h1: ["Inter"], "label-bold": ["Inter"], "body-lg": ["Inter"], "body-md": ["Inter"], h3: ["Inter"], h2: ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-bright font-body-md text-on-surface">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center px-4 h-14 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-[0px_4px_12px_rgba(26,43,60,0.05)]">
+<button class="material-symbols-outlined text-[#1A2B3C] dark:text-slate-100 mr-4 active:scale-95 transition-transform" data-icon="arrow_back">arrow_back</button>
+<div class="flex flex-col">
+<h1 class="font-['Inter'] font-semibold text-base tracking-tight text-[#1A2B3C] dark:text-slate-100">Escrow Payment</h1>
+<span class="text-[10px] font-label-bold text-on-primary-container">JOB #FR-99203-BX</span>
+</div>
+</header>
+<main class="pt-20 pb-32 px-4 max-w-md mx-auto">
+<!-- Security Trust Banner -->
+<div class="bg-primary-container text-white p-4 rounded-xl mb-6 flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="verified_user" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<p class="font-body-sm text-on-primary-container">
+                Your payment is held securely in escrow and only released after delivery approval.
+            </p>
+</div>
+<!-- Payment Summary Card -->
+<section class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-6 mb-6">
+<h2 class="font-h3 text-primary mb-4">Summary</h2>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="text-on-surface-variant font-body-md">Freight Total</span>
+<span class="text-primary font-stats-display text-lg">€1,100.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-on-surface-variant font-body-md">Service Fee</span>
+<span class="text-primary font-stats-display text-lg">€25.00</span>
+</div>
+<div class="border-t border-surface-variant pt-3 mt-3 flex justify-between items-center">
+<span class="text-primary font-label-bold text-base">Total Payable</span>
+<span class="text-secondary font-stats-display text-2xl">€1,125.00</span>
+</div>
+</div>
+</section>
+<!-- Payment Methods -->
+<section class="space-y-4">
+<h2 class="font-h3 text-primary px-1">Payment Method</h2>
+<!-- Method: Credit Card (Selected) -->
+<div class="bg-white border-2 border-secondary rounded-xl p-4 flex items-center gap-4 relative">
+<div class="bg-surface-container-low p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="credit_card">credit_card</span>
+</div>
+<div class="flex-1">
+<p class="font-label-bold text-primary">Credit / Debit Card</p>
+<p class="font-body-sm text-on-surface-variant">Pay with Visa, Mastercard or AMEX</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<!-- Method: Bank Transfer -->
+<div class="bg-white border border-surface-variant rounded-xl p-4 flex items-center gap-4 active:bg-surface-container-low transition-colors">
+<div class="bg-surface-container-low p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="account_balance">account_balance</span>
+</div>
+<div class="flex-1">
+<p class="font-label-bold text-primary">Bank Transfer</p>
+<p class="font-body-sm text-on-surface-variant">Direct wire transfer (1-2 days)</p>
+</div>
+<div class="w-6 h-6 border-2 border-outline-variant rounded-full"></div>
+</div>
+<!-- Method: UPI -->
+<div class="bg-white border border-surface-variant rounded-xl p-4 flex items-center gap-4 active:bg-surface-container-low transition-colors">
+<div class="bg-surface-container-low p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="payments">payments</span>
+</div>
+<div class="flex-1">
+<p class="font-label-bold text-primary">UPI Payment</p>
+<p class="font-body-sm text-on-surface-variant">Instant mobile wallet transfer</p>
+</div>
+<div class="w-6 h-6 border-2 border-outline-variant rounded-full"></div>
+</div>
+</section>
+<!-- Security Badge -->
+<div class="mt-8 flex flex-col items-center justify-center gap-2 opacity-60">
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="security">security</span>
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="lock">lock</span>
+</div>
+<p class="font-body-sm text-primary uppercase tracking-widest text-[10px] font-bold">256-bit Encrypted Transaction</p>
+</div>
+</main>
+<!-- Bottom Action Shell (Contextual FAB / Primary Action) -->
+<div class="fixed bottom-0 left-0 w-full bg-white border-t border-surface-variant p-4 pb-safe z-50">
+<button class="w-full bg-secondary text-primary font-h3 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span>Pay €1,125.00 Now</span>
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- BottomNavBar Suppressed (Transactional Screen Rule) -->
+</body></html>

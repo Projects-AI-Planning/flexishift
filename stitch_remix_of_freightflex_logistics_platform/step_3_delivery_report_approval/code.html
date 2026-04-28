@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .signature-pad {
+            background-image: repeating-linear-gradient(#f1f5f9 0px, #f1f5f9 1px, transparent 1px, transparent 20px);
+            background-size: 100% 20px;
+        }
+    </style>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-primary-fixed-variant": "#38485a", "on-secondary-container": "#713b00", outline: "#74777d", "surface-container-high": "#e7e8e9", "surface-bright": "#f8f9fa", surface: "#f8f9fa", "surface-container-lowest": "#ffffff", primary: "#041627", "on-error-container": "#93000a", "surface-container": "#edeeef", "primary-container": "#1a2b3c", "primary-fixed": "#d2e4fb", "on-tertiary-fixed-variant": "#584326", "on-secondary": "#ffffff", "on-surface-variant": "#44474c", "surface-dim": "#d9dadb", "inverse-surface": "#2e3132", tertiary: "#211200", "on-secondary-fixed": "#2f1500", "outline-variant": "#c4c6cd", "on-secondary-fixed-variant": "#6e3900", "on-error": "#ffffff", background: "#f8f9fa", "surface-variant": "#e1e3e4", error: "#ba1a1a", "tertiary-fixed": "#feddb5", "on-surface": "#191c1d", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "on-primary-container": "#8192a7", "on-tertiary-fixed": "#281802", "tertiary-fixed-dim": "#e1c29b", "secondary-fixed": "#ffdcc3", "inverse-on-surface": "#f0f1f2", "secondary-container": "#ffa454", "on-primary": "#ffffff", secondary: "#904d00", "surface-tint": "#4f6073", "error-container": "#ffdad6", "surface-container-low": "#f3f4f5", "inverse-primary": "#b7c8de", "on-primary-fixed": "#0b1d2d", "tertiary-container": "#38260b", "on-background": "#191c1d", "on-tertiary": "#ffffff", "primary-fixed-dim": "#b7c8de", "on-tertiary-container": "#a88c69"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {sm: "12px", base: "8px", xs: "4px", "margin-desktop": "32px", lg: "40px", gutter: "16px", md: "24px", "margin-mobile": "16px"}, fontFamily: {"body-md": ["Inter"], "stats-display": ["Inter"], h1: ["Inter"], "label-bold": ["Inter"], "body-lg": ["Inter"], h2: ["Inter"], "body-sm": ["Inter"], h3: ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}]}}}};</script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-[0px_4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex items-center gap-4">
+<button class="transition-colors duration-200 active:opacity-70 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined text-[#1A2B3C] dark:text-slate-100" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] text-base font-bold tracking-tight text-[#1A2B3C] dark:text-slate-100">Step 3: Delivery Report</h1>
+</div>
+<div class="font-black text-lg text-[#1A2B3C] dark:text-white">LOGIFLOW</div>
+</header>
+<main class="mt-16 px-margin-mobile pt-md space-y-md">
+<!-- Horizontal Stepper -->
+<section class="flex items-center justify-between py-xs">
+<div class="flex flex-col items-center gap-1 flex-1">
+<div class="w-8 h-8 rounded-full bg-[#1A2B3C] flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" data-icon="check" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-label-bold text-label-bold text-on-primary-fixed-variant">Arrived</span>
+</div>
+<div class="h-0.5 flex-1 bg-[#1A2B3C] -mt-5 mx-2 opacity-20"></div>
+<div class="flex flex-col items-center gap-1 flex-1">
+<div class="w-8 h-8 rounded-full bg-[#1A2B3C] flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" data-icon="check" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-label-bold text-label-bold text-on-primary-fixed-variant">Unload</span>
+</div>
+<div class="h-0.5 flex-1 bg-[#FFB100] -mt-5 mx-2"></div>
+<div class="flex flex-col items-center gap-1 flex-1">
+<div class="w-8 h-8 rounded-full bg-[#FFB100] border-2 border-[#FFB100] flex items-center justify-center text-[#1A2B3C] font-bold">
+                    3
+                </div>
+<span class="font-label-bold text-label-bold text-[#1A2B3C]">Delivery</span>
+</div>
+</section>
+<!-- Header Section -->
+<section class="space-y-xs">
+<h2 class="font-h2 text-h2 text-primary">Confirm Delivery</h2>
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container-high rounded-full w-fit">
+<span class="material-symbols-outlined text-sm" data-icon="tag">tag</span>
+<span class="font-label-bold text-label-bold tracking-wider">#FR-99203-BX</span>
+</div>
+</section>
+<!-- Bento Grid Main Content -->
+<div class="grid grid-cols-1 gap-gutter">
+<!-- Upload Delivery Photo -->
+<div class="bg-white rounded-lg p-md shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-2 border-dashed border-outline-variant flex flex-col items-center justify-center py-lg group active:bg-slate-50 transition-colors">
+<div class="w-16 h-16 rounded-full bg-secondary-fixed flex items-center justify-center mb-base text-secondary group-active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="photo_camera" data-weight="fill" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+<p class="font-h3 text-h3 text-on-surface">Upload Delivery Photo</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Proof of cargo placement at site</p>
+</div>
+<!-- Recipient Signature -->
+<div class="bg-white rounded-lg p-md shadow-[0px_4px_12px_rgba(26,43,60,0.05)] space-y-base">
+<div class="flex items-center justify-between">
+<label class="font-label-bold text-label-bold uppercase text-on-surface-variant">Recipient Signature</label>
+<button class="text-error font-label-bold text-label-bold px-3 py-1 hover:bg-error-container rounded-lg transition-colors">Clear</button>
+</div>
+<div class="signature-pad w-full h-40 border border-outline-variant rounded-lg bg-surface-container-low flex items-center justify-center relative overflow-hidden">
+<span class="text-outline text-body-sm opacity-50 italic">Sign here...</span>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="material-symbols-outlined text-outline" data-icon="edit">edit</span>
+</div>
+</div>
+</div>
+<!-- Form Fields -->
+<div class="bg-white rounded-lg p-md shadow-[0px_4px_12px_rgba(26,43,60,0.05)] space-y-md">
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold uppercase text-on-surface-variant">Recipient Name</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#FFB100] focus:border-[#1A2B3C] outline-none font-body-md text-body-md text-on-surface transition-all" placeholder="Full name of person accepting delivery" type="text"/>
+</div>
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold uppercase text-on-surface-variant">Delivery Notes (Optional)</label>
+<textarea class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#FFB100] focus:border-[#1A2B3C] outline-none font-body-md text-body-md text-on-surface transition-all resize-none" placeholder="Add details about cargo condition, gate codes, or site access..." rows="3"></textarea>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Actions and Navbar -->
+<div class="fixed bottom-0 left-0 w-full z-50 bg-white dark:bg-slate-900">
+<!-- Floating-like CTA Button -->
+<div class="px-margin-mobile pt-4 pb-2">
+<button class="w-full bg-[#FFB100] text-[#1A2B3C] font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined" data-icon="task_alt">task_alt</span>
+<span class="font-body-lg text-body-lg font-bold">Complete Job &amp; Submit Report</span>
+</button>
+</div>
+<!-- BottomNavBar from Shared Components -->
+<nav class="flex justify-around items-center h-20 px-2 pb-safe border-t border-slate-200 dark:border-slate-800">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 transition-all duration-200 active:scale-95 hover:text-[#1A2B3C] dark:hover:text-[#FFB100]" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 transition-all duration-200 active:scale-95 hover:text-[#1A2B3C] dark:hover:text-[#FFB100]" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 transition-all duration-200 active:scale-95 hover:text-[#1A2B3C] dark:hover:text-[#FFB100]" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[12px] font-medium">Profile</span>
+</a>
+</nav>
+</div>
+<!-- Decorative background elements -->
+<div class="fixed top-0 right-0 -z-10 opacity-10">
+<span class="material-symbols-outlined text-[300px]" data-icon="inventory_2">inventory_2</span>
+</div>
+</body></html>

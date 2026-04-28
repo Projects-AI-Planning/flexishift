@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Logistics Core - Driver Jobs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "surface-container-low": "#f3f4f5",
+                    "on-surface-variant": "#44474c",
+                    "surface-container-highest": "#e1e3e4",
+                    "surface-variant": "#e1e3e4",
+                    "secondary-container": "#ffa454",
+                    "surface-container-high": "#e7e8e9",
+                    "primary-container": "#1a2b3c",
+                    "on-primary-fixed-variant": "#38485a",
+                    "on-primary": "#ffffff",
+                    "primary": "#041627",
+                    "surface-tint": "#4f6073",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "secondary-fixed": "#ffdcc3",
+                    "on-surface": "#191c1d",
+                    "inverse-primary": "#b7c8de",
+                    "surface-bright": "#f8f9fa",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "on-error": "#ffffff",
+                    "inverse-on-surface": "#f0f1f2",
+                    "surface": "#f8f9fa",
+                    "on-primary-fixed": "#0b1d2d",
+                    "on-primary-container": "#8192a7",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#2f1500",
+                    "on-background": "#191c1d",
+                    "surface-container": "#edeeef",
+                    "tertiary-container": "#38260b",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed": "#feddb5",
+                    "outline": "#74777d",
+                    "inverse-surface": "#2e3132",
+                    "tertiary": "#211200",
+                    "background": "#f8f9fa",
+                    "primary-fixed-dim": "#b7c8de",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#c4c6cd",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#281802",
+                    "primary-fixed": "#d2e4fb",
+                    "on-secondary-container": "#713b00",
+                    "on-tertiary-container": "#a88c69",
+                    "surface-dim": "#d9dadb",
+                    "secondary": "#904d00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full flex justify-between items-center px-4 py-2 bg-white/80 backdrop-blur-md z-50 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img alt="Driver Profile" class="w-full h-full object-cover" data-alt="Professional portrait of a male logistics driver wearing a clean uniform with a friendly expression, studio lighting, neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCg_Z-BtrRopusFA_vakKjmJ04SI29d5bRPAYgpMibb0_VedGC2S5wl9e3uSnU6mnCqwSRKjPD4W7m-3oluAk0NvYVVEV2TLHkhfxXkHzpb3VGUcF8GvmInDJSWHUFOxl8CbLbkWQ8SG6iBIHlrYfwD1GHXaPdQqsa3jO3Wj33qVQCNPWbqq57wJs-xlYXd_VrC5RQMBLONSgpP1WXPy9rT_R-zgdZvGSbQ2XMojNsOVrX9epYyCj-nsgIFJbohiRLC64FgVLFD-Uw"/>
+</div>
+<h1 class="font-['Inter'] font-bold text-lg tracking-tight text-slate-900">Logistics Core</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 active:scale-95 transition-transform duration-200 text-slate-900">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="px-4 pt-6 pb-24 max-w-2xl mx-auto">
+<!-- Search & Filter Section -->
+<section class="mb-8">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-4 space-y-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container border-none rounded-lg focus:ring-2 focus:ring-primary text-body-sm" placeholder="Search by location or load..." type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-full text-sm font-semibold whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="local_shipping">local_shipping</span>
+                        Heavy HGV
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container text-on-surface-variant rounded-full text-sm font-semibold whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="distance">distance</span>
+                        Radius: 50mi
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container text-on-surface-variant rounded-full text-sm font-semibold whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                        Filters
+                    </button>
+</div>
+</div>
+</section>
+<!-- Available Jobs Title -->
+<div class="flex justify-between items-end mb-4 px-1">
+<h2 class="text-2xl font-bold tracking-tight text-primary">Available Jobs</h2>
+<span class="text-sm font-semibold text-on-surface-variant">14 Loads nearby</span>
+</div>
+<!-- Job Cards List -->
+<div class="space-y-4">
+<!-- Job Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-transparent hover:border-outline-variant transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1 block">Ref: LC-99281</span>
+<h3 class="text-xl font-bold text-primary">London <span class="text-secondary">→</span> Manchester</h3>
+</div>
+<div class="bg-secondary-container/20 px-3 py-1 rounded-full">
+<span class="text-sm font-bold text-secondary">£850.00</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Cargo</p>
+<p class="text-sm font-semibold">Dry Van Goods</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="weight">weight</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Weight</p>
+<p class="text-sm font-semibold">18,500 kg</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="calendar_today">calendar_today</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Pickup</p>
+<p class="text-sm font-semibold">Oct 24, 08:30</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="schedule">schedule</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Duration</p>
+<p class="text-sm font-semibold">~4h 15m</p>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-3 px-4 bg-primary text-on-primary rounded-lg font-bold text-sm hover:opacity-90 active:scale-[0.98] transition-all">
+                        Apply Now
+                    </button>
+<button class="py-3 px-4 bg-surface-container text-primary rounded-lg font-bold text-sm hover:bg-surface-container-high active:scale-[0.98] transition-all">
+                        Details
+                    </button>
+</div>
+</div>
+<!-- Job Card 2 (Urgent) -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-secondary">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-[10px] font-bold uppercase tracking-widest text-secondary">Urgent Pickup</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+</div>
+<h3 class="text-xl font-bold text-primary">Birmingham <span class="text-secondary">→</span> Glasgow</h3>
+</div>
+<div class="bg-secondary px-3 py-1 rounded-full">
+<span class="text-sm font-bold text-on-secondary">£1,240.00</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="ac_unit">ac_unit</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Cargo</p>
+<p class="text-sm font-semibold">Refrigerated</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="weight">weight</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Weight</p>
+<p class="text-sm font-semibold">12,000 kg</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="calendar_today">calendar_today</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Pickup</p>
+<p class="text-sm font-semibold">Today, 14:00</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Distance</p>
+<p class="text-sm font-semibold">295 miles</p>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-3 px-4 bg-secondary text-on-secondary rounded-lg font-bold text-sm hover:opacity-90 active:scale-[0.98] transition-all">
+                        Accept &amp; Start
+                    </button>
+<button class="py-3 px-4 bg-surface-container text-primary rounded-lg font-bold text-sm hover:bg-surface-container-high active:scale-[0.98] transition-all">
+                        Details
+                    </button>
+</div>
+</div>
+<!-- Job Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-transparent hover:border-outline-variant transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1 block">Ref: LC-99402</span>
+<h3 class="text-xl font-bold text-primary">Bristol <span class="text-secondary">→</span> Cardiff</h3>
+</div>
+<div class="bg-secondary-container/20 px-3 py-1 rounded-full">
+<span class="text-sm font-bold text-secondary">£215.00</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="box">box</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Cargo</p>
+<p class="text-sm font-semibold">Palletized</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="weight">weight</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Weight</p>
+<p class="text-sm font-semibold">2,400 kg</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="calendar_today">calendar_today</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Pickup</p>
+<p class="text-sm font-semibold">Oct 25, 09:00</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="category">category</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Vehicle</p>
+<p class="text-sm font-semibold">3.5t Box Van</p>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-3 px-4 bg-primary text-on-primary rounded-lg font-bold text-sm hover:opacity-90 active:scale-[0.98] transition-all">
+                        Apply Now
+                    </button>
+<button class="py-3 px-4 bg-surface-container text-primary rounded-lg font-bold text-sm hover:bg-surface-container-high active:scale-[0.98] transition-all">
+                        Details
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full flex justify-around items-center px-2 py-3 pb-safe bg-white dark:bg-slate-900 z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:bg-slate-50 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 rounded-xl px-3 py-1 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="explore" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider">Discover</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:bg-slate-50 active:scale-90 transition-all duration-150">
+<div class="bg-primary-container p-2 rounded-full -mt-8 shadow-lg text-on-primary mb-1">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:bg-slate-50 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="payments">payments</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider">Earnings</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:bg-slate-50 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider">Profile</span>
+</div>
+</nav>
+</body></html>

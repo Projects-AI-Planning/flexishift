@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quote Accepted - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-dim": "#d9dadb",
+            "surface-container-high": "#e7e8e9",
+            "on-tertiary-container": "#a88c69",
+            "on-secondary": "#ffffff",
+            "secondary-fixed": "#ffdcc3",
+            "surface-variant": "#e1e3e4",
+            "surface-container-highest": "#e1e3e4",
+            "on-tertiary-fixed-variant": "#584326",
+            "surface-container-lowest": "#ffffff",
+            "primary-fixed": "#d2e4fb",
+            "surface-tint": "#4f6073",
+            "on-secondary-fixed": "#2f1500",
+            "on-primary-fixed-variant": "#38485a",
+            "on-secondary-fixed-variant": "#6e3900",
+            "surface-container-low": "#f3f4f5",
+            "tertiary-fixed-dim": "#e1c29b",
+            "on-background": "#191c1d",
+            "inverse-primary": "#b7c8de",
+            "secondary-container": "#ffa454",
+            "background": "#f8f9fa",
+            "surface": "#f8f9fa",
+            "on-error": "#ffffff",
+            "tertiary-container": "#38260b",
+            "surface-container": "#edeeef",
+            "on-secondary-container": "#713b00",
+            "outline": "#74777d",
+            "inverse-surface": "#2e3132",
+            "primary-container": "#1a2b3c",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed-dim": "#ffb77d",
+            "on-primary-fixed": "#0b1d2d",
+            "primary": "#041627",
+            "inverse-on-surface": "#f0f1f2",
+            "error-container": "#ffdad6",
+            "tertiary-fixed": "#feddb5",
+            "on-error-container": "#93000a",
+            "on-tertiary-fixed": "#281802",
+            "on-primary": "#ffffff",
+            "error": "#ba1a1a",
+            "secondary": "#904d00",
+            "primary-fixed-dim": "#b7c8de",
+            "on-primary-container": "#8192a7",
+            "outline-variant": "#c4c6cd",
+            "surface-bright": "#f8f9fa",
+            "on-surface": "#191c1d",
+            "tertiary": "#211200",
+            "on-surface-variant": "#44474c"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.5rem",
+            "lg": "1rem",
+            "xl": "1.5rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "headline": ["Inter"],
+            "display": ["Inter"],
+            "body": ["Inter"],
+            "label": ["Inter"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar (Suppressed as per "Success/Confirmation" rule, but implemented as requested for shell context if needed. Re-evaluating: This is a task-focused confirmation screen, shell should be minimal or hidden to prioritize content canvas.) -->
+<main class="flex-grow flex items-center justify-center p-4 md:p-8">
+<div class="max-w-lg w-full bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden">
+<!-- Top Decorative Banner -->
+<div class="h-2 bg-secondary"></div>
+<div class="p-8 flex flex-col items-center text-center">
+<!-- Success State Indicator -->
+<div class="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-secondary text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h1 class="text-primary text-3xl font-bold tracking-tight mb-2 leading-tight">Quote Accepted</h1>
+<p class="text-on-surface-variant text-lg leading-relaxed mb-8">
+          Haulier Logistics Pro has confirmed your bid for shipment <span class="font-bold text-primary">Job #FR-99203-BX.</span>
+</p>
+<!-- Shipment Summary Card -->
+<div class="w-full bg-surface-container-low rounded-lg p-6 mb-8 text-left border border-outline-variant/30">
+<h2 class="text-primary text-xs font-bold uppercase tracking-widest mb-4">Shipment Summary</h2>
+<div class="space-y-4">
+<div class="flex items-start gap-4">
+<div class="flex flex-col items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-primary text-lg">location_on</span>
+<div class="w-0.5 h-6 bg-outline-variant"></div>
+<span class="material-symbols-outlined text-secondary text-lg">local_shipping</span>
+</div>
+<div class="flex-grow">
+<div class="mb-3">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Pickup</p>
+<p class="text-primary font-semibold">Berlin, DE</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Destination</p>
+<p class="text-primary font-semibold">Warsaw, PL</p>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/50 flex justify-between items-center">
+<div>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">Cargo Type</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">precision_manufacturing</span>
+<span class="text-primary font-medium">Industrial Equipment</span>
+</div>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">Weight</p>
+<p class="text-primary font-medium">12.4 Tons</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Cluster -->
+<div class="w-full flex flex-col gap-3">
+<button class="w-full bg-primary text-on-primary font-bold py-4 rounded-lg shadow-md active:scale-95 transition-transform duration-150 flex items-center justify-center gap-2">
+            View Job Details &amp; Start
+            <span class="material-symbols-outlined text-xl">arrow_forward</span>
+</button>
+<button class="w-full bg-transparent text-primary font-semibold py-3 rounded-lg border border-primary/20 hover:bg-surface-container-high transition-colors">
+            Dismiss
+          </button>
+</div>
+</div>
+<!-- Additional Logistics Data Visualization (Minimal) -->
+<div class="px-8 pb-8">
+<div class="flex items-center justify-between text-[11px] text-on-surface-variant font-medium bg-surface-container-highest/50 px-4 py-2 rounded-full">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">verified</span>
+            Contract Signed
+          </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">schedule</span>
+            ETA: 14h 20m
+          </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">payments</span>
+            Guaranteed Payout
+          </div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Nav Bar (As requested by Shared Components, but filtered for transactional screens normally. 
+       Implementing it here to demonstrate the requested components as a persistent shell if the user remains in-app.) -->
+<nav class="fixed bottom-0 w-full z-50 border-t bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] md:hidden">
+<div class="flex justify-around items-center w-full h-20 pb-safe px-2">
+<!-- Active mapping to Notifications as this is a notification arrival screen -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 text-[#041627] dark:text-amber-500 rounded-xl px-3 py-1 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="notifications" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider">Notifications</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider">History</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-surface-variant": "#44474c", "on-surface": "#191c1d", "on-tertiary": "#ffffff", "surface-dim": "#d9dadb", "secondary-fixed": "#ffdcc3", "on-tertiary-fixed": "#281802", "on-tertiary-container": "#a88c69", "on-error-container": "#93000a", "tertiary-fixed-dim": "#e1c29b", "surface-container": "#edeeef", "inverse-primary": "#b7c8de", "on-secondary-container": "#713b00", "error-container": "#ffdad6", secondary: "#904d00", "tertiary-container": "#38260b", "tertiary-fixed": "#feddb5", tertiary: "#211200", "outline-variant": "#c4c6cd", "surface-tint": "#4f6073", "primary-container": "#1a2b3c", "on-secondary-fixed": "#2f1500", surface: "#f8f9fa", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "surface-variant": "#e1e3e4", "on-secondary-fixed-variant": "#6e3900", outline: "#74777d", "on-error": "#ffffff", "primary-fixed-dim": "#b7c8de", error: "#ba1a1a", "surface-container-high": "#e7e8e9", "primary-fixed": "#d2e4fb", "on-secondary": "#ffffff", "on-primary-fixed-variant": "#38485a", "on-tertiary-fixed-variant": "#584326", "surface-container-lowest": "#ffffff", "on-primary-container": "#8192a7", background: "#f8f9fa", "inverse-surface": "#2e3132", "on-primary-fixed": "#0b1d2d", "on-background": "#191c1d", "surface-container-low": "#f3f4f5", "surface-bright": "#f8f9fa", primary: "#041627", "secondary-container": "#ffa454"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"margin-mobile": "16px", lg: "40px", gutter: "16px", base: "8px", sm: "12px", md: "24px", xs: "4px", "margin-desktop": "32px"}, fontFamily: {h1: ["Inter"], "label-bold": ["Inter"], h3: ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"], h2: ["Inter"], "stats-display": ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Inter', sans-serif;
+        }
+        .step-active { color: #041627; border-color: #041627; }
+        .step-inactive { color: #74777d; border-color: #c4c6cd; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm fixed top-0 w-full z-50">
+<div class="flex items-center justify-between px-4 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-slate-900 dark:text-slate-50">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-sans text-base font-semibold tracking-tight text-slate-900 dark:text-slate-50">Profile Setup</h1>
+</div>
+<div class="text-lg font-black text-slate-900 dark:text-slate-50">
+                LOGI<span class="text-secondary">CORP</span>
+</div>
+<div class="w-10"></div> <!-- Spacer -->
+</div>
+</header>
+<main class="pt-24 pb-12 px-margin-mobile md:px-margin-desktop max-w-5xl mx-auto">
+<!-- Progress Stepper -->
+<div class="flex items-center justify-between mb-md max-w-md mx-auto">
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full border-2 flex items-center justify-center bg-primary text-white font-bold">1</div>
+<span class="font-label-bold text-label-bold uppercase">Identity</span>
+</div>
+<div class="flex-1 h-[2px] bg-primary mx-4 -mt-6"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full border-2 flex items-center justify-center border-primary bg-primary text-white font-bold">2</div>
+<span class="font-label-bold text-label-bold uppercase text-primary">Firm Info</span>
+</div>
+<div class="flex-1 h-[2px] bg-outline-variant mx-4 -mt-6"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full border-2 flex items-center justify-center border-outline-variant text-outline font-bold">3</div>
+<span class="font-label-bold text-label-bold uppercase text-outline">Legal</span>
+</div>
+</div>
+<!-- Main Form Section: Bento-style Cards -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-md">
+<!-- Left Column: Fleet Details -->
+<div class="md:col-span-7 space-y-md">
+<section class="bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-transparent">
+<div class="flex items-center gap-base mb-sm">
+<span class="material-symbols-outlined text-secondary" data-icon="local_shipping">local_shipping</span>
+<h2 class="font-h2 text-h2 text-primary">Fleet Details</h2>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-md">Specify the size and composition of your logistics assets.</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold text-primary">TOTAL VEHICLE COUNT</label>
+<input class="w-full border-outline-variant rounded-lg p-3 focus:ring-secondary focus:border-primary font-body-md text-body-md" placeholder="e.g. 24" type="number"/>
+</div>
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold text-primary">FIRM OPERATING SINCE</label>
+<input class="w-full border-outline-variant rounded-lg p-3 focus:ring-secondary focus:border-primary font-body-md text-body-md" placeholder="YYYY" type="text"/>
+</div>
+</div>
+<div class="mt-md space-y-sm">
+<label class="font-label-bold text-label-bold text-primary uppercase">VEHICLE SPECIALIZATIONS</label>
+<div class="grid grid-cols-2 gap-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container transition-colors">
+<input class="w-5 h-5 rounded text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Refrigerated Trucks</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container transition-colors">
+<input class="w-5 h-5 rounded text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Flatbed Trailers</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container transition-colors">
+<input class="w-5 h-5 rounded text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Hazmat Certified</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container transition-colors">
+<input class="w-5 h-5 rounded text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Dry Van</span>
+</label>
+</div>
+</div>
+</section>
+<!-- Additional Stats/Info Card -->
+<section class="bg-primary-container p-md rounded-xl shadow-lg text-on-primary">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-h3 text-h3 text-white mb-xs">Fleet Capacity</h3>
+<p class="font-body-sm text-body-sm text-on-primary-container">Estimated monthly tonnage throughput based on current fleet details.</p>
+</div>
+<span class="material-symbols-outlined text-secondary-container" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<div class="mt-md flex items-end gap-2">
+<span class="font-stats-display text-stats-display text-white">450</span>
+<span class="font-label-bold text-label-bold uppercase text-on-primary-container pb-2">Tons / Month</span>
+</div>
+</section>
+</div>
+<!-- Right Column: Coverage Area -->
+<div class="md:col-span-5 space-y-md">
+<section class="bg-white p-md rounded-xl shadow-[0_4px_12_rgba(26,43,60,0.05)] border border-transparent h-full flex flex-col">
+<div class="flex items-center gap-base mb-sm">
+<span class="material-symbols-outlined text-secondary" data-icon="map">map</span>
+<h2 class="font-h2 text-h2 text-primary">Coverage Area</h2>
+</div>
+<div class="flex-grow">
+<div class="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-surface-container-highest mb-md">
+<img class="w-full h-full object-cover opacity-80" data-alt="Modern dark stylized map of global logistics routes and shipping hubs across continents" data-location="Europe and North America" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEjNdhsh8LPyoPjzNW1IoRcerMVI3a93qAytE8UAOyEHUCfOOYYLse3-msr2e8Kaab9nsWeXR9QfYl-t8Z2_p_rPYpRng0wVWkcGg8L-2_Dy2TmONrxNl5pOhoq7uZYjPwC1k8erGepF9Ph5ijw3mrc_GWryxlri23A9wVAhgz9kjqWxHnUq0UhW115Ca9fUg7x3dIAQF3L6F9hTqgPP9B1TELpeKoyWjPOixqsQyC0bfRCh_7Fa2wgEoXzOLqQLW7s1o00MzuZc8"/>
+<div class="absolute inset-0 bg-primary/10"></div>
+<div class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full shadow-sm">
+<span class="font-label-bold text-[10px] uppercase text-primary">Operational Zones</span>
+</div>
+</div>
+<div class="space-y-sm">
+<label class="font-label-bold text-label-bold text-primary uppercase">PRIMARY SERVICE REGIONS</label>
+<div class="flex flex-wrap gap-2">
+<div class="bg-secondary-fixed px-3 py-1.5 rounded-full flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-secondary-fixed-variant">Western Europe</span>
+<button class="material-symbols-outlined text-xs" data-icon="close">close</button>
+</div>
+<div class="bg-secondary-fixed px-3 py-1.5 rounded-full flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-secondary-fixed-variant">DACH Region</span>
+<button class="material-symbols-outlined text-xs" data-icon="close">close</button>
+</div>
+<button class="border border-dashed border-outline px-3 py-1.5 rounded-full flex items-center gap-2 hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+<span class="font-body-sm text-body-sm">Add Region</span>
+</button>
+</div>
+</div>
+<div class="mt-md space-y-sm">
+<label class="font-label-bold text-label-bold text-primary uppercase">CROSS-BORDER CAPABILITIES</label>
+<select class="w-full border-outline-variant rounded-lg p-3 focus:ring-secondary focus:border-primary font-body-md text-body-md bg-white">
+<option>Full International Coverage</option>
+<option>Regional Only</option>
+<option>Domestic Only</option>
+<option>Special Transit Corridors</option>
+</select>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Sticky Footer for Actions -->
+<div class="mt-lg flex flex-col sm:flex-row items-center justify-between gap-md border-t border-outline-variant pt-md">
+<button class="font-label-bold text-label-bold uppercase text-on-surface-variant flex items-center gap-2 px-6 py-3 rounded-lg hover:bg-surface-container transition-colors order-2 sm:order-1">
+                Save Draft &amp; Exit
+            </button>
+<div class="flex flex-col sm:flex-row gap-sm w-full sm:w-auto order-1 sm:order-2">
+<button class="font-label-bold text-label-bold uppercase text-primary border border-primary px-10 py-4 rounded-lg hover:bg-surface-container transition-colors">
+                    Back
+                </button>
+<button class="font-label-bold text-label-bold uppercase bg-secondary text-primary px-10 py-4 rounded-lg shadow-md active:scale-95 transition-all flex items-center justify-center gap-2">
+                    Continue to Legal
+                    <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Hidden on desktop, shown on mobile as per logic but this is a transactional page - suppressed) -->
+<!-- Suppressed navigation for transactional onboarding journey -->
+</body></html>

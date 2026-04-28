@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Account Settings - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "surface-container": "#edeeef",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "on-tertiary-container": "#a88c69",
+                        "surface-dim": "#d9dadb",
+                        "inverse-surface": "#2e3132",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#38260b",
+                        "tertiary-fixed": "#feddb5",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#b7c8de",
+                        "primary-fixed-dim": "#b7c8de",
+                        "surface-container-high": "#e7e8e9",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#d2e4fb",
+                        "surface-variant": "#e1e3e4",
+                        "secondary-fixed": "#ffdcc3",
+                        "outline-variant": "#c4c6cd",
+                        "primary-container": "#1a2b3c",
+                        "on-error-container": "#93000a",
+                        "surface": "#f8f9fa",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-background": "#191c1d",
+                        "on-primary-fixed": "#0b1d2d",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "on-error": "#ffffff",
+                        "secondary": "#904d00",
+                        "on-surface-variant": "#44474c",
+                        "secondary-container": "#ffa454",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#281802",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "tertiary": "#211200",
+                        "on-primary-container": "#8192a7",
+                        "background": "#f8f9fa",
+                        "primary": "#041627",
+                        "surface-bright": "#f8f9fa",
+                        "surface-tint": "#4f6073",
+                        "on-secondary-container": "#713b00",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-primary": "#ffffff",
+                        "outline": "#74777d",
+                        "on-surface": "#191c1d",
+                        "on-primary-fixed-variant": "#38485a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-1 {
+            font-variation-settings: 'FILL' 1;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Unified SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-[#041627] border-r border-slate-800 shadow-xl flex flex-col py-4 z-50">
+<div class="px-6 py-4 mb-6"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-amber-500 rounded flex items-center justify-center"><span class="material-symbols-outlined text-slate-900" style="font-variation-settings: 'FILL' 1;">local_shipping</span></div><div><h1 class="text-xl font-black tracking-tight text-white">Logistics Pro</h1><p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Haulier Portal</p></div></div></div>
+<nav class="flex-1 overflow-y-auto custom-scrollbar px-2 space-y-1"><!-- Dashboard -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<!-- Shipments -->
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span>Shipments</span>
+</a>
+<div class="pl-12 space-y-1">
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Active</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Quotes</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Tracking</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Completed</a>
+</div>
+</div>
+<!-- Fleet Management -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">forklift</span>
+<span>Fleet Management</span>
+</a>
+<!-- Load Management -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Load Management</span>
+</a>
+<!-- Drivers -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">badge</span>
+<span>Drivers</span>
+</a>
+<!-- Vehicles -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">minor_crash</span>
+<span>Vehicles</span>
+</a>
+<!-- Analytics -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span>Analytics</span>
+</a>
+<!-- Payments -->
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span>Payments</span>
+</a>
+<div class="pl-12 space-y-1">
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Escrow</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">History</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Wallet</a>
+</div>
+</div>
+<!-- Documents / Compliance -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">description</span>
+<span>Documents / Compliance</span>
+</a>
+<!-- Account Settings (Active) -->
+<a class="flex items-center gap-3 bg-amber-500 text-slate-900 rounded-lg px-4 py-3 font-bold mx-2 scale-98 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span>Account Settings</span>
+</a>
+<!-- Support -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Support</span>
+</a></nav>
+<div class="mt-auto border-t border-slate-800 pt-4 p-4"><!-- Logout -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-900 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</a>
+<div class="mt-4 p-2 bg-slate-800/30 rounded-xl">
+<button class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+                Post New Job
+            </button>
+</div></div>
+</aside>
+<div class="ml-64 flex flex-col min-h-screen">
+<!-- Unified TopNavBar -->
+<header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm flex justify-between items-center w-full px-8 py-3 h-16 font-inter">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96 max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all" placeholder="Search orders, trucks, or settings..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-5">
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2.5 w-2 h-2 bg-amber-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-slate-950 leading-tight">Marcus Thorne</p>
+<p class="text-[11px] font-semibold text-slate-500 uppercase tracking-tight">Operations Manager</p>
+</div>
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full border border-slate-200 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCgjrUZ0n9gAf5uF-GfJ-KDDOU1AwQ50tM1ra4uzKeSbAmOe6mact7cmIi-ECl2UXRUrZ_XjV1Fc7D3pcKEqslA6pupQxGoOxHrFdiWg8esDep3JP9WA0sQDJ-GxvICU61UgI-BdQIZmeuxzDzosGkmjfd-X6UrhAIyzgRbMbgxWrijMyd09YCAzvL-cOQp0jFYj4jjgyBS64onnz5w_mcUFtplf6WLD7UlgPkqxbmaIJ6f3xd8fNKsm1Ep-xcBoQwL-1AwFrIID8"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-8 max-w-6xl mx-auto w-full">
+<div class="mb-8">
+<h1 class="text-3xl font-bold text-primary tracking-tight">Account Settings</h1>
+<p class="text-on-surface-variant mt-2">Manage your profile information, security preferences, and system alerts.</p>
+</div>
+<!-- Bento Grid Content -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Profile Section -->
+<section class="col-span-12 lg:col-span-8 bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] overflow-hidden">
+<div class="p-6 border-b border-surface-container">
+<h3 class="text-lg font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-500">person</span>
+                            Profile Information
+                        </h3>
+</div>
+<div class="p-8">
+<div class="flex flex-col md:flex-row gap-8 items-start mb-8">
+<div class="relative group">
+<img class="w-32 h-32 rounded-xl object-cover ring-4 ring-surface-container shadow-md" data-alt="Professional headshot of a middle-aged man with short hair and a clean-shaven face against a neutral studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBf8cbOKGtKtzi6zTOAC-3nMzmt7NPz9pm3KGU9lhfpyJEjOiL_nMkp8VBglLRaID_u728wghj05bLKDaFuSfba6iSTRSEIEEMDeb6xhhNLQ80oOVBo4_5Pa2dzsr0MZN1Il_CnBnroXbBnKOkHSkWScIMvGCX1PhTBkyIpFDknWzkAf7uws7mEphvz_W5Sgm31QXAAgqgEni4BcGzPwuS_QaChpQYnnO694vDMQr_g2LRf7VegiSNkmU-rHM9dzNiCV7i118Nlm6Y"/>
+<button class="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-lg shadow-lg hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+<div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-amber-500/20 focus:border-primary outline-none" type="text" value="Marcus Thorne"/>
+</div>
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email Address</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-amber-500/20 focus:border-primary outline-none" type="email" value="m.thorne@logisticscore.com"/>
+</div>
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phone Number</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-amber-500/20 focus:border-primary outline-none" type="tel" value="+1 (555) 012-3456"/>
+</div>
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Employee ID</label>
+<input class="w-full bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface-variant cursor-not-allowed" readonly="" type="text" value="LC-44920"/>
+</div>
+</div>
+</div>
+<div class="flex justify-end gap-3">
+<button class="px-6 py-2.5 rounded-lg border border-primary text-primary font-bold hover:bg-slate-50 transition-colors">Discard</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold hover:opacity-90 transition-opacity">Save Changes</button>
+</div>
+</div>
+</section>
+<!-- Security Section -->
+<section class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-6">
+<h3 class="text-lg font-bold text-primary flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-amber-500">security</span>
+                            Security
+                        </h3>
+<div class="space-y-4">
+<button class="w-full flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:border-amber-500 transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-amber-600">lock_reset</span>
+<span class="font-semibold text-sm">Change Password</span>
+</div>
+<span class="material-symbols-outlined text-slate-300 text-lg">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:border-amber-500 transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-amber-600">phonelink_setup</span>
+<span class="font-semibold text-sm">Two-Factor Auth</span>
+</div>
+<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Active</span>
+</button>
+<button class="w-full flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:border-amber-500 transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-amber-600">devices</span>
+<span class="font-semibold text-sm">Active Sessions</span>
+</div>
+<span class="text-xs text-on-surface-variant">3 Devices</span>
+</button>
+</div>
+</div>
+<div class="bg-[#041627] rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
+<div class="relative z-10">
+<h4 class="font-bold mb-2">Enterprise Plan</h4>
+<p class="text-slate-400 text-xs mb-4">You are currently on the Fleet Enterprise license with 50 seats.</p>
+<button class="w-full bg-amber-500 text-primary py-2 rounded-lg font-bold text-sm hover:bg-amber-400 transition-colors">
+                                View Billing
+                            </button>
+</div>
+<div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-12 -left-12 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
+</div>
+</section>
+<!-- Preferences Toggles -->
+<section class="col-span-12 bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-8">
+<h3 class="text-lg font-bold text-primary flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-amber-500">settings_suggest</span>
+                        System Preferences
+                    </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low">
+<div>
+<p class="font-bold text-primary leading-tight">Push Notifications</p>
+<p class="text-xs text-on-surface-variant mt-1">Receive desktop alerts for urgent delays.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+</label>
+</div>
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low">
+<div>
+<p class="font-bold text-primary leading-tight">Dark Mode</p>
+<p class="text-xs text-on-surface-variant mt-1">Adjust interface for night shifts.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+</label>
+</div>
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low">
+<div>
+<p class="font-bold text-primary leading-tight">Automatic Routing</p>
+<p class="text-xs text-on-surface-variant mt-1">Enable AI-optimized route assignment.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+</label>
+</div>
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low">
+<div>
+<p class="font-bold text-primary leading-tight">Location Sharing</p>
+<p class="text-xs text-on-surface-variant mt-1">Allow customers to track active loads.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+</label>
+</div>
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low">
+<div>
+<p class="font-bold text-primary leading-tight">Data Analytics</p>
+<p class="text-xs text-on-surface-variant mt-1">Share anonymized fleet data for benchmarking.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+</label>
+</div>
+<div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-surface-container-low border border-amber-200 border-dashed">
+<div class="flex flex-col h-full justify-center">
+<p class="font-bold text-amber-700 leading-tight">Beta Features</p>
+<p class="text-xs text-amber-600 mt-1">Get early access to new fleet tools.</p>
+</div>
+<button class="px-3 py-1 bg-amber-500 text-primary font-bold text-xs rounded-full shadow-sm hover:bg-amber-400 transition-colors">Join Beta</button>
+</div>
+</div>
+</section>
+<!-- Danger Zone -->
+<section class="col-span-12 border-2 border-error/20 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 bg-error-container/10">
+<div>
+<h3 class="text-lg font-bold text-error">Danger Zone</h3>
+<p class="text-sm text-on-surface-variant mt-1">Permanently deactivate your account and wipe all stored logistics data.</p>
+</div>
+<button class="px-8 py-3 bg-error text-white font-bold rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-error/10">
+                        Deactivate Account
+                    </button>
+</section>
+</div>
+</main>
+<!-- Minimal Footer -->
+<footer class="p-8 mt-auto border-t border-slate-200 bg-white">
+<div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<p>© 2024 Logistics Core. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary transition-colors" href="#">Data Processing</a>
+</div>
+</div>
+</footer>
+</div>
+</body></html>

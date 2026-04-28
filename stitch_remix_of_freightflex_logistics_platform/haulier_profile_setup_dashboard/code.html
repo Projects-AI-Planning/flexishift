@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Haulier Profile Setup - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#191c1d",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#44474c",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "surface-container": "#edeeef",
+                        "surface-dim": "#d9dadb",
+                        "secondary-fixed": "#ffdcc3",
+                        "on-tertiary-fixed": "#281802",
+                        "on-tertiary-container": "#a88c69",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#b7c8de",
+                        "on-secondary-container": "#713b00",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#feddb5",
+                        "tertiary": "#211200",
+                        "outline-variant": "#c4c6cd",
+                        "secondary": "#904d00",
+                        "tertiary-container": "#38260b",
+                        "primary-container": "#1a2b3c",
+                        "surface-tint": "#4f6073",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-secondary-fixed": "#2f1500",
+                        "surface": "#f8f9fa",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "surface-variant": "#e1e3e4",
+                        "primary-fixed-dim": "#b7c8de",
+                        "error": "#ba1a1a",
+                        "outline": "#74777d",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#38485a",
+                        "surface-container-high": "#e7e8e9",
+                        "primary-fixed": "#d2e4fb",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#8192a7",
+                        "background": "#f8f9fa",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-low": "#f3f4f5",
+                        "on-primary-fixed": "#0b1d2d",
+                        "on-background": "#191c1d",
+                        "surface-bright": "#f8f9fa",
+                        "primary": "#041627",
+                        "secondary-container": "#ffa454"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background">
+<!-- Persistent SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 border-r border-slate-800 bg-slate-950 dark:bg-black shadow-xl z-50 flex flex-col gap-2 p-4 h-full">
+<div class="mb-8 px-4 py-2">
+<h1 class="text-xl font-bold text-white tracking-tight">Logistics Core</h1>
+<p class="text-xs text-slate-400 font-medium tracking-tight">Haulier Portal</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-slate-400 hover:text-white px-4 py-2 flex items-center gap-3 transition-colors hover:bg-slate-900 duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Dashboard</span>
+</a>
+<a class="text-slate-400 hover:text-white px-4 py-2 flex items-center gap-3 transition-colors hover:bg-slate-900 duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Active Loads</span>
+</a>
+<a class="text-slate-400 hover:text-white px-4 py-2 flex items-center gap-3 transition-colors hover:bg-slate-900 duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Fleet Manager</span>
+</a>
+<a class="bg-amber-500 text-slate-950 rounded-md font-bold px-4 py-2 flex items-center gap-3 active:scale-95 duration-150 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Account Settings</span>
+</a>
+<a class="text-slate-400 hover:text-white px-4 py-2 flex items-center gap-3 transition-colors hover:bg-slate-900 duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="help_center">help_center</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Support</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-slate-800 pt-4">
+<a class="text-slate-400 hover:text-white px-4 py-2 flex items-center gap-3 transition-colors hover:bg-slate-900 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-['Inter'] text-sm font-medium tracking-tight">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-64 h-16 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between px-8 w-full">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition-all" placeholder="Search loads or settings..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full p-2 text-slate-500 relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-amber-500 rounded-full"></span>
+</button>
+<button class="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full p-2 text-slate-500">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center border-2 border-amber-500 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional portrait of a logistics administrator in a suit with a confident expression and neutral office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLgZqMmQCpbMYEcBdskPBPuedtr2sqJoqA9MpfP2ZPUCIVfBncKX__WNATsD0EHnnX_ME2KvWbzz_Ac8kqFLasfVmRr1xpWYkFvZvNpOEigru5mazh7E-OHJYfwOpsH8tEH5zHFvjq2zJRUD73UQSJxubAF4f2fztXOggO29rFTtLH_RZEhlRUB7aMTZbcO-YwKUy-EcJ-o_IAMHffXWaduO1XoXyjgij0bxAT_fsogkCITfGIE42DD2NjtCG1qEQ9KitjZj50Ogk"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="pt-24 pb-12 px-8 max-w-7xl mx-auto">
+<!-- Breadcrumbs & Header -->
+<div class="mb-8">
+<nav class="flex text-xs font-medium text-on-surface-variant mb-2 gap-2 items-center">
+<span>Account Management</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-secondary">Profile Setup</span>
+</nav>
+<h2 class="text-3xl font-bold text-primary tracking-tight">Haulier Profile Setup</h2>
+<p class="text-on-surface-variant mt-1">Configure your company identity and operational details for the Logistics Core network.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Main Form Card (Company Information) -->
+<div class="col-span-12 lg:col-span-8">
+<section class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] overflow-hidden border border-surface-container-high">
+<div class="p-6 border-b border-surface-container">
+<h3 class="text-xl font-semibold text-primary">Company Information</h3>
+<p class="text-sm text-on-surface-variant">Ensure your legal business details are accurate for compliance and invoicing.</p>
+</div>
+<form class="p-8 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">Company Name</label>
+<input class="w-full bg-white border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all" placeholder="Enter legal company name" type="text" value="Apex Freight Solutions Ltd"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">Tax ID / VAT Number</label>
+<input class="w-full bg-white border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all" placeholder="Enter tax identification" type="text" value="GB 123 4567 89"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">Business Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-3.5 text-outline text-lg">location_on</span>
+<input class="w-full bg-white border border-outline-variant rounded-lg pl-12 pr-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all" placeholder="Enter full business address" type="text" value="72 Logistics Way, Industrial District, London"/>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">City</label>
+<input class="w-full bg-white border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all" type="text" value="London"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">Postal Code</label>
+<input class="w-full bg-white border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all" type="text" value="EC1A 1BB"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">Country</label>
+<select class="w-full bg-white border border-outline-variant rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-amber-500 focus:border-primary outline-none transition-all appearance-none">
+<option>United Kingdom</option>
+<option>Germany</option>
+<option>Netherlands</option>
+</select>
+</div>
+</div>
+<div class="pt-6 border-t border-surface-container flex justify-end gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-primary text-primary font-semibold hover:bg-surface-container-low transition-colors" type="button">Discard Changes</button>
+<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-md active:scale-95 transition-transform" type="submit">Update Profile</button>
+</div>
+</form>
+</section>
+</div>
+<!-- Side Information / Stats -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Identity Verification Card -->
+<div class="bg-primary text-white rounded-xl p-6 shadow-xl relative overflow-hidden">
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<h3 class="font-bold text-lg">Verification Status</h3>
+</div>
+<div class="mb-6">
+<div class="flex justify-between items-end mb-2">
+<span class="text-sm text-on-primary-container">Onboarding Progress</span>
+<span class="text-2xl font-bold text-amber-400">85%</span>
+</div>
+<div class="w-full h-2 bg-primary-container rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 w-[85%] rounded-full"></div>
+</div>
+</div>
+<p class="text-sm text-on-primary-container mb-4">You're almost there! Complete the company information to unlock high-value international routes.</p>
+<button class="w-full py-2.5 bg-amber-500 text-primary font-bold rounded-lg active:scale-95 transition-transform">Complete Verification</button>
+</div>
+<!-- Abstract Background Decoration -->
+<div class="absolute -right-8 -bottom-8 opacity-10">
+<span class="material-symbols-outlined text-[160px]">corporate_fare</span>
+</div>
+</div>
+<!-- Location Visualizer -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container-high">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-bold text-on-surface-variant tracking-wider uppercase">Headquarters Location</h4>
+<span class="text-xs text-primary font-bold cursor-pointer hover:underline">Edit Map</span>
+</div>
+<div class="h-48 rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="stylized map view of central London with clean professional aesthetic and subtle logistics route overlays" data-location="London" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU6Qpb1UjvAlPmbFneUrLusEAhSol_5CoC-4oYaxR__fkIJy1hGH9v-Pwir_6mueHNj6f4uhEMvVdWy8AxHlO7e5OO1a7DbwUk_xIqqX4PR07Eht9Ds0Xu5VTTTmupIYuCO8Z_o_Sxb7uhoYt3kTXxvnwkdM3ZsXZI1WlG00jo_TI6kDQeWGIJu78umeZ0UdrhaSYjkah45Z2eyDo2gz2YkL0uXz0MjtR8bJc4miTkqe6q8sf4OcTVyiesiNhjJwBuuWo_mUi0MFg"/>
+<div class="absolute inset-0 bg-primary/10 pointer-events-none"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="w-8 h-8 bg-amber-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">pin_drop</span>
+</div>
+</div>
+</div>
+<div class="mt-3 flex items-start gap-2">
+<span class="material-symbols-outlined text-outline text-sm mt-0.5">info</span>
+<p class="text-xs text-on-surface-variant italic">Address is automatically geocoded for dispatch optimization.</p>
+</div>
+</div>
+<!-- Documentation Status -->
+<div class="bg-surface-container-highest rounded-xl p-6 border border-surface-container-high">
+<h4 class="text-xs font-bold text-on-surface-variant tracking-wider uppercase mb-4">Required Documents</h4>
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 bg-white rounded-lg border border-outline-variant">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">description</span>
+<span class="text-sm font-medium text-primary">Operating License</span>
+</div>
+<span class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold uppercase">Active</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-white rounded-lg border border-outline-variant">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">verified</span>
+<span class="text-sm font-medium text-primary">Insurance Policy</span>
+</div>
+<span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-bold uppercase">Expiring</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

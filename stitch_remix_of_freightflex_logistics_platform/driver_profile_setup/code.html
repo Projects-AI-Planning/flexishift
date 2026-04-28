@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-surface-variant": "#44474c", "on-surface": "#191c1d", "on-tertiary": "#ffffff", "surface-dim": "#d9dadb", "secondary-fixed": "#ffdcc3", "on-tertiary-fixed": "#281802", "on-tertiary-container": "#a88c69", "on-error-container": "#93000a", "tertiary-fixed-dim": "#e1c29b", "surface-container": "#edeeef", "inverse-primary": "#b7c8de", "on-secondary-container": "#713b00", "error-container": "#ffdad6", secondary: "#904d00", "tertiary-container": "#38260b", "tertiary-fixed": "#feddb5", tertiary: "#211200", "outline-variant": "#c4c6cd", "surface-tint": "#4f6073", "primary-container": "#1a2b3c", "on-secondary-fixed": "#2f1500", surface: "#f8f9fa", "inverse-on-surface": "#f0f1f2", "on-primary": "#ffffff", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "surface-variant": "#e1e3e4", "on-secondary-fixed-variant": "#6e3900", outline: "#74777d", "on-error": "#ffffff", "primary-fixed-dim": "#b7c8de", error: "#ba1a1a", "surface-container-high": "#e7e8e9", "primary-fixed": "#d2e4fb", "on-secondary": "#ffffff", "on-primary-fixed-variant": "#38485a", "on-tertiary-fixed-variant": "#584326", "surface-container-lowest": "#ffffff", "on-primary-container": "#8192a7", background: "#f8f9fa", "inverse-surface": "#2e3132", "on-primary-fixed": "#0b1d2d", "on-background": "#191c1d", "surface-container-low": "#f3f4f5", "surface-bright": "#f8f9fa", primary: "#041627", "secondary-container": "#ffa454"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"margin-mobile": "16px", lg: "40px", gutter: "16px", base: "8px", sm: "12px", md: "24px", xs: "4px", "margin-desktop": "32px"}, fontFamily: {h1: ["Inter"], "label-bold": ["Inter"], h3: ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"], h2: ["Inter"], "stats-display": ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background bg-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm docked full-width top-0 z-50 sticky">
+<div class="flex items-center justify-between px-4 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-50">arrow_back</span>
+</button>
+<h1 class="font-sans text-base font-semibold tracking-tight text-slate-900 dark:text-slate-50">Profile Setup</h1>
+</div>
+<div class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 2 of 4</div>
+</div>
+</header>
+<main class="flex-grow w-full max-w-2xl mx-auto px-margin-mobile py-md md:px-margin-desktop md:py-lg">
+<!-- Progress Bar Indicator -->
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full mb-md overflow-hidden">
+<div class="h-full bg-secondary-container w-1/2 rounded-full"></div>
+</div>
+<section class="space-y-md">
+<div class="text-center mb-lg">
+<h2 class="font-h2 text-h2 text-primary mb-xs">Professional Identity</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Complete your driver profile to start receiving freight assignments.</p>
+</div>
+<!-- Profile Photo Upload Card -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-md flex flex-col items-center gap-sm">
+<div class="relative group cursor-pointer">
+<div class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center border-4 border-white shadow-md overflow-hidden">
+<img alt="Driver Profile Placeholder" class="w-full h-full object-cover" data-alt="portrait of a professional male logistics driver smiling warmly against a blurred industrial backdrop with natural soft light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsxe_BbzRbl3bYrXzACTfzJkM4ifCM7NmrP-TXKIY83BhXWFO4H2aoIZANp9ReLXkyhss9gLk5KBpexD4t5ZYMrY6-zuOjQG7xVUCT97xh9w5TunrfPC9N0qe761XIUWz4qU6MQ2H88F14tWOW7XmnHGFcKahV3XRytR2Rn6ghh-mlWPCO2zH-tyTICVg-46qjOZi_yxNceSWPu_Mf0uUmE4pJgxJiHve9z3ziABam9SxnZdg7Zq6XoVo_uxM-QXob-D12L2h0d_s"/>
+</div>
+<div class="absolute bottom-0 right-0 bg-primary p-1.5 rounded-full text-white shadow-lg border-2 border-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[18px]">photo_camera</span>
+</div>
+</div>
+<div class="text-center">
+<button class="font-label-bold text-label-bold text-primary underline">Upload Profile Photo</button>
+<p class="text-[10px] text-on-surface-variant mt-xs uppercase font-medium">PNG or JPG. Max 5MB.</p>
+</div>
+</div>
+<!-- Form Content -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-md space-y-md">
+<!-- Full Name Field -->
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold text-on-surface-variant uppercase" for="full_name">Full Legal Name</label>
+<div class="relative">
+<input class="w-full h-12 px-4 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-md text-body-md placeholder:text-outline" id="full_name" placeholder="Enter your full name" type="text"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-outline text-[20px]">person</span>
+</div>
+</div>
+</div>
+<!-- License Number Field -->
+<div class="space-y-xs">
+<label class="font-label-bold text-label-bold text-on-surface-variant uppercase" for="license_number">Driving License Number</label>
+<div class="relative">
+<input class="w-full h-12 px-4 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-md text-body-md placeholder:text-outline uppercase" id="license_number" placeholder="ABC-1234567-8" type="text"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-outline text-[20px]">badge</span>
+</div>
+</div>
+</div>
+<!-- Vehicle Type Grid Selection -->
+<div class="space-y-sm">
+<label class="font-label-bold text-label-bold text-on-surface-variant uppercase">Vehicle Category</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-sm">
+<!-- Vehicle Option: Flatbed -->
+<div class="relative border-2 border-secondary-container bg-amber-50 rounded-lg p-sm cursor-pointer active:scale-[0.98] transition-all">
+<div class="flex flex-col items-center text-center gap-xs">
+<span class="material-symbols-outlined text-secondary text-[32px]">foundation</span>
+<span class="font-label-bold text-label-bold text-primary">Flatbed</span>
+</div>
+<div class="absolute top-1 right-1">
+<span class="material-symbols-outlined text-secondary text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+<!-- Vehicle Option: Refrigerated -->
+<div class="relative border-2 border-outline-variant bg-white rounded-lg p-sm cursor-pointer hover:border-primary active:scale-[0.98] transition-all group">
+<div class="flex flex-col items-center text-center gap-xs">
+<span class="material-symbols-outlined text-outline group-hover:text-primary text-[32px]">ac_unit</span>
+<span class="font-label-bold text-label-bold text-on-surface-variant group-hover:text-primary">Refrigerated</span>
+</div>
+</div>
+<!-- Vehicle Option: Box Truck -->
+<div class="relative border-2 border-outline-variant bg-white rounded-lg p-sm cursor-pointer hover:border-primary active:scale-[0.98] transition-all group">
+<div class="flex flex-col items-center text-center gap-xs">
+<span class="material-symbols-outlined text-outline group-hover:text-primary text-[32px]">local_shipping</span>
+<span class="font-label-bold text-label-bold text-on-surface-variant group-hover:text-primary">Box Truck</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Documents Section Banner -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-sm flex items-start gap-sm">
+<span class="material-symbols-outlined text-primary-container">info</span>
+<div>
+<p class="font-label-bold text-label-bold text-primary-container">Document Verification</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">We'll ask for photos of your physical license in the next step.</p>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="pt-sm pb-lg">
+<button class="w-full h-14 bg-primary text-white rounded-xl font-h3 text-h3 active:scale-[0.98] transition-transform shadow-lg shadow-primary/20 flex items-center justify-center gap-sm">
+                    Continue to Verification
+                    <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<p class="text-center mt-sm font-body-sm text-body-sm text-on-surface-variant">
+                    By continuing, you agree to our <a class="text-primary underline" href="#">Driver Terms of Service</a>
+</p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Hidden on desktop, shown on mobile) -->
+<nav class="md:hidden bg-white dark:bg-slate-900 fixed bottom-0 w-full z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex justify-around items-center h-20 px-2 pb-safe w-full">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-slate-900 dark:hover:text-slate-100 active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-sans text-[11px] font-medium uppercase tracking-wider">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-slate-900 dark:hover:text-slate-100 active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-sans text-[11px] font-medium uppercase tracking-wider">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-1 active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-sans text-[11px] font-medium uppercase tracking-wider">Profile</span>
+</div>
+</div>
+</nav>
+</body></html>
