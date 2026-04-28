@@ -1,20 +1,28 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { useHaulierOverview } from '../../hooks/useHaulier';
 
 const HaulierOverview: React.FC = () => {
-  // Mock data for demo
+  const { data, loading, error } = useHaulierOverview();
+
+  if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
+  if (loading || !data) return <div className="p-8 animate-pulse text-primary font-bold">Loading Fleet Overview...</div>;
+
   const stats = {
-    totalSpend: 12450.00,
-    activeShipments: 8,
-    pendingQuotes: 3,
-    fleetUtilization: 85
+    totalSpend: data.summary.totalSpentThisMonth,
+    activeShipments: data.summary.totalActiveJobs,
+    pendingQuotes: data.summary.openJobsWithQuotes,
+    fleetUtilization: 85 // Mocked for now as not in API
   };
 
-  const activeJobs = [
-    { id: 'SHP-9921', route: 'London → Birmingham', type: 'General Freight', driver: 'David Wilson', status: 'ON TIME', eta: '14:30 Today', statusColor: 'bg-emerald-100 text-emerald-800' },
-    { id: 'SHP-8840', route: 'Manchester → Glasgow', type: 'Cold Chain', driver: 'Sarah Jenkins', status: 'DELAYED', eta: '18:15 Today', statusColor: 'bg-red-100 text-red-800', delay: '+45 min' },
-    { id: 'SHP-7712', route: 'Bristol → Cardiff', type: 'Pallets (12)', driver: 'Michael Reed', status: 'EN ROUTE', eta: 'Tomorrow, 09:00', statusColor: 'bg-amber-100 text-amber-800' },
-  ];
+  const activeJobs = data.activeJobs.map((j: any) => ({
+    id: j.jobReference,
+    route: `${j.pickupLocation} → ${j.dropLocation}`,
+    type: 'Freight',
+    driver: j.driverName || 'Unassigned',
+    status: j.status.toUpperCase(),
+    eta: 'Today',
+    statusColor: j.status === 'in_transit' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+  }));
 
   return (
     <div className="space-y-8">

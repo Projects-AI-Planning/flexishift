@@ -1,24 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Mock hook for structural consistency
+const useFleet = () => {
+  const [data, setData] = useState<any>({
+    vehicles: [
+      { id: '1', plate: 'LX72 BNX', type: '40ft Curtainsider', status: 'On Route', driver: 'M. Thompson', statusColor: 'bg-blue-100 text-blue-700' },
+      { id: '2', plate: 'FF68 FLEX', type: 'Refrigerated Unit', status: 'Available', driver: 'S. Richards', statusColor: 'bg-green-100 text-green-700' },
+      { id: '3', plate: 'WA21 GHY', type: '7.5t Box Truck', status: 'Maintenance', driver: 'N/A', statusColor: 'bg-red-100 text-red-700' },
+    ],
+    drivers: [
+      { id: 1, name: 'Mark Thompson', license: 'C+E (Class 1)', status: 'Active', statusColor: 'bg-green-100 text-green-700', phone: '+44 7700 900123', avatar: 'https://i.pravatar.cc/150?u=mark' },
+      { id: 2, name: 'Sarah Richards', license: 'C+E (Class 1)', status: 'On Break', statusColor: 'bg-amber-100 text-amber-700', phone: '+44 7700 900456', avatar: 'https://i.pravatar.cc/150?u=sarah' },
+      { id: 3, name: 'James Wilson', license: 'C (Class 2)', status: 'Active', statusColor: 'bg-green-100 text-green-700', phone: '+44 7700 900789', avatar: 'https://i.pravatar.cc/150?u=james' },
+    ]
+  });
+  const [loading, setLoading] = useState(false);
+  return { data, loading };
+};
 
 const FleetPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'vehicles' | 'drivers'>('vehicles');
+  const { data, loading } = useFleet();
 
-  const vehicles = [
-    { id: '1', plate: 'LX72 BNX', type: '40ft Curtainsider', status: 'On Route', driver: 'M. Thompson', statusColor: 'bg-blue-100 text-blue-700' },
-    { id: '2', plate: 'FF68 FLEX', type: 'Refrigerated Unit', status: 'Available', driver: 'S. Richards', statusColor: 'bg-green-100 text-green-700' },
-    { id: '3', plate: 'WA21 GHY', type: '7.5t Box Truck', status: 'Maintenance', driver: 'N/A', statusColor: 'bg-red-100 text-red-700' },
-  ];
-
-  const drivers = [
-    { id: 1, name: 'Mark Thompson', license: 'C+E (Class 1)', status: 'Active', statusColor: 'bg-green-100 text-green-700', phone: '+44 7700 900123', avatar: 'https://i.pravatar.cc/150?u=mark' },
-    { id: 2, name: 'Sarah Richards', license: 'C+E (Class 1)', status: 'On Break', statusColor: 'bg-amber-100 text-amber-700', phone: '+44 7700 900456', avatar: 'https://i.pravatar.cc/150?u=sarah' },
-    { id: 3, name: 'James Wilson', license: 'C (Class 2)', status: 'Active', statusColor: 'bg-green-100 text-green-700', phone: '+44 7700 900789', avatar: 'https://i.pravatar.cc/150?u=james' },
-  ];
+  if (loading) return <div className="p-8 animate-pulse text-primary font-bold">Loading Fleet...</div>;
 
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-primary tracking-tight">Fleet & Personnel</h2>
           <p className="text-on-surface-variant font-medium">Manage your vehicles and driver assignments.</p>

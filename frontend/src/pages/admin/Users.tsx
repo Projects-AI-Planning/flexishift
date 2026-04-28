@@ -1,13 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAdminUsers } from '../../hooks/useAdmin';
+import adminService from '../../api/adminService';
 
 const UsersPage: React.FC = () => {
-  const users = [
-    { id: 1, name: 'Julian Reed', email: 'julian@freightflex.com', joined: '12 Oct 2023', role: 'Driver', status: 'Verified', statusColor: 'bg-green-100 text-green-700', avatar: 'https://i.pravatar.cc/150?u=julian' },
-    { id: 2, name: 'Elena Vance', email: 'elena@vancetransport.com', joined: '14 Oct 2023', role: 'Haulier', status: 'Pending', statusColor: 'bg-amber-100 text-amber-700', avatar: 'https://i.pravatar.cc/150?u=elena' },
-    { id: 3, name: 'Marcus Thorne', email: 'marcus.t@logistics.co', joined: '15 Oct 2023', role: 'Driver', status: 'Suspended', statusColor: 'bg-red-100 text-red-700', avatar: 'https://i.pravatar.cc/150?u=marcus' },
-    { id: 4, name: 'Sarah Jenkins', email: 'sarah.j@fastmail.com', joined: '18 Oct 2023', role: 'Driver', status: 'Verified', statusColor: 'bg-green-100 text-green-700', avatar: 'https://i.pravatar.cc/150?u=sarah' },
-    { id: 5, name: 'Alex Sterling', email: 'alex@sterlingfleet.com', joined: '20 Oct 2023', role: 'Haulier', status: 'Verified', statusColor: 'bg-green-100 text-green-700', avatar: 'https://i.pravatar.cc/150?u=alex' },
-  ];
+  const [params, setParams] = useState({ page: 1, role: '', status: '' });
+  const { data, loading, error, refresh } = useAdminUsers(params);
+
+  const handleStatusUpdate = async (userId: string, status: string) => {
+    try {
+      await adminService.updateUserStatus(userId, status);
+      refresh();
+    } catch (err) {
+      alert('Failed to update user status');
+    }
+  };
+
+  if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
     <div className="space-y-8">
@@ -40,23 +48,31 @@ const UsersPage: React.FC = () => {
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <select className="bg-slate-50 border border-slate-100 rounded-lg py-2 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary">
-            <option>All Roles</option>
-            <option>Driver</option>
-            <option>Haulier</option>
-            <option>Admin</option>
+          <select 
+            value={params.role}
+            onChange={(e) => setParams({ ...params, role: e.target.value })}
+            className="bg-slate-50 border border-slate-100 rounded-lg py-2 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All Roles</option>
+            <option value="DRIVER">Driver</option>
+            <option value="HAULIER">Haulier</option>
+            <option value="ADMIN">Admin</option>
           </select>
-          <select className="bg-slate-50 border border-slate-100 rounded-lg py-2 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary">
-            <option>All Status</option>
-            <option>Verified</option>
-            <option>Pending</option>
-            <option>Suspended</option>
+          <select 
+            value={params.status}
+            onChange={(e) => setParams({ ...params, status: e.target.value })}
+            className="bg-slate-50 border border-slate-100 rounded-lg py-2 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending</option>
+            <option value="SUSPENDED">Suspended</option>
           </select>
         </div>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden">
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50">
@@ -69,12 +85,12 @@ const UsersPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+              {data?.items.map((user: any) => (
+                <tr key={user.userId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                        <img className="w-full h-full object-cover" src={user.avatar} alt={user.name} />
+                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center font-bold text-primary">
+                        {user.name.charAt(0)}
                       </div>
                       <div>
                         <p className="font-bold text-primary text-sm">{user.name}</p>
@@ -82,25 +98,36 @@ const UsersPage: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 font-medium">{user.joined}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 font-medium">{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
                       {user.role}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${user.statusColor}`}>
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+                      user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 
+                      user.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    }`}>
                       {user.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button className="p-2 text-slate-400 hover:text-primary transition-colors hover:bg-slate-100 rounded-lg">
-                        <span className="material-symbols-outlined text-sm">edit</span>
-                      </button>
-                      <button className="p-2 text-slate-400 hover:text-red-600 transition-colors hover:bg-red-50 rounded-lg">
-                        <span className="material-symbols-outlined text-sm">block</span>
-                      </button>
+                      {user.status !== 'ACTIVE' && (
+                        <button 
+                          onClick={() => handleStatusUpdate(user.userId, 'ACTIVE')}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Activate">
+                          <span className="material-symbols-outlined text-sm">check_circle</span>
+                        </button>
+                      )}
+                      {user.status !== 'SUSPENDED' && (
+                        <button 
+                          onClick={() => handleStatusUpdate(user.userId, 'SUSPENDED')}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
+                          <span className="material-symbols-outlined text-sm">block</span>
+                        </button>
+                      )}
                       <button className="p-2 text-slate-400 hover:text-primary transition-colors hover:bg-slate-100 rounded-lg">
                         <span className="material-symbols-outlined text-sm">more_vert</span>
                       </button>
@@ -114,15 +141,29 @@ const UsersPage: React.FC = () => {
         
         {/* Pagination */}
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-          <p className="text-xs text-slate-500 font-bold">Showing 1 to 5 of 1,482 users</p>
+          <p className="text-xs text-slate-500 font-bold">Showing {data?.items.length || 0} of {data?.total || 0} users</p>
           <div className="flex gap-2">
-            <button className="px-4 py-2 text-xs font-black text-primary bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Previous</button>
-            <button className="px-4 py-2 text-xs font-black text-white bg-primary rounded-lg shadow-md shadow-primary/20">Next</button>
+            <button 
+              disabled={params.page === 1}
+              onClick={() => setParams({ ...params, page: params.page - 1 })}
+              className="px-4 py-2 text-xs font-black text-primary bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button 
+              disabled={!data || data.items.length < 20}
+              onClick={() => setParams({ ...params, page: params.page + 1 })}
+              className="px-4 py-2 text-xs font-black text-white bg-primary rounded-lg shadow-md shadow-primary/20 disabled:opacity-50"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+export default UsersPage;
 
 export default UsersPage;
