@@ -143,5 +143,3 @@ const DocumentsPage: React.FC = () => {
 };
 
 export default DocumentsPage;
-
-export default DocumentsPage;

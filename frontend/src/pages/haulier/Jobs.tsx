@@ -77,5 +77,3 @@ const HaulierJobsPage: React.FC = () => {
 };
 
 export default HaulierJobsPage;
-
-export default HaulierJobsPage;

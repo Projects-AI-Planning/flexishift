@@ -152,5 +152,3 @@ const AdminJobsPage: React.FC = () => {
 };
 
 export default AdminJobsPage;
-
-export default AdminJobsPage;

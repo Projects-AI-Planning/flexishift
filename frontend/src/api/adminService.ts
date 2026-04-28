@@ -1,5 +1,5 @@
 import client from './client';
-import { AdminStats, User, Job, VerificationRequest } from '../types';
+import type { AdminStats } from '../types';
 
 const adminService = {
   getStats: () => client.get('/admin/stats').then(res => res.data.data as AdminStats),

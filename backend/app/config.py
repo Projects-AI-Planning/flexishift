@@ -1,13 +1,24 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     APP_ENV: str = "development"
     APP_NAME: str = "FreightFlex API"
 
-    DATABASE_URL: str
-    REDIS_URL: str = ""  # optional — leave blank to use in-memory fallback
+    DATABASE_URL: str | None = None
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 3306
+    DB_NAME: str = "freightflex"
+    DB_USER: str = "root"
+    DB_PASSWORD: str = ""
+    DB_CHARSET: str = "utf8mb4"
+
+    REDIS_URL: str = ""
 
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
@@ -32,11 +43,18 @@ class Settings(BaseSettings):
     FCM_SERVER_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
 
-    CELERY_BROKER_URL: str = ""  # optional — Celery disabled when blank
+    CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
 
-    class Config:
-        env_file = ".env"
+    @model_validator(mode="after")
+    def populate_database_url(self) -> "Settings":
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = (
+                f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
+                f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+                f"?charset={self.DB_CHARSET}"
+            )
+        return self
 
 
 @lru_cache
