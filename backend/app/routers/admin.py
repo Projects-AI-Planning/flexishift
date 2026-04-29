@@ -10,7 +10,9 @@ from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.document import Document, DocStatus
 from app.schemas.documents import DocumentReviewRequest
-from app.schemas.admin import UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
+from app.schemas.admin import AdminCreateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
+from app.core.security import hash_password
+from app.models.user import UserProfile
 from app.services import documents as doc_svc
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -84,6 +86,43 @@ def list_users(
             "perPage": per_page,
         },
         message="Users retrieved",
+    )
+
+
+@router.post("/users")
+def create_user(
+    body: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+    if len(body.password.encode()) > 72:
+        raise HTTPException(status_code=400, detail="Password must be 72 characters or fewer")
+
+    new_user = User(
+        full_name=body.full_name,
+        email=body.email,
+        phone=body.phone,
+        password_hash=hash_password(body.password),
+        role=Role(body.role.upper()),
+        status=UserStatus(body.status.upper() if body.status else "ACTIVE"),
+        verified=True,
+        profile_complete=False,
+    )
+    db.add(new_user)
+    db.flush()
+    db.add(UserProfile(user_id=new_user.id))
+    db.commit()
+    return ok(
+        data={
+            "userId": new_user.id,
+            "name": new_user.full_name,
+            "email": new_user.email,
+            "role": new_user.role.value,
+            "status": new_user.status.value,
+        },
+        message="User created successfully",
     )
 
 

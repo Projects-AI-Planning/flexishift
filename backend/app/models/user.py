@@ -45,7 +45,7 @@ class User(Base):
     deleted_at:       Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     profile:          Mapped["UserProfile"]        = relationship("UserProfile", back_populates="user", uselist=False)
-    documents:        Mapped[list["Document"]]     = relationship("Document", back_populates="user")
+    documents:        Mapped[list["Document"]]     = relationship("Document", foreign_keys="[Document.user_id]", back_populates="user")
     jobs_posted:      Mapped[list["Job"]]          = relationship("Job", foreign_keys="Job.haulier_id", back_populates="haulier")
     quotes:           Mapped[list["Quote"]]        = relationship("Quote", back_populates="supplier")
     ratings_given:    Mapped[list["Rating"]]       = relationship("Rating", foreign_keys="Rating.rater_id", back_populates="rater")

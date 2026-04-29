@@ -3,6 +3,16 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
+class AdminCreateUserRequest(BaseModel):
+    full_name: str = Field(..., alias="fullName")
+    email: str
+    phone: str
+    password: str
+    role: str
+    status: Optional[str] = "ACTIVE"
+    model_config = {"populate_by_name": True}
+
+
 class UpdateUserStatusRequest(BaseModel):
     status: str
 

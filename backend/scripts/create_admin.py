@@ -1,59 +1,75 @@
 import sys
 import os
-from sqlalchemy.orm import Session
+import getpass
 
-# Add the parent directory to sys.path to allow importing from 'app'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import bcrypt
+from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.user import User, Role, UserStatus, UserProfile
-from app.core.security import hash_password
+
+
+def prompt_input(label: str, hidden: bool = False) -> str:
+    while True:
+        value = getpass.getpass(f"{label}: ") if hidden else input(f"{label}: ").strip()
+        if value:
+            return value
+        print("  Value cannot be empty, try again.")
+
 
 def create_admin():
+    print("=== Create Admin User ===")
+    full_name = prompt_input("Full name")
+    email     = prompt_input("Email")
+    phone     = prompt_input("Phone")
+
+    while True:
+        password = prompt_input("Password (max 72 chars)", hidden=True)
+        if len(password.encode()) > 72:
+            print("  Password exceeds 72 bytes (bcrypt limit), choose a shorter one.")
+            continue
+        confirm = prompt_input("Confirm password", hidden=True)
+        if password != confirm:
+            print("  Passwords do not match, try again.")
+            continue
+        break
+
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+
     db: Session = SessionLocal()
     try:
-        admin_email = "admin@freightflex.com"
-        admin_password = "AdminPassword123!"
-        
-        # Check if admin already exists
-        existing_admin = db.query(User).filter(User.email == admin_email).first()
-        if existing_admin:
-            print(f"Admin with email {admin_email} already exists.")
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            print(f"A user with email '{email}' already exists.")
             return
 
-        print(f"Creating admin user: {admin_email}...")
-        
         admin_user = User(
-            full_name="System Administrator",
-            email=admin_email,
-            phone="0000000000",
-            password_hash=hash_password(admin_password),
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            password_hash=password_hash,
             role=Role.ADMIN,
             status=UserStatus.ACTIVE,
             verified=True,
-            profile_complete=True
+            profile_complete=True,
         )
-        
         db.add(admin_user)
-        db.flush()  # To get the ID
-        
-        # Create profile for admin
-        admin_profile = UserProfile(
-            user_id=admin_user.id,
-            company_name="FreightFlex Admin"
-        )
-        db.add(admin_profile)
-        
+        db.flush()
+
+        db.add(UserProfile(user_id=admin_user.id, company_name="FreightFlex Admin"))
         db.commit()
-        print("Admin user created successfully!")
-        print(f"Email: {admin_email}")
-        print(f"Password: {admin_password}")
-        
+
+        print(f"\nAdmin user created successfully!")
+        print(f"  Email : {email}")
+        print(f"  Role  : ADMIN")
+
     except Exception as e:
         db.rollback()
         print(f"Error creating admin user: {e}")
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     create_admin()

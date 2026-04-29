@@ -14,11 +14,17 @@ interface ExtendedUser extends User {
   };
 }
 
+const EMPTY_FORM = { fullName: '', email: '', phone: '', password: '', confirmPassword: '', role: 'DRIVER', status: 'ACTIVE' };
+
 const UsersPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, role: '', status: '', search: '', limit: 10 });
   const { data, loading, error, refresh } = useAdminUsers(params);
   const [selectedUser, setSelectedUser] = useState<ExtendedUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createError, setCreateError] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
 
   const handleStatusUpdate = async (userId: string, newStatus: string) => {
     try {
@@ -47,6 +53,38 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError('');
+    if (createForm.password !== createForm.confirmPassword) {
+      setCreateError('Passwords do not match');
+      return;
+    }
+    if (createForm.password.length < 8) {
+      setCreateError('Password must be at least 8 characters');
+      return;
+    }
+    setCreateLoading(true);
+    try {
+      await adminService.createUser({
+        fullName: createForm.fullName,
+        email: createForm.email,
+        phone: createForm.phone,
+        password: createForm.password,
+        role: createForm.role,
+        status: createForm.status,
+      });
+      setIsCreateOpen(false);
+      setCreateForm(EMPTY_FORM);
+      refresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCreateError(msg || 'Failed to create user');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
@@ -62,7 +100,10 @@ const UsersPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">download</span>
             Export CSV
           </button>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-black hover:opacity-90 transition-colors shadow-md flex items-center gap-2">
+          <button
+            onClick={() => { setCreateForm(EMPTY_FORM); setCreateError(''); setIsCreateOpen(true); }}
+            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-black hover:opacity-90 transition-colors shadow-md flex items-center gap-2"
+          >
             <span className="material-symbols-outlined text-sm">person_add</span>
             Add New User
           </button>
@@ -196,6 +237,122 @@ const UsersPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Create User Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-primary">Create New User</h3>
+              <button onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+                  <input
+                    required
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="John Smith"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                  <input
+                    required
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="john@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
+                  <input
+                    required
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="+44 7700 000000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role</label>
+                  <select
+                    value={createForm.role}
+                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                  >
+                    <option value="DRIVER">Driver</option>
+                    <option value="HAULIER">Haulier</option>
+                    <option value="FIRM">Firm</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Password</label>
+                  <input
+                    required
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Confirm Password</label>
+                  <input
+                    required
+                    type="password"
+                    value={createForm.confirmPassword}
+                    onChange={(e) => setCreateForm({ ...createForm, confirmPassword: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="Repeat password"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</label>
+                  <select
+                    value={createForm.status}
+                    onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                    <option value="SUSPENDED">Suspended</option>
+                  </select>
+                </div>
+              </div>
+              {createError && (
+                <p className="text-sm text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg">{createError}</p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="px-5 py-2 text-sm font-black text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="px-5 py-2 text-sm font-black text-white bg-primary rounded-xl hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {createLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                  Create User
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Profile Modal */}
       {isModalOpen && selectedUser && (

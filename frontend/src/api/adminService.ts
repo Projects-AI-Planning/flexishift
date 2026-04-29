@@ -146,6 +146,8 @@ const adminService = {
   getStats: () => client.get('/admin/stats').then((res) => res.data.data as AdminStats),
   listUsers: (params?: { page?: number; limit?: number; role?: string; status?: string; search?: string }) =>
     client.get('/dashboard/admin/users/list', { params }).then((res) => mapUsersResponse(res.data.data)),
+  createUser: (data: { fullName: string; email: string; phone: string; password: string; role: string; status: string }) =>
+    client.post('/admin/users', data).then((res) => res.data),
   suspendUser: (userId: string, data: { reason: string; suspensionDuration: string; notifyUser: boolean }) =>
     client.put(`/dashboard/admin/users/suspend/${userId}`, data).then((res) => res.data),
   activateUser: (userId: string, data: { reason: string; notifyUser: boolean }) =>
