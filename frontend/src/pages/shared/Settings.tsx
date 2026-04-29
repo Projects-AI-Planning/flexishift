@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Shield, Bell, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import adminService from '../../api/adminService';
@@ -9,9 +9,9 @@ const SettingsPage: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasFetched = useRef(false);
 
   const fetchConfig = useCallback(async () => {
-    await Promise.resolve();
     try {
       const data = await adminService.getSystemConfig();
       setConfig(data);
@@ -21,7 +21,8 @@ const SettingsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && !hasFetched.current) {
+      hasFetched.current = true;
       fetchConfig();
     }
   }, [isAdmin, fetchConfig]);
