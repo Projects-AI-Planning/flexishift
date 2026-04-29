@@ -314,3 +314,6 @@ export const driverApi = {
       }),
   },
 };
+The next sensible step is to split this into     
+  dedicated screen/components files and implement the remaining deeper workflows like document upload, compliance submissions, live     
+  tracking start/update/stop, invoice detail/download, and ratings submission.
