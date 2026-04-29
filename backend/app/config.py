@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     SENDGRID_FROM_EMAIL: str = "noreply@freightflex.io"
 
     FCM_SERVER_KEY: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081"
 
     CELERY_BROKER_URL: str = ""  # optional — Celery disabled when blank
     CELERY_RESULT_BACKEND: str = ""

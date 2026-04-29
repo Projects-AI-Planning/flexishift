@@ -43,12 +43,12 @@ export interface Job {
   jobRef: string;
   status: string;
   createdAt: string;
-  pickupLocation?: {
+  pickupLocation?: string | {
     address: string;
     latitude: number;
     longitude: number;
   };
-  dropLocation?: {
+  dropLocation?: string | {
     address: string;
     latitude: number;
     longitude: number;

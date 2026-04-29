@@ -1,4 +1,47 @@
 import client from './client';
+import type { Payment } from '../types';
+
+const mapPaymentHistory = (data: {
+  items?: Array<Partial<Payment> & { jobId?: string }>;
+  total?: number;
+  page?: number;
+  perPage?: number;
+}): { items: Payment[]; total: number; page: number; perPage: number } => ({
+  items: (data.items ?? []).map((payment) => ({
+    paymentId: payment.paymentId ?? '',
+    bookingId: payment.bookingId ?? payment.jobId ?? '',
+    amount: payment.amount ?? 0,
+    currency: payment.currency ?? 'INR',
+    status: payment.status ?? '',
+    paymentMethod: payment.paymentMethod ?? '',
+    transactionId: payment.transactionId,
+    createdAt: payment.createdAt ?? '',
+  })),
+  total: data.total ?? 0,
+  page: data.page ?? 1,
+  perPage: data.perPage ?? 20,
+});
+
+const mapPaymentMethods = (data: { methods?: Array<Record<string, unknown>> }) =>
+  (data.methods ?? []).map((method) => ({
+    id: String(method.methodId ?? method.id ?? ''),
+    last4: String(method.accountNumber ?? method.last4 ?? '0000').slice(-4),
+    brand: String(method.type ?? method.brand ?? 'BANK'),
+    isDefault: true,
+  }));
+
+const mapSpendSummary = (data: {
+  summary?: {
+    totalSpent?: number;
+  };
+  totalSpent?: number;
+  escrowAmount?: number;
+  pendingInvoicesCount?: number;
+}) => ({
+  totalSpent: data.totalSpent ?? data.summary?.totalSpent ?? 0,
+  escrowAmount: data.escrowAmount ?? 0,
+  pendingInvoicesCount: data.pendingInvoicesCount ?? 0,
+});
 
 const haulierService = {
   // EPIC 1: Auth & Profile
@@ -43,9 +86,9 @@ const haulierService = {
   initiatePayment: (data: Record<string, unknown>) => client.post('/payments/initiate', data).then(res => res.data.data),
   checkPaymentStatus: (paymentId: string) => client.get(`/payments/status/${paymentId}`).then(res => res.data.data),
   releasePayment: (bookingId: string, data: { approvalNote: string }) => client.post(`/payments/release/${bookingId}`, data).then(res => res.data),
-  getPaymentHistory: (params?: Record<string, unknown>) => client.get('/payments/history', { params }).then(res => res.data.data),
+  getPaymentHistory: (params?: Record<string, unknown>) => client.get('/payments/history', { params }).then(res => mapPaymentHistory(res.data.data)),
   addPaymentMethod: (data: Record<string, unknown>) => client.post('/payments/methods/add', data).then(res => res.data),
-  listPaymentMethods: () => client.get('/payments/methods/list').then(res => res.data.data),
+  listPaymentMethods: () => client.get('/payments/methods/list').then(res => mapPaymentMethods(res.data.data)),
   deletePaymentMethod: (methodId: string) => client.delete(`/payments/methods/delete/${methodId}`).then(res => res.data),
   getInvoiceDetails: (invoiceId: string) => client.get(`/invoices/${invoiceId}`).then(res => res.data.data),
   listInvoices: (params?: Record<string, unknown>) => client.get('/invoices/list', { params }).then(res => res.data.data),
@@ -71,7 +114,7 @@ const haulierService = {
   getOverview: () => client.get('/dashboard/haulier/overview').then(res => res.data.data),
   getActiveJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/active', { params }).then(res => res.data.data),
   getPendingApprovalJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/pending-approval', { params }).then(res => res.data.data),
-  getSpendSummary: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/spend-summary', { params }).then(res => res.data.data),
+  getSpendSummary: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/spend-summary', { params }).then(res => mapSpendSummary(res.data.data)),
   getActiveMapData: () => client.get('/dashboard/haulier/active-map').then(res => res.data.data),
 
   // EPIC 8: Ratings

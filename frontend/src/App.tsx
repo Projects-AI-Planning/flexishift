@@ -10,11 +10,13 @@ import UsersPage from './pages/admin/Users';
 import DocumentsPage from './pages/admin/Documents';
 import PaymentsPage from './pages/admin/Payments';
 import AdminJobsPage from './pages/admin/Jobs';
+import DisputesPage from './pages/admin/Disputes';
 
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
 import FleetPage from './pages/haulier/Fleet';
 import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierPaymentsPage from './pages/haulier/Payments';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
@@ -49,7 +51,7 @@ function AppRoutes() {
               <Route path="payments/*" element={<PaymentsPage />} />
               <Route path="jobs/*" element={<AdminJobsPage />} />
               <Route path="analytics/*" element={<AdminDashboard />} />
-              <Route path="disputes/*" element={<AdminJobsPage />} />
+              <Route path="disputes/*" element={<DisputesPage />} />
               <Route path="ratings/*" element={<AdminDashboard />} />
               <Route path="settings/*" element={<SettingsPage />} />
               <Route path="*" element={<AdminDashboard />} />
@@ -66,7 +68,7 @@ function AppRoutes() {
             <Routes>
               <Route index element={<HaulierOverview />} />
               <Route path="jobs/*" element={<HaulierJobsPage />} />
-              <Route path="payments/*" element={<PaymentsPage />} />
+              <Route path="payments/*" element={<HaulierPaymentsPage />} />
               <Route path="fleet/*" element={<FleetPage />} />
               <Route path="drivers/*" element={<FleetPage />} />
               <Route path="loads/*" element={<HaulierJobsPage />} />

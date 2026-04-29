@@ -1,7 +1,103 @@
 import client from './client';
-import type { 
-  SystemConfig, AdminStats 
-} from '../types';
+import type { AdminStats, Dispute, Job, SystemConfig, User } from '../types';
+
+type ApiUser = Partial<User> & {
+  accountStatus?: string;
+};
+
+type ApiJob = Partial<Job> & {
+  jobReference?: string;
+  jobDate?: string;
+};
+
+type ApiDispute = {
+  disputeId?: string | null;
+  jobReference?: string | null;
+  disputeReason?: string | null;
+  paymentOnHold?: number | null;
+  raisedAt?: string | null;
+  driver?: { name?: string | null } | null;
+  haulier?: { name?: string | null } | null;
+};
+
+const mapUsersResponse = (data: {
+  users?: ApiUser[];
+  totalUsers?: number;
+  items?: ApiUser[];
+  total?: number;
+}): { items: User[]; total: number } => ({
+  items: (data.users ?? data.items ?? []).map((user) => ({
+    userId: user.userId ?? '',
+    name: user.name ?? '',
+    email: user.email ?? '',
+    phone: user.phone,
+    role: user.role ?? '',
+    status: user.status ?? user.accountStatus ?? '',
+    isVerified: user.isVerified,
+    joinedAt: user.joinedAt,
+  })),
+  total: data.totalUsers ?? data.total ?? 0,
+});
+
+const mapJobsResponse = (data: {
+  jobs?: ApiJob[];
+  totalJobs?: number;
+  items?: ApiJob[];
+  total?: number;
+}): { items: Job[]; total: number } => ({
+  items: (data.jobs ?? data.items ?? []).map((job) => ({
+    jobId: job.jobId ?? '',
+    jobRef: job.jobRef ?? job.jobReference ?? '',
+    status: job.status ?? '',
+    createdAt: job.createdAt ?? job.jobDate ?? '',
+    pickupLocation: job.pickupLocation,
+    dropLocation: job.dropLocation,
+    agreedAmount: job.agreedAmount,
+    driver: job.driver,
+  })),
+  total: data.totalJobs ?? data.total ?? 0,
+});
+
+const mapRevenueResponse = (data: {
+  totalRevenue?: number;
+  summary?: {
+    totalTransactionValue?: number;
+    platformCommission?: number;
+    totalRefunds?: number;
+    netRevenue?: number;
+  };
+  allTimeRevenue?: number;
+}) => ({
+  totalRevenue: data.totalRevenue ?? data.summary?.totalTransactionValue ?? 0,
+  platformCommission: data.summary?.platformCommission ?? 0,
+  totalRefunds: data.summary?.totalRefunds ?? 0,
+  netRevenue: data.summary?.netRevenue ?? 0,
+  allTimeRevenue: data.allTimeRevenue ?? 0,
+});
+
+const mapDisputesResponse = (data: {
+  disputes?: ApiDispute[];
+  items?: ApiDispute[];
+  totalDisputes?: number;
+  total?: number;
+}): { items: Dispute[]; total: number } => ({
+  items: (data.disputes ?? data.items ?? []).map((dispute) => ({
+    disputeId: dispute.disputeId ?? '',
+    jobId: '',
+    bookingId: '',
+    raisedBy: dispute.driver?.name ?? dispute.haulier?.name ?? 'Unknown',
+    reason: dispute.disputeReason ?? '',
+    description: dispute.disputeReason ?? '',
+    status: 'under_review',
+    evidencePhotos: [],
+    createdAt: dispute.raisedAt ?? new Date().toISOString(),
+    jobReference: dispute.jobReference ?? '',
+    disputeReason: dispute.disputeReason ?? '',
+    reportedBy: dispute.driver?.name ?? dispute.haulier?.name ?? 'Unknown',
+    totalAmount: dispute.paymentOnHold ?? 0,
+  })),
+  total: data.totalDisputes ?? data.total ?? 0,
+});
 
 const adminService = {
   // EPIC 1: Auth & Profile
@@ -9,9 +105,9 @@ const adminService = {
   logout: (refreshToken: string) => client.post('/auth/logout', { refreshToken }).then(res => res.data),
   refreshToken: (refreshToken: string) => client.post('/auth/refresh-token', { refreshToken }).then(res => res.data),
   changePassword: (data: Record<string, unknown>) => client.put('/auth/change-password', data).then(res => res.data),
-  getMe: () => client.get('/profile/me').then(res => res.data),
-  updateProfile: (data: Record<string, unknown>) => client.put('/profile/update', data).then(res => res.data),
-  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then(res => res.data),
+  getMe: () => client.get('/profile/me').then(res => res.data.data),
+  updateProfile: (data: Record<string, unknown>) => client.put('/profile/update', data).then(res => res.data.data),
+  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then(res => res.data.data),
 
   // EPIC 2: Supplier Document Verification
   listPendingDocuments: (params?: { page?: number, limit?: number, documentType?: string }) => 
@@ -35,7 +131,7 @@ const adminService = {
   getComplianceStatus: (jobId: string) => 
     client.get(`/compliance/full-status/${jobId}`).then(res => res.data.data),
   listDisputes: (params?: { page?: number, limit?: number, status?: string }) => 
-    client.get('/compliance/dispute/list', { params }).then(res => res.data.data),
+    client.get('/dashboard/admin/disputes', { params }).then(res => mapDisputesResponse(res.data.data)),
   resolveDispute: (disputeId: string, data: Record<string, unknown>) => 
     client.put(`/compliance/dispute/resolve/${disputeId}`, data).then(res => res.data),
 
@@ -49,7 +145,7 @@ const adminService = {
   getOverview: () => client.get('/dashboard/admin/overview').then(res => res.data.data),
   getStats: () => client.get('/admin/stats').then(res => res.data.data as AdminStats),
   listUsers: (params?: { page?: number, limit?: number, role?: string, status?: string, search?: string }) => 
-    client.get('/dashboard/admin/users/list', { params }).then(res => res.data.data),
+    client.get('/dashboard/admin/users/list', { params }).then(res => mapUsersResponse(res.data.data)),
   suspendUser: (userId: string, data: { reason: string, suspensionDuration: string, notifyUser: boolean }) => 
     client.put(`/dashboard/admin/users/suspend/${userId}`, data).then(res => res.data),
   activateUser: (userId: string, data: { reason: string, notifyUser: boolean }) => 
@@ -57,11 +153,11 @@ const adminService = {
   getPendingVerifications: (params?: { page?: number, limit?: number, role?: string }) => 
     client.get('/dashboard/admin/verifications/pending', { params }).then(res => res.data.data),
   monitorJobs: (params?: { page?: number, limit?: number, status?: string }) => 
-    client.get('/dashboard/admin/jobs/monitor', { params }).then(res => res.data.data),
+    client.get('/dashboard/admin/jobs/monitor', { params }).then(res => mapJobsResponse(res.data.data)),
   getRevenueReport: (params?: { period?: string, month?: string, year?: string }) => 
-    client.get('/dashboard/admin/revenue', { params }).then(res => res.data.data),
+    client.get('/dashboard/admin/revenue', { params }).then(res => mapRevenueResponse(res.data.data)),
   getDisputesOverview: (params?: { page?: number, limit?: number, status?: string }) => 
-    client.get('/dashboard/admin/disputes', { params }).then(res => res.data.data),
+    client.get('/dashboard/admin/disputes', { params }).then(res => mapDisputesResponse(res.data.data)),
 
   // EPIC 8: Ratings
   getUserRatings: (userId: string, params?: { page?: number, limit?: number }) => 
