@@ -7,10 +7,9 @@ export const useHaulierOverview = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOverview = useCallback(async () => {
-    await Promise.resolve();
+  const fetchOverview = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await haulierService.getOverview();
       setData(result);
       setError(null);
@@ -22,10 +21,10 @@ export const useHaulierOverview = () => {
   }, []);
 
   useEffect(() => {
-    fetchOverview();
+    fetchOverview(false);
   }, [fetchOverview]);
 
-  return { data, loading, error, refresh: fetchOverview };
+  return { data, loading, error, refresh: () => fetchOverview(true) };
 };
 
 export const useHaulierJobs = (params?: Record<string, unknown>) => {
@@ -33,10 +32,9 @@ export const useHaulierJobs = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    await Promise.resolve();
+  const fetchJobs = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await haulierService.getActiveJobs(params);
       setData(result);
       setError(null);
@@ -48,10 +46,10 @@ export const useHaulierJobs = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(false);
   }, [fetchJobs]);
 
-  return { data, loading, error, refresh: fetchJobs };
+  return { data, loading, error, refresh: () => fetchJobs(true) };
 };
 
 export const useHaulierPayments = (params?: Record<string, unknown>) => {
@@ -65,10 +63,9 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPayments = useCallback(async () => {
-    await Promise.resolve();
+  const fetchPayments = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const [history, methods, summary] = await Promise.all([
         haulierService.getPaymentHistory(params),
         haulierService.listPaymentMethods(),
@@ -91,8 +88,8 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchPayments();
+    fetchPayments(false);
   }, [fetchPayments]);
 
-  return { data, loading, error, refresh: fetchPayments };
+  return { data, loading, error, refresh: () => fetchPayments(true) };
 };

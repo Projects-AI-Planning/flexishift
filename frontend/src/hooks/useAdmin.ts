@@ -7,10 +7,9 @@ export const useAdminStats = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = useCallback(async () => {
-    await Promise.resolve();
+  const fetchStats = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const data = await adminService.getStats();
       setStats(data);
       setError(null);
@@ -22,10 +21,10 @@ export const useAdminStats = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats();
+    fetchStats(false);
   }, [fetchStats]);
 
-  return { stats, loading, error, refresh: fetchStats };
+  return { stats, loading, error, refresh: () => fetchStats(true) };
 };
 
 interface PaginatedResponse<T> {
@@ -38,10 +37,9 @@ export const useAdminUsers = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = useCallback(async () => {
-    await Promise.resolve();
+  const fetchUsers = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await adminService.listUsers(params);
       setData(result);
       setError(null);
@@ -53,10 +51,10 @@ export const useAdminUsers = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(false);
   }, [fetchUsers]);
 
-  return { data, loading, error, refresh: fetchUsers };
+  return { data, loading, error, refresh: () => fetchUsers(true) };
 };
 
 export const useAdminJobs = (params?: Record<string, unknown>) => {
@@ -64,10 +62,9 @@ export const useAdminJobs = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    await Promise.resolve();
+  const fetchJobs = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await adminService.monitorJobs(params);
       setData(result);
       setError(null);
@@ -79,10 +76,10 @@ export const useAdminJobs = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(false);
   }, [fetchJobs]);
 
-  return { data, loading, error, refresh: fetchJobs };
+  return { data, loading, error, refresh: () => fetchJobs(true) };
 };
 
 export const useAdminDisputes = (params?: Record<string, unknown>) => {
@@ -90,10 +87,9 @@ export const useAdminDisputes = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDisputes = useCallback(async () => {
-    await Promise.resolve();
+  const fetchDisputes = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await adminService.listDisputes(params);
       setData(result);
       setError(null);
@@ -105,10 +101,10 @@ export const useAdminDisputes = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchDisputes();
+    fetchDisputes(false);
   }, [fetchDisputes]);
 
-  return { data, loading, error, refresh: fetchDisputes };
+  return { data, loading, error, refresh: () => fetchDisputes(true) };
 };
 
 export const useAdminVerifications = (params?: Record<string, unknown>) => {
@@ -116,10 +112,9 @@ export const useAdminVerifications = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchVerifications = useCallback(async () => {
-    await Promise.resolve();
+  const fetchVerifications = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await adminService.getPendingVerifications(params);
       setData(result);
       setError(null);
@@ -131,10 +126,10 @@ export const useAdminVerifications = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchVerifications();
+    fetchVerifications(false);
   }, [fetchVerifications]);
 
-  return { data, loading, error, refresh: fetchVerifications };
+  return { data, loading, error, refresh: () => fetchVerifications(true) };
 };
 
 export const useAdminRevenue = (params?: Record<string, unknown>) => {
@@ -142,10 +137,9 @@ export const useAdminRevenue = (params?: Record<string, unknown>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRevenue = useCallback(async () => {
-    await Promise.resolve();
+  const fetchRevenue = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
-      setLoading(true);
       const result = await adminService.getRevenueReport(params);
       setData(result);
       setError(null);
@@ -157,9 +151,9 @@ export const useAdminRevenue = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchRevenue();
+    fetchRevenue(false);
   }, [fetchRevenue]);
 
-  return { data, loading, error, refresh: fetchRevenue };
+  return { data, loading, error, refresh: () => fetchRevenue(true) };
 };
 

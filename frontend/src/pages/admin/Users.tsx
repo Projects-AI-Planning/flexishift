@@ -32,7 +32,7 @@ const UsersPage: React.FC = () => {
         const updatedUser = await adminService.getUserProfile(userId);
         setSelectedUser(updatedUser);
       }
-    } catch (_err) {
+    } catch {
       alert('Failed to update user status');
     }
   };
@@ -42,7 +42,7 @@ const UsersPage: React.FC = () => {
       const user = await adminService.getUserProfile(userId);
       setSelectedUser(user);
       setIsModalOpen(true);
-    } catch (_err) {
+    } catch {
       alert('Failed to fetch user profile');
     }
   };
