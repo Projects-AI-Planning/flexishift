@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 
@@ -9,11 +10,13 @@ import UsersPage from './pages/admin/Users';
 import DocumentsPage from './pages/admin/Documents';
 import PaymentsPage from './pages/admin/Payments';
 import AdminJobsPage from './pages/admin/Jobs';
+import DisputesPage from './pages/admin/Disputes';
 
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
 import FleetPage from './pages/haulier/Fleet';
 import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierPaymentsPage from './pages/haulier/Payments';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
@@ -48,11 +51,16 @@ function AppRoutes() {
           <ProtectedRoute role="ADMIN">
             <Routes>
               <Route index element={<AdminDashboard />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="documents" element={<DocumentsPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="jobs" element={<AdminJobsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route path="users/*" element={<UsersPage />} />
+              <Route path="verifications/*" element={<DocumentsPage />} />
+              <Route path="documents/*" element={<DocumentsPage />} />
+              <Route path="payments/*" element={<PaymentsPage />} />
+              <Route path="jobs/*" element={<AdminJobsPage />} />
+              <Route path="analytics/*" element={<AdminDashboard />} />
+              <Route path="disputes/*" element={<DisputesPage />} />
+              <Route path="ratings/*" element={<AdminDashboard />} />
+              <Route path="settings/*" element={<SettingsPage />} />
+              <Route path="*" element={<AdminDashboard />} />
             </Routes>
           </ProtectedRoute>
         } 
@@ -65,10 +73,16 @@ function AppRoutes() {
           <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
-              <Route path="jobs" element={<HaulierJobsPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="fleet" element={<FleetPage />} />
+              <Route path="jobs/*" element={<HaulierJobsPage />} />
+              <Route path="payments/*" element={<HaulierPaymentsPage />} />
+              <Route path="fleet/*" element={<FleetPage />} />
+              <Route path="drivers/*" element={<FleetPage />} />
+              <Route path="loads/*" element={<HaulierJobsPage />} />
+              <Route path="analytics/*" element={<HaulierOverview />} />
+              <Route path="documents/*" element={<SettingsPage />} />
+              <Route path="settings/*" element={<SettingsPage />} />
               <Route path="profile" element={<SettingsPage />} />
+              <Route path="*" element={<HaulierOverview />} />
             </Routes>
           </ProtectedRoute>
         } 

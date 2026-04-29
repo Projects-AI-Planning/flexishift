@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
+import { useAuth } from '../hooks/useAuth';
 import { Truck } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -37,7 +37,8 @@ const Login: React.FC = () => {
         userId: profile?.userId ?? authData?.userId,
         email: profile?.email ?? email,
         name: profile?.name ?? email.split('@')[0],
-        role: profile?.role ?? authData?.role,
+        role: profile?.role ?? authData?.role ?? 'USER',
+        status: profile?.status ?? authData?.status ?? 'ACTIVE',
       });
     } catch (err) {
       if (axios.isAxiosError(err)) {

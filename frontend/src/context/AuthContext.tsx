@@ -1,20 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-type User = {
-  userId: string;
-  email: string;
-  role: 'ADMIN' | 'HAULIER' | 'SUPPLIER' | 'FIRM' | 'DRIVER' | 'USER';
-  name: string;
-};
-
-type AuthContextType = {
-  user: User | null;
-  login: (token: string, refreshToken: string | null, user: User) => void;
-  logout: () => void;
-  isLoading: boolean;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import React, { useState } from 'react';
+import type { User } from '../types';
+import { AuthContext } from './AuthContextValue';
 
 const normalizeUser = (user: User): User => ({
   ...user,
@@ -22,17 +8,21 @@ const normalizeUser = (user: User): User => ({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    if (savedUser && token) {
-      setUser(normalizeUser(JSON.parse(savedUser) as User));
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      if (savedUser && token) {
+        return normalizeUser(JSON.parse(savedUser) as User);
+      }
+    } catch (e) {
+      console.error('Failed to parse user from localStorage', e);
     }
-    setIsLoading(false);
-  }, []);
+
+    return null;
+  });
+
+  const [isLoading] = useState(false);
 
   const login = (token: string, refreshToken: string | null, userData: User) => {
     const normalizedUser = normalizeUser(userData);
@@ -56,12 +46,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

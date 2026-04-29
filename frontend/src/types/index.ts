@@ -1,17 +1,21 @@
-export enum UserRole {
-  ADMIN = 'ADMIN',
-  DRIVER = 'DRIVER',
-  HAULIER = 'HAULIER',
-  FIRM = 'FIRM',
-  CUSTOMER = 'CUSTOMER'
-}
+export const UserRole = {
+  ADMIN: 'ADMIN',
+  DRIVER: 'DRIVER',
+  HAULIER: 'HAULIER',
+  FIRM: 'FIRM',
+  CUSTOMER: 'CUSTOMER',
+} as const;
 
-export enum UserStatus {
-  ACTIVE = 'ACTIVE',
-  PENDING = 'PENDING',
-  SUSPENDED = 'SUSPENDED',
-  INACTIVE = 'INACTIVE'
-}
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const UserStatus = {
+  ACTIVE: 'ACTIVE',
+  PENDING: 'PENDING',
+  SUSPENDED: 'SUSPENDED',
+  INACTIVE: 'INACTIVE',
+} as const;
+
+export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 
 export interface User {
   userId: string;
@@ -39,12 +43,12 @@ export interface Job {
   jobRef: string;
   status: string;
   createdAt: string;
-  pickupLocation?: {
+  pickupLocation?: string | {
     address: string;
     latitude: number;
     longitude: number;
   };
-  dropLocation?: {
+  dropLocation?: string | {
     address: string;
     latitude: number;
     longitude: number;
@@ -91,6 +95,10 @@ export interface Dispute {
   resolution?: string;
   adminNote?: string;
   createdAt: string;
+  jobReference?: string;
+  disputeReason?: string;
+  reportedBy?: string;
+  totalAmount?: number;
 }
 
 export interface Invoice {
@@ -126,12 +134,16 @@ export interface SystemConfig {
   maintenanceMode: boolean;
 }
 
+export interface RevenueReport {
+  totalRevenue: number;
+}
+
 export interface SystemLog {
   id: string;
   level: 'info' | 'warn' | 'error';
   message: string;
   timestamp: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Rating {

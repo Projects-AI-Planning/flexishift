@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Shield, Bell, Settings as SettingsIcon } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import adminService from '../../api/adminService';
 import type { SystemConfig } from '../../types';
 
@@ -9,21 +9,23 @@ const SettingsPage: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const data = await adminService.getSystemConfig();
       setConfig(data);
-    } catch (err) {
+    } catch {
       console.error('Failed to fetch system config');
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && !hasFetched.current) {
+      hasFetched.current = true;
       fetchConfig();
     }
-  }, [isAdmin]);
+  }, [isAdmin, fetchConfig]);
 
   const handleUpdateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ const SettingsPage: React.FC = () => {
       setLoading(true);
       await adminService.updateSystemConfig(config);
       alert('System configuration updated successfully');
-    } catch (err) {
+    } catch {
       alert('Failed to update system configuration');
     } finally {
       setLoading(false);
@@ -107,7 +109,7 @@ const SettingsPage: React.FC = () => {
                     value={config.disputeResolutionHours} 
                     onChange={(e) => setConfig({ ...config, disputeResolutionHours: Number(e.target.value) })}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary" 
-                  />
+                    />
                 </div>
                 <div className="flex items-center gap-4 pt-6">
                   <label className="flex items-center gap-3 cursor-pointer group">

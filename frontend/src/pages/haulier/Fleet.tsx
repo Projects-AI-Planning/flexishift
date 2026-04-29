@@ -19,8 +19,13 @@ type Driver = {
   avatar: string;
 };
 
+type FleetData = {
+  vehicles: Vehicle[];
+  drivers: Driver[];
+};
+
 const useFleet = () => {
-  const [data] = useState<{ vehicles: Vehicle[]; drivers: Driver[] }>({
+  const [data] = useState<FleetData>({
     vehicles: [
       {
         id: '1',

@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
 import { useAdminDisputes } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
+import type { Dispute } from '../../types';
+
+interface ExtendedDispute extends Dispute {
+  jobReference: string;
+  disputeReason: string;
+  reportedBy: string;
+  totalAmount: number;
+}
 
 const DisputesPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: 'under_review' });
   const { data, loading, error, refresh } = useAdminDisputes(params);
-  const [selectedDispute, setSelectedDispute] = useState<any>(null);
+  const [selectedDispute, setSelectedDispute] = useState<ExtendedDispute | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [resolutionData, setResolutionData] = useState({
     resolution: 'release_full_payment',
@@ -16,11 +24,12 @@ const DisputesPage: React.FC = () => {
   });
 
   const handleResolve = async () => {
+    if (!selectedDispute) return;
     try {
       await adminService.resolveDispute(selectedDispute.disputeId, resolutionData);
       setIsModalOpen(false);
       refresh();
-    } catch (err) {
+    } catch {
       alert('Failed to resolve dispute');
     }
   };
@@ -67,7 +76,7 @@ const DisputesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {data?.items.map((dispute: any) => (
+              {(data?.items as ExtendedDispute[])?.map((dispute) => (
                 <tr key={dispute.disputeId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 font-bold text-primary">{dispute.jobReference}</td>
                   <td className="px-6 py-4">
