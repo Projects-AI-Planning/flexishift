@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useHaulierPayments } from '../../hooks/useHaulier';
-import { Payment } from '../../types';
+import type { Payment } from '../../types';
 
 interface ExtendedPayment extends Payment {
   bookingId: string;
+}
+
+interface PaymentMethod {
+  id: string;
+  last4: string;
+  brand: string;
+  isDefault: boolean;
 }
 
 const HaulierPaymentsPage: React.FC = () => {
@@ -119,7 +126,7 @@ const HaulierPaymentsPage: React.FC = () => {
             <div className="relative z-10">
               <h3 className="text-xl font-bold mb-6">Payment Methods</h3>
               <div className="space-y-4">
-                {data?.paymentMethods?.map((method: any) => (
+                {data?.paymentMethods?.map((method: PaymentMethod) => (
                   <div key={method.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between group hover:bg-white/10 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white/10 rounded-lg">

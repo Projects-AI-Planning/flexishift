@@ -1,9 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import haulierService from '../api/haulierService';
-import { Job, Payment } from '../types';
+import type { Job, Payment } from '../types';
+
+interface HaulierOverview {
+  summary?: {
+    totalSpentThisMonth?: number;
+    totalActiveJobs?: number;
+    openJobsWithQuotes?: number;
+  };
+  activeJobs?: Array<{
+    jobReference: string;
+    pickupLocation: string | { address: string };
+    dropLocation: string | { address: string };
+    driverName?: string;
+    status: string;
+    delay?: string;
+  }>;
+  activeJobsCount?: number;
+  completedJobs?: number;
+  totalSpent?: number;
+  escrowAmount?: number;
+  pendingInvoicesCount?: number;
+}
+
+interface PaymentMethod {
+  id: string;
+  last4: string;
+  brand: string;
+  isDefault: boolean;
+}
 
 export const useHaulierOverview = () => {
-  const [data, setData] = useState<Record<string, any> | null>(null); 
+  const [data, setData] = useState<HaulierOverview | null>(null); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,10 +49,16 @@ export const useHaulierOverview = () => {
   }, []);
 
   useEffect(() => {
-    fetchOverview(false);
+    queueMicrotask(() => {
+      void fetchOverview();
+    });
   }, [fetchOverview]);
 
-  return { data, loading, error, refresh: () => fetchOverview(true) };
+  const refresh = useCallback(() => {
+    void fetchOverview(true);
+  }, [fetchOverview]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useHaulierJobs = (params?: Record<string, unknown>) => {
@@ -46,10 +80,16 @@ export const useHaulierJobs = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchJobs(false);
+    queueMicrotask(() => {
+      void fetchJobs();
+    });
   }, [fetchJobs]);
 
-  return { data, loading, error, refresh: () => fetchJobs(true) };
+  const refresh = useCallback(() => {
+    void fetchJobs(true);
+  }, [fetchJobs]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useHaulierPayments = (params?: Record<string, unknown>) => {
@@ -58,7 +98,7 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
     escrowAmount: number;
     pendingInvoicesCount: number;
     payments: Payment[];
-    paymentMethods: Array<Record<string, unknown>>;
+    paymentMethods: PaymentMethod[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,8 +128,14 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchPayments(false);
+    queueMicrotask(() => {
+      void fetchPayments();
+    });
   }, [fetchPayments]);
 
-  return { data, loading, error, refresh: () => fetchPayments(true) };
+  const refresh = useCallback(() => {
+    void fetchPayments(true);
+  }, [fetchPayments]);
+
+  return { data, loading, error, refresh };
 };

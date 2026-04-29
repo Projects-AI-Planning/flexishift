@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useHaulierJobs } from '../../hooks/useHaulier';
-import { Job } from '../../types';
+import type { Job } from '../../types';
 
-interface ExtendedJob extends Job {
+type JobLocation = string | Job['pickupLocation'];
+
+type ExtendedJob = Omit<Job, 'pickupLocation' | 'dropLocation'> & {
   jobReference: string;
-  pickupLocation: any; // Could be string or object depending on API
-  dropLocation: any;
-}
+  pickupLocation: JobLocation;
+  dropLocation: JobLocation;
+};
 
 const HaulierJobsPage: React.FC = () => {
   const [params] = useState({ page: 1 });

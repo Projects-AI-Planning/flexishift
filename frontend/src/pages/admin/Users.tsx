@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
-import { User } from '../../types';
+import type { User } from '../../types';
 
 interface ExtendedUser extends User {
   haulierProfile?: {

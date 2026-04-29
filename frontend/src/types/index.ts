@@ -1,17 +1,21 @@
-export enum UserRole {
-  ADMIN = 'ADMIN',
-  DRIVER = 'DRIVER',
-  HAULIER = 'HAULIER',
-  FIRM = 'FIRM',
-  CUSTOMER = 'CUSTOMER'
-}
+export const UserRole = {
+  ADMIN: 'ADMIN',
+  DRIVER: 'DRIVER',
+  HAULIER: 'HAULIER',
+  FIRM: 'FIRM',
+  CUSTOMER: 'CUSTOMER',
+} as const;
 
-export enum UserStatus {
-  ACTIVE = 'ACTIVE',
-  PENDING = 'PENDING',
-  SUSPENDED = 'SUSPENDED',
-  INACTIVE = 'INACTIVE'
-}
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const UserStatus = {
+  ACTIVE: 'ACTIVE',
+  PENDING: 'PENDING',
+  SUSPENDED: 'SUSPENDED',
+  INACTIVE: 'INACTIVE',
+} as const;
+
+export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 
 export interface User {
   userId: string;
@@ -124,6 +128,10 @@ export interface SystemConfig {
   maxFileUploadSize: string;
   trackingUpdateInterval: string;
   maintenanceMode: boolean;
+}
+
+export interface RevenueReport {
+  totalRevenue: number;
 }
 
 export interface SystemLog {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import adminService from '../api/adminService';
-import { AdminStats, User, Job, Dispute, VerificationRequest } from '../types';
+import type { AdminStats, Dispute, Job, RevenueReport, User, VerificationRequest } from '../types';
 
 export const useAdminStats = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -21,10 +21,16 @@ export const useAdminStats = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats(false);
+    queueMicrotask(() => {
+      void fetchStats();
+    });
   }, [fetchStats]);
 
-  return { stats, loading, error, refresh: () => fetchStats(true) };
+  const refresh = useCallback(() => {
+    void fetchStats(true);
+  }, [fetchStats]);
+
+  return { stats, loading, error, refresh };
 };
 
 interface PaginatedResponse<T> {
@@ -51,10 +57,16 @@ export const useAdminUsers = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchUsers(false);
+    queueMicrotask(() => {
+      void fetchUsers();
+    });
   }, [fetchUsers]);
 
-  return { data, loading, error, refresh: () => fetchUsers(true) };
+  const refresh = useCallback(() => {
+    void fetchUsers(true);
+  }, [fetchUsers]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useAdminJobs = (params?: Record<string, unknown>) => {
@@ -76,10 +88,16 @@ export const useAdminJobs = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchJobs(false);
+    queueMicrotask(() => {
+      void fetchJobs();
+    });
   }, [fetchJobs]);
 
-  return { data, loading, error, refresh: () => fetchJobs(true) };
+  const refresh = useCallback(() => {
+    void fetchJobs(true);
+  }, [fetchJobs]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useAdminDisputes = (params?: Record<string, unknown>) => {
@@ -101,10 +119,16 @@ export const useAdminDisputes = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchDisputes(false);
+    queueMicrotask(() => {
+      void fetchDisputes();
+    });
   }, [fetchDisputes]);
 
-  return { data, loading, error, refresh: () => fetchDisputes(true) };
+  const refresh = useCallback(() => {
+    void fetchDisputes(true);
+  }, [fetchDisputes]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useAdminVerifications = (params?: Record<string, unknown>) => {
@@ -126,14 +150,20 @@ export const useAdminVerifications = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchVerifications(false);
+    queueMicrotask(() => {
+      void fetchVerifications();
+    });
   }, [fetchVerifications]);
 
-  return { data, loading, error, refresh: () => fetchVerifications(true) };
+  const refresh = useCallback(() => {
+    void fetchVerifications(true);
+  }, [fetchVerifications]);
+
+  return { data, loading, error, refresh };
 };
 
 export const useAdminRevenue = (params?: Record<string, unknown>) => {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [data, setData] = useState<RevenueReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,9 +181,15 @@ export const useAdminRevenue = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    fetchRevenue(false);
+    queueMicrotask(() => {
+      void fetchRevenue();
+    });
   }, [fetchRevenue]);
 
-  return { data, loading, error, refresh: () => fetchRevenue(true) };
+  const refresh = useCallback(() => {
+    void fetchRevenue(true);
+  }, [fetchRevenue]);
+
+  return { data, loading, error, refresh };
 };
 

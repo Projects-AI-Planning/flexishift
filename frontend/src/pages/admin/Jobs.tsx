@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
+import type { Job } from '../../types';
 
 interface ExtendedJob extends Job {
-  jobReference: string;
-  jobDate: string;
-  pickupLocation: any;
-  dropLocation: any;
+  jobReference?: string;
+  jobDate?: string;
 }
 
 const AdminJobsPage: React.FC = () => {
@@ -73,7 +72,20 @@ const AdminJobsPage: React.FC = () => {
 
       {/* Shipment Grid */}
       <div className={`grid grid-cols-1 xl:grid-cols-2 gap-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-        {(data?.items as ExtendedJob[])?.map((shipment) => (
+        {(data?.items as ExtendedJob[] | undefined)?.map((shipment) => {
+          const status = shipment.status?.toLowerCase() ?? 'unknown';
+          const jobReference = shipment.jobReference ?? shipment.jobRef;
+          const jobDate = shipment.jobDate ?? shipment.createdAt;
+          const pickupAddress =
+            typeof shipment.pickupLocation === 'string'
+              ? shipment.pickupLocation
+              : shipment.pickupLocation?.address;
+          const dropAddress =
+            typeof shipment.dropLocation === 'string'
+              ? shipment.dropLocation
+              : shipment.dropLocation?.address;
+
+          return (
           <div key={shipment.jobId} className="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden hover:shadow-md transition-all group">
             <div className="p-6 flex flex-col h-full">
               <div className="flex justify-between items-start mb-6">
@@ -83,10 +95,10 @@ const AdminJobsPage: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-black text-primary tracking-tight">{shipment.jobReference}</h3>
+                      <h3 className="font-black text-primary tracking-tight">{jobReference}</h3>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                        shipment.status === 'completed' || shipment.status === 'delivered' ? 'bg-green-100 text-green-700 border-green-200' : 
-                        shipment.status === 'in_transit' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        status === 'completed' || status === 'delivered' ? 'bg-green-100 text-green-700 border-green-200' : 
+                        status === 'in_transit' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'
                       }`}>
                         {shipment.status}
                       </span>
@@ -101,11 +113,11 @@ const AdminJobsPage: React.FC = () => {
                   <div className="flex flex-col gap-3">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Origin</p>
-                      <p className="text-sm font-bold text-primary truncate">{shipment.pickupLocation?.address || shipment.pickupLocation || 'N/A'}</p>
+                      <p className="text-sm font-bold text-primary truncate">{pickupAddress || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destination</p>
-                      <p className="text-sm font-bold text-primary truncate">{shipment.dropLocation?.address || shipment.dropLocation || 'N/A'}</p>
+                      <p className="text-sm font-bold text-primary truncate">{dropAddress || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -120,7 +132,7 @@ const AdminJobsPage: React.FC = () => {
                 <div className="flex items-center gap-8">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</p>
-                    <p className="text-sm font-black text-primary">{shipment.jobDate ? new Date(shipment.jobDate).toLocaleDateString() : 'N/A'}</p>
+                    <p className="text-sm font-black text-primary">{jobDate ? new Date(jobDate).toLocaleDateString() : 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Driver</p>
@@ -138,7 +150,8 @@ const AdminJobsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer Pagination */}

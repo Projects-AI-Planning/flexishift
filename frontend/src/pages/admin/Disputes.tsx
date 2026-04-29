@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminDisputes } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
-import { Dispute } from '../../types';
+import type { Dispute } from '../../types';
 
 interface ExtendedDispute extends Dispute {
   jobReference: string;

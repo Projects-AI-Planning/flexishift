@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Truck } from 'lucide-react';
 import { UserRole } from '../types';
 
@@ -17,7 +17,8 @@ const Login: React.FC = () => {
       userId: '1',
       email,
       name: email.split('@')[0],
-      role: role
+      role,
+      status: 'ACTIVE',
     });
   };
 

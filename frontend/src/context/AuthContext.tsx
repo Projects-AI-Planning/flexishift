@@ -1,14 +1,6 @@
-import React, { createContext, useState } from 'react';
-import { User } from '../types';
-
-type AuthContextType = {
-  user: User | null;
-  login: (token: string, user: User) => void;
-  logout: () => void;
-  isLoading: boolean;
-};
-
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import React, { useState } from 'react';
+import type { User } from '../types';
+import { AuthContext } from './AuthContextValue';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {

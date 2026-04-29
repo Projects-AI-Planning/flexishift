@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminVerifications } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
-import { VerificationRequest, Document } from '../../types';
+import type { Document, VerificationRequest } from '../../types';
 
 interface ExtendedDocument extends Document {
   documentType: string;
