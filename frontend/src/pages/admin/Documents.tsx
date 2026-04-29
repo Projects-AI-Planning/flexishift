@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { useAdminVerifications } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
+import { VerificationRequest, Document } from '../../types';
+
+interface ExtendedDocument extends Document {
+  documentType: string;
+}
+
+interface ExtendedVerificationRequest extends VerificationRequest {
+  supplierId: string;
+}
 
 const DocumentsPage: React.FC = () => {
-  const [params, setParams] = useState({ page: 1 });
+  const [params] = useState({ page: 1 });
   const { data, loading, error, refresh } = useAdminVerifications(params);
 
   const handleApprove = async (docId: string) => {
     try {
       await adminService.approveDocument(docId);
       refresh();
-    } catch (err) {
+    } catch {
       alert('Failed to approve document');
     }
   };
@@ -21,7 +30,7 @@ const DocumentsPage: React.FC = () => {
     try {
       await adminService.rejectDocument(docId, reason);
       refresh();
-    } catch (err) {
+    } catch {
       alert('Failed to reject document');
     }
   };
@@ -71,7 +80,7 @@ const DocumentsPage: React.FC = () => {
 
         {/* Right: Pending Review List */}
         <div className={`lg:col-span-8 space-y-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-          {data?.pendingVerifications.map((request: any) => (
+          {(data?.pendingVerifications as ExtendedVerificationRequest[])?.map((request) => (
             <div key={request.supplierId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden">
               <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
                 <div className="flex items-center gap-4">
@@ -85,7 +94,7 @@ const DocumentsPage: React.FC = () => {
                 </div>
               </div>
               <div className="p-6 space-y-4">
-                {request.documents.map((doc: any) => (
+                {(request.documents as ExtendedDocument[]).map((doc) => (
                   <div key={doc.documentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors gap-4">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600`}>
@@ -141,7 +150,5 @@ const DocumentsPage: React.FC = () => {
     </div>
   );
 };
-
-export default DocumentsPage;
 
 export default DocumentsPage;

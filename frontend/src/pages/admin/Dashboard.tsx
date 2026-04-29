@@ -2,7 +2,7 @@ import React from 'react';
 import { useAdminStats } from '../../hooks/useAdmin';
 
 const AdminDashboard: React.FC = () => {
-  const { stats, loading, error, refresh } = useAdminStats();
+  const { stats, loading, error } = useAdminStats();
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
   if (loading || !stats) return <div className="p-8 animate-pulse text-primary font-bold">Loading Platform Core...</div>;

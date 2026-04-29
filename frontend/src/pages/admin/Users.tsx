@@ -1,11 +1,23 @@
 import React, { useState } from 'react';
 import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
+import { User } from '../../types';
+
+interface ExtendedUser extends User {
+  haulierProfile?: {
+    companyName: string;
+    gstNumber: string;
+  };
+  driverProfile?: {
+    vehicleType: string;
+    licenseVerified: boolean;
+  };
+}
 
 const UsersPage: React.FC = () => {
-  const [params, setParams] = useState({ page: 1, role: '', status: '', search: '' });
+  const [params, setParams] = useState({ page: 1, role: '', status: '', search: '', limit: 10 });
   const { data, loading, error, refresh } = useAdminUsers(params);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<ExtendedUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleStatusUpdate = async (userId: string, newStatus: string) => {
@@ -20,7 +32,7 @@ const UsersPage: React.FC = () => {
         const updatedUser = await adminService.getUserProfile(userId);
         setSelectedUser(updatedUser);
       }
-    } catch (err) {
+    } catch (_err) {
       alert('Failed to update user status');
     }
   };
@@ -30,7 +42,7 @@ const UsersPage: React.FC = () => {
       const user = await adminService.getUserProfile(userId);
       setSelectedUser(user);
       setIsModalOpen(true);
-    } catch (err) {
+    } catch (_err) {
       alert('Failed to fetch user profile');
     }
   };
@@ -107,7 +119,7 @@ const UsersPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {data?.items.map((user: any) => (
+              {(data?.items as ExtendedUser[])?.map((user) => (
                 <tr key={user.userId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -225,7 +237,7 @@ const UsersPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>
-                    <p className="text-sm font-bold text-primary">{new Date(selectedUser.joinedAt).toLocaleDateString()}</p>
+                    <p className="text-sm font-bold text-primary">{selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
                 <div className="space-y-4">

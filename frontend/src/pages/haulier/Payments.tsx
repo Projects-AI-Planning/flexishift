@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useHaulierPayments } from '../../hooks/useHaulier';
-import haulierService from '../../api/haulierService';
+import { Payment } from '../../types';
+
+interface ExtendedPayment extends Payment {
+  bookingId: string;
+}
 
 const HaulierPaymentsPage: React.FC = () => {
-  const [params, setParams] = useState({ page: 1 });
-  const { data, loading, error, refresh } = useHaulierPayments(params);
+  const [params] = useState({ page: 1 });
+  const { data, loading, error } = useHaulierPayments(params);
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
@@ -84,7 +88,7 @@ const HaulierPaymentsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {data?.payments.map((payment: any) => (
+                  {(data?.payments as ExtendedPayment[])?.map((payment) => (
                     <tr key={payment.paymentId} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-900">#{payment.bookingId.substring(0, 8)}</td>
                       <td className="px-6 py-4 text-sm text-slate-500">{new Date(payment.createdAt).toLocaleDateString()}</td>

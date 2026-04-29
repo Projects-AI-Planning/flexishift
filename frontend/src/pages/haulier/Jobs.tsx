@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { useHaulierJobs } from '../../hooks/useHaulier';
+import { Job } from '../../types';
+
+interface ExtendedJob extends Job {
+  jobReference: string;
+  pickupLocation: any; // Could be string or object depending on API
+  dropLocation: any;
+}
 
 const HaulierJobsPage: React.FC = () => {
-  const [params, setParams] = useState({ page: 1 });
+  const [params] = useState({ page: 1 });
   const { data, loading, error } = useHaulierJobs(params);
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
@@ -41,11 +48,13 @@ const HaulierJobsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {data?.jobs.map((job: any) => (
+              {(data?.jobs as ExtendedJob[])?.map((job) => (
                 <tr key={job.jobId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-5">
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-primary">{job.pickupLocation} → {job.dropLocation}</span>
+                      <span className="text-sm font-bold text-primary">
+                        {typeof job.pickupLocation === 'string' ? job.pickupLocation : job.pickupLocation?.address} → {typeof job.dropLocation === 'string' ? job.dropLocation : job.dropLocation?.address}
+                      </span>
                       <span className="text-xs text-slate-400 font-medium">Freight</span>
                     </div>
                   </td>
@@ -75,7 +84,5 @@ const HaulierJobsPage: React.FC = () => {
     </div>
   );
 };
-
-export default HaulierJobsPage;
 
 export default HaulierJobsPage;

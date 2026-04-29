@@ -1,148 +1,165 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import adminService from '../api/adminService';
-import { AdminStats } from '../types';
+import { AdminStats, User, Job, Dispute, VerificationRequest } from '../types';
 
 export const useAdminStats = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const data = await adminService.getStats();
       setStats(data);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load platform statistics');
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   return { stats, loading, error, refresh: fetchStats };
 };
 
-export const useAdminUsers = (params?: any) => {
-  const [data, setData] = useState<{ items: any[], total: number } | null>(null);
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+}
+
+export const useAdminUsers = (params?: Record<string, unknown>) => {
+  const [data, setData] = useState<PaginatedResponse<User> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const result = await adminService.listUsers(params);
       setData(result);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load user list');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchUsers();
-  }, [JSON.stringify(params)]);
+  }, [fetchUsers]);
 
   return { data, loading, error, refresh: fetchUsers };
 };
 
-export const useAdminJobs = (params?: any) => {
-  const [data, setData] = useState<{ items: any[], total: number } | null>(null);
+export const useAdminJobs = (params?: Record<string, unknown>) => {
+  const [data, setData] = useState<PaginatedResponse<Job> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const result = await adminService.monitorJobs(params);
       setData(result);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load jobs monitor');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchJobs();
-  }, [JSON.stringify(params)]);
+  }, [fetchJobs]);
 
   return { data, loading, error, refresh: fetchJobs };
 };
 
-export const useAdminDisputes = (params?: any) => {
-  const [data, setData] = useState<{ items: any[], total: number } | null>(null);
+export const useAdminDisputes = (params?: Record<string, unknown>) => {
+  const [data, setData] = useState<PaginatedResponse<Dispute> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDisputes = async () => {
+  const fetchDisputes = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const result = await adminService.listDisputes(params);
       setData(result);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load disputes list');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchDisputes();
-  }, [JSON.stringify(params)]);
+  }, [fetchDisputes]);
 
   return { data, loading, error, refresh: fetchDisputes };
 };
 
-export const useAdminVerifications = (params?: any) => {
-  const [data, setData] = useState<{ pendingVerifications: any[], totalPending: number } | null>(null);
+export const useAdminVerifications = (params?: Record<string, unknown>) => {
+  const [data, setData] = useState<{ pendingVerifications: VerificationRequest[], totalPending: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchVerifications = async () => {
+  const fetchVerifications = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const result = await adminService.getPendingVerifications(params);
       setData(result);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load pending verifications');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchVerifications();
-  }, [JSON.stringify(params)]);
+  }, [fetchVerifications]);
 
   return { data, loading, error, refresh: fetchVerifications };
 };
 
-export const useAdminRevenue = (params?: any) => {
-  const [data, setData] = useState<any>(null);
+export const useAdminRevenue = (params?: Record<string, unknown>) => {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRevenue = async () => {
+  const fetchRevenue = useCallback(async () => {
+    await Promise.resolve();
     try {
       setLoading(true);
       const result = await adminService.getRevenueReport(params);
       setData(result);
-    } catch (err) {
+      setError(null);
+    } catch {
       setError('Failed to load revenue data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchRevenue();
-  }, [JSON.stringify(params)]);
+  }, [fetchRevenue]);
 
   return { data, loading, error, refresh: fetchRevenue };
 };
+

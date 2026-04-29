@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Truck } from 'lucide-react';
+import { UserRole } from '../types';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,12 +12,12 @@ const Login: React.FC = () => {
     e.preventDefault();
     // Simulate login for now - ideally call backend POST /auth/login
     // For development, we'll allow an 'admin@example.com' to login as ADMIN
-    const role = email.includes('admin') ? 'ADMIN' : 'SUPPLIER';
+    const role = email.includes('admin') ? UserRole.ADMIN : UserRole.HAULIER;
     login('mock-token', {
       userId: '1',
       email,
       name: email.split('@')[0],
-      role: role as any
+      role: role
     });
   };
 

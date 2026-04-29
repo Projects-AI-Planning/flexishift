@@ -131,7 +131,7 @@ export interface SystemLog {
   level: 'info' | 'warn' | 'error';
   message: string;
   timestamp: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Rating {

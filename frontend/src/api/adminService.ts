@@ -1,17 +1,16 @@
 import client from './client';
-import { 
-  User, Job, Dispute, Invoice, Payment, 
-  SystemConfig, SystemLog, Rating, AdminStats 
+import type { 
+  SystemConfig, AdminStats 
 } from '../types';
 
 const adminService = {
   // EPIC 1: Auth & Profile
-  login: (data: any) => client.post('/auth/login', data).then(res => res.data),
+  login: (data: Record<string, unknown>) => client.post('/auth/login', data).then(res => res.data),
   logout: (refreshToken: string) => client.post('/auth/logout', { refreshToken }).then(res => res.data),
   refreshToken: (refreshToken: string) => client.post('/auth/refresh-token', { refreshToken }).then(res => res.data),
-  changePassword: (data: any) => client.put('/auth/change-password', data).then(res => res.data),
+  changePassword: (data: Record<string, unknown>) => client.put('/auth/change-password', data).then(res => res.data),
   getMe: () => client.get('/profile/me').then(res => res.data),
-  updateProfile: (data: any) => client.put('/profile/update', data).then(res => res.data),
+  updateProfile: (data: Record<string, unknown>) => client.put('/profile/update', data).then(res => res.data),
   getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then(res => res.data),
 
   // EPIC 2: Supplier Document Verification
@@ -37,7 +36,7 @@ const adminService = {
     client.get(`/compliance/full-status/${jobId}`).then(res => res.data.data),
   listDisputes: (params?: { page?: number, limit?: number, status?: string }) => 
     client.get('/compliance/dispute/list', { params }).then(res => res.data.data),
-  resolveDispute: (disputeId: string, data: any) => 
+  resolveDispute: (disputeId: string, data: Record<string, unknown>) => 
     client.put(`/compliance/dispute/resolve/${disputeId}`, data).then(res => res.data),
 
   // EPIC 6: Tracking

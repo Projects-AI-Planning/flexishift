@@ -1,28 +1,52 @@
 import React from 'react';
 import { useHaulierOverview } from '../../hooks/useHaulier';
 
+interface DashboardData {
+  summary: {
+    totalSpentThisMonth: number;
+    totalActiveJobs: number;
+    openJobsWithQuotes: number;
+  };
+  activeJobs: Array<{
+    jobReference: string;
+    pickupLocation: string | { address: string };
+    dropLocation: string | { address: string };
+    driverName?: string;
+    status: string;
+    delay?: string;
+  }>;
+}
+
 const HaulierOverview: React.FC = () => {
   const { data, loading, error } = useHaulierOverview();
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
   if (loading || !data) return <div className="p-8 animate-pulse text-primary font-bold">Loading Fleet Overview...</div>;
 
+  const dashboardData = data as DashboardData;
+
   const stats = {
-    totalSpend: data.summary.totalSpentThisMonth,
-    activeShipments: data.summary.totalActiveJobs,
-    pendingQuotes: data.summary.openJobsWithQuotes,
+    totalSpend: dashboardData.summary.totalSpentThisMonth,
+    activeShipments: dashboardData.summary.totalActiveJobs,
+    pendingQuotes: dashboardData.summary.openJobsWithQuotes,
     fleetUtilization: 85 // Mocked for now as not in API
   };
 
-  const activeJobs = data.activeJobs.map((j: any) => ({
-    id: j.jobReference,
-    route: `${j.pickupLocation} → ${j.dropLocation}`,
-    type: 'Freight',
-    driver: j.driverName || 'Unassigned',
-    status: j.status.toUpperCase(),
-    eta: 'Today',
-    statusColor: j.status === 'in_transit' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-  }));
+  const activeJobs = dashboardData.activeJobs.map((j) => {
+    const pickup = typeof j.pickupLocation === 'string' ? j.pickupLocation : j.pickupLocation?.address;
+    const drop = typeof j.dropLocation === 'string' ? j.dropLocation : j.dropLocation?.address;
+    
+    return {
+      id: j.jobReference,
+      route: `${pickup} → ${drop}`,
+      type: 'Freight',
+      driver: j.driverName || 'Unassigned',
+      status: j.status.toUpperCase(),
+      eta: 'Today',
+      delay: j.delay,
+      statusColor: j.status === 'in_transit' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+    };
+  });
 
   return (
     <div className="space-y-8">

@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
 
+interface ExtendedJob extends Job {
+  jobReference: string;
+  jobDate: string;
+  pickupLocation: any;
+  dropLocation: any;
+}
+
 const AdminJobsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '' });
   const { data, loading, error } = useAdminJobs(params);
@@ -66,7 +73,7 @@ const AdminJobsPage: React.FC = () => {
 
       {/* Shipment Grid */}
       <div className={`grid grid-cols-1 xl:grid-cols-2 gap-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-        {data?.items.map((shipment: any) => (
+        {(data?.items as ExtendedJob[])?.map((shipment) => (
           <div key={shipment.jobId} className="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden hover:shadow-md transition-all group">
             <div className="p-6 flex flex-col h-full">
               <div className="flex justify-between items-start mb-6">

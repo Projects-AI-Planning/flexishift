@@ -1,8 +1,32 @@
 import React, { useState } from 'react';
 
+interface Vehicle {
+  id: string;
+  plate: string;
+  type: string;
+  status: string;
+  driver: string;
+  statusColor: string;
+}
+
+interface Driver {
+  id: number;
+  name: string;
+  license: string;
+  status: string;
+  statusColor: string;
+  phone: string;
+  avatar: string;
+}
+
+interface FleetData {
+  vehicles: Vehicle[];
+  drivers: Driver[];
+}
+
 // Mock hook for structural consistency
 const useFleet = () => {
-  const [data] = useState<any>({
+  const [data] = useState<FleetData>({
     vehicles: [
       { id: '1', plate: 'LX72 BNX', type: '40ft Curtainsider', status: 'On Route', driver: 'M. Thompson', statusColor: 'bg-blue-100 text-blue-700' },
       { id: '2', plate: 'FF68 FLEX', type: 'Refrigerated Unit', status: 'Available', driver: 'S. Richards', statusColor: 'bg-green-100 text-green-700' },
@@ -75,7 +99,7 @@ const FleetPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.vehicles.map((v: any) => (
+                {data.vehicles.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50/50 transition-colors text-sm">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -118,7 +142,7 @@ const FleetPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.drivers.map((d: any) => (
+                {data.drivers.map((d) => (
                   <tr key={d.id} className="hover:bg-slate-50/50 transition-colors text-sm">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
