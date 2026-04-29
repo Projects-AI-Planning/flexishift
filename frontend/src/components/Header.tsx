@@ -1,13 +1,42 @@
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  isSidebarCollapsed: boolean;
+  onOpenMobileSidebar: () => void;
+  onToggleDesktopSidebar: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar, onToggleDesktopSidebar }) => {
   const { user } = useAuth();
 
   return (
-    <header className="fixed top-0 right-0 left-64 h-16 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-[0_4px_12px_rgba(26,43,60,0.05)] flex items-center justify-between px-8">
+    <header
+      className={`fixed top-0 right-0 h-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-[0_4px_12px_rgba(26,43,60,0.05)] flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
+        isSidebarCollapsed ? 'left-0 lg:left-20' : 'left-0 lg:left-64'
+      }`}
+    >
       <div className="flex items-center gap-4 flex-1">
-        <div className="relative w-full max-w-md">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenMobileSidebar}
+            className="lg:hidden w-10 h-10 rounded-full hover:bg-slate-100 transition-all duration-200 ease-in-out flex items-center justify-center"
+          >
+            <span className="material-symbols-outlined text-slate-600">menu</span>
+          </button>
+          <button
+            type="button"
+            onClick={onToggleDesktopSidebar}
+            className="hidden lg:flex w-10 h-10 rounded-full hover:bg-slate-100 transition-all duration-200 ease-in-out items-center justify-center"
+          >
+            <span className="material-symbols-outlined text-slate-600">
+              {isSidebarCollapsed ? 'menu_open' : 'menu'}
+            </span>
+          </button>
+        </div>
+
+        <div className="relative hidden sm:block w-full max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
           <input 
             className="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-amber-500 transition-all outline-none" 
@@ -17,8 +46,8 @@ const Header: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 sm:gap-6">
+        <div className="hidden sm:flex items-center gap-2">
           <button className="relative hover:bg-slate-100 rounded-full p-2 transition-all duration-200 ease-in-out">
             <span className="material-symbols-outlined text-slate-600">notifications</span>
             <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full border-2 border-white"></span>
@@ -28,9 +57,9 @@ const Header: React.FC = () => {
           </button>
         </div>
         
-        <div className="h-8 w-px bg-slate-200"></div>
+        <div className="hidden sm:block h-8 w-px bg-slate-200"></div>
         
-        <div className="flex items-center gap-3 pl-2">
+        <div className="flex items-center gap-3 sm:pl-2">
           <div className="text-right hidden lg:block">
             <p className="text-sm font-bold text-slate-900">{user?.name}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{user?.role === 'ADMIN' ? 'Platform Admin' : 'Operations Manager'}</p>
