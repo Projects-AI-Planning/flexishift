@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface DeliveryScreenProps {
   jobId: string;
@@ -35,7 +36,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
       {
         text: 'Capture',
         onPress: () => {
-          setPhotos(prev => ({...prev, [type]: {uri: 'mock-uri'}}));
+          setPhotos(prev => ({...prev, [type]: {uri: 'mock-uri', type}}));
         },
       },
       {text: 'Cancel', style: 'cancel'},
@@ -47,73 +48,99 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.stepTitle}>Step 3 of 3</Text>
-          <Text style={styles.mainTitle}>Delivery Proof Submission</Text>
-          <Text style={styles.subtitle}>
-            You've reached your destination. Please capture the final delivery details to complete this job.
-          </Text>
+        <View style={styles.topBar}>
+          <Pressable style={styles.backBtn}>
+            <Text style={styles.backText}>{'\u2190'}</Text>
+          </Pressable>
+          <Text style={styles.title}>Step 3: Delivery Report</Text>
+          <Text style={styles.brand}>LOGIFLOW</Text>
         </View>
 
-        <Card title="Proof of Delivery" subtitle={`Ref: ${jobReference}`}>
-          <Text style={styles.label}>Receiver's Name</Text>
+        <View style={styles.stepper}>
+          <View style={styles.stepNodeDone}>
+            <Text style={styles.stepNodeDoneText}>{'\u2713'}</Text>
+          </View>
+          <View style={styles.stepLineDone} />
+          <View style={styles.stepNodeDone}>
+            <Text style={styles.stepNodeDoneText}>{'\u2713'}</Text>
+          </View>
+          <View style={styles.stepLineCurrent} />
+          <View style={styles.stepNodeCurrent}>
+            <Text style={styles.stepNodeCurrentText}>3</Text>
+          </View>
+        </View>
+        <View style={styles.stepLabels}>
+          <Text style={styles.stepLabel}>Arrived</Text>
+          <Text style={styles.stepLabel}>Unload</Text>
+          <Text style={styles.stepLabelCurrent}>Delivery</Text>
+        </View>
+
+        <Text style={styles.headerTitle}>Confirm Delivery</Text>
+        <View style={styles.refPill}>
+          <Text style={styles.refText}># {jobReference}</Text>
+        </View>
+
+        <Card title="Upload Delivery Photo" variant="default">
+          <Pressable
+            onPress={() => handlePickPhoto('delivery')}
+            style={styles.photoBoxLarge}>
+            <Text style={styles.photoLargeIcon}>
+              {photos.delivery ? '\u2713' : '\uD83D\uDCF7'}
+            </Text>
+            <Text style={styles.photoLargeTitle}>Upload Delivery Photo</Text>
+            <Text style={styles.photoLargeSubtitle}>
+              Proof of cargo placement at site
+            </Text>
+          </Pressable>
+        </Card>
+
+        <Card title="Recipient Signature" variant="default">
+          <View style={styles.signatureHeader}>
+            <Text style={styles.signatureTitle}>RECIPIENT SIGNATURE</Text>
+            <Pressable>
+              <Text style={[styles.clearText, {color: '#B42318'}]}>Clear</Text>
+            </Pressable>
+          </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureHint}>Sign here...</Text>
+          </View>
+        </Card>
+
+        <Card title="Recipient Name" variant="default">
           <TextInput
             style={styles.input}
-            placeholder="Name of the person receiving cargo"
-            placeholderTextColor="#8A94A0"
+            placeholder="Full name of the receiver"
+            placeholderTextColor="#98A2B3"
             value={receiverName}
             onChangeText={setReceiverName}
           />
-          
-          <Text style={[styles.label, {marginTop: 16}]}>Delivery Notes</Text>
+        </Card>
+
+        <Card title="Delivery Notes (Optional)" variant="default">
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Add any observations or remarks..."
-            placeholderTextColor="#8A94A0"
+            placeholder="Add details about cargo condition, gate codes, or site access..."
+            placeholderTextColor="#98A2B3"
             multiline
-            numberOfLines={4}
+            numberOfLines={5}
             value={notes}
             onChangeText={setNotes}
           />
         </Card>
 
-        <Card title="Delivery Documentation" subtitle="Upload proof of delivery">
-          <View style={styles.photoGrid}>
-            <Pressable 
-              onPress={() => handlePickPhoto('cargo')}
-              style={[styles.photoBox, photos.cargo && styles.photoBoxActive]}
-            >
-              <Text style={styles.photoIcon}>{photos.cargo ? '✅' : '📸'}</Text>
-              <Text style={styles.photoLabel}>Delivered Cargo</Text>
-            </Pressable>
-            <Pressable 
-              onPress={() => handlePickPhoto('pod')}
-              style={[styles.photoBox, photos.pod && styles.photoBoxActive]}
-            >
-              <Text style={styles.photoIcon}>{photos.pod ? '✅' : '📝'}</Text>
-              <Text style={styles.photoLabel}>Signed POD</Text>
-            </Pressable>
-          </View>
-        </Card>
-
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() => onSubmit({receiverName, notes}, Object.values(photos))}
-            disabled={loading || !isComplete}
-            style={[
-              styles.primaryButton,
-              (loading || !isComplete) && styles.disabledButton,
-            ]}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? 'Submitting...' : 'Complete Delivery'}
-            </Text>
-          </Pressable>
-          <Text style={styles.completionHint}>
-            Completing this delivery will trigger the payment release process.
+        <Pressable
+          onPress={() => onSubmit({receiverName, notes}, Object.values(photos))}
+          disabled={loading || !isComplete}
+          style={[
+            styles.primaryButton,
+            (loading || !isComplete) && styles.disabledButton,
+          ]}>
+          <Text style={styles.primaryButtonText}>
+            {'\u2713'} {loading ? 'Submitting...' : 'Complete Job & Submit Report'}
           </Text>
-        </View>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -122,114 +149,228 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: '#F5F7FB',
   },
   content: {
-    padding: 24,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
-  header: {
-    marginBottom: 24,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DFA622',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  mainTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#102235',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#5B6671',
-    lineHeight: 21,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#102235',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#F4F1E8',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#18232F',
-    borderWidth: 1,
-    borderColor: '#E4DED0',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  photoGrid: {
+  topBar: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
-  photoBox: {
+  backBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  backText: {
+    fontSize: 28,
+    color: colors.navy,
+    fontWeight: '900',
+  },
+  title: {
     flex: 1,
-    aspectRatio: 1,
-    backgroundColor: '#F4F1E8',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E4DED0',
-    borderStyle: 'dashed',
+    color: colors.navy,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  brand: {
+    color: colors.navy,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  stepNodeDone: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#1D2D44',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photoBoxActive: {
-    borderStyle: 'solid',
-    borderColor: '#18794E',
-    backgroundColor: '#F0F9F4',
+  stepNodeDoneText: {
+    color: colors.card,
+    fontSize: 24,
+    fontWeight: '900',
   },
-  photoIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+  stepLineDone: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#1D2D44',
   },
-  photoLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#8A94A0',
+  stepLineCurrent: {
+    flex: 1,
+    height: 3,
+    backgroundColor: colors.accent,
+  },
+  stepNodeCurrent: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeCurrentText: {
+    color: colors.card,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  stepLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+  },
+  stepLabel: {
+    flex: 1,
     textAlign: 'center',
+    color: '#364152',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  stepLabelCurrent: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  headerTitle: {
+    color: colors.navy,
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginBottom: spacing.md,
+  },
+  refPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E8EBF0',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  refText: {
+    color: '#1F2937',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  photoBoxLarge: {
+    borderWidth: 3,
+    borderColor: '#CAD0DA',
+    borderStyle: 'dashed',
+    borderRadius: 22,
+    minHeight: 300,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.card,
+  },
+  photoLargeIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#9ECBFB',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 58,
+    marginBottom: spacing.md,
+    color: '#0B5CAD',
+    overflow: 'hidden',
+    lineHeight: 120,
+  },
+  photoLargeTitle: {
+    color: '#1F2937',
+    fontSize: 30,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  photoLargeSubtitle: {
+    color: '#4B5563',
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  signatureHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  signatureTitle: {
+    color: colors.navy,
+    fontSize: 18,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  clearText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  signatureBox: {
+    borderWidth: 1,
+    borderColor: '#CAD1DB',
+    borderRadius: 16,
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FBFCFE',
+  },
+  signatureHint: {
+    color: '#D1D5DB',
+    fontSize: 26,
+  },
+  input: {
+    backgroundColor: '#F8FAFD',
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    minHeight: 60,
+    fontSize: 16,
+    color: colors.ink,
+    borderWidth: 1,
+    borderColor: '#D6DCE5',
+  },
+  textArea: {
+    minHeight: 160,
+    textAlignVertical: 'top',
+    paddingTop: spacing.lg,
   },
   errorText: {
-    color: '#A53A32',
+    color: colors.danger,
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
-  footer: {
-    marginTop: 32,
-    paddingBottom: 40,
-  },
   primaryButton: {
-    backgroundColor: '#18794E',
-    borderRadius: 16,
-    paddingVertical: 18,
+    backgroundColor: colors.accent,
+    borderRadius: 24,
+    minHeight: 72,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 5,
   },
   disabledButton: {
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.card,
+    fontSize: 24,
     fontWeight: '900',
-  },
-  completionHint: {
-    fontSize: 12,
-    color: '#8A94A0',
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });
 

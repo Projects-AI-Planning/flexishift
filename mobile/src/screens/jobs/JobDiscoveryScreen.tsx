@@ -8,6 +8,7 @@ import {
   TextInput,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, spacing} from '../../theme';
 
 interface JobDiscoveryScreenProps {
   availableJobs: any[];
@@ -25,25 +26,23 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   const renderJobItem = ({item}: {item: any}) => (
     <Card
       title={item.jobReference || 'Job Opportunity'}
-      subtitle={`${item.pickupLocation} ➔ ${item.dropLocation}`}
-      rightLabel={item.amount ? `Rs ${item.amount}` : 'Open Quote'}>
-      <View style={styles.jobDetails}>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>📦</Text>
-          <Text style={styles.detailText}>{item.goodsType || 'General Goods'}</Text>
+      subtitle={`${item.pickupLocation} to ${item.dropLocation}`}
+      rightLabel={item.amount ? `Rs ${item.amount}` : 'Open'}
+      variant="accent">
+      <View style={styles.metaRow}>
+        <View style={styles.metaChip}>
+          <Text style={styles.metaText}>{item.goodsType || 'General Goods'}</Text>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>🚛</Text>
-          <Text style={styles.detailText}>{item.vehicleTypeRequired || 'Standard Truck'}</Text>
+        <View style={styles.metaChip}>
+          <Text style={styles.metaText}>
+            {item.vehicleTypeRequired || 'Standard Truck'}
+          </Text>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>📅</Text>
-          <Text style={styles.detailText}>{item.jobDate || 'Today'}</Text>
+        <View style={styles.metaChip}>
+          <Text style={styles.metaText}>{item.jobDate || 'Today'}</Text>
         </View>
       </View>
-      <Pressable
-        onPress={() => onSelectJob(item)}
-        style={styles.bidButton}>
+      <Pressable onPress={() => onSelectJob(item)} style={styles.bidButton}>
         <Text style={styles.bidButtonText}>Place Bid</Text>
       </Pressable>
     </Card>
@@ -54,10 +53,10 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       <View style={styles.header}>
         <Text style={styles.title}>Find Loads</Text>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Text style={styles.searchIcon}>{'\uD83D\uDD0D'}</Text>
           <TextInput
             placeholder="Search city, cargo, or truck type..."
-            placeholderTextColor="#8A94A0"
+            placeholderTextColor="#7A8699"
             style={styles.searchInput}
           />
         </View>
@@ -72,9 +71,11 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         refreshing={refreshing}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🚛</Text>
+            <Text style={styles.emptyIcon}>{'\uD83D\uDE9A'}</Text>
             <Text style={styles.emptyTitle}>No Jobs Available</Text>
-            <Text style={styles.emptySubtitle}>Check back later for new opportunities in your area.</Text>
+            <Text style={styles.emptySubtitle}>
+              Check back later for new opportunities in your area.
+            </Text>
           </View>
         }
       />
@@ -85,96 +86,95 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4DED0',
+    borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 24,
+    fontSize: 34,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 16,
+    color: colors.navy,
+    marginBottom: spacing.md,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F1E8',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: '#EEF5FB',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: '#D6E5F1',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
+    fontSize: 20,
+    color: colors.inkSoft,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#18232F',
+    paddingVertical: spacing.sm,
+    fontSize: 15,
+    color: colors.ink,
   },
   listContent: {
-    padding: 20,
+    padding: spacing.xl,
+    paddingBottom: 110,
   },
-  jobDetails: {
+  metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
-    marginTop: 4,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F4F1E8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  metaChip: {
+    backgroundColor: colors.neutralSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
   },
-  detailIcon: {
+  metaText: {
+    color: colors.inkSoft,
     fontSize: 12,
-    marginRight: 4,
-  },
-  detailText: {
-    fontSize: 11,
     fontWeight: '700',
-    color: '#5B6671',
   },
   bidButton: {
-    backgroundColor: '#102235',
-    borderRadius: 12,
-    paddingVertical: 12,
+    backgroundColor: colors.navy,
+    borderRadius: 18,
+    minHeight: 54,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   bidButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.card,
+    fontSize: 18,
     fontWeight: '900',
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 60,
+    paddingHorizontal: spacing.xl,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-    opacity: 0.3,
+    fontSize: 60,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#5B6671',
+    fontSize: 15,
+    color: colors.inkSoft,
     textAlign: 'center',
-    paddingHorizontal: 40,
   },
 });
 

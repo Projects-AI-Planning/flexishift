@@ -15,18 +15,18 @@ export const bottomTabs: Array<{
   key: DriverTabKey;
   label: string;
 }> = [
-  {key: 'home', label: 'Home', icon: '🏠'},
-  {key: 'jobs', label: 'Jobs', icon: '📦'},
-  {key: 'tracking', label: 'Tracking', icon: '📍'},
-  {key: 'profile', label: 'Profile', icon: '👤'},
+  {key: 'home', label: 'Home', icon: '\u2302'},
+  {key: 'jobs', label: 'Jobs', icon: '\uD83D\uDCE6'},
+  {key: 'tracking', label: 'Tracking', icon: '\uD83D\uDCCD'},
+  {key: 'profile', label: 'Profile', icon: '\uD83D\uDC64'},
 ];
 
 export const drawerItems: DrawerNavItem[] = [
-  {key: 'home', label: 'Home', icon: '🏠'},
+  {key: 'home', label: 'Home', icon: '\u2302'},
   {
     key: 'jobs.available',
     label: 'My Jobs',
-    icon: '📦',
+    icon: '\uD83D\uDCE6',
     children: [
       {key: 'jobs.available', label: 'Available Jobs'},
       {key: 'jobs.myQuotes', label: 'My Bids'},
@@ -37,7 +37,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'compliance.loadCode',
     label: 'Compliance',
-    icon: '✅',
+    icon: '\u2705',
     children: [
       {key: 'compliance.loadCode', label: 'Load Code'},
       {key: 'compliance.handover', label: 'Vehicle Handover'},
@@ -47,13 +47,13 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'tracking.active',
     label: 'Live Tracking',
-    icon: '📍',
+    icon: '\uD83D\uDCCD',
     children: [{key: 'tracking.active', label: 'Active Trip Map'}],
   },
   {
     key: 'earnings.total',
     label: 'Earnings',
-    icon: '💰',
+    icon: '\uD83D\uDCB0',
     children: [
       {key: 'earnings.total', label: 'Total Earnings'},
       {key: 'earnings.monthly', label: 'Monthly Summary'},
@@ -63,13 +63,13 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'invoices.list',
     label: 'Invoices',
-    icon: '🧾',
+    icon: '\uD83E\uDDFE',
     children: [{key: 'invoices.list', label: 'My Invoices'}],
   },
   {
     key: 'documents.upload',
     label: 'My Documents',
-    icon: '📄',
+    icon: '\uD83D\uDCC4',
     children: [
       {key: 'documents.upload', label: 'Upload Documents'},
       {key: 'documents.status', label: 'Verification Status'},
@@ -78,7 +78,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'availability.set',
     label: 'Availability',
-    icon: '🗓️',
+    icon: '\uD83D\uDDD3',
     children: [
       {key: 'availability.set', label: 'Set Availability'},
       {key: 'availability.toggle', label: 'Toggle On / Off'},
@@ -87,7 +87,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'ratings.received',
     label: 'Ratings & Reviews',
-    icon: '⭐',
+    icon: '\u2B50',
     children: [
       {key: 'ratings.received', label: 'My Ratings'},
       {key: 'ratings.given', label: 'Reviews Given'},
@@ -96,13 +96,13 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'notifications.all',
     label: 'Notifications',
-    icon: '🔔',
+    icon: '\uD83D\uDD14',
     children: [{key: 'notifications.all', label: 'All Notifications'}],
   },
   {
     key: 'profile.edit',
     label: 'My Profile',
-    icon: '👤',
+    icon: '\uD83D\uDC64',
     children: [
       {key: 'profile.edit', label: 'Edit Profile'},
       {key: 'profile.password', label: 'Change Password'},
@@ -112,11 +112,11 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'support.faq',
     label: 'Help & Support',
-    icon: '❓',
+    icon: '\u2753',
     children: [
       {key: 'support.faq', label: 'FAQs'},
       {key: 'support.contact', label: 'Contact Support'},
     ],
   },
-  {key: 'logout', label: 'Logout', icon: '🚪'},
+  {key: 'logout', label: 'Logout', icon: '\uD83D\uDEAA'},
 ];

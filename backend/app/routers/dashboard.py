@@ -57,7 +57,7 @@ def _week_ranges(year: int, month: int):
     week_num = 1
     while d <= last_day:
         week_end = min(date(year, month, d.day + 6), last_day)
-        weeks.append((f"Week {week_num} ({d.strftime('%b %-d')}–{week_end.strftime('%-d')})", d, week_end))
+        weeks.append((f"Week {week_num} ({d.strftime('%b')} {d.day}–{week_end.day})", d, week_end))
         d = date(year, month, week_end.day + 1) if week_end.day < last_day.day else last_day + __import__('datetime').timedelta(days=1)
         week_num += 1
     return weeks

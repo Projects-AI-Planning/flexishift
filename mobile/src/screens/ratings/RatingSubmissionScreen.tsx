@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface RatingSubmissionScreenProps {
   jobId: string;
@@ -20,6 +21,8 @@ interface RatingSubmissionScreenProps {
   error: string | null;
   onCancel: () => void;
 }
+
+const labels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 
 const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
   jobId,
@@ -38,40 +41,75 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
+          <View style={styles.topBar}>
             <Pressable onPress={onCancel} style={styles.backBtn}>
-              <Text style={styles.backBtnText}>✕ Cancel</Text>
+              <Text style={styles.backText}>{'\u2190'}</Text>
             </Pressable>
-            <Text style={styles.title}>Rate Your Experience</Text>
-            <Text style={styles.subtitle}>
-              How was your interaction with the shipper for job {jobReference}?
+            <Text style={styles.title}>Rate Haulier</Text>
+            <Text style={styles.orderText}>Order #TR-9422</Text>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <View style={styles.profileCircle}>
+              <Text style={styles.profileIcon}>{'\uD83D\uDC64'}</Text>
+            </View>
+            <Text style={styles.companyName}>Atlas Freight Systems</Text>
+            <Text style={styles.ratingLine}>
+              {'\u2B50'} <Text style={styles.ratingValue}>4.8</Text>{' '}
+              <Text style={styles.ratingMeta}>(1,240 reviews)</Text>
+            </Text>
+            <View style={styles.partnerPill}>
+              <Text style={styles.partnerText}>ELITE PARTNER</Text>
+            </View>
+          </View>
+
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeTitle}>Payment Released</Text>
+            <Text style={styles.noticeBody}>
+              Delivery confirmed. $1,420.00 has been added to your wallet.
             </Text>
           </View>
 
-          <Card title="Star Rating">
-            <View style={styles.starsContainer}>
+          <Card title="Overall Satisfaction" variant="default">
+            <View style={styles.ratingRow}>
               {[1, 2, 3, 4, 5].map(star => (
-                <Pressable
-                  key={star}
-                  onPress={() => setRating(star)}
-                  style={styles.starBtn}>
-                  <Text style={[styles.starIcon, rating >= star && styles.starActive]}>
-                    {rating >= star ? '⭐' : '☆'}
+                <Pressable key={star} onPress={() => setRating(star)}>
+                  <Text style={[styles.star, rating >= star && styles.starActive]}>
+                    {rating >= star ? '\u2B50' : '\u2606'}
                   </Text>
                 </Pressable>
               ))}
+              <Text style={styles.scoreText}>{rating ? rating.toFixed(1) : '4.0'}</Text>
             </View>
-            <Text style={styles.ratingHint}>
-              {['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating - 1] || 'Select stars'}
-            </Text>
           </Card>
 
-          <Card title="Detailed Feedback">
-            <Text style={styles.label}>Your Review</Text>
+          <Card title="Communication" variant="default">
+            <View style={styles.quickStars}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Text key={star} style={styles.quickStar}>
+                  {'\u2B50'}
+                </Text>
+              ))}
+              <Text style={styles.quickLabel}>Great</Text>
+            </View>
+          </Card>
+
+          <Card title="Professionalism" variant="default">
+            <View style={styles.quickStars}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Text key={star} style={styles.quickStarMuted}>
+                  {'\u2606'}
+                </Text>
+              ))}
+              <Text style={styles.quickLabel}>Select</Text>
+            </View>
+          </Card>
+
+          <Card title="Written Review (Optional)" variant="default">
             <TextInput
               style={styles.textArea}
-              placeholder="Share your experience (e.g., promptness, cargo handling, professionalism)..."
-              placeholderTextColor="#8A94A0"
+              placeholder="Tell us about the unloading experience, site access, or staff helpfulness..."
+              placeholderTextColor="#98A2B3"
               multiline
               numberOfLines={6}
               value={comment}
@@ -81,19 +119,17 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <View style={styles.footer}>
-            <Pressable
-              onPress={() => onSubmit(rating, comment)}
-              disabled={loading || rating === 0}
-              style={[
-                styles.primaryButton,
-                (loading || rating === 0) && styles.disabledButton,
-              ]}>
-              <Text style={styles.primaryButtonText}>
-                {loading ? 'Submitting...' : 'Submit Rating'}
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => onSubmit(rating, comment)}
+            disabled={loading || rating === 0}
+            style={[
+              styles.primaryButton,
+              (loading || rating === 0) && styles.disabledButton,
+            ]}>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Submitting...' : 'Submit Review'}
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -103,101 +139,199 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
   },
   content: {
-    padding: 24,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
-  header: {
-    marginBottom: 24,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
   backBtn: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
   },
-  backBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DFA622',
+  backText: {
+    fontSize: 28,
+    color: colors.navy,
+    fontWeight: '900',
   },
   title: {
-    fontSize: 28,
+    flex: 1,
+    color: colors.navy,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 15,
-    color: '#5B6671',
-    lineHeight: 21,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginVertical: 12,
-  },
-  starBtn: {
-    padding: 4,
-  },
-  starIcon: {
-    fontSize: 40,
-    color: '#E4DED0',
-  },
-  starActive: {
-    color: '#DFA622',
-  },
-  ratingHint: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#102235',
-    marginTop: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#102235',
-    marginBottom: 8,
-  },
-  textArea: {
-    backgroundColor: '#F4F1E8',
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 14,
-    color: '#18232F',
-    borderWidth: 1,
-    borderColor: '#E4DED0',
-    height: 140,
-    textAlignVertical: 'top',
-  },
-  errorText: {
-    color: '#A53A32',
+  orderText: {
+    color: colors.inkSoft,
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 12,
+  },
+  summaryCard: {
+    backgroundColor: colors.card,
+    borderRadius: 28,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 4,
+  },
+  profileCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#151A32',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  profileIcon: {
+    fontSize: 52,
+  },
+  companyName: {
+    color: colors.navy,
+    fontSize: 28,
+    fontWeight: '900',
     textAlign: 'center',
   },
-  footer: {
-    marginTop: 32,
-    paddingBottom: 40,
+  ratingLine: {
+    marginTop: spacing.sm,
+    fontSize: 22,
+    color: colors.accent,
+    fontWeight: '900',
+  },
+  ratingValue: {
+    color: colors.navy,
+  },
+  ratingMeta: {
+    color: colors.inkSoft,
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  partnerPill: {
+    backgroundColor: '#B5C9E0',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  partnerText: {
+    color: colors.navy,
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  noticeCard: {
+    marginBottom: spacing.lg,
+    backgroundColor: '#E7F1FF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#C7DCF7',
+    padding: spacing.xl,
+  },
+  noticeTitle: {
+    color: '#1262B3',
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: spacing.xs,
+  },
+  noticeBody: {
+    color: '#1262B3',
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  star: {
+    fontSize: 42,
+    color: '#C7CDD8',
+  },
+  starActive: {
+    color: colors.accent,
+  },
+  scoreText: {
+    marginLeft: 'auto',
+    color: colors.inkSoft,
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  quickStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  quickStar: {
+    fontSize: 38,
+    color: colors.accent,
+  },
+  quickStarMuted: {
+    fontSize: 38,
+    color: '#C7CDD8',
+  },
+  quickLabel: {
+    marginLeft: 'auto',
+    color: colors.inkSoft,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  textArea: {
+    minHeight: 180,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E3E8F0',
+    backgroundColor: '#F8FAFD',
+    padding: spacing.lg,
+    textAlignVertical: 'top',
+    color: colors.ink,
+    fontSize: 16,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   primaryButton: {
-    backgroundColor: '#102235',
-    borderRadius: 16,
-    paddingVertical: 18,
+    backgroundColor: colors.accent,
+    borderRadius: 24,
+    minHeight: 72,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 5,
   },
   disabledButton: {
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.card,
+    fontSize: 22,
     fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });
 

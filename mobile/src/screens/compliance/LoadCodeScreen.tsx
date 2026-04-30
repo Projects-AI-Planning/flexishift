@@ -1,6 +1,5 @@
 import React, {useState} from 'react';
 import {
-  View,
   Text,
   StyleSheet,
   TextInput,
@@ -10,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, spacing} from '../../theme';
 
 interface LoadCodeScreenProps {
   jobId: string;
@@ -33,52 +33,47 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.stepTitle}>Step 1 of 3</Text>
-            <Text style={styles.mainTitle}>Load Code Confirmation</Text>
-            <Text style={styles.subtitle}>
-              Enter the unique 6-digit code provided by the warehouse or shipper at pickup.
-            </Text>
-          </View>
+        <Text style={styles.stepTitle}>Step 1 of 3</Text>
+        <Text style={styles.mainTitle}>Load Code Confirmation</Text>
+        <Text style={styles.subtitle}>
+          Enter the 6-digit code provided by the warehouse or shipper at pickup.
+        </Text>
 
-          <Card title="Pickup Verification" subtitle={`Ref: ${jobReference}`}>
-            <Text style={styles.label}>Enter Load Code</Text>
-            <TextInput
-              style={styles.codeInput}
-              placeholder="0 0 0 0 0 0"
-              placeholderTextColor="#8A94A0"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={code}
-              onChangeText={setCode}
-              autoFocus
-            />
-            
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Card title="Pickup Verification" subtitle={`Ref: ${jobReference}`} variant="accent">
+          <Text style={styles.label}>Enter Load Code</Text>
+          <TextInput
+            style={styles.codeInput}
+            placeholder="000000"
+            placeholderTextColor="#9AA4B2"
+            keyboardType="number-pad"
+            maxLength={6}
+            value={code}
+            onChangeText={setCode}
+            autoFocus
+          />
 
-            <Text style={styles.hintText}>
-              This code ensures the right vehicle is picking up the correct cargo.
-            </Text>
-          </Card>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <View style={styles.footer}>
-            <Pressable
-              onPress={() => onVerify(code)}
-              disabled={loading || code.length < 6}
-              style={[
-                styles.primaryButton,
-                (loading || code.length < 6) && styles.disabledButton,
-              ]}>
-              <Text style={styles.primaryButtonText}>
-                {loading ? 'Verifying...' : 'Confirm & Proceed'}
-              </Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>Can't find code?</Text>
-            </Pressable>
-          </View>
-        </View>
+          <Text style={styles.hintText}>
+            This code ensures the right vehicle is picking up the correct cargo.
+          </Text>
+        </Card>
+
+        <Pressable
+          onPress={() => onVerify(code)}
+          disabled={loading || code.length < 6}
+          style={[
+            styles.primaryButton,
+            (loading || code.length < 6) && styles.disabledButton,
+          ]}>
+          <Text style={styles.primaryButtonText}>
+            {loading ? 'Verifying...' : 'Confirm & Proceed'}
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Can't find code?</Text>
+        </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -87,95 +82,86 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  header: {
-    marginBottom: 32,
-    marginTop: 20,
+    padding: spacing.xl,
   },
   stepTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#DFA622',
-    marginBottom: 8,
+    color: colors.accent,
+    marginBottom: spacing.sm,
     textTransform: 'uppercase',
+    marginTop: spacing.sm,
   },
   mainTitle: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 12,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 16,
-    color: '#5B6671',
+    color: colors.inkSoft,
     lineHeight: 22,
+    marginBottom: spacing.xl,
   },
   label: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#102235',
-    marginBottom: 16,
+    fontWeight: '900',
+    color: colors.navy,
+    marginBottom: spacing.md,
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   codeInput: {
-    backgroundColor: '#F4F1E8',
-    borderRadius: 16,
+    backgroundColor: '#F8FAFD',
+    borderRadius: 18,
     paddingVertical: 18,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
-    color: '#102235',
+    color: colors.navy,
     textAlign: 'center',
     letterSpacing: 10,
     borderWidth: 2,
-    borderColor: '#E4DED0',
+    borderColor: '#D6DCE5',
   },
   errorText: {
-    color: '#A53A32',
+    color: colors.danger,
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
   hintText: {
     fontSize: 13,
-    color: '#8A94A0',
+    color: colors.inkSoft,
     textAlign: 'center',
-    marginTop: 20,
-    fontStyle: 'italic',
-  },
-  footer: {
-    marginTop: 'auto',
-    paddingBottom: 20,
+    marginTop: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: '#102235',
-    borderRadius: 16,
-    paddingVertical: 18,
+    backgroundColor: colors.navy,
+    borderRadius: 18,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: spacing.xl,
   },
   disabledButton: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 16,
     fontWeight: '900',
   },
   secondaryButton: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   secondaryButtonText: {
-    color: '#DFA622',
+    color: colors.accent,
     fontSize: 14,
     fontWeight: '800',
   },

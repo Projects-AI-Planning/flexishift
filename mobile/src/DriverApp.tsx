@@ -25,11 +25,17 @@ import LoadCodeScreen from './screens/compliance/LoadCodeScreen';
 import HandoverScreen from './screens/compliance/HandoverScreen';
 import DeliveryScreen from './screens/compliance/DeliveryScreen';
 import DocumentStatusScreen from './screens/profile/DocumentStatusScreen';
+import AvailabilityScreen from './screens/profile/AvailabilityScreen';
 import DocumentUploadScreen from './screens/profile/DocumentUploadScreen';
 import EarningsHistoryScreen from './screens/earnings/EarningsHistoryScreen';
 import RatingsListScreen from './screens/ratings/RatingsListScreen';
 import RatingSubmissionScreen from './screens/ratings/RatingSubmissionScreen';
 import LiveTrackingScreen from './screens/tracking/LiveTrackingScreen';
+import NotificationsScreen from './screens/notifications/NotificationsScreen';
+import InvoicesScreen from './screens/invoices/InvoicesScreen';
+import PasswordScreen from './screens/profile/PasswordScreen';
+import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
+import SupportScreen from './screens/support/SupportScreen';
 import {bottomTabs, drawerItems} from './navigation/driverNavigation';
 import type {
   AvailabilityResponse,
@@ -1099,7 +1105,8 @@ function DriverApp(): React.JSX.Element {
             API base: the mobile app appends /api/v1 automatically. Update
             src/config/env.ts with your backend domain before release.
           </Text>
-        </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   };
@@ -1381,99 +1388,16 @@ function DriverApp(): React.JSX.Element {
       case 'availability.set':
       case 'availability.toggle':
         return (
-          <>
-            <SectionCard title="Availability Schedule">
-              <Text style={styles.sectionHint}>Select working days</Text>
-              <View style={styles.chipWrap}>
-                {availabilityDays.map(day => (
-                  <Pressable
-                    key={day}
-                    onPress={() => toggleAvailabilityDay(day)}
-                    style={[
-                      styles.chip,
-                      availabilityForm.availableDays.includes(day)
-                        ? styles.chipActive
-                        : null,
-                    ]}>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        availabilityForm.availableDays.includes(day)
-                          ? styles.chipTextActive
-                          : null,
-                      ]}>
-                      {formatLabel(day)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <TextInput
-                onChangeText={startTime =>
-                  setAvailabilityForm(current => ({...current, startTime}))
-                }
-                placeholder="Start time"
-                placeholderTextColor="#8A94A0"
-                style={styles.input}
-                value={availabilityForm.startTime}
-              />
-              <TextInput
-                onChangeText={endTime =>
-                  setAvailabilityForm(current => ({...current, endTime}))
-                }
-                placeholder="End time"
-                placeholderTextColor="#8A94A0"
-                style={styles.input}
-                value={availabilityForm.endTime}
-              />
-              <TextInput
-                onChangeText={timezone =>
-                  setAvailabilityForm(current => ({...current, timezone}))
-                }
-                placeholder="Timezone"
-                placeholderTextColor="#8A94A0"
-                style={styles.input}
-                value={availabilityForm.timezone}
-              />
-              <Pressable
-                onPress={handleAvailabilitySave}
-                style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>
-                  {actionLoading ? 'Saving...' : 'Save Availability'}
-                </Text>
-              </Pressable>
-            </SectionCard>
-            <SectionCard title="Toggle Availability">
-              <View style={styles.switchRow}>
-                <Text style={styles.sectionText}>Available for jobs</Text>
-                <Switch
-                  onValueChange={isAvailable =>
-                    setAvailabilityForm(current => ({...current, isAvailable}))
-                  }
-                  thumbColor={palette.card}
-                  trackColor={{false: '#C9C0AE', true: palette.success}}
-                  value={availabilityForm.isAvailable}
-                />
-              </View>
-              {!availabilityForm.isAvailable ? (
-                <TextInput
-                  onChangeText={reason =>
-                    setAvailabilityForm(current => ({...current, reason}))
-                  }
-                  placeholder="Reason"
-                  placeholderTextColor="#8A94A0"
-                  style={styles.input}
-                  value={availabilityForm.reason}
-                />
-              ) : null}
-              <Pressable
-                onPress={handleAvailabilityToggle}
-                style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>
-                  {actionLoading ? 'Updating...' : 'Update Availability Status'}
-                </Text>
-              </Pressable>
-            </SectionCard>
-          </>
+          <AvailabilityScreen
+            availabilityForm={availabilityForm}
+            onToggleDay={toggleAvailabilityDay}
+            onChangeForm={patch =>
+              setAvailabilityForm(current => ({...current, ...patch}))
+            }
+            onSave={handleAvailabilitySave}
+            onToggleAvailability={handleAvailabilityToggle}
+            loading={actionLoading}
+          />
         );
       case 'earnings.total':
       case 'earnings.monthly':
@@ -1506,21 +1430,13 @@ function DriverApp(): React.JSX.Element {
           </SectionCard>
         );
       case 'invoices.list':
-        return (
-          <SectionCard title="My Invoices">
-            {renderList(invoices, 'No invoices available')}
-          </SectionCard>
-        );
+        return <InvoicesScreen invoices={invoices} />;
       case 'notifications.all':
         return (
-          <SectionCard title="All Notifications">
-            <Pressable
-              onPress={handleMarkAllNotificationsRead}
-              style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>Mark All Read</Text>
-            </Pressable>
-            {renderNotifications(notifications)}
-          </SectionCard>
+          <NotificationsScreen
+            notifications={notifications}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+          />
         );
       case 'ratings.received':
       case 'ratings.given':
@@ -1549,97 +1465,25 @@ function DriverApp(): React.JSX.Element {
         );
       case 'profile.password':
         return (
-          <SectionCard title="Change Password">
-            <TextInput
-              onChangeText={currentPassword =>
-                setPasswordForm(current => ({...current, currentPassword}))
-              }
-              placeholder="Current password"
-              placeholderTextColor="#8A94A0"
-              secureTextEntry
-              style={styles.input}
-              value={passwordForm.currentPassword}
-            />
-            <TextInput
-              onChangeText={newPassword =>
-                setPasswordForm(current => ({...current, newPassword}))
-              }
-              placeholder="New password"
-              placeholderTextColor="#8A94A0"
-              secureTextEntry
-              style={styles.input}
-              value={passwordForm.newPassword}
-            />
-            <TextInput
-              onChangeText={confirmPassword =>
-                setPasswordForm(current => ({...current, confirmPassword}))
-              }
-              placeholder="Confirm password"
-              placeholderTextColor="#8A94A0"
-              secureTextEntry
-              style={styles.input}
-              value={passwordForm.confirmPassword}
-            />
-            <Pressable
-              onPress={handlePasswordChange}
-              style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>
-                {actionLoading ? 'Saving...' : 'Change Password'}
-              </Text>
-            </Pressable>
-          </SectionCard>
+          <PasswordScreen
+            passwordForm={passwordForm}
+            onChange={patch =>
+              setPasswordForm(current => ({...current, ...patch}))
+            }
+            onSave={handlePasswordChange}
+            loading={actionLoading}
+          />
         );
       case 'profile.preferences':
         return (
-          <SectionCard title="Notification Preferences">
-            {Object.entries(notificationPrefs.pushNotifications).map(
-              ([key, value]) => (
-                <View key={`push-${key}`} style={styles.switchRow}>
-                  <Text style={styles.sectionText}>
-                    Push {formatLabel(key)}
-                  </Text>
-                  <Switch
-                    onValueChange={nextValue =>
-                      updateNotificationPreference(
-                        'pushNotifications',
-                        key,
-                        nextValue,
-                      )
-                    }
-                    thumbColor={palette.card}
-                    trackColor={{false: '#C9C0AE', true: palette.success}}
-                    value={Boolean(value)}
-                  />
-                </View>
-              ),
-            )}
-            {Object.entries(notificationPrefs.smsNotifications).map(
-              ([key, value]) => (
-                <View key={`sms-${key}`} style={styles.switchRow}>
-                  <Text style={styles.sectionText}>SMS {formatLabel(key)}</Text>
-                  <Switch
-                    onValueChange={nextValue =>
-                      updateNotificationPreference(
-                        'smsNotifications',
-                        key,
-                        nextValue,
-                      )
-                    }
-                    thumbColor={palette.card}
-                    trackColor={{false: '#C9C0AE', true: palette.success}}
-                    value={Boolean(value)}
-                  />
-                </View>
-              ),
-            )}
-            <Pressable
-              onPress={handleNotificationPreferencesSave}
-              style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>
-                {actionLoading ? 'Saving...' : 'Save Preferences'}
-              </Text>
-            </Pressable>
-          </SectionCard>
+          <NotificationPreferencesScreen
+            notificationPrefs={notificationPrefs}
+            onToggle={(group, key, value) =>
+              updateNotificationPreference(group, key, value)
+            }
+            onSave={handleNotificationPreferencesSave}
+            loading={actionLoading}
+          />
         );
       case 'compliance.loadCode':
         return (
@@ -1673,17 +1517,10 @@ function DriverApp(): React.JSX.Element {
         );
       case 'support.faq':
       case 'support.contact':
-        return (
-          <SectionCard title="Help and Support">
-            <Text style={styles.sectionText}>
-              FAQ and support routes are ready. Connect static help content or
-              support ticket flows here.
-            </Text>
-          </SectionCard>
-        );
+        return <SupportScreen mode={activeRoute === 'support.contact' ? 'contact' : 'faq'} />;
       default:
         return (
-          <EmptyState title="Screen scaffolded. Connect the next driver workflow here." />
+          <EmptyState title="Open the drawer to continue." />
         );
     }
   };
@@ -1703,7 +1540,7 @@ function DriverApp(): React.JSX.Element {
         <Pressable
           onPress={() => setDrawerVisible(true)}
           style={styles.headerIconWrap}>
-          <Text style={styles.headerIcon}>Menu</Text>
+          <Text style={styles.headerIcon}>{'\u2630'}</Text>
         </Pressable>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>
@@ -1718,7 +1555,7 @@ function DriverApp(): React.JSX.Element {
             refreshActiveView().catch(() => undefined);
           }}
           style={styles.headerRefresh}>
-          <Text style={styles.headerRefreshText}>Refresh</Text>
+          <Text style={styles.headerRefreshText}>{'\u21BB'}</Text>
         </Pressable>
       </View>
 
@@ -1733,12 +1570,19 @@ function DriverApp(): React.JSX.Element {
         </View>
       ) : null}
 
-      <ScrollView
-        style={styles.contentContainer}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        {renderCurrentView()}
-      </ScrollView>
+      {(activeRoute === 'jobs.available' && !selectedJob) ||
+      activeRoute === 'home' ? (
+        <View style={[styles.contentContainer, {flex: 1}]}>
+          {renderCurrentView()}
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.contentContainer}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          {renderCurrentView()}
+        </ScrollView>
+      )}
 
       <View style={styles.bottomTabBar}>
         {bottomTabs.map(tab => (
@@ -1966,27 +1810,6 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 13,
     fontWeight: '700',
-  },
-  bottomTabBar: {
-    backgroundColor: palette.card,
-    borderTopColor: palette.border,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    paddingBottom: 14,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-  },
-  bottomTabButton: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  bottomTabLabel: {
-    color: palette.inkSoft,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  bottomTabLabelActive: {
-    color: palette.accent,
   },
   brandOverline: {
     color: palette.accent,

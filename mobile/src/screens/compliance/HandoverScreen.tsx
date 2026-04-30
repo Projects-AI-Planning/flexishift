@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface HandoverScreenProps {
   jobId: string;
@@ -18,6 +19,31 @@ interface HandoverScreenProps {
   loading: boolean;
   error: string | null;
 }
+
+const checklistItems = [
+  {
+    key: 'vehicleClean',
+    label: 'Lights & Signals',
+    description: 'Headlamps, indicators, brake lights',
+  },
+  {
+    key: 'noVisibleDamage',
+    label: 'Tire Pressure',
+    description: 'All axles within operating PSI',
+  },
+  {
+    key: 'safetyGearReady',
+    label: 'Fluid Levels',
+    description: 'Oil, coolant, and wiper fluid',
+  },
+  {
+    key: 'documentsReceived',
+    label: 'Body Damage',
+    description: 'No new dents, cracks, or loose panels',
+  },
+] as const;
+
+const photoSides = ['Front', 'Rear', 'Left', 'Right'] as const;
 
 const HandoverScreen: React.FC<HandoverScreenProps> = ({
   jobId,
@@ -32,15 +58,14 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     safetyGearReady: false,
     documentsReceived: false,
   });
-
   const [photos, setPhotos] = useState<Record<string, any>>({});
 
   const handlePickPhoto = (side: string) => {
-    Alert.alert('Capture Photo', `Take a photo of the ${side} of the vehicle`, [
+    Alert.alert('Capture Photo', `Take a photo of the ${side.toLowerCase()} of the vehicle`, [
       {
         text: 'Capture',
         onPress: () => {
-          setPhotos(prev => ({...prev, [side]: {uri: 'mock-uri'}}));
+          setPhotos(prev => ({...prev, [side]: {uri: 'mock-uri', side}}));
         },
       },
       {text: 'Cancel', style: 'cancel'},
@@ -51,103 +76,125 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     setChecklist(prev => ({...prev, [key]: !prev[key]}));
   };
 
-  const isComplete = 
-    Object.values(checklist).every(v => v === true) && 
+  const isComplete =
+    Object.values(checklist).every(value => value === true) &&
     Object.keys(photos).length >= 4;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.stepTitle}>Step 2 of 3</Text>
-          <Text style={styles.mainTitle}>Vehicle Handover Check</Text>
-          <Text style={styles.subtitle}>
-            Please verify the vehicle condition and ensure all safety protocols are met before departure.
-          </Text>
+        <View style={styles.topBar}>
+          <Pressable style={styles.backBtn}>
+            <Text style={styles.backText}>{'\u2190'}</Text>
+          </Pressable>
+          <View style={styles.topTitleWrap}>
+            <Text style={styles.stepTitle}>Step 2: Handover Check</Text>
+          </View>
+          <View style={styles.unitPill}>
+            <Text style={styles.unitText}>Unit: VOL-882</Text>
+          </View>
         </View>
 
-        <Card title="Pre-Trip Checklist" subtitle={`Ref: ${jobReference}`}>
-          <View style={styles.checklist}>
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => toggleItem('vehicleClean')}>
-              <Text style={styles.checkLabel}>Vehicle is clean and organized</Text>
-              <Switch
-                value={checklist.vehicleClean}
-                onValueChange={() => toggleItem('vehicleClean')}
-                trackColor={{false: '#E4DED0', true: '#18794E'}}
-                thumbColor="#FFFFFF"
-              />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => toggleItem('noVisibleDamage')}>
-              <Text style={styles.checkLabel}>No visible damage to cargo area</Text>
-              <Switch
-                value={checklist.noVisibleDamage}
-                onValueChange={() => toggleItem('noVisibleDamage')}
-                trackColor={{false: '#E4DED0', true: '#18794E'}}
-                thumbColor="#FFFFFF"
-              />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => toggleItem('safetyGearReady')}>
-              <Text style={styles.checkLabel}>Safety equipment is on board</Text>
-              <Switch
-                value={checklist.safetyGearReady}
-                onValueChange={() => toggleItem('safetyGearReady')}
-                trackColor={{false: '#E4DED0', true: '#18794E'}}
-                thumbColor="#FFFFFF"
-              />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => toggleItem('documentsReceived')}>
-              <Text style={styles.checkLabel}>Transit documents received</Text>
-              <Switch
-                value={checklist.documentsReceived}
-                onValueChange={() => toggleItem('documentsReceived')}
-                trackColor={{false: '#E4DED0', true: '#18794E'}}
-                thumbColor="#FFFFFF"
-              />
-            </Pressable>
+        <View style={styles.stepper}>
+          <View style={styles.stepNodeActive}>
+            <Text style={styles.stepNodeActiveText}>{'\u2713'}</Text>
           </View>
+          <View style={styles.stepLineActive} />
+          <View style={styles.stepNodeCurrent}>
+            <Text style={styles.stepNodeCurrentText}>2</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepNodeIdle}>
+            <Text style={styles.stepNodeIdleText}>3</Text>
+          </View>
+        </View>
+        <View style={styles.stepLabels}>
+          <Text style={styles.stepLabel}>Arrival</Text>
+          <Text style={styles.stepLabelCurrent}>Handover</Text>
+          <Text style={styles.stepLabel}>Departure</Text>
+        </View>
+
+        <Card title="Vehicle Checklist" variant="default">
+          {checklistItems.map(item => {
+            const checked = checklist[item.key];
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => toggleItem(item.key)}
+                style={styles.checkCard}>
+                <View style={styles.checkCopy}>
+                  <Text style={styles.checkTitle}>{item.label}</Text>
+                  <Text style={styles.checkSubtitle}>{item.description}</Text>
+                </View>
+                <Switch
+                  value={checked}
+                  onValueChange={() => toggleItem(item.key)}
+                  trackColor={{false: '#C9D1DD', true: colors.accent}}
+                  thumbColor={colors.card}
+                />
+              </Pressable>
+            );
+          })}
         </Card>
 
-        <Card title="Vehicle Photos" subtitle="Capture 4 sides of the vehicle">
-          <View style={styles.photoGrid}>
-            {['Front', 'Rear', 'Left', 'Right'].map(side => (
-              <Pressable 
-                key={side}
-                onPress={() => handlePickPhoto(side)}
-                style={[styles.photoBox, photos[side] && styles.photoBoxActive]}
-              >
-                <Text style={styles.photoIcon}>{photos[side] ? '✅' : '📷'}</Text>
-                <Text style={styles.photoLabel}>{side}</Text>
-              </Pressable>
-            ))}
+        <Text style={styles.sectionHeading}>Required Photo Evidence</Text>
+        <View style={styles.photoGrid}>
+          {photoSides.map(side => (
+            <Pressable
+              key={side}
+              onPress={() => handlePickPhoto(side)}
+              style={[styles.photoBox, photos[side] ? styles.photoBoxActive : null]}>
+              <Text style={styles.photoIcon}>
+                {photos[side] ? '\u2713' : '\uD83D\uDCF7'}
+              </Text>
+              <Text style={styles.photoLabel}>{side} Vehicle</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Card title="Driver Signature" variant="default">
+          <View style={styles.signatureHeader}>
+            <Text style={styles.signatureTitle}>DRIVER SIGNATURE</Text>
+            <Pressable>
+              <Text style={styles.clearText}>Clear</Text>
+            </Pressable>
           </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureHint}>Sign Here</Text>
+          </View>
+          <Text style={styles.confirmText}>
+            I CONFIRM THAT I HAVE INSPECTED THE VEHICLE AND LOAD.
+          </Text>
+        </Card>
+
+        <Card title="Haulier Signature" variant="default">
+          <View style={styles.signatureHeader}>
+            <Text style={styles.signatureTitle}>HAULIER SIGNATURE</Text>
+            <Pressable>
+              <Text style={styles.clearText}>Clear</Text>
+            </Pressable>
+          </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureHint}>Awaiting Signature...</Text>
+          </View>
+          <Text style={styles.confirmText}>
+            DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE.
+          </Text>
         </Card>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() => onSubmit(checklist, Object.values(photos))}
-            disabled={loading || !isComplete}
-            style={[
-              styles.primaryButton,
-              (loading || !isComplete) && styles.disabledButton,
-            ]}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? 'Submitting...' : 'Sign & Start Trip'}
-            </Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => onSubmit(checklist, Object.values(photos))}
+          disabled={loading || !isComplete}
+          style={[
+            styles.primaryButton,
+            (loading || !isComplete) && styles.disabledButton,
+          ]}>
+          <Text style={styles.primaryButtonText}>
+            {'\uD83D\uDD12'} {loading ? 'Submitting...' : 'Confirm & Start Trip'}
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -156,105 +203,249 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: '#F5F7FB',
   },
   content: {
-    padding: 24,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
-  header: {
-    marginBottom: 24,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DFA622',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  mainTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#102235',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#5B6671',
-    lineHeight: 21,
-  },
-  checklist: {
-    marginTop: 8,
-  },
-  checkItem: {
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: spacing.xl,
   },
-  checkLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#18232F',
+  backBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  backText: {
+    fontSize: 28,
+    color: colors.navy,
+    fontWeight: '900',
+  },
+  topTitleWrap: {
     flex: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E4DED0',
+  stepTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.navy,
+    letterSpacing: -0.6,
+  },
+  unitPill: {
+    backgroundColor: '#E6EBF2',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  unitText: {
+    color: '#8796AA',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  stepNodeActive: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeActiveText: {
+    color: colors.card,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  stepLineActive: {
+    flex: 1,
+    height: 3,
+    backgroundColor: colors.accent,
+  },
+  stepNodeCurrent: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.navy,
+    borderWidth: 6,
+    borderColor: '#FFA84D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeCurrentText: {
+    color: colors.card,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  stepLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#D8DEE7',
+  },
+  stepNodeIdle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#D9DEE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeIdleText: {
+    color: '#555B66',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  stepLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+    paddingHorizontal: 4,
+  },
+  stepLabel: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#4A5563',
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  stepLabelCurrent: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.navy,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  checkCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E7EF',
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  checkCopy: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  checkTitle: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  checkSubtitle: {
+    color: '#5B6671',
+    fontSize: 18,
+    marginTop: 4,
+  },
+  sectionHeading: {
+    color: colors.ink,
+    fontSize: 26,
+    fontWeight: '500',
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
   },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 8,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
   photoBox: {
     width: '47%',
-    aspectRatio: 1.5,
-    backgroundColor: '#F4F1E8',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E4DED0',
+    aspectRatio: 1,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#D3D7DE',
     borderStyle: 'dashed',
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
   photoBoxActive: {
     borderStyle: 'solid',
-    borderColor: '#18794E',
-    backgroundColor: '#F0F9F4',
+    borderColor: colors.accent,
+    backgroundColor: '#F3F9FF',
   },
   photoIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: 48,
+    color: colors.inkSoft,
+    marginBottom: spacing.md,
   },
   photoLabel: {
-    fontSize: 11,
+    fontSize: 18,
+    color: '#4A5563',
+  },
+  signatureHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  signatureTitle: {
+    color: colors.navy,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#8A94A0',
+    textTransform: 'uppercase',
+  },
+  clearText: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  signatureBox: {
+    borderWidth: 1,
+    borderColor: '#CAD1DB',
+    borderRadius: 16,
+    height: 170,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FBFCFE',
+  },
+  signatureHint: {
+    color: '#D1D5DB',
+    fontSize: 24,
+  },
+  confirmText: {
+    color: '#5B6671',
+    fontSize: 13,
+    marginTop: spacing.md,
+    textTransform: 'uppercase',
   },
   errorText: {
-    color: '#A53A32',
+    color: colors.danger,
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
-  footer: {
-    marginTop: 32,
-    paddingBottom: 40,
-  },
   primaryButton: {
-    backgroundColor: '#102235',
-    borderRadius: 16,
-    paddingVertical: 18,
+    backgroundColor: colors.accent,
+    borderRadius: 24,
+    minHeight: 72,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 5,
   },
   disabledButton: {
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.card,
+    fontSize: 24,
     fontWeight: '900',
   },
 });

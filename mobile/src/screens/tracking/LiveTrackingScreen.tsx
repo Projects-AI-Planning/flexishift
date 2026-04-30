@@ -5,9 +5,9 @@ import {
   StyleSheet,
   SafeAreaView,
   Pressable,
-  Dimensions,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface LiveTrackingScreenProps {
   activeJob: any;
@@ -22,83 +22,84 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   onUpdateLocation,
   onStopTracking,
 }) => {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(12);
 
-  // Mock progress simulation
   useEffect(() => {
     const interval = setInterval(() => {
-      setProgress(prev => (prev < 100 ? prev + 0.1 : 100));
-    }, 1000);
+      setProgress(prev => (prev < 92 ? prev + 1 : 92));
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Map Placeholder */}
       <View style={styles.mapContainer}>
-        <View style={styles.mockMap}>
-          {/* Stylized Map Elements */}
-          <View style={[styles.routePath, {width: `${progress}%`}]} />
-          <View style={styles.markerStart}>
-            <Text style={styles.markerIcon}>🏠</Text>
-          </View>
-          <View style={[styles.markerTruck, {left: `${progress}%`}]}>
-            <Text style={styles.truckIcon}>🚛</Text>
-          </View>
-          <View style={styles.markerEnd}>
-            <Text style={styles.markerIcon}>📍</Text>
-          </View>
-          
-          <Text style={styles.mapHint}>Map View (Integration Pending Library)</Text>
+        <View style={styles.mapHeader}>
+          <Text style={styles.mapHeaderTitle}>{activeJob?.jobReference || 'Active Trip'}</Text>
+          <Text style={styles.mapHeaderSubtitle}>
+            {trackingEta?.estimatedArrival || 'ETA 14:30'}
+          </Text>
         </View>
-
-        {/* Floating Controls */}
-        <View style={styles.floatingControls}>
-          <Pressable style={styles.controlBtn}>
-            <Text style={styles.controlIcon}>➕</Text>
+        <View style={styles.mapMock}>
+          <View style={styles.routeLine} />
+          <View style={styles.routeLineSecondary} />
+          <View style={[styles.marker, styles.markerStart]} />
+          <View style={[styles.marker, styles.markerTruck, {left: `${progress}%`}]} />
+          <View style={[styles.marker, styles.markerEnd]} />
+          <Text style={styles.remainingText}>
+            {trackingEta?.distanceRemaining || '84 miles remaining'}
+          </Text>
+        </View>
+        <View style={styles.zoomStack}>
+          <Pressable style={styles.zoomBtn}>
+            <Text style={styles.zoomText}>{'+'}</Text>
           </Pressable>
-          <Pressable style={styles.controlBtn}>
-            <Text style={styles.controlIcon}>➖</Text>
+          <Pressable style={styles.zoomBtn}>
+            <Text style={styles.zoomText}>{'-'}</Text>
           </Pressable>
-          <Pressable style={[styles.controlBtn, styles.locationBtn]}>
-            <Text style={styles.controlIcon}>🎯</Text>
+          <Pressable style={[styles.zoomBtn, styles.targetBtn]}>
+            <Text style={styles.zoomText}>{'\u25CF'}</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* Bottom Information Sheet */}
-      <View style={styles.infoSheet}>
-        <View style={styles.handle} />
-        
-        <View style={styles.etaRow}>
-          <View style={styles.etaItem}>
-            <Text style={styles.etaValue}>{trackingEta?.estimatedArrival || '14:30'}</Text>
-            <Text style={styles.etaLabel}>ETA</Text>
+      <View style={styles.sheet}>
+        <View style={styles.sheetHandle} />
+        <View style={styles.metricsRow}>
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>
+              {trackingEta?.estimatedArrival || '14:30'}
+            </Text>
+            <Text style={styles.metricLabel}>ETA</Text>
           </View>
-          <View style={styles.etaDivider} />
-          <View style={styles.etaItem}>
-            <Text style={styles.etaValue}>{trackingEta?.distanceRemaining || '12.5 km'}</Text>
-            <Text style={styles.etaLabel}>Distance</Text>
+          <View style={styles.metricDivider} />
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>
+              {trackingEta?.distanceRemaining || '12.5 km'}
+            </Text>
+            <Text style={styles.metricLabel}>Distance</Text>
           </View>
-          <View style={styles.etaDivider} />
-          <View style={styles.etaItem}>
-            <Text style={styles.etaValue}>{trackingEta?.estimatedDuration || '25 min'}</Text>
-            <Text style={styles.etaLabel}>Time Left</Text>
+          <View style={styles.metricDivider} />
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>
+              {trackingEta?.estimatedDuration || '25 min'}
+            </Text>
+            <Text style={styles.metricLabel}>Time Left</Text>
           </View>
         </View>
 
-        <Card title={activeJob?.jobReference || 'Active Trip'} variant="dark">
-          <Text style={styles.locationText}>
-            Current: <Text style={styles.locationHighlight}>Mumbai - Pune Expressway</Text>
+        <Card
+          title={activeJob?.jobReference || 'Active Assignment'}
+          subtitle={activeJob?.dropLocation || 'Destination tracking in progress'}
+          variant="dark"
+          rightLabel="LIVE">
+          <Text style={styles.routeLabel}>Current route</Text>
+          <Text style={styles.routeValue}>
+            {activeJob?.pickupLocation || 'Mumbai'} {'\u2192'} {activeJob?.dropLocation || 'Pune Warehouse'}
           </Text>
-          <Text style={styles.destinationText}>
-            Dest: {activeJob?.dropLocation || 'Pune Warehouse'}
-          </Text>
-          
-          <View style={styles.progressBar}>
+          <View style={styles.progressTrack}>
             <View style={[styles.progressFill, {width: `${progress}%`}]} />
           </View>
-          
           <View style={styles.actionRow}>
             <Pressable style={styles.secondaryBtn}>
               <Text style={styles.secondaryBtnText}>Share Status</Text>
@@ -116,172 +117,198 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#102235',
+    backgroundColor: colors.bg,
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: '#E4DED0',
+    backgroundColor: '#DCE7F2',
   },
-  mockMap: {
+  mapHeader: {
+    position: 'absolute',
+    top: spacing.xl,
+    left: spacing.xl,
+    zIndex: 2,
+  },
+  mapHeaderTitle: {
+    color: colors.navy,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  mapHeaderSubtitle: {
+    color: colors.inkSoft,
+    fontSize: 14,
+    marginTop: 4,
+  },
+  mapMock: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  mapHint: {
-    color: '#8A94A0',
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 100,
-  },
-  routePath: {
+  routeLine: {
     position: 'absolute',
-    height: 4,
-    backgroundColor: '#DFA622',
     left: '10%',
+    right: '14%',
     top: '50%',
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: colors.ink,
+  },
+  routeLineSecondary: {
+    position: 'absolute',
+    left: '14%',
+    right: '10%',
+    top: '58%',
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+    opacity: 0.45,
+  },
+  marker: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.accent,
+    top: '48%',
   },
   markerStart: {
-    position: 'absolute',
     left: '10%',
-    top: '48%',
-  },
-  markerEnd: {
-    position: 'absolute',
-    right: '10%',
-    top: '48%',
+    backgroundColor: colors.navy,
   },
   markerTruck: {
+    backgroundColor: '#2563EB',
+  },
+  markerEnd: {
+    right: '10%',
+    backgroundColor: colors.success,
+  },
+  remainingText: {
     position: 'absolute',
-    top: '46%',
-    marginLeft: -10,
+    left: spacing.xl,
+    bottom: spacing.xl,
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowRadius: 4,
   },
-  markerIcon: {
-    fontSize: 24,
-  },
-  truckIcon: {
-    fontSize: 28,
-  },
-  floatingControls: {
+  zoomStack: {
     position: 'absolute',
-    right: 16,
-    top: 60,
-    gap: 12,
+    right: spacing.md,
+    top: 90,
+    gap: spacing.sm,
   },
-  controlBtn: {
+  zoomBtn: {
     width: 44,
     height: 44,
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
-  locationBtn: {
-    marginTop: 12,
-    backgroundColor: '#DFA622',
+  targetBtn: {
+    backgroundColor: '#8BC0EE',
   },
-  controlIcon: {
+  zoomText: {
+    color: colors.navy,
     fontSize: 20,
-    color: '#102235',
+    fontWeight: '900',
   },
-  infoSheet: {
-    backgroundColor: '#F4F1E8',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingTop: 12,
+  sheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: spacing.xl,
   },
-  handle: {
-    width: 40,
+  sheetHandle: {
+    width: 44,
     height: 4,
-    backgroundColor: '#E4DED0',
-    borderRadius: 2,
+    borderRadius: 999,
+    backgroundColor: '#D6DCE5',
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
-  etaRow: {
+  metricsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
-  etaItem: {
+  metric: {
     flex: 1,
     alignItems: 'center',
   },
-  etaValue: {
-    fontSize: 20,
+  metricValue: {
+    color: colors.navy,
+    fontSize: 18,
     fontWeight: '900',
-    color: '#102235',
   },
-  etaLabel: {
+  metricLabel: {
+    color: colors.inkSoft,
     fontSize: 11,
     fontWeight: '800',
-    color: '#5B6671',
     marginTop: 4,
     textTransform: 'uppercase',
   },
-  etaDivider: {
+  metricDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#E4DED0',
+    backgroundColor: colors.border,
   },
-  locationText: {
-    fontSize: 14,
-    color: '#C4CDD6',
+  routeLabel: {
+    color: '#CBD5E1',
+    fontSize: 12,
     marginBottom: 4,
   },
-  locationHighlight: {
-    color: '#FFFFFF',
+  routeValue: {
+    color: colors.card,
+    fontSize: 14,
     fontWeight: '800',
+    marginBottom: spacing.md,
   },
-  destinationText: {
-    fontSize: 13,
-    color: '#5B6671',
-    marginBottom: 16,
-  },
-  progressBar: {
+  progressTrack: {
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 3,
-    marginBottom: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#DFA622',
-    borderRadius: 3,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   secondaryBtn: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
   },
   secondaryBtnText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 14,
     fontWeight: '800',
   },
   stopBtn: {
     flex: 1,
-    backgroundColor: '#DFA622',
+    backgroundColor: colors.accent,
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
   stopBtnText: {
-    color: '#102235',
+    color: colors.navy,
     fontSize: 14,
     fontWeight: '900',
   },

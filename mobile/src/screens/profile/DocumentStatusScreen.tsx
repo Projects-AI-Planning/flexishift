@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, spacing} from '../../theme';
 
 interface DocumentStatusScreenProps {
   documents: any[];
@@ -28,21 +29,18 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'verified':
-        return '#18794E';
+        return colors.success;
       case 'pending':
-        return '#DFA622';
+        return colors.warning;
       case 'rejected':
-        return '#A53A32';
+        return colors.danger;
       default:
-        return '#5B6671';
+        return colors.inkSoft;
     }
   };
 
-  const formatLabel = (value: string) => {
-    return value
-      .replace(/[_.]/g, ' ')
-      .replace(/\b\w/g, letter => letter.toUpperCase());
-  };
+  const formatLabel = (value: string) =>
+    value.replace(/[_.]/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,21 +56,31 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
           </Text>
         </View>
 
-        {verificationStatus && (
-          <Card 
-            title="Overall Status" 
-            variant={verificationStatus.isVerified ? 'accent' : 'default'}
-          >
+        {verificationStatus ? (
+          <Card
+            title="Overall Status"
+            variant={verificationStatus.isVerified ? 'accent' : 'default'}>
             <View style={styles.statusBanner}>
-              <Text style={[styles.statusText, {color: getStatusColor(verificationStatus.isVerified ? 'Verified' : 'Pending')}]}>
-                {verificationStatus.isVerified ? '✓ Fully Verified' : '○ Verification in Progress'}
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: getStatusColor(
+                      verificationStatus.isVerified ? 'Verified' : 'Pending',
+                    ),
+                  },
+                ]}>
+                {verificationStatus.isVerified
+                  ? '\u2713 Fully Verified'
+                  : '\u25CB Verification in Progress'}
               </Text>
               <Text style={styles.statusDescription}>
-                {verificationStatus.message || 'Your documents are being reviewed by our compliance team.'}
+                {verificationStatus.message ||
+                  'Your documents are being reviewed by our compliance team.'}
               </Text>
             </View>
           </Card>
-        )}
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Uploaded Documents</Text>
@@ -87,16 +95,17 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
               key={doc.documentId}
               title={formatLabel(doc.documentType)}
               subtitle={`Expires: ${doc.expiryDate || 'No expiry'}`}
-              rightLabel={doc.status.toUpperCase()}
-            >
-              {doc.rejectionReason && (
+              rightLabel={String(doc.status || 'PENDING').toUpperCase()}>
+              {doc.rejectionReason ? (
                 <View style={styles.rejectionBox}>
                   <Text style={styles.rejectionLabel}>Rejection Reason:</Text>
                   <Text style={styles.rejectionText}>{doc.rejectionReason}</Text>
                 </View>
-              )}
+              ) : null}
               <View style={styles.docFooter}>
-                <Text style={styles.metaText}>Uploaded on {doc.uploadedAt || 'N/A'}</Text>
+                <Text style={styles.metaText}>
+                  Uploaded on {doc.uploadedAt || 'N/A'}
+                </Text>
                 <Pressable>
                   <Text style={styles.viewLink}>View File</Text>
                 </Pressable>
@@ -105,10 +114,10 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
           ))
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📄</Text>
+            <Text style={styles.emptyIcon}>{'\uD83D\uDCC4'}</Text>
             <Text style={styles.emptyTitle}>No Documents Yet</Text>
             <Text style={styles.emptySubtitle}>
-              Please upload your Driving License and Vehicle Insurance to start receiving jobs.
+              Upload your Driving License and Vehicle Insurance to start receiving jobs.
             </Text>
             <Pressable onPress={onUploadNew} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Upload First Document</Text>
@@ -123,125 +132,126 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   content: {
-    padding: 24,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#5B6671',
-    lineHeight: 21,
+    fontSize: 16,
+    color: colors.inkSoft,
+    lineHeight: 22,
   },
   statusBanner: {
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   statusText: {
     fontSize: 18,
     fontWeight: '900',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   statusDescription: {
     fontSize: 14,
-    color: '#5B6671',
+    color: colors.inkSoft,
     lineHeight: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#102235',
+    color: colors.navy,
   },
   addLink: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#DFA622',
+    color: colors.accent,
   },
   rejectionBox: {
-    backgroundColor: '#FFF5F5',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 8,
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.sm,
     borderLeftWidth: 4,
-    borderLeftColor: '#A53A32',
+    borderLeftColor: colors.danger,
   },
   rejectionLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#A53A32',
-    marginBottom: 4,
+    color: colors.danger,
+    marginBottom: spacing.xs,
   },
   rejectionText: {
     fontSize: 13,
-    color: '#18232F',
+    color: colors.ink,
   },
   docFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E4DED0',
+    borderTopColor: colors.border,
   },
   metaText: {
     fontSize: 12,
-    color: '#8A94A0',
+    color: colors.inkSoft,
   },
   viewLink: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#102235',
+    color: colors.navy,
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 40,
-    backgroundColor: '#FFFFFF',
-    padding: 32,
-    borderRadius: 24,
+    backgroundColor: colors.card,
+    padding: spacing.xl,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#E4DED0',
+    borderColor: colors.border,
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#5B6671',
+    fontSize: 15,
+    color: colors.inkSoft,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   primaryButton: {
-    backgroundColor: '#102235',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    backgroundColor: colors.navy,
+    borderRadius: 18,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 14,
     fontWeight: '900',
   },

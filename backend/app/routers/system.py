@@ -55,7 +55,7 @@ def health_db(db: Session = Depends(get_db)):
         response_ms = round((time.time() - start) * 1000)
         return ok(
             data={
-                "database": "PostgreSQL",
+                "database": "MySQL",
                 "status": "connected",
                 "responseTime": f"{response_ms}ms",
                 "checkedAt": datetime.now(timezone.utc).isoformat(),

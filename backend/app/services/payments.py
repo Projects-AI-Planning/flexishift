@@ -129,11 +129,18 @@ def release_payment(db: Session, job_id: str) -> Payment:
     return payment
 
 
-def refund_payment(db: Session, job_id: str, requester_id: str) -> Payment:
+def refund_payment(
+    db: Session,
+    job_id: str,
+    requester_id: str,
+    amount: float | None = None,
+    reason: str | None = None,
+    is_admin: bool = False,
+) -> Payment:
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.haulier_id != requester_id:
+    if not is_admin and job.haulier_id != requester_id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()

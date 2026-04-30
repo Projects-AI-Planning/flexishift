@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, spacing} from '../../theme';
 
 interface MyQuotesScreenProps {
   quotes: any[];
@@ -27,27 +28,22 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
   onWithdrawQuote,
 }) => {
   const handleWithdraw = (quoteId: string) => {
-    Alert.alert(
-      'Withdraw Bid',
-      'Are you sure you want to withdraw your bid for this job?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Withdraw',
-          style: 'destructive',
-          onPress: () => onWithdrawQuote(quoteId),
-        },
-      ],
-    );
+    Alert.alert('Withdraw Bid', 'Are you sure you want to withdraw this bid?', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Withdraw',
+        style: 'destructive',
+        onPress: () => onWithdrawQuote(quoteId),
+      },
+    ]);
   };
 
   const renderQuoteItem = ({item}: {item: any}) => (
     <Card
       title={item.jobReference || 'Job Bid'}
       subtitle={`Submitted on ${item.createdAt || 'Recently'}`}
-      rightLabel={item.status.toUpperCase()}
-      variant={item.status === 'accepted' ? 'accent' : 'default'}
-    >
+      rightLabel={String(item.status || 'PENDING').toUpperCase()}
+      variant={item.status === 'accepted' ? 'accent' : 'default'}>
       <View style={styles.quoteInfo}>
         <View style={styles.amountBox}>
           <Text style={styles.amountLabel}>Your Bid</Text>
@@ -66,22 +62,16 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
         </Text>
       ) : null}
 
-      {item.status === 'pending' && (
+      {item.status === 'pending' ? (
         <View style={styles.actionRow}>
-          <Pressable 
-            onPress={() => onEditQuote(item)}
-            style={styles.editBtn}
-          >
+          <Pressable onPress={() => onEditQuote(item)} style={styles.editBtn}>
             <Text style={styles.editBtnText}>Edit Bid</Text>
           </Pressable>
-          <Pressable 
-            onPress={() => handleWithdraw(item.quoteId)}
-            style={styles.withdrawBtn}
-          >
+          <Pressable onPress={() => handleWithdraw(item.quoteId)} style={styles.withdrawBtn}>
             <Text style={styles.withdrawBtnText}>Withdraw</Text>
           </Pressable>
         </View>
-      )}
+      ) : null}
     </Card>
   );
 
@@ -104,10 +94,10 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyIcon}>{'\u270D'}</Text>
             <Text style={styles.emptyTitle}>No Active Bids</Text>
             <Text style={styles.emptySubtitle}>
-              You haven't placed any bids yet. Go to the "Find Loads" tab to get started.
+              Go to the Find Loads tab to place your first bid.
             </Text>
           </View>
         }
@@ -119,34 +109,35 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   header: {
-    padding: 24,
-    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4DED0',
+    borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 15,
-    color: '#5B6671',
+    color: colors.inkSoft,
     lineHeight: 21,
   },
   listContent: {
-    padding: 20,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
   quoteInfo: {
     flexDirection: 'row',
-    backgroundColor: '#F4F1E8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: colors.neutralSoft,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   amountBox: {
     flex: 1,
@@ -154,52 +145,53 @@ const styles = StyleSheet.create({
   amountLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#8A94A0',
+    color: colors.inkSoft,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   amountValue: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#102235',
+    color: colors.navy,
   },
   infoDivider: {
     width: 1,
-    backgroundColor: '#E4DED0',
-    marginHorizontal: 12,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
   },
   notesText: {
     fontSize: 13,
-    color: '#5B6671',
+    color: colors.inkSoft,
     fontStyle: 'italic',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   editBtn: {
     flex: 1,
-    backgroundColor: '#102235',
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: colors.navy,
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
   editBtnText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 13,
     fontWeight: '800',
   },
   withdrawBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#A53A32',
-    paddingVertical: 10,
-    borderRadius: 10,
+    borderColor: colors.danger,
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
+    backgroundColor: colors.card,
   },
   withdrawBtnText: {
-    color: '#A53A32',
+    color: colors.danger,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -208,21 +200,20 @@ const styles = StyleSheet.create({
     marginTop: 60,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-    opacity: 0.3,
+    fontSize: 56,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#5B6671',
+    fontSize: 15,
+    color: colors.inkSoft,
     textAlign: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: spacing.xl,
   },
 });
 

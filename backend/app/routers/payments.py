@@ -191,7 +191,7 @@ def refund_payment_flat(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.ADMIN)),
 ):
-    p = pay_svc.refund_payment(db, booking_id, current_user.id, amount=body.refund_amount, reason=body.reason)
+    p = pay_svc.refund_payment(db, booking_id, current_user.id, amount=body.refund_amount, reason=body.reason, is_admin=True)
     return ok(data=_payment_dict(p), message="Payment refunded")
 
 

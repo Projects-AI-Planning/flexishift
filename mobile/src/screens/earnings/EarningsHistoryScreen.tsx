@@ -11,6 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import {colors, radius, spacing} from '../../theme';
 
 interface EarningsHistoryScreenProps {
   payments: any[];
@@ -31,16 +32,12 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
     try {
       const url = await onViewInvoice(invoiceId);
       if (url) {
-        Alert.alert(
-          'Download Started',
-          'Your invoice download has started. You can also view it in your browser.',
-          [
-            {text: 'View in Browser', onPress: () => Linking.openURL(url)},
-            {text: 'OK', style: 'cancel'},
-          ],
-        );
+        Alert.alert('Download Started', 'Your invoice download has started.', [
+          {text: 'View in Browser', onPress: () => Linking.openURL(url)},
+          {text: 'OK', style: 'cancel'},
+        ]);
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to retrieve invoice link.');
     }
   };
@@ -50,22 +47,24 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
       title={item.jobReference || 'Payment Received'}
       subtitle={item.paymentDate || 'Recently'}
       rightLabel={`+ Rs ${item.amount}`}
-      variant="default"
-    >
+      variant="accent">
       <View style={styles.paymentDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Method:</Text>
-          <Text style={styles.detailValue}>{item.paymentMethod || 'Bank Transfer'}</Text>
+          <Text style={styles.detailValue}>
+            {item.paymentMethod || 'Bank Transfer'}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Status:</Text>
-          <Text style={[styles.detailValue, {color: '#18794E'}]}>{item.status || 'Paid'}</Text>
+          <Text style={[styles.detailValue, styles.successText]}>
+            {item.status || 'Paid'}
+          </Text>
         </View>
       </View>
-      <Pressable 
+      <Pressable
         onPress={() => handleDownloadInvoice(item.invoiceId || 'mock-id')}
-        style={styles.invoiceBtn}
-      >
+        style={styles.invoiceBtn}>
         <Text style={styles.invoiceBtnText}>Download Invoice</Text>
       </Pressable>
     </Card>
@@ -91,7 +90,7 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>💰</Text>
+            <Text style={styles.emptyIcon}>{'\uD83D\uDCB0'}</Text>
             <Text style={styles.emptyTitle}>No Payments Yet</Text>
             <Text style={styles.emptySubtitle}>
               Complete your first job to start seeing your earnings history here.
@@ -106,46 +105,46 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1E8',
+    backgroundColor: colors.bg,
   },
   header: {
-    padding: 24,
-    backgroundColor: '#102235',
+    padding: spacing.xl,
+    backgroundColor: colors.navy,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
   title: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: '900',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    color: colors.card,
+    marginBottom: spacing.lg,
   },
   totalBox: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 20,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    padding: spacing.xl,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   totalLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#C4CDD6',
+    color: '#C8D4E3',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   totalValue: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#DFA622',
+    color: '#8BC0EE',
   },
   listContent: {
-    padding: 24,
-    paddingTop: 32,
+    padding: spacing.xl,
+    paddingBottom: 120,
   },
   paymentDetails: {
-    marginTop: 8,
-    gap: 4,
+    marginTop: spacing.xs,
+    gap: spacing.xs,
   },
   detailRow: {
     flexDirection: 'row',
@@ -153,46 +152,49 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: '#8A94A0',
+    color: colors.inkSoft,
   },
   detailValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#18232F',
+    color: colors.ink,
+  },
+  successText: {
+    color: colors.success,
   },
   invoiceBtn: {
-    marginTop: 16,
-    paddingVertical: 10,
+    marginTop: spacing.md,
+    paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E4DED0',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.card,
   },
   invoiceBtnText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#102235',
+    color: colors.navy,
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 60,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-    opacity: 0.3,
+    fontSize: 56,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#5B6671',
+    fontSize: 15,
+    color: colors.inkSoft,
     textAlign: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: spacing.xl,
   },
 });
 

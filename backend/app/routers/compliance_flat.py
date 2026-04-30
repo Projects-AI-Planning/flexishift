@@ -321,7 +321,7 @@ def get_delivery_photo_upload_urls(
 
 
 @router.post("/delivery/approve/{job_id}")
-def approve_delivery(
+async def approve_delivery(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(HaulierDep),
@@ -329,7 +329,7 @@ def approve_delivery(
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    record = comp_svc.approve_delivery(db, job_id)
+    record = await comp_svc.approve_delivery(db, job_id, current_user.id)
     return ok(
         data={
             "jobId": job_id,
@@ -351,7 +351,7 @@ def raise_dispute(
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    record = comp_svc.raise_dispute(db, job_id, body.dispute_reason)
+    record = comp_svc.raise_dispute(db, job_id, current_user.id, body.dispute_reason)
     return ok(
         data={
             "disputeId": record.id,

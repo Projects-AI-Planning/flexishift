@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface CardProps {
   title: string;
@@ -52,64 +53,69 @@ const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#E4DED0',
+    borderColor: colors.border,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: shadow.elevation,
   },
   cardDark: {
-    backgroundColor: '#102235',
-    borderColor: '#102235',
+    backgroundColor: colors.navy,
+    borderColor: colors.navy,
   },
   cardAccent: {
-    backgroundColor: '#FFF3D5',
-    borderColor: '#DFA622',
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   titleContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
-    color: '#18232F',
+    color: colors.ink,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#5B6671',
+    fontSize: 12,
+    color: colors.inkSoft,
     marginTop: 4,
   },
   textWhite: {
-    color: '#FFFFFF',
+    color: colors.card,
   },
   textLight: {
-    color: '#C4CDD6',
+    color: '#C8D4E3',
   },
   pill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 99,
+    borderRadius: radius.pill,
   },
   pillDark: {
-    backgroundColor: '#102235',
+    backgroundColor: colors.navy,
   },
   pillAccent: {
-    backgroundColor: '#DFA622',
+    backgroundColor: colors.accent,
   },
   pillTextWhite: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 11,
     fontWeight: '800',
   },
   pillTextDark: {
-    color: '#102235',
+    color: colors.navy,
     fontSize: 11,
     fontWeight: '800',
   },

@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface RegisterScreenProps {
   registerForm: any;
@@ -29,77 +30,81 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join FreightFlex and start earning</Text>
+        <View style={styles.header}>
+          <Text style={styles.brand}>FreightFlex</Text>
+          <Text style={styles.subtitle}>Create your driver account</Text>
+        </View>
 
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            onChangeText={name =>
-              setRegisterForm((current: any) => ({...current, name}))
-            }
-            placeholder="John Doe"
-            placeholderTextColor="#8A94A0"
-            style={styles.input}
-            value={registerForm.name}
-          />
-        </View>
+        <View style={styles.card}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              onChangeText={name =>
+                setRegisterForm((current: any) => ({...current, name}))
+              }
+              placeholder="John Doe"
+              placeholderTextColor="#9AA4B2"
+              style={styles.input}
+              value={registerForm.name}
+            />
+          </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onChangeText={email =>
-              setRegisterForm((current: any) => ({...current, email}))
-            }
-            placeholder="example@mail.com"
-            placeholderTextColor="#8A94A0"
-            style={styles.input}
-            value={registerForm.email}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              autoCapitalize="none"
+              keyboardType="email-address"
+              onChangeText={email =>
+                setRegisterForm((current: any) => ({...current, email}))
+              }
+              placeholder="driver.77@freightflex.com"
+              placeholderTextColor="#9AA4B2"
+              style={styles.input}
+              value={registerForm.email}
+            />
+          </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            keyboardType="phone-pad"
-            onChangeText={phone =>
-              setRegisterForm((current: any) => ({...current, phone}))
-            }
-            placeholder="+91 9876543210"
-            placeholderTextColor="#8A94A0"
-            style={styles.input}
-            value={registerForm.phone}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              keyboardType="phone-pad"
+              onChangeText={phone =>
+                setRegisterForm((current: any) => ({...current, phone}))
+              }
+              placeholder="+91 9876543210"
+              placeholderTextColor="#9AA4B2"
+              style={styles.input}
+              value={registerForm.phone}
+            />
+          </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            onChangeText={password =>
-              setRegisterForm((current: any) => ({...current, password}))
-            }
-            placeholder="••••••••"
-            placeholderTextColor="#8A94A0"
-            secureTextEntry
-            style={styles.input}
-            value={registerForm.password}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              onChangeText={password =>
+                setRegisterForm((current: any) => ({...current, password}))
+              }
+              placeholder="••••••••••"
+              placeholderTextColor="#9AA4B2"
+              secureTextEntry
+              style={styles.input}
+              value={registerForm.password}
+            />
+          </View>
 
-        <Pressable onPress={handleRegister} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>
-            {authLoading ? 'Registering...' : 'Sign Up'}
-          </Text>
-        </Pressable>
+          <Pressable onPress={handleRegister} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>
+              {authLoading ? 'Creating...' : 'Sign Up'}
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <Pressable onPress={() => setAuthMode('login')}>
-            <Text style={styles.signInText}>Sign In</Text>
+            <Text style={styles.footerLink}>Sign In</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -110,72 +115,94 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
-  title: {
-    fontSize: 28,
+  header: {
+    marginBottom: spacing.lg,
+  },
+  brand: {
+    color: colors.navy,
+    fontSize: 36,
     fontWeight: '900',
-    color: '#102235',
-    marginBottom: 8,
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#5B6671',
-    marginBottom: 32,
+    color: colors.inkSoft,
+    fontSize: 18,
+    marginTop: 6,
   },
   errorText: {
-    color: '#A53A32',
-    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#F3B4B0',
+    backgroundColor: colors.dangerSoft,
+    color: colors.danger,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
-  inputContainer: {
-    marginBottom: 20,
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 28,
+    padding: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 5,
+  },
+  inputGroup: {
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#102235',
-    marginBottom: 8,
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: '#F4F1E8',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#18232F',
+    borderWidth: 2,
+    borderColor: '#D6DCE5',
+    borderRadius: 18,
+    minHeight: 62,
+    paddingHorizontal: spacing.lg,
+    fontSize: 17,
+    color: colors.ink,
+    backgroundColor: '#F8FAFD',
   },
   primaryButton: {
-    backgroundColor: '#102235',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    minHeight: 64,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 32,
+    marginTop: spacing.sm,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.card,
+    fontSize: 20,
     fontWeight: '900',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 40,
+    alignItems: 'center',
+    marginTop: spacing.xl,
   },
   footerText: {
-    fontSize: 14,
-    color: '#5B6671',
+    color: colors.inkSoft,
+    fontSize: 16,
   },
-  signInText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DFA622',
+  footerLink: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '900',
   },
 });
 
