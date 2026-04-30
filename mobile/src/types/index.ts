@@ -3,6 +3,7 @@ export type DriverTabKey = 'home' | 'jobs' | 'tracking' | 'profile';
 export type DrawerRouteKey =
   | 'home'
   | 'jobs.available'
+  | 'jobs.myQuotes'
   | 'jobs.upcoming'
   | 'jobs.history'
   | 'compliance.loadCode'
