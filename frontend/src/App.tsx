@@ -39,8 +39,25 @@ import ResolvedSupportTicketsPage from './pages/admin/ResolvedSupportTickets';
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
 import FleetPage from './pages/haulier/Fleet';
-import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierDriversPage from './pages/haulier/Drivers';
+import OpenJobsPage from './pages/haulier/jobs/Open';
+import BookedJobsPage from './pages/haulier/jobs/Booked';
+import InTransitJobsPage from './pages/haulier/jobs/InTransit';
+import HaulierCompletedJobsPage from './pages/haulier/jobs/Completed';
+import HaulierLoadsPage from './pages/haulier/Loads';
+import HaulierCostsPage from './pages/haulier/Costs';
+import HaulierRevenuePage from './pages/haulier/Revenue';
+import HaulierPerformancePage from './pages/haulier/Performance';
+import HaulierCompliancePage from './pages/haulier/Compliance';
+import HaulierInsurancePage from './pages/haulier/Insurance';
 import HaulierPaymentsPage from './pages/haulier/Payments';
+import HaulierNotificationsPage from './pages/haulier/Notifications';
+import HaulierProfilePage from './pages/haulier/Profile';
+import HaulierSecurityPage from './pages/haulier/Security';
+import HaulierSupportHelpPage from './pages/haulier/SupportHelp';
+import HaulierSupportContactPage from './pages/haulier/SupportContact';
+import HaulierTrackingPage from './pages/haulier/Tracking';
+import PostJobPage from './pages/haulier/PostJob';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
@@ -134,15 +151,36 @@ function AppRoutes() {
           <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
-              <Route path="jobs/*" element={<HaulierJobsPage />} />
+              <Route path="post-job" element={<PostJobPage />} />
+              <Route path="jobs" element={<Navigate to="/haulier/jobs/open" replace />} />
+              <Route path="jobs/open" element={<OpenJobsPage />} />
+              <Route path="jobs/book" element={<BookedJobsPage />} />
+              <Route path="jobs/booked" element={<BookedJobsPage />} />
+              <Route path="jobs/transit" element={<InTransitJobsPage />} />
+              <Route path="jobs/in-transit" element={<InTransitJobsPage />} />
+              <Route path="jobs/completed" element={<HaulierCompletedJobsPage />} />
+              <Route path="jobs/*" element={<Navigate to="/haulier/jobs/open" replace />} />
               <Route path="payments/*" element={<HaulierPaymentsPage />} />
               <Route path="fleet/*" element={<FleetPage />} />
-              <Route path="drivers/*" element={<FleetPage />} />
-              <Route path="loads/*" element={<HaulierJobsPage />} />
+              <Route path="drivers/*" element={<HaulierDriversPage />} />
+              <Route path="loads/*" element={<HaulierLoadsPage />} />
+              <Route path="analytics/revenue" element={<HaulierRevenuePage />} />
+              <Route path="analytics/performance" element={<HaulierPerformancePage />} />
+              <Route path="analytics/costs" element={<HaulierCostsPage />} />
               <Route path="analytics/*" element={<HaulierOverview />} />
+              <Route path="documents/compliance" element={<HaulierCompliancePage />} />
+              <Route path="documents/insurance" element={<HaulierInsurancePage />} />
               <Route path="documents/*" element={<SettingsPage />} />
+              <Route path="settings/profile" element={<HaulierProfilePage />} />
+              <Route path="settings/notifications" element={<HaulierNotificationsPage />} />
+              <Route path="settings/security" element={<HaulierSecurityPage />} />
               <Route path="settings/*" element={<SettingsPage />} />
               <Route path="profile" element={<SettingsPage />} />
+              <Route path="support/help" element={<HaulierSupportHelpPage />} />
+              <Route path="support/contact" element={<HaulierSupportContactPage />} />
+              <Route path="support/*" element={<HaulierSupportHelpPage />} />
+              <Route path="tracking" element={<HaulierTrackingPage />} />
+              <Route path="tracking/*" element={<HaulierTrackingPage />} />
               <Route path="*" element={<HaulierOverview />} />
             </Routes>
           </ProtectedRoute>
