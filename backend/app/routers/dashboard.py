@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from calendar import monthrange
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.tracking import TrackingPoint
 from app.models.user import User, Role, UserStatus
 from app.models.compliance import ComplianceRecord
+from app.models.tracking import TrackingPoint
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -786,22 +787,98 @@ def admin_pending_verifications(
     )
 
 
-@router.get("/admin/jobs/monitor")
-def admin_monitor_jobs(
-    status: str = Query(None),
+@router.get("/admin/verifications/processed")
+def admin_processed_verifications(
+    role: str = Query(None),
+    status: str = Query(None),  # "approved" or "rejected" — blank means both
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    q = db.query(Job).filter(Job.deleted_at.is_(None))
-    if status:
+    statuses = []
+    if status and status.upper() == "APPROVED":
+        statuses = [DocStatus.APPROVED]
+    elif status and status.upper() == "REJECTED":
+        statuses = [DocStatus.REJECTED]
+    else:
+        statuses = [DocStatus.APPROVED, DocStatus.REJECTED]
+
+    q = db.query(User).join(Document, Document.user_id == User.id).filter(
+        Document.status.in_(statuses),
+        User.deleted_at.is_(None),
+    ).distinct()
+    if role:
         try:
-            q = q.filter(Job.status == JobStatus(status.upper()))
+            q = q.filter(User.role == Role(role.upper()))
         except ValueError:
             pass
     total = q.count()
-    total_pages = (total + limit - 1) // limit
+    users = q.order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    processed = []
+    for u in users:
+        docs = db.query(Document).filter(
+            Document.user_id == u.id,
+            Document.status.in_(statuses),
+        ).all()
+        processed.append({
+            "userId": u.id,
+            "name": u.full_name,
+            "role": u.role.value.lower(),
+            "email": u.email,
+            "phone": u.phone,
+            "joinedAt": u.created_at.isoformat() if u.created_at else None,
+            "documents": [
+                {
+                    "documentId": d.id,
+                    "documentType": d.doc_type,
+                    "fileUrl": d.file_url,
+                    "status": d.status.value.lower(),
+                    "rejectionReason": d.rejection_reason,
+                    "reviewedAt": d.reviewed_at.isoformat() if d.reviewed_at else None,
+                    "uploadedAt": d.created_at.isoformat() if d.created_at else None,
+                }
+                for d in docs
+            ],
+            "totalDocuments": len(docs),
+        })
+
+    return ok(
+        data={"processedVerifications": processed, "total": total, "page": page, "limit": limit},
+        message="Processed verifications fetched successfully.",
+    )
+
+
+@router.get("/admin/jobs/monitor")
+def admin_monitor_jobs(
+    status: str = Query(None),
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    ACTIVE_JOB_STATUSES = [JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT]
+
+    q = db.query(Job).filter(Job.deleted_at.is_(None))
+    if status:
+        upper = status.upper()
+        if upper == "ACTIVE":
+            q = q.filter(Job.status.in_(ACTIVE_JOB_STATUSES))
+        else:
+            try:
+                q = q.filter(Job.status == JobStatus(upper))
+            except ValueError:
+                pass
+    if search:
+        like = f"%{search}%"
+        q = q.filter(
+            Job.job_ref.ilike(like) |
+            Job.pickup_address.ilike(like) |
+            Job.drop_address.ilike(like)
+        )
+    total = q.count()
     items = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
     jobs = []
@@ -812,6 +889,7 @@ def admin_monitor_jobs(
         jobs.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
+            "loadCode": j.load_code,
             "status": j.status.value.lower(),
             "haulier": {
                 "name": haulier.full_name if haulier else None,
@@ -820,9 +898,13 @@ def admin_monitor_jobs(
             "driver": _driver_snippet(supplier),
             "pickupLocation": j.pickup_address,
             "dropLocation": j.drop_address,
+            "goodsType": j.goods_type,
+            "vehicleType": j.vehicle_type,
+            "weightKg": float(j.weight_kg) if j.weight_kg else None,
             "agreedAmount": float(payment.amount) if payment else None,
             "paymentStatus": payment.status.value.lower() if payment else None,
             "jobDate": j.job_date.isoformat() if j.job_date else None,
+            "createdAt": j.created_at.isoformat() if j.created_at else None,
             "isDelayed": False,
             "hasDispute": j.status == JobStatus.DISPUTED,
             "complianceStatus": _compliance_step_status(j.compliance),
@@ -831,6 +913,112 @@ def admin_monitor_jobs(
     return ok(
         data={"jobs": jobs, "totalJobs": total, "page": page, "limit": limit},
         message="Jobs monitoring data fetched successfully.",
+    )
+
+
+@router.get("/admin/invoices/list")
+def admin_list_invoices(
+    search: str = Query(None),
+    payment_status: str = Query(None, alias="paymentStatus"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    q = (
+        db.query(Job, Payment)
+        .join(Payment, Payment.job_id == Job.id)
+        .filter(Job.invoice_url.isnot(None), Job.deleted_at.is_(None))
+    )
+    if search:
+        q = q.filter(Job.job_ref.ilike(f"%{search}%"))
+    if payment_status:
+        try:
+            q = q.filter(Payment.status == PaymentStatus(payment_status.upper()))
+        except ValueError:
+            pass
+    total = q.count()
+    rows = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+    for j, p in rows:
+        haulier = db.query(User).filter(User.id == j.haulier_id).first()
+        items.append({
+            "jobId": j.id,
+            "jobRef": j.job_ref,
+            "invoiceUrl": j.invoice_url,
+            "amount": float(p.amount),
+            "currency": p.currency,
+            "paymentStatus": p.status.value,
+            "jobStatus": j.status.value.lower(),
+            "jobDate": j.job_date.isoformat() if j.job_date else None,
+            "createdAt": j.created_at.isoformat() if j.created_at else None,
+            "haulier": {
+                "name": haulier.full_name if haulier else None,
+                "email": haulier.email if haulier else None,
+                "phone": haulier.phone if haulier else None,
+            },
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+            "goodsType": j.goods_type,
+        })
+
+    return ok(
+        data={"items": items, "total": total, "page": page, "limit": limit},
+        message="Invoice list fetched successfully.",
+    )
+
+
+@router.get("/admin/payments/list")
+def admin_list_payments(
+    status: str = Query(None),
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
+    if status:
+        try:
+            q = q.filter(Payment.status == PaymentStatus(status.upper()))
+        except ValueError:
+            pass
+    if search:
+        like = f"%{search}%"
+        q = q.filter(Job.job_ref.ilike(like))
+    total = q.count()
+    rows = q.order_by(Payment.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+    for p, j in rows:
+        haulier = db.query(User).filter(User.id == j.haulier_id).first()
+        supplier = db.query(User).filter(User.id == j.selected_supplier_id).first() if j.selected_supplier_id else None
+        items.append({
+            "paymentId": p.id,
+            "jobId": j.id,
+            "jobRef": j.job_ref,
+            "amount": float(p.amount),
+            "currency": p.currency,
+            "status": p.status.value,
+            "haulier": {
+                "name": haulier.full_name if haulier else None,
+                "phone": haulier.phone if haulier else None,
+            },
+            "driver": {
+                "name": supplier.full_name if supplier else None,
+                "phone": supplier.phone if supplier else None,
+            },
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+            "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
+            "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "createdAt": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    return ok(
+        data={"items": items, "total": total, "page": page, "limit": limit},
+        message="Payment list fetched successfully.",
     )
 
 
@@ -936,6 +1124,219 @@ def admin_disputes(
             "limit": limit,
         },
         message="Disputes overview fetched successfully.",
+    )
+
+
+@router.get("/admin/live-tracking")
+def admin_live_tracking(
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    active_jobs = db.query(Job).filter(
+        Job.status == JobStatus.IN_TRANSIT,
+        Job.deleted_at.is_(None),
+    ).order_by(Job.updated_at.desc()).all()
+
+    deliveries = []
+    for j in active_jobs:
+        haulier = j.haulier
+        supplier = j.supplier
+        profile = supplier.profile if supplier else None
+        payment = j.payment
+
+        last_point = (
+            db.query(TrackingPoint)
+            .filter(TrackingPoint.job_id == j.id)
+            .order_by(TrackingPoint.recorded_at.desc())
+            .first()
+        )
+
+        deliveries.append({
+            "jobId": j.id,
+            "jobRef": j.job_ref,
+            "status": j.status.value.lower(),
+            "haulier": {
+                "name": haulier.full_name if haulier else None,
+                "phone": haulier.phone if haulier else None,
+            },
+            "driver": {
+                "name": supplier.full_name if supplier else None,
+                "phone": supplier.phone if supplier else None,
+                "vehicleNumber": profile.vehicle_registration if profile else None,
+                "vehicleType": profile.vehicle_type if profile else None,
+            },
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+            "pickupLat": float(j.pickup_lat) if j.pickup_lat else None,
+            "pickupLng": float(j.pickup_lng) if j.pickup_lng else None,
+            "dropLat": float(j.drop_lat) if j.drop_lat else None,
+            "dropLng": float(j.drop_lng) if j.drop_lng else None,
+            "currentLocation": {
+                "latitude": float(last_point.lat),
+                "longitude": float(last_point.lng),
+                "lastUpdatedAt": last_point.recorded_at.isoformat() if last_point.recorded_at else None,
+            } if last_point else None,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "goodsType": j.goods_type,
+            "vehicleType": j.vehicle_type,
+            "weightKg": float(j.weight_kg) if j.weight_kg else None,
+            "jobDate": j.job_date.isoformat() if j.job_date else None,
+        })
+
+    return ok(
+        data={
+            "totalActive": len(deliveries),
+            "deliveries": deliveries,
+        },
+        message="Live tracking data fetched successfully.",
+    )
+
+
+@router.get("/admin/disputes/active")
+def admin_active_disputes(
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    q = (
+        db.query(Job)
+        .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
+        .filter(Job.status == JobStatus.DISPUTED, Job.deleted_at.is_(None))
+    )
+    if search:
+        q = q.filter(Job.job_ref.ilike(f"%{search}%"))
+    total = q.count()
+    items = q.order_by(ComplianceRecord.disputed_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    disputes = []
+    for j in items:
+        haulier = j.haulier
+        supplier = j.supplier
+        record = j.compliance
+        payment = j.payment
+        disputes.append({
+            "disputeId": record.id if record else j.id,
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
+            "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
+            "disputeReason": record.dispute_reason if record else None,
+            "paymentOnHold": float(payment.amount) if payment else None,
+            "currency": "INR",
+            "status": "under_review",
+            "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+        })
+
+    return ok(
+        data={"disputes": disputes, "total": total, "page": page, "limit": limit},
+        message="Active disputes fetched successfully.",
+    )
+
+
+@router.get("/admin/disputes/resolved")
+def admin_resolved_disputes(
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    q = (
+        db.query(Job)
+        .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
+        .filter(
+            ComplianceRecord.disputed_at.isnot(None),
+            ComplianceRecord.step3_approved_at.isnot(None),
+            Job.status == JobStatus.COMPLETED,
+        )
+    )
+    if search:
+        q = q.filter(Job.job_ref.ilike(f"%{search}%"))
+    total = q.count()
+    items = q.order_by(ComplianceRecord.step3_approved_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    disputes = []
+    for j in items:
+        haulier = j.haulier
+        supplier = j.supplier
+        record = j.compliance
+        payment = j.payment
+        disputes.append({
+            "disputeId": record.id if record else j.id,
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
+            "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
+            "disputeReason": record.dispute_reason if record else None,
+            "paymentOnHold": float(payment.amount) if payment else None,
+            "currency": "INR",
+            "status": "resolved",
+            "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "resolvedAt": record.step3_approved_at.isoformat() if record and record.step3_approved_at else None,
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+        })
+
+    return ok(
+        data={"disputes": disputes, "total": total, "page": page, "limit": limit},
+        message="Resolved disputes fetched successfully.",
+    )
+
+
+@router.get("/admin/disputes/escalated")
+def admin_escalated_disputes(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    threshold = datetime.now(timezone.utc) - timedelta(hours=48)
+    q = (
+        db.query(Job)
+        .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
+        .filter(
+            Job.status == JobStatus.DISPUTED,
+            Job.deleted_at.is_(None),
+            ComplianceRecord.disputed_at <= threshold,
+        )
+    )
+    total = q.count()
+    items = q.order_by(ComplianceRecord.disputed_at.asc()).offset((page - 1) * limit).limit(limit).all()
+
+    now = datetime.now(timezone.utc)
+    disputes = []
+    for j in items:
+        haulier = j.haulier
+        supplier = j.supplier
+        record = j.compliance
+        payment = j.payment
+        hours_open = (
+            int((now - record.disputed_at.replace(tzinfo=timezone.utc)).total_seconds() / 3600)
+            if record and record.disputed_at else 0
+        )
+        disputes.append({
+            "disputeId": record.id if record else j.id,
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
+            "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
+            "disputeReason": record.dispute_reason if record else None,
+            "paymentOnHold": float(payment.amount) if payment else None,
+            "currency": "INR",
+            "status": "escalated",
+            "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "hoursOpen": hours_open,
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+        })
+
+    return ok(
+        data={"disputes": disputes, "total": total, "page": page, "limit": limit},
+        message="Escalated disputes fetched successfully.",
     )
 
 

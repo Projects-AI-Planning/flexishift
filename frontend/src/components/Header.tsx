@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import adminService from '../api/adminService';
 import { useAuth } from '../hooks/useAuth';
 
 interface HeaderProps {
@@ -9,6 +11,41 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar, onToggleDesktopSidebar }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadUnreadCount = async () => {
+      try {
+        const result = await adminService.getUnreadNotificationCount();
+        if (alive) {
+          setUnreadCount(result.unreadCount ?? 0);
+        }
+      } catch {
+        if (alive) {
+          setUnreadCount(0);
+        }
+      }
+    };
+
+    void loadUnreadCount();
+    const intervalId = window.setInterval(() => {
+      void loadUnreadCount();
+    }, 60000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const openNotifications = () => {
+    if (user?.role === 'ADMIN') {
+      navigate('/admin/notifications');
+    }
+  };
 
   return (
     <header
@@ -48,9 +85,18 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
       
       <div className="flex items-center gap-3 sm:gap-6">
         <div className="hidden sm:flex items-center gap-2">
-          <button className="relative hover:bg-slate-100 rounded-full p-2 transition-all duration-200 ease-in-out">
+          <button
+            type="button"
+            onClick={openNotifications}
+            className="relative hover:bg-slate-100 rounded-full p-2 transition-all duration-200 ease-in-out"
+            title="Notifications"
+          >
             <span className="material-symbols-outlined text-slate-600">notifications</span>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full border-2 border-white"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-amber-500 px-1 text-[10px] font-black leading-4 text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
           <button className="relative hover:bg-slate-100 rounded-full p-2 transition-all duration-200 ease-in-out">
             <span className="material-symbols-outlined text-slate-600">chat_bubble</span>

@@ -76,8 +76,10 @@ const NavItem: React.FC<NavItemProps> = ({
                 to={child.to}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `block py-2 text-xs font-bold transition-colors ${
-                    isActive ? 'text-amber-500' : 'text-slate-500 hover:text-white'
+                  `block rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                    isActive
+                      ? 'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20'
+                      : 'text-slate-500 hover:bg-slate-800 hover:text-white'
                   }`
                 }
               >
@@ -295,8 +297,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
   const links = user?.role === 'ADMIN' ? adminLinks : haulierLinks;
 
   useEffect(() => {
+    const activeParentIndex = links.findIndex(
+      (link) => Boolean(link.children?.some((child) => location.pathname === child.to)),
+    );
+
     queueMicrotask(() => {
-      setExpandedIndex(null);
+      setExpandedIndex(activeParentIndex >= 0 ? activeParentIndex : null);
       onCloseMobile();
     });
   }, [location.pathname, onCloseMobile]);

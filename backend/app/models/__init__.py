@@ -8,3 +8,4 @@ from app.models.compliance import ComplianceRecord
 from app.models.tracking import TrackingPoint
 from app.models.rating import Rating
 from app.models.notification import Notification
+from app.models.support_ticket import SupportTicket

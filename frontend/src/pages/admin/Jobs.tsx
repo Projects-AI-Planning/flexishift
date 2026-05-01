@@ -2,176 +2,173 @@ import React, { useState } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
 import type { Job } from '../../types';
 
-interface ExtendedJob extends Job {
-  jobReference?: string;
-  jobDate?: string;
-}
+const STATUS_OPTIONS = [
+  { value: '', label: 'All Jobs' },
+  { value: 'OPEN', label: 'Open' },
+  { value: 'BOOKED', label: 'Booked' },
+  { value: 'PAYMENT_PENDING', label: 'Payment Pending' },
+  { value: 'PAYMENT_SECURED', label: 'Payment Secured' },
+  { value: 'IN_TRANSIT', label: 'In Transit' },
+  { value: 'DELIVERY_SUBMITTED', label: 'Delivery Submitted' },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'DISPUTED', label: 'Disputed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const statusBadge = (status: string) => {
+  const s = status.toLowerCase();
+  if (s === 'completed') return 'bg-green-100 text-green-700';
+  if (s === 'in_transit') return 'bg-blue-100 text-blue-700';
+  if (s === 'open') return 'bg-amber-100 text-amber-700';
+  if (s === 'cancelled') return 'bg-red-100 text-red-700';
+  if (s === 'disputed') return 'bg-orange-100 text-orange-700';
+  if (s === 'payment_secured' || s === 'booked') return 'bg-purple-100 text-purple-700';
+  return 'bg-slate-100 text-slate-600';
+};
 
 const AdminJobsPage: React.FC = () => {
-  const [params, setParams] = useState({ page: 1, status: '' });
+  const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });
   const { data, loading, error } = useAdminJobs(params);
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
     <div className="space-y-8">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Jobs Monitor</h2>
-          <p className="text-on-surface-variant font-medium">Real-time tracking of platform freight movements.</p>
+          <h2 className="text-3xl font-black text-primary tracking-tight">All Jobs</h2>
+          <p className="text-on-surface-variant font-medium">Monitor and manage all freight jobs on the platform.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-lg">download</span>
-            Export List
+          <div className="bg-slate-100 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">inventory_2</span>
+            Total: {data?.total ?? 0} Jobs
+          </div>
+          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
+            <span className="material-symbols-outlined text-sm">download</span>
+            Export
           </button>
         </div>
       </div>
 
-      {/* Filters & Stats Bento */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-3 bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] flex flex-wrap items-center gap-6 border border-slate-50">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Status Filter</label>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setParams({ ...params, status: '' })}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${!params.status ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
-              >
-                All Jobs
-              </button>
-              <button 
-                onClick={() => setParams({ ...params, status: 'OPEN' })}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${params.status === 'OPEN' ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
-              >
-                Open
-              </button>
-              <button 
-                onClick={() => setParams({ ...params, status: 'IN_TRANSIT' })}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${params.status === 'IN_TRANSIT' ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
-              >
-                In Transit
-              </button>
-              <button 
-                onClick={() => setParams({ ...params, status: 'DELIVERED' })}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${params.status === 'DELIVERED' ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}
-              >
-                Delivered
-              </button>
-            </div>
-          </div>
+      {/* Search & Filters */}
+      <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+          <input
+            type="text"
+            placeholder="Search by job ref, pickup or drop location..."
+            value={params.search}
+            onChange={(e) => setParams({ ...params, search: e.target.value, page: 1 })}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary outline-none"
+          />
         </div>
-        <div className="bg-primary p-6 rounded-xl shadow-lg text-white flex flex-col justify-center">
-          <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Live Jobs</p>
-          <div className="flex items-end gap-2 mt-1">
-            <span className="text-3xl font-black">{data?.total || 0}</span>
-          </div>
-        </div>
+        <select
+          value={params.status}
+          onChange={(e) => setParams({ ...params, status: e.target.value, page: 1 })}
+          className="bg-slate-50 border border-slate-100 rounded-lg py-2 px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Shipment Grid */}
-      <div className={`grid grid-cols-1 xl:grid-cols-2 gap-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-        {(data?.items as ExtendedJob[] | undefined)?.map((shipment) => {
-          const status = shipment.status?.toLowerCase() ?? 'unknown';
-          const jobReference = shipment.jobReference ?? shipment.jobRef;
-          const jobDate = shipment.jobDate ?? shipment.createdAt;
-          const pickupAddress =
-            typeof shipment.pickupLocation === 'string'
-              ? shipment.pickupLocation
-              : shipment.pickupLocation?.address;
-          const dropAddress =
-            typeof shipment.dropLocation === 'string'
-              ? shipment.dropLocation
-              : shipment.dropLocation?.address;
-
-          return (
-          <div key={shipment.jobId} className="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden hover:shadow-md transition-all group">
-            <div className="p-6 flex flex-col h-full">
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-primary group-hover:bg-amber-50 group-hover:text-amber-600 transition-colors">
-                    <span className="material-symbols-outlined text-2xl">local_shipping</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black text-primary tracking-tight">{jobReference}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                        status === 'completed' || status === 'delivered' ? 'bg-green-100 text-green-700 border-green-200' : 
-                        status === 'in_transit' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
-                        {shipment.status}
-                      </span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-500">Job ID: {shipment.jobId}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-3">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Origin</p>
-                      <p className="text-sm font-bold text-primary truncate">{pickupAddress || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destination</p>
-                      <p className="text-sm font-bold text-primary truncate">{dropAddress || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl overflow-hidden bg-slate-50 h-32 relative">
-                   <div className="absolute inset-0 flex items-center justify-center">
-                     <span className="material-symbols-outlined text-4xl text-slate-200">map</span>
-                   </div>
-                </div>
-              </div>
-
-              <div className="pt-5 border-t border-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-8">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</p>
-                    <p className="text-sm font-black text-primary">{jobDate ? new Date(jobDate).toLocaleDateString() : 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Driver</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center font-bold text-primary text-[8px]">
-                        {shipment.driver?.name?.charAt(0) || '?'}
+      {/* Jobs Table */}
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Route</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Haulier</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Amount</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Date</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {data?.items.map((job: Job) => {
+                const pickup = typeof job.pickupLocation === 'string' ? job.pickupLocation : job.pickupLocation?.address;
+                const drop = typeof job.dropLocation === 'string' ? job.dropLocation : job.dropLocation?.address;
+                const date = job.jobDate || job.createdAt;
+                return (
+                  <tr key={job.jobId} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-black text-primary text-sm">{job.jobRef || '—'}</p>
+                      {job.goodsType && <p className="text-xs text-slate-400">{job.goodsType}</p>}
+                    </td>
+                    <td className="px-6 py-4 max-w-[200px]">
+                      <p className="text-xs text-slate-600 font-bold truncate">{pickup || 'N/A'}</p>
+                      <div className="flex items-center gap-1 my-0.5">
+                        <span className="material-symbols-outlined text-[10px] text-slate-300">arrow_downward</span>
                       </div>
-                      <p className="text-sm font-bold text-primary">{shipment.driver?.name || 'Unassigned'}</p>
-                    </div>
-                  </div>
-                </div>
-                <button className="text-xs font-black text-amber-600 hover:text-amber-700 transition-colors uppercase tracking-wider">
-                  View Details
-                </button>
-              </div>
-            </div>
+                      <p className="text-xs text-slate-500 truncate">{drop || 'N/A'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-primary">{job.haulier?.name || '—'}</p>
+                      {job.haulier?.phone && <p className="text-xs text-slate-400">{job.haulier.phone}</p>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-primary">{job.driver?.name || 'Unassigned'}</p>
+                      {job.driver?.vehicleType && <p className="text-xs text-slate-400">{job.driver.vehicleType}</p>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-black text-primary">
+                        {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString()}` : '—'}
+                      </p>
+                      {job.paymentStatus && (
+                        <p className="text-[10px] text-slate-400 uppercase font-bold">{job.paymentStatus}</p>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500 font-medium whitespace-nowrap">
+                      {date ? new Date(date).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full w-fit ${statusBadge(job.status)}`}>
+                          {job.status.replace(/_/g, ' ')}
+                        </span>
+                        {job.hasDispute && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 w-fit flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[10px]">warning</span>
+                            Dispute
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && data?.items.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center text-slate-400 font-medium">
+                    <span className="material-symbols-outlined text-4xl block mb-2 opacity-30">local_shipping</span>
+                    No jobs found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {/* Pagination */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <p className="text-xs text-slate-500 font-bold">Showing {data?.items.length || 0} of {data?.total || 0} jobs</p>
+          <div className="flex gap-2">
+            <button
+              disabled={params.page === 1}
+              onClick={() => setParams({ ...params, page: params.page - 1 })}
+              className="px-4 py-2 text-xs font-black text-primary bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >Previous</button>
+            <button
+              disabled={!data || data.items.length < params.limit}
+              onClick={() => setParams({ ...params, page: params.page + 1 })}
+              className="px-4 py-2 text-xs font-black text-white bg-primary rounded-lg shadow-md shadow-primary/20 disabled:opacity-50"
+            >Next</button>
           </div>
-          );
-        })}
-      </div>
-
-      {/* Footer Pagination */}
-      <div className="flex items-center justify-between pt-4 pb-8">
-        <p className="text-sm text-slate-500 font-medium">Showing <span className="font-bold text-primary">{data?.items.length || 0}</span> jobs</p>
-        <div className="flex gap-2">
-          <button 
-            disabled={params.page === 1}
-            onClick={() => setParams({ ...params, page: params.page - 1 })}
-            className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-primary disabled:opacity-40"
-          >
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
-          <button 
-            disabled={!data || data.items.length < 10}
-            onClick={() => setParams({ ...params, page: params.page + 1 })}
-            className="w-10 h-10 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-center text-primary disabled:opacity-40"
-          >
-            <span className="material-symbols-outlined">chevron_right</span>
-          </button>
         </div>
       </div>
     </div>

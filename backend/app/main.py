@@ -25,6 +25,7 @@ from app.routers import (
     profile,
     quotes,
     ratings,
+    support,
     supplier,
     suppliers,
     system,
@@ -138,6 +139,7 @@ app.include_router(tracking.router, prefix=PREFIX)
 app.include_router(tracking.flat, prefix=PREFIX)
 app.include_router(ratings.router, prefix=PREFIX)
 app.include_router(notifications.router, prefix=PREFIX)
+app.include_router(support.router, prefix=PREFIX)
 app.include_router(dashboard.router, prefix=PREFIX)
 app.include_router(admin.router, prefix=PREFIX)
 app.include_router(maps.router, prefix=PREFIX)

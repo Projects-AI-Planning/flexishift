@@ -7,10 +7,34 @@ import Login from './pages/Login';
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import UsersPage from './pages/admin/Users';
+import DriversPage from './pages/admin/Drivers';
+import HauliersPage from './pages/admin/Hauliers';
+import SuspendedUsersPage from './pages/admin/SuspendedUsers';
 import DocumentsPage from './pages/admin/Documents';
 import PaymentsPage from './pages/admin/Payments';
+import LiveTrackingPage from './pages/admin/LiveTracking';
 import AdminJobsPage from './pages/admin/Jobs';
 import DisputesPage from './pages/admin/Disputes';
+import ProcessedVerificationsPage from './pages/admin/ProcessedVerifications';
+import ActiveJobsPage from './pages/admin/ActiveJobs';
+import CompletedJobsPage from './pages/admin/CompletedJobs';
+import CancelledJobsPage from './pages/admin/CancelledJobs';
+import TransactionsPage from './pages/admin/Transactions';
+import EscrowPage from './pages/admin/Escrow';
+import RefundsPage from './pages/admin/Refunds';
+import AllInvoicesPage from './pages/admin/AllInvoices';
+import InvoiceReportsPage from './pages/admin/InvoiceReports';
+import ActiveDisputesPage from './pages/admin/ActiveDisputes';
+import ResolvedDisputesPage from './pages/admin/ResolvedDisputes';
+import EscalatedDisputesPage from './pages/admin/EscalatedDisputes';
+import RevenueAnalyticsPage from './pages/admin/analytics/RevenueAnalytics';
+import JobsAnalyticsPage from './pages/admin/analytics/JobsAnalytics';
+import UsersAnalyticsPage from './pages/admin/analytics/UsersAnalytics';
+import NotificationsPage from './pages/admin/Notifications';
+import PlatformConfigPage from './pages/admin/settings/PlatformConfig';
+import SystemLogsPage from './pages/admin/settings/SystemLogs';
+import ActiveSupportTicketsPage from './pages/admin/ActiveSupportTickets';
+import ResolvedSupportTicketsPage from './pages/admin/ResolvedSupportTickets';
 
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
@@ -51,15 +75,52 @@ function AppRoutes() {
           <ProtectedRoute role="ADMIN">
             <Routes>
               <Route index element={<AdminDashboard />} />
+              <Route path="users/all" element={<UsersPage />} />
+              <Route path="users/drivers" element={<DriversPage />} />
+              <Route path="users/hauliers" element={<HauliersPage />} />
+              <Route path="users/suspended" element={<SuspendedUsersPage />} />
+              <Route path="users" element={<UsersPage />} />
               <Route path="users/*" element={<UsersPage />} />
+              <Route path="verifications/pending" element={<DocumentsPage />} />
+              <Route path="verifications/processed" element={<ProcessedVerificationsPage />} />
               <Route path="verifications/*" element={<DocumentsPage />} />
               <Route path="documents/*" element={<DocumentsPage />} />
+              <Route path="payments/transactions" element={<TransactionsPage />} />
+              <Route path="payments/escrow" element={<EscrowPage />} />
+              <Route path="payments/refunds" element={<RefundsPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
               <Route path="payments/*" element={<PaymentsPage />} />
+              <Route path="tracking" element={<LiveTrackingPage />} />
+              <Route path="tracking/*" element={<LiveTrackingPage />} />
+              <Route path="invoices/all" element={<AllInvoicesPage />} />
+              <Route path="invoices/reports" element={<InvoiceReportsPage />} />
+              <Route path="invoices/*" element={<AllInvoicesPage />} />
+              <Route path="jobs/all" element={<AdminJobsPage />} />
+              <Route path="jobs/active" element={<ActiveJobsPage />} />
+              <Route path="jobs/completed" element={<CompletedJobsPage />} />
+              <Route path="jobs/cancelled" element={<CancelledJobsPage />} />
+              <Route path="jobs" element={<AdminJobsPage />} />
               <Route path="jobs/*" element={<AdminJobsPage />} />
-              <Route path="analytics/*" element={<AdminDashboard />} />
+              <Route path="analytics" element={<Navigate to="/admin/analytics/revenue" replace />} />
+              <Route path="analytics/revenue" element={<RevenueAnalyticsPage />} />
+              <Route path="analytics/jobs" element={<JobsAnalyticsPage />} />
+              <Route path="analytics/users" element={<UsersAnalyticsPage />} />
+              <Route path="analytics/*" element={<Navigate to="/admin/analytics/revenue" replace />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="notifications/*" element={<NotificationsPage />} />
+              <Route path="disputes/active" element={<ActiveDisputesPage />} />
+              <Route path="disputes/resolved" element={<ResolvedDisputesPage />} />
+              <Route path="disputes/escalated" element={<EscalatedDisputesPage />} />
               <Route path="disputes/*" element={<DisputesPage />} />
               <Route path="ratings/*" element={<AdminDashboard />} />
-              <Route path="settings/*" element={<SettingsPage />} />
+              <Route path="settings" element={<Navigate to="/admin/settings/config" replace />} />
+              <Route path="settings/config" element={<PlatformConfigPage />} />
+              <Route path="settings/logs" element={<SystemLogsPage />} />
+              <Route path="settings/*" element={<Navigate to="/admin/settings/config" replace />} />
+              <Route path="support" element={<Navigate to="/admin/support/active" replace />} />
+              <Route path="support/active" element={<ActiveSupportTicketsPage />} />
+              <Route path="support/resolved" element={<ResolvedSupportTicketsPage />} />
+              <Route path="support/*" element={<Navigate to="/admin/support/active" replace />} />
               <Route path="*" element={<AdminDashboard />} />
             </Routes>
           </ProtectedRoute>
