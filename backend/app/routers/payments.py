@@ -197,16 +197,23 @@ def refund_payment_flat(
 
 @flat.get("/history")
 def payment_history(
+    status: str = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.models.payment import PaymentStatus
     q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
     if current_user.role.value in ("DRIVER", "FIRM"):
         q = q.filter(Job.selected_supplier_id == current_user.id)
     elif current_user.role.value == "HAULIER":
         q = q.filter(Job.haulier_id == current_user.id)
+    if status:
+        try:
+            q = q.filter(Payment.status == PaymentStatus(status.upper()))
+        except ValueError:
+            pass
     total = q.count()
     rows = q.order_by(Payment.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     items = [
@@ -214,9 +221,14 @@ def payment_history(
             "paymentId": p.id,
             "jobId": j.id,
             "jobRef": j.job_ref,
+            "pickupAddress": j.pickup_address,
+            "dropAddress": j.drop_address,
+            "goodsType": j.goods_type,
             "amount": float(p.amount),
             "currency": p.currency,
             "status": p.status.value,
+            "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
+            "releasedAt": p.released_at.isoformat() if p.released_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
         }
         for p, j in rows

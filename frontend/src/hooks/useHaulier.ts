@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import haulierService from '../api/haulierService';
-import type { Job, Payment } from '../types';
+import type { Job } from '../types';
 
 interface HaulierOverview {
   summary?: {
@@ -28,6 +28,21 @@ interface PaymentMethod {
   last4: string;
   brand: string;
   isDefault: boolean;
+}
+
+interface PaymentHistoryItem {
+  paymentId: string;
+  jobId: string;
+  jobRef: string;
+  pickupAddress?: string;
+  dropAddress?: string;
+  goodsType?: string;
+  amount: number;
+  currency: string;
+  status: string;
+  escrowedAt?: string | null;
+  releasedAt?: string | null;
+  createdAt: string;
 }
 
 export const useHaulierOverview = () => {
@@ -62,18 +77,18 @@ export const useHaulierOverview = () => {
 };
 
 export const useHaulierJobs = (params?: Record<string, unknown>) => {
-  const [data, setData] = useState<{ jobs: Job[], totalActiveJobs: number } | null>(null);
+  const [data, setData] = useState<{ jobs: Job[], total: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async (isRefresh = false) => {
     if (isRefresh) setLoading(true);
     try {
-      const result = await haulierService.getActiveJobs(params);
-      setData(result);
+      const result = await haulierService.listAllJobs(params);
+      setData({ jobs: (result as { items?: Job[] })?.items ?? [], total: (result as { total?: number })?.total ?? 0 });
       setError(null);
     } catch {
-      setError('Failed to load active shipments');
+      setError('Failed to load shipments');
     } finally {
       setLoading(false);
     }
@@ -97,7 +112,7 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
     totalSpent: number;
     escrowAmount: number;
     pendingInvoicesCount: number;
-    payments: Payment[];
+    payments: PaymentHistoryItem[];
     paymentMethods: PaymentMethod[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,10 +126,22 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
         haulierService.listPaymentMethods(),
         haulierService.getSpendSummary(params)
       ]);
+
+      const historyData = history as {
+        items?: PaymentHistoryItem[];
+      };
+      const methodsData = methods as {
+        methods?: Array<{ methodId?: string; accountNumber?: string; type?: string }>;
+      };
       
       setData({
-        payments: history.items || [],
-        paymentMethods: methods || [],
+        payments: historyData.items || [],
+        paymentMethods: (methodsData.methods || []).map((method) => ({
+          id: String(method.methodId ?? ''),
+          last4: String(method.accountNumber ?? method.methodId ?? '0000').slice(-4),
+          brand: String(method.type ?? 'BANK'),
+          isDefault: true,
+        })),
         totalSpent: summary.totalSpent || 0,
         escrowAmount: summary.escrowAmount || 0,
         pendingInvoicesCount: summary.pendingInvoicesCount || 0

@@ -1,14 +1,20 @@
 import React from 'react';
-import {ImageBackground, SafeAreaView, StyleSheet} from 'react-native';
+import {ImageBackground, Pressable, SafeAreaView, StyleSheet} from 'react-native';
 
-const SplashScreen = () => {
+interface SplashScreenProps {
+  onGetStarted: () => void;
+}
+
+const SplashScreen: React.FC<SplashScreenProps> = ({onGetStarted}) => {
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground
-        source={require('../assets/screens/Freightflex.png')}
-        resizeMode="cover"
-        style={styles.image}
-      />
+      <Pressable style={styles.fill} onPress={onGetStarted}>
+        <ImageBackground
+          source={require('../assets/screens/Freightflex.png')}
+          resizeMode="cover"
+          style={styles.fill}
+        />
+      </Pressable>
     </SafeAreaView>
   );
 };
@@ -18,7 +24,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#071A2D',
   },
-  image: {
+  fill: {
     flex: 1,
   },
 });

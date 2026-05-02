@@ -18,15 +18,15 @@ interface RequestOptions {
 }
 
 const withQuery = (path: string, params?: RequestOptions['params']) => {
-  const url = new URL(`${API_BASE_URL}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        url.searchParams.set(key, String(value));
-      }
-    });
+  const base = `${API_BASE_URL}${path}`;
+  if (!params) {
+    return base;
   }
-  return url.toString();
+  const qs = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&');
+  return qs ? `${base}?${qs}` : base;
 };
 
 export async function request<T>(

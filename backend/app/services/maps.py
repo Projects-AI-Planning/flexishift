@@ -6,6 +6,51 @@ from app.config import settings
 
 log = structlog.get_logger()
 
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_HEADERS = {"User-Agent": "FreightFlex/1.0 (logistics-platform)"}
+GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+
+
+async def geocode_address(address: str) -> dict:
+    """Geocode an address string to lat/lng. Uses Google Maps if key configured, else Nominatim."""
+    if settings.GOOGLE_MAPS_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    GEOCODE_URL,
+                    params={"address": address, "key": settings.GOOGLE_MAPS_API_KEY},
+                    timeout=10,
+                )
+            data = resp.json()
+            if data.get("status") == "OK" and data.get("results"):
+                result = data["results"][0]
+                loc = result["geometry"]["location"]
+                return {
+                    "formatted_address": result["formatted_address"],
+                    "lat": loc["lat"],
+                    "lng": loc["lng"],
+                }
+        except Exception as exc:
+            log.warning("google_geocode_error", error=str(exc))
+
+    # Nominatim fallback (free, no key required)
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            NOMINATIM_URL,
+            params={"q": address, "format": "json", "limit": 1, "addressdetails": 1},
+            headers=NOMINATIM_HEADERS,
+            timeout=10,
+        )
+    results = resp.json()
+    if not results:
+        raise ValueError(f"Address not found: {address!r}")
+    r = results[0]
+    return {
+        "formatted_address": r.get("display_name", address),
+        "lat": float(r["lat"]),
+        "lng": float(r["lon"]),
+    }
+
 
 def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     R = 6371.0

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../api/adminService';
+import haulierService from '../api/haulierService';
 import { useAuth } from '../hooks/useAuth';
 
 interface HeaderProps {
@@ -19,9 +20,11 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
 
     const loadUnreadCount = async () => {
       try {
-        const result = await adminService.getUnreadNotificationCount();
+        const result = user?.role === 'ADMIN'
+          ? await adminService.getUnreadNotificationCount()
+          : await haulierService.getUnreadCount();
         if (alive) {
-          setUnreadCount(result.unreadCount ?? 0);
+          setUnreadCount((result as { unreadCount?: number })?.unreadCount ?? 0);
         }
       } catch {
         if (alive) {
@@ -39,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
       alive = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [user]);
 
   const openNotifications = () => {
     if (user?.role === 'ADMIN') {

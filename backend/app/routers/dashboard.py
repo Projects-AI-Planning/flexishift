@@ -2,20 +2,24 @@ from datetime import datetime, timezone, date, timedelta
 from calendar import monthrange
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.core.response import ok
+from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
+from app.models.availability import AvailabilityBlock, AvailabilitySlot
 from app.models.document import Document, DocStatus
 from app.models.job import Job, JobStatus
+from app.models.quote import Quote, QuoteStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.tracking import TrackingPoint
-from app.models.user import User, Role, UserStatus
+from app.models.user import User, Role, UserStatus, UserProfile
 from app.models.compliance import ComplianceRecord
 from app.models.tracking import TrackingPoint
+from app.services.availability import is_available_on
+from app.services import suppliers as sup_svc
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -46,6 +50,63 @@ def _driver_snippet(supplier: Optional[User]) -> Optional[dict]:
         "phone": supplier.phone,
         "vehicleNumber": p.vehicle_registration if p else None,
         "vehicleType": p.vehicle_type if p else None,
+    }
+
+
+def _supplier_search_snippet(item: dict) -> dict:
+    profile = item.get("profile")
+    return {
+        "supplierId": item.get("id"),
+        "name": item.get("full_name"),
+        "email": item.get("email"),
+        "phone": item.get("phone"),
+        "role": item.get("role"),
+        "status": item.get("status"),
+        "avgRating": float(item.get("avg_rating") or 0),
+        "completedJobs": item.get("completed_jobs") or 0,
+        "distanceKm": item.get("distance_km"),
+        "vehicleType": profile.vehicle_type if profile else None,
+        "vehicleRegistration": profile.vehicle_registration if profile else None,
+        "licenseNumber": profile.licence_number if profile else None,
+        "coverageArea": profile.coverage_area if profile else None,
+    }
+
+
+def _quote_snippet(quote: Quote) -> dict:
+    supplier = quote.supplier
+    return {
+        "quoteId": quote.id,
+        "supplierId": quote.supplier_id,
+        "supplierName": supplier.full_name if supplier else None,
+        "supplierPhone": supplier.phone if supplier else None,
+        "amount": float(quote.price),
+        "currency": quote.currency,
+        "status": quote.status.value if quote.status else None,
+        "createdAt": quote.created_at.isoformat() if quote.created_at else None,
+        "updatedAt": quote.updated_at.isoformat() if quote.updated_at else None,
+    }
+
+
+def _job_load_snippet(job: Job) -> dict:
+    supplier = job.supplier
+    payment = job.payment
+    return {
+        "jobId": job.id,
+        "jobReference": job.job_ref,
+        "loadCode": job.load_code,
+        "status": job.status.value.lower(),
+        "pickupLocation": job.pickup_address,
+        "dropLocation": job.drop_address,
+        "goodsType": job.goods_type,
+        "vehicleType": job.vehicle_type,
+        "jobDate": job.job_date.isoformat() if job.job_date else None,
+        "timeSlot": job.time_slot.value if job.time_slot else None,
+        "distanceKm": float(job.distance_km) if job.distance_km is not None else None,
+        "agreedAmount": float(payment.amount) if payment else None,
+        "paymentStatus": payment.status.value.lower() if payment else None,
+        "selectedSupplier": _driver_snippet(supplier),
+        "createdAt": job.created_at.isoformat() if job.created_at else None,
+        "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
     }
 
 
@@ -497,6 +558,715 @@ def haulier_spend_summary(
         },
         message="Spend summary fetched successfully.",
     )
+
+
+@router.get("/haulier/costs")
+def haulier_costs(
+    period: str = Query("monthly"),
+    month: int = Query(None),
+    year: int = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    now = datetime.now(timezone.utc)
+    m = month or now.month
+    y = year or now.year
+
+    q = (
+        db.query(Payment, Job)
+        .join(Job, Job.id == Payment.job_id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Payment.status.in_([PaymentStatus.ESCROWED, PaymentStatus.RELEASED, PaymentStatus.REFUNDED]),
+        )
+    )
+
+    month_q = q.filter(
+        func.extract("month", Payment.created_at) == m,
+        func.extract("year", Payment.created_at) == y,
+    )
+
+    rows = month_q.order_by(Payment.created_at.desc()).all()
+    total_spend = sum(float(p.amount) for p, _ in rows if p.status in (PaymentStatus.ESCROWED, PaymentStatus.RELEASED))
+    refunded = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.REFUNDED)
+    escrowed = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.ESCROWED)
+    released = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.RELEASED)
+    net_spend = max(total_spend - refunded, 0.0)
+    job_count = len({j.id for _, j in rows})
+    avg_per_job = round(net_spend / job_count, 2) if job_count else 0.0
+
+    items = []
+    for p, j in rows[(page - 1) * per_page: (page - 1) * per_page + per_page]:
+        items.append({
+            "paymentId": p.id,
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "route": f"{j.pickup_address} → {j.drop_address}",
+            "amount": float(p.amount),
+            "currency": p.currency,
+            "status": p.status.value.lower(),
+            "jobStatus": j.status.value.lower(),
+            "createdAt": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    month_name = datetime(y, m, 1).strftime("%B %Y")
+
+    return ok(
+        data={
+            "period": month_name,
+            "summary": {
+                "totalSpend": total_spend,
+                "escrowedAmount": escrowed,
+                "releasedAmount": released,
+                "refunds": refunded,
+                "netSpend": net_spend,
+                "averagePerJob": avg_per_job,
+                "loadsWithSpend": job_count,
+                "currency": "INR",
+            },
+            "breakdown": [
+                {"label": "Escrowed", "value": escrowed},
+                {"label": "Released", "value": released},
+                {"label": "Refunds", "value": refunded},
+                {"label": "Net Spend", "value": net_spend},
+            ],
+            "items": items,
+            "total": len(rows),
+            "page": page,
+            "perPage": per_page,
+            "filters": {
+                "period": period,
+                "month": m,
+                "year": y,
+            },
+        },
+        message="Cost report fetched successfully.",
+    )
+
+
+@router.get("/haulier/revenue")
+def haulier_revenue(
+    period: str = Query("monthly"),
+    month: int = Query(None),
+    year: int = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    now = datetime.now(timezone.utc)
+    m = month or now.month
+    y = year or now.year
+
+    q = (
+        db.query(Payment, Job)
+        .join(Job, Job.id == Payment.job_id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Payment.status.in_([PaymentStatus.RELEASED, PaymentStatus.ESCROWED, PaymentStatus.PENDING, PaymentStatus.REFUNDED]),
+        )
+    )
+    period_q = q.filter(
+        func.extract("month", Payment.created_at) == m,
+        func.extract("year", Payment.created_at) == y,
+    )
+
+    rows = period_q.order_by(Payment.created_at.desc()).all()
+    released = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.RELEASED)
+    escrowed = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.ESCROWED)
+    pending = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.PENDING)
+    refunded = sum(float(p.amount) for p, _ in rows if p.status == PaymentStatus.REFUNDED)
+    net_revenue = max(released - refunded, 0.0)
+    completed_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    avg_per_load = round(released / completed_jobs, 2) if completed_jobs else 0.0
+
+    items = []
+    for p, j in rows[(page - 1) * per_page: (page - 1) * per_page + per_page]:
+        items.append({
+            "paymentId": p.id,
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "route": f"{j.pickup_address} → {j.drop_address}",
+            "amount": float(p.amount),
+            "currency": p.currency,
+            "status": p.status.value.lower(),
+            "jobStatus": j.status.value.lower(),
+            "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "createdAt": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    month_name = datetime(y, m, 1).strftime("%B %Y")
+
+    return ok(
+        data={
+            "period": month_name,
+            "summary": {
+                "totalRevenue": released,
+                "releasedRevenue": released,
+                "escrowedRevenue": escrowed,
+                "pendingRevenue": pending,
+                "refunds": refunded,
+                "netRevenue": net_revenue,
+                "averagePerLoad": avg_per_load,
+                "completedJobs": completed_jobs,
+                "currency": "INR",
+            },
+            "breakdown": [
+                {"label": "Released", "value": released},
+                {"label": "Escrowed", "value": escrowed},
+                {"label": "Pending", "value": pending},
+                {"label": "Net Revenue", "value": net_revenue},
+            ],
+            "items": items,
+            "total": len(rows),
+            "page": page,
+            "perPage": per_page,
+            "filters": {
+                "period": period,
+                "month": m,
+                "year": y,
+            },
+        },
+        message="Revenue report fetched successfully.",
+    )
+
+
+@router.get("/haulier/performance")
+def haulier_performance(
+    period: str = Query("monthly"),
+    month: int = Query(None),
+    year: int = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    now = datetime.now(timezone.utc)
+    m = month or now.month
+    y = year or now.year
+
+    total_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    active_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.status.in_(ACTIVE_STATUSES),
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    completed_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    disputed_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.DISPUTED,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    open_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.OPEN,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    this_month_jobs = db.query(func.count(Job.id)).filter(
+        Job.haulier_id == current_user.id,
+        func.extract("month", Job.created_at) == m,
+        func.extract("year", Job.created_at) == y,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    released_revenue = db.query(func.sum(Payment.amount)).join(
+        Job, Job.id == Payment.job_id
+    ).filter(
+        Job.haulier_id == current_user.id,
+        Payment.status == PaymentStatus.RELEASED,
+    ).scalar() or 0.0
+
+    completion_rate = round((completed_jobs / total_jobs) * 100, 1) if total_jobs else 0.0
+    active_rate = round((active_jobs / total_jobs) * 100, 1) if total_jobs else 0.0
+
+    recent_jobs = (
+        db.query(Job)
+        .filter(Job.haulier_id == current_user.id, Job.deleted_at.is_(None))
+        .order_by(Job.updated_at.desc())
+        .limit(8)
+        .all()
+    )
+
+    items = []
+    for job in recent_jobs:
+        payment = job.payment
+        items.append({
+            "jobId": job.id,
+            "jobReference": job.job_ref,
+            "status": job.status.value.lower(),
+            "vehicleType": job.vehicle_type,
+            "goodsType": job.goods_type,
+            "jobDate": job.job_date.isoformat() if job.job_date else None,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "paymentStatus": payment.status.value.lower() if payment else None,
+        })
+
+    profile = current_user.profile
+    month_name = datetime(y, m, 1).strftime("%B %Y")
+
+    return ok(
+        data={
+            "period": month_name,
+            "summary": {
+                "totalJobs": total_jobs,
+                "activeJobs": active_jobs,
+                "completedJobs": completed_jobs,
+                "disputedJobs": disputed_jobs,
+                "openJobs": open_jobs,
+                "thisMonthJobs": this_month_jobs,
+                "completionRate": completion_rate,
+                "activeRate": active_rate,
+                "rating": float(current_user.avg_rating or 0),
+                "verified": current_user.verified,
+                "profileComplete": current_user.profile_complete,
+                "releasedRevenue": float(released_revenue),
+                "currency": "INR",
+            },
+            "breakdown": [
+                {"label": "Completed", "value": completed_jobs},
+                {"label": "Active", "value": active_jobs},
+                {"label": "Open", "value": open_jobs},
+                {"label": "Disputed", "value": disputed_jobs},
+            ],
+            "items": items,
+            "profile": {
+                "companyName": profile.company_name if profile else current_user.full_name,
+                "vehicleType": profile.vehicle_type if profile else None,
+                "coverageArea": profile.coverage_area if profile else None,
+                "vehicleRegistration": profile.vehicle_registration if profile else None,
+            },
+            "filters": {
+                "period": period,
+                "month": m,
+                "year": y,
+            },
+        },
+        message="Performance report fetched successfully.",
+    )
+
+
+@router.get("/haulier/loads/matching")
+def haulier_load_matching(
+    search: str = Query(None),
+    vehicle_type: str = Query(None),
+    radius_km: float = Query(50.0, ge=1.0, le=500.0),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.OPEN,
+        Job.deleted_at.is_(None),
+    )
+
+    if search:
+        like = f"%{search.strip()}%"
+        q = q.filter(
+            or_(
+                Job.job_ref.ilike(like),
+                Job.goods_type.ilike(like),
+                Job.pickup_address.ilike(like),
+                Job.drop_address.ilike(like),
+                Job.vehicle_type.ilike(like),
+            )
+        )
+
+    if vehicle_type:
+        q = q.filter(Job.vehicle_type == vehicle_type)
+
+    jobs = q.order_by(Job.created_at.desc()).all()
+    rows = []
+    for job in jobs:
+        matches = sup_svc.search_suppliers(
+            db,
+            float(job.pickup_lat),
+            float(job.pickup_lng),
+            radius_km=radius_km,
+            vehicle_type=job.vehicle_type,
+            job_date=job.job_date,
+            page=1,
+            per_page=3,
+        )
+        rows.append({
+            **_job_load_snippet(job),
+            "matchCount": matches["total"],
+            "topMatches": [_supplier_search_snippet(item) for item in matches["items"]],
+        })
+
+    total = len(rows)
+    start = (page - 1) * per_page
+    items = rows[start:start + per_page]
+
+    return ok(
+        data={
+            "items": items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+            "summary": {
+                "openLoads": total,
+                "withMatches": sum(1 for row in rows if row["matchCount"] > 0),
+                "avgMatchesPerLoad": round(sum(row["matchCount"] for row in rows) / total, 1) if total else 0,
+            },
+            "filters": {
+                "search": search,
+                "vehicleType": vehicle_type,
+                "radiusKm": radius_km,
+            },
+        },
+        message="Matching loads fetched successfully.",
+    )
+
+
+@router.get("/haulier/loads/bids")
+def haulier_load_bids(
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.deleted_at.is_(None),
+    )
+
+    if search:
+        like = f"%{search.strip()}%"
+        q = q.filter(
+            or_(
+                Job.job_ref.ilike(like),
+                Job.goods_type.ilike(like),
+                Job.pickup_address.ilike(like),
+                Job.drop_address.ilike(like),
+            )
+        )
+
+    jobs = q.order_by(Job.updated_at.desc()).all()
+    rows = []
+    for job in jobs:
+        quotes = (
+            db.query(Quote)
+            .filter(Quote.job_id == job.id)
+            .order_by(Quote.created_at.desc())
+            .all()
+        )
+        if not quotes and not job.selected_supplier_id:
+            continue
+        active_quotes = [quote for quote in quotes if quote.status == QuoteStatus.ACTIVE]
+        selected_quote = next((quote for quote in quotes if quote.status == QuoteStatus.SELECTED), None)
+        rows.append({
+            **_job_load_snippet(job),
+            "quoteCount": len(quotes),
+            "activeQuoteCount": len(active_quotes),
+            "selectedQuote": _quote_snippet(selected_quote) if selected_quote else None,
+            "quotes": [_quote_snippet(quote) for quote in quotes[:5]],
+            "lowestQuote": min((float(quote.price) for quote in active_quotes), default=None),
+        })
+
+    total = len(rows)
+    start = (page - 1) * per_page
+    items = rows[start:start + per_page]
+
+    return ok(
+        data={
+            "items": items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+            "summary": {
+                "jobsWithBids": total,
+                "activeQuotes": sum(row["activeQuoteCount"] for row in rows),
+                "selectedLoads": sum(1 for row in rows if row["selectedSupplier"]),
+            },
+            "filters": {
+                "search": search,
+            },
+        },
+        message="Bids fetched successfully.",
+    )
+
+
+@router.get("/haulier/loads/awarded")
+def haulier_load_awarded(
+    search: str = Query(None),
+    status: str = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.selected_supplier_id.isnot(None),
+        Job.deleted_at.is_(None),
+    )
+
+    if search:
+        like = f"%{search.strip()}%"
+        q = q.filter(
+            or_(
+                Job.job_ref.ilike(like),
+                Job.goods_type.ilike(like),
+                Job.pickup_address.ilike(like),
+                Job.drop_address.ilike(like),
+            )
+        )
+
+    if status:
+        try:
+            q = q.filter(Job.status == JobStatus(status.upper()))
+        except ValueError:
+            pass
+
+    jobs = q.order_by(Job.updated_at.desc()).all()
+    rows = []
+    for job in jobs:
+        payment = job.payment
+        rows.append({
+            **_job_load_snippet(job),
+            "currentStage": job.status.value.lower(),
+            "hasPayment": payment is not None,
+            "quoteCount": db.query(func.count(Quote.id)).filter(Quote.job_id == job.id).scalar() or 0,
+        })
+
+    total = len(rows)
+    start = (page - 1) * per_page
+    items = rows[start:start + per_page]
+
+    return ok(
+        data={
+            "items": items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+            "summary": {
+                "awardedLoads": total,
+                "inTransit": sum(1 for row in rows if row["status"] == "in_transit"),
+                "completed": sum(1 for row in rows if row["status"] == "completed"),
+            },
+            "filters": {
+                "search": search,
+                "status": status,
+            },
+        },
+        message="Awarded loads fetched successfully.",
+    )
+
+
+class DriverAssignmentRequest(BaseModel):
+    driver_id: str = Field(..., alias="driverId")
+    note: Optional[str] = Field(None, alias="note")
+    model_config = {"populate_by_name": True}
+
+
+@router.get("/haulier/drivers/all")
+def haulier_list_drivers(
+    search: str = Query(None),
+    vehicle_type: str = Query(None),
+    availability: str = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = (
+        db.query(User)
+        .join(UserProfile, UserProfile.user_id == User.id)
+        .filter(
+            User.role.in_([Role.DRIVER, Role.FIRM]),
+            User.status == UserStatus.ACTIVE,
+            User.deleted_at.is_(None),
+        )
+    )
+
+    if search:
+        like = f"%{search.strip()}%"
+        q = q.filter(
+            or_(
+                User.full_name.ilike(like),
+                User.email.ilike(like),
+                User.phone.ilike(like),
+                UserProfile.vehicle_registration.ilike(like),
+                UserProfile.company_name.ilike(like),
+            )
+        )
+
+    if vehicle_type:
+        q = q.filter(UserProfile.vehicle_type == vehicle_type)
+
+    candidates = q.order_by(User.created_at.desc()).all()
+    today = datetime.now(timezone.utc).date()
+    rows = []
+    for driver in candidates:
+        profile = driver.profile
+        slot_rows = (
+            db.query(AvailabilitySlot)
+            .filter(AvailabilitySlot.driver_id == driver.id)
+            .order_by(AvailabilitySlot.day_of_week.asc(), AvailabilitySlot.start_time.asc())
+            .all()
+        )
+        block_rows = (
+            db.query(AvailabilityBlock)
+            .filter(AvailabilityBlock.driver_id == driver.id)
+            .order_by(AvailabilityBlock.block_start.desc())
+            .all()
+        )
+        slots = len(slot_rows)
+        blocks = len(block_rows)
+        available_today = is_available_on(db, driver.id, today)
+        if availability == "available" and not available_today:
+            continue
+        if availability == "busy" and available_today:
+            continue
+        rows.append({
+            "driverId": driver.id,
+            "name": driver.full_name,
+            "email": driver.email,
+            "phone": driver.phone,
+            "role": driver.role.value,
+            "status": driver.status.value,
+            "isVerified": driver.verified,
+            "profileComplete": driver.profile_complete,
+            "avgRating": float(driver.avg_rating or 0),
+            "completedJobs": driver.completed_jobs,
+            "joinedAt": driver.created_at.isoformat() if driver.created_at else None,
+            "vehicleType": profile.vehicle_type if profile else None,
+            "vehicleRegistration": profile.vehicle_registration if profile else None,
+            "licenseNumber": profile.licence_number if profile else None,
+            "companyName": profile.company_name if profile else None,
+            "coverageArea": profile.coverage_area if profile else None,
+            "availabilityToday": available_today,
+            "availabilitySlots": slots,
+            "availabilityBlocks": blocks,
+            "schedule": {
+                "slots": [
+                    {
+                        "dayOfWeek": slot.day_of_week,
+                        "startTime": slot.start_time.isoformat(),
+                        "endTime": slot.end_time.isoformat(),
+                        "isActive": slot.is_active,
+                    }
+                    for slot in slot_rows
+                ],
+                "blocks": [
+                    {
+                        "blockStart": block.block_start.isoformat(),
+                        "blockEnd": block.block_end.isoformat(),
+                        "reason": block.reason,
+                    }
+                    for block in block_rows
+                ],
+            },
+        })
+
+    total = len(rows)
+    start = (page - 1) * per_page
+    items = rows[start:start + per_page]
+
+    return ok(
+        data={
+            "items": items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+            "filters": {
+                "search": search,
+                "vehicleType": vehicle_type,
+                "availability": availability,
+            },
+            "summary": {
+                "totalDrivers": total,
+                "availableToday": sum(1 for row in rows if row["availabilityToday"]),
+                "verifiedDrivers": sum(1 for row in rows if row["isVerified"]),
+            },
+        },
+        message="Drivers retrieved successfully.",
+    )
+
+
+@router.get("/haulier/drivers/assignments")
+def haulier_list_driver_assignments(
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    profile = current_user.profile
+    items = list(profile.driver_assignments or []) if profile else []
+    return ok(
+        data={"items": items, "total": len(items)},
+        message="Driver assignments retrieved successfully.",
+    )
+
+
+@router.post("/haulier/drivers/assignments", status_code=201)
+def haulier_assign_driver(
+    body: DriverAssignmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    profile = current_user.profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Haulier profile not found")
+
+    driver = db.query(User).filter(
+        User.id == body.driver_id,
+        User.role.in_([Role.DRIVER, Role.FIRM]),
+        User.deleted_at.is_(None),
+    ).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    assignments = list(profile.driver_assignments or [])
+    if any(item.get("driverId") == driver.id for item in assignments):
+        raise HTTPException(status_code=409, detail="Driver already assigned")
+
+    driver_profile = driver.profile
+    item = {
+        "driverId": driver.id,
+        "name": driver.full_name,
+        "email": driver.email,
+        "phone": driver.phone,
+        "vehicleType": driver_profile.vehicle_type if driver_profile else None,
+        "vehicleRegistration": driver_profile.vehicle_registration if driver_profile else None,
+        "licenseNumber": driver_profile.licence_number if driver_profile else None,
+        "assignedAt": datetime.now(timezone.utc).isoformat(),
+        "note": body.note,
+    }
+    assignments.insert(0, item)
+    profile.driver_assignments = assignments
+    db.commit()
+    return created(data=item, message="Driver assigned")
+
+
+@router.delete("/haulier/drivers/assignments/{driver_id}")
+def haulier_unassign_driver(
+    driver_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    profile = current_user.profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Haulier profile not found")
+
+    assignments = list(profile.driver_assignments or [])
+    filtered = [item for item in assignments if item.get("driverId") != driver_id]
+    if len(filtered) == len(assignments):
+        raise HTTPException(status_code=404, detail="Driver assignment not found")
+
+    profile.driver_assignments = filtered
+    db.commit()
+    return ok(data=None, message="Driver unassigned")
 
 
 @router.get("/haulier/active-map")

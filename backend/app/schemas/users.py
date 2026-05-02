@@ -12,6 +12,8 @@ class UserProfileOut(BaseModel):
     companyName: Optional[str] = Field(None, alias="company_name")
     companyAddress: Optional[str] = Field(None, alias="company_address")
     coverageArea: Optional[str] = Field(None, alias="coverage_area")
+    equipmentDetails: Optional[list[dict]] = Field(None, alias="equipment_details")
+    driverAssignments: Optional[list[dict]] = Field(None, alias="driver_assignments")
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -46,6 +48,8 @@ class UpdateProfileRequest(BaseModel):
     company_name: Optional[str] = Field(None, alias="companyName")
     company_address: Optional[str] = Field(None, alias="companyAddress")
     coverage_area: Optional[str] = Field(None, alias="coverageArea")
+    equipment_details: Optional[list[dict]] = Field(None, alias="equipmentDetails")
+    driver_assignments: Optional[list[dict]] = Field(None, alias="driverAssignments")
     bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
     push_token: Optional[str] = Field(None, alias="pushToken")
 

@@ -17,6 +17,7 @@ from app.routers import (
     dashboard,
     documents,
     files,
+    fleet,
     invoices,
     jobs,
     maps,
@@ -144,6 +145,7 @@ app.include_router(dashboard.router, prefix=PREFIX)
 app.include_router(admin.router, prefix=PREFIX)
 app.include_router(maps.router, prefix=PREFIX)
 app.include_router(files.router, prefix=PREFIX)
+app.include_router(fleet.router, prefix=PREFIX)
 app.include_router(system.router, prefix=PREFIX)
 app.include_router(webhooks.router, prefix=PREFIX)
 app.include_router(ws.router)

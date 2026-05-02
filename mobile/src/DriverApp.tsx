@@ -1,13 +1,11 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -20,7 +18,9 @@ import RegisterScreen from './screens/auth/RegisterScreen';
 import VerifyScreen from './screens/auth/VerifyScreen';
 import DashboardScreen from './screens/dashboard/DashboardScreen';
 import JobDiscoveryScreen from './screens/jobs/JobDiscoveryScreen';
+import JobDetailScreen from './screens/jobs/JobDetailScreen';
 import MyQuotesScreen from './screens/jobs/MyQuotesScreen';
+import ProfileScreen from './screens/profile/ProfileScreen';
 import LoadCodeScreen from './screens/compliance/LoadCodeScreen';
 import HandoverScreen from './screens/compliance/HandoverScreen';
 import DeliveryScreen from './screens/compliance/DeliveryScreen';
@@ -36,7 +36,7 @@ import InvoicesScreen from './screens/invoices/InvoicesScreen';
 import PasswordScreen from './screens/profile/PasswordScreen';
 import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
 import SupportScreen from './screens/support/SupportScreen';
-import {bottomTabs, drawerItems} from './navigation/driverNavigation';
+import {bottomTabs} from './navigation/driverNavigation';
 import type {
   AvailabilityResponse,
   DashboardOverview,
@@ -84,8 +84,8 @@ const palette = {
 };
 
 const defaultLogin = {
-  email: 'john@example.com',
-  password: 'Driver@1234',
+  email: '',
+  password: '',
 };
 
 const defaultRegister = {
@@ -151,16 +151,9 @@ function DriverApp(): React.JSX.Element {
   const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<DriverSession | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
   const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
   const [activeRoute, setActiveRoute] = useState<DrawerRouteKey>('home');
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [loginForm, setLoginForm] = useState(defaultLogin);
   const [registerForm, setRegisterForm] = useState(defaultRegister);
@@ -194,11 +187,11 @@ function DriverApp(): React.JSX.Element {
   const [quoteForm, setQuoteForm] = useState<QuoteFormState>(defaultQuoteForm);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [profileForm, setProfileForm] = useState({
+    name: '',
     phone: '',
-    vehicleModel: '',
-    vehicleNumber: '',
+    licenceNumber: '',
     vehicleType: '',
-    vehicleYear: '',
+    vehicleRegistration: '',
   });
   const [passwordForm, setPasswordForm] = useState(defaultPasswordForm);
   const [notificationPrefs, setNotificationPrefs] = useState(
@@ -256,7 +249,7 @@ function DriverApp(): React.JSX.Element {
       driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1}),
       driverApi.dashboard.getJobHistory({limit: 10, page: 1}),
     ]);
-    const jobs = (availableData.jobs as Array<Record<string, unknown>>) ?? [];
+    const jobs = (availableData.items as Array<Record<string, unknown>>) ?? [];
     setAvailableJobs(jobs);
     setUpcomingJobs(
       (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
@@ -302,11 +295,11 @@ function DriverApp(): React.JSX.Element {
     const nextProfile = cast<ProfileResponse>(profileData);
     setProfile(nextProfile);
     setProfileForm({
+      name: String(nextProfile.name ?? ''),
       phone: String(nextProfile.phone ?? ''),
-      vehicleModel: String(nextProfile.profileData?.vehicleModel ?? ''),
-      vehicleNumber: String(nextProfile.profileData?.vehicleNumber ?? ''),
-      vehicleType: String(nextProfile.profileData?.vehicleType ?? ''),
-      vehicleYear: String(nextProfile.profileData?.vehicleYear ?? ''),
+      licenceNumber: String(nextProfile.profile?.licenceNumber ?? ''),
+      vehicleType: String(nextProfile.profile?.vehicleType ?? ''),
+      vehicleRegistration: String(nextProfile.profile?.vehicleRegistration ?? ''),
     });
     setRatings(ratingData ? cast<RatingSummary>(ratingData) : null);
     setNotifications(
@@ -579,7 +572,11 @@ function DriverApp(): React.JSX.Element {
       if (activeTab === 'home' && activeRoute === 'home') {
         await loadHome();
       } else if (activeTab === 'jobs' || activeRoute.startsWith('jobs.')) {
-        await loadJobs();
+        if (activeRoute === 'jobs.myQuotes') {
+          await loadDrawerRoute('jobs.myQuotes');
+        } else {
+          await loadJobs();
+        }
       } else if (
         activeTab === 'tracking' ||
         activeRoute.startsWith('tracking.') ||
@@ -770,7 +767,6 @@ function DriverApp(): React.JSX.Element {
   };
 
   const onSelectDrawerRoute = (route: DrawerRouteKey) => {
-    setDrawerVisible(false);
     setActiveRoute(route);
     setSuccessBanner(null);
     if (route === 'home') {
@@ -796,7 +792,6 @@ function DriverApp(): React.JSX.Element {
       // ignore logout failure and clear local session
     } finally {
       setSession(null);
-      setDrawerVisible(false);
       setApiAccessToken(null);
       setAuthMode('login');
       setSuccessBanner(null);
@@ -820,7 +815,13 @@ function DriverApp(): React.JSX.Element {
 
   const handleProfileSave = async () => {
     await runAction(async () => {
-      await driverApi.profile.update(profileForm);
+      await driverApi.profile.update({
+        name: profileForm.name,
+        phone: profileForm.phone,
+        licenceNumber: profileForm.licenceNumber,
+        vehicleType: profileForm.vehicleType,
+        vehicleRegistration: profileForm.vehicleRegistration,
+      });
       setSuccessBanner('Profile updated successfully.');
       await loadProfile();
     });
@@ -1125,6 +1126,7 @@ function DriverApp(): React.JSX.Element {
       return (
         <DashboardScreen
           dashboard={dashboard}
+          driverName={session?.name}
           earnings={earnings}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -1163,9 +1165,10 @@ function DriverApp(): React.JSX.Element {
               await loadDrawerRoute('jobs.myQuotes');
               setRefreshing(false);
             }}
-            onEditQuote={(quote) => {
-              setSelectedJob(quote);
-              setActiveRoute('jobs.available'); // This will trigger the bid form
+            onProceedToCompliance={(jobId: string) => {
+              setComplianceJobId(jobId);
+              setActiveTab('tracking');
+              setActiveRoute('compliance.loadCode');
             }}
             onWithdrawQuote={handleWithdrawQuote}
           />
@@ -1189,73 +1192,31 @@ function DriverApp(): React.JSX.Element {
         );
       }
       return (
-        <>
-          <SectionCard title="Job Detail">
-            {selectedJobDetails ? (
-              <>
-                <Text style={styles.sectionValue}>
-                  {String(selectedJobDetails.jobReference ?? 'Unknown job')}
-                </Text>
-                <Text style={styles.sectionText}>
-                  {toAddress(selectedJobDetails.pickupLocation)} to{' '}
-                  {toAddress(selectedJobDetails.dropLocation)}
-                </Text>
-                <Text style={styles.sectionText}>
-                  Goods: {String(selectedJobDetails.goodsType ?? 'N/A')}
-                </Text>
-                <Text style={styles.sectionHint}>
-                  Date: {String(selectedJobDetails.jobDate ?? 'N/A')} | Vehicle:{' '}
-                  {String(selectedJobDetails.vehicleTypeRequired ?? 'N/A')}
-                </Text>
-              </>
-            ) : (
-              <EmptyState title="Select a job to view details." />
-            )}
-          </SectionCard>
-          <SectionCard title="Submit Quote">
-            <TextInput
-              keyboardType="numeric"
-              onChangeText={quoteAmount =>
-                setQuoteForm(current => ({...current, quoteAmount}))
-              }
-              placeholder="Quote amount"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={quoteForm.quoteAmount}
-            />
-            <TextInput
-              autoCapitalize="characters"
-              onChangeText={currency =>
-                setQuoteForm(current => ({...current, currency}))
-              }
-              placeholder="Currency"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={quoteForm.currency}
-            />
-            <TextInput
-              multiline
-              onChangeText={notes =>
-                setQuoteForm(current => ({...current, notes}))
-              }
-              placeholder="Notes"
-              placeholderTextColor="#8A94A0"
-              style={[styles.input, styles.textArea]}
-              value={quoteForm.notes}
-            />
-            <Pressable onPress={handleQuoteSubmit} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>
-                {actionLoading ? 'Submitting...' : 'Submit Quote'}
-              </Text>
-            </Pressable>
-          </SectionCard>
-          <SectionCard title="Upcoming Jobs">
-            {renderList(upcomingJobs, 'No upcoming jobs')}
-          </SectionCard>
-          <SectionCard title="Job History">
-            {renderList(jobHistory, 'No completed jobs found')}
-          </SectionCard>
-        </>
+        <JobDetailScreen
+          job={selectedJobDetails ?? selectedJob}
+          onSubmitQuote={async (amount, notes) => {
+            await runAction(async () => {
+              await driverApi.quotes.submit({
+                currency: 'INR',
+                jobId: String((selectedJobDetails ?? selectedJob)?.jobId ?? ''),
+                notes,
+                quoteAmount: Number(amount),
+              });
+              setSuccessBanner('Quote submitted successfully.');
+              setSelectedJob(null);
+              setSelectedJobDetails(null);
+              setActiveRoute('jobs.available');
+              await loadJobs();
+            });
+          }}
+          onBack={() => {
+            setSelectedJob(null);
+            setSelectedJobDetails(null);
+            setActiveRoute('jobs.available');
+          }}
+          loading={actionLoading}
+          error={errorBanner}
+        />
       );
     }
 
@@ -1272,70 +1233,20 @@ function DriverApp(): React.JSX.Element {
 
     if (activeTab === 'profile' && activeRoute === 'profile.edit') {
       return (
-        <>
-          <HeroCard
-            title={profile?.name ?? session?.name ?? 'Driver'}
-            subtitle={profile?.email ?? session?.email ?? ''}
-            rightLabel={profile?.role ?? 'driver'}
-          />
-          <SectionCard title="Edit Profile">
-            <TextInput
-              keyboardType="phone-pad"
-              onChangeText={phone =>
-                setProfileForm(current => ({...current, phone}))
-              }
-              placeholder="Phone"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={profileForm.phone}
-            />
-            <TextInput
-              onChangeText={vehicleType =>
-                setProfileForm(current => ({...current, vehicleType}))
-              }
-              placeholder="Vehicle type"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={profileForm.vehicleType}
-            />
-            <TextInput
-              onChangeText={vehicleNumber =>
-                setProfileForm(current => ({...current, vehicleNumber}))
-              }
-              placeholder="Vehicle number"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={profileForm.vehicleNumber}
-            />
-            <TextInput
-              onChangeText={vehicleModel =>
-                setProfileForm(current => ({...current, vehicleModel}))
-              }
-              placeholder="Vehicle model"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={profileForm.vehicleModel}
-            />
-            <TextInput
-              keyboardType="number-pad"
-              onChangeText={vehicleYear =>
-                setProfileForm(current => ({...current, vehicleYear}))
-              }
-              placeholder="Vehicle year"
-              placeholderTextColor="#8A94A0"
-              style={styles.input}
-              value={profileForm.vehicleYear}
-            />
-            <Pressable onPress={handleProfileSave} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>
-                {actionLoading ? 'Saving...' : 'Save Profile'}
-              </Text>
-            </Pressable>
-          </SectionCard>
-          <SectionCard title="Notifications">
-            {renderNotifications(notifications)}
-          </SectionCard>
-        </>
+        <ProfileScreen
+          profile={profile}
+          session={session}
+          profileForm={profileForm}
+          onChange={patch => setProfileForm(current => ({...current, ...patch}))}
+          onSave={handleProfileSave}
+          loading={actionLoading}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await loadProfile();
+            setRefreshing(false);
+          }}
+        />
       );
     }
 
@@ -1488,8 +1399,8 @@ function DriverApp(): React.JSX.Element {
       case 'compliance.loadCode':
         return (
           <LoadCodeScreen
-            jobId={dashboard?.activeJob?.jobId ?? ''}
-            jobReference={dashboard?.activeJob?.jobReference ?? ''}
+            jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+            jobReference={dashboard?.activeJob?.jobReference ?? complianceJobId ?? ''}
             onVerify={handleVerifyLoadCode}
             loading={actionLoading}
             error={errorBanner}
@@ -1526,7 +1437,7 @@ function DriverApp(): React.JSX.Element {
   };
 
   if (showSplash) {
-    return <SplashScreen />;
+    return <SplashScreen onGetStarted={() => setShowSplash(false)} />;
   }
 
   if (!session) {
@@ -1537,11 +1448,6 @@ function DriverApp(): React.JSX.Element {
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={palette.nav} />
       <View style={styles.header}>
-        <Pressable
-          onPress={() => setDrawerVisible(true)}
-          style={styles.headerIconWrap}>
-          <Text style={styles.headerIcon}>{'\u2630'}</Text>
-        </Pressable>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>
             {bottomTabs.find(tab => tab.key === activeTab)?.label ?? 'Driver'}
@@ -1570,8 +1476,43 @@ function DriverApp(): React.JSX.Element {
         </View>
       ) : null}
 
+      {/* Jobs sub-nav: Find Jobs | My Bids */}
+      {activeTab === 'jobs' && !selectedJob && (
+        <View style={styles.jobsSubNav}>
+          <Pressable
+            onPress={() => {
+              setActiveRoute('jobs.available');
+            }}
+            style={[
+              styles.jobsSubTab,
+              activeRoute !== 'jobs.myQuotes' && styles.jobsSubTabActive,
+            ]}>
+            <Text style={[
+              styles.jobsSubTabText,
+              activeRoute !== 'jobs.myQuotes' && styles.jobsSubTabTextActive,
+            ]}>Find Jobs</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setActiveRoute('jobs.myQuotes');
+            }}
+            style={[
+              styles.jobsSubTab,
+              activeRoute === 'jobs.myQuotes' && styles.jobsSubTabActive,
+            ]}>
+            <Text style={[
+              styles.jobsSubTabText,
+              activeRoute === 'jobs.myQuotes' && styles.jobsSubTabTextActive,
+            ]}>My Bids</Text>
+          </Pressable>
+        </View>
+      )}
+
       {(activeRoute === 'jobs.available' && !selectedJob) ||
-      activeRoute === 'home' ? (
+      activeRoute === 'jobs.myQuotes' ||
+      activeRoute === 'home' ||
+      (activeTab === 'profile' && activeRoute === 'profile.edit') ||
+      (activeTab === 'jobs' && !!selectedJob) ? (
         <View style={[styles.contentContainer, {flex: 1}]}>
           {renderCurrentView()}
         </View>
@@ -1616,53 +1557,6 @@ function DriverApp(): React.JSX.Element {
         ))}
       </View>
 
-      <Modal
-        animationType="slide"
-        transparent
-        visible={drawerVisible}
-        onRequestClose={() => setDrawerVisible(false)}>
-        <Pressable
-          onPress={() => setDrawerVisible(false)}
-          style={styles.drawerBackdrop}
-        />
-        <View style={styles.drawerPanel}>
-          <View style={styles.drawerProfile}>
-            <Text style={styles.drawerName}>{session.name}</Text>
-            <Text style={styles.drawerMeta}>
-              {String(profile?.rating ?? dashboard?.rating ?? 0)} rating |{' '}
-              {String(profile?.totalJobs ?? 0)} jobs completed
-            </Text>
-            <Text style={styles.drawerBadge}>
-              {availabilityForm.isAvailable ? 'Available' : 'Unavailable'}
-            </Text>
-          </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {drawerItems.map(item => (
-              <View key={item.key} style={styles.drawerSection}>
-                <Pressable
-                  onPress={() => {
-                    if (item.key === 'logout') {
-                      handleLogout().catch(() => undefined);
-                      return;
-                    }
-                    onSelectDrawerRoute(item.key as DrawerRouteKey);
-                  }}
-                  style={styles.drawerItem}>
-                  <Text style={styles.drawerItemLabel}>{item.label}</Text>
-                </Pressable>
-                {item.children?.map(child => (
-                  <Pressable
-                    key={child.key}
-                    onPress={() => onSelectDrawerRoute(child.key)}
-                    style={styles.drawerChild}>
-                    <Text style={styles.drawerChildText}>{child.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1855,69 +1749,6 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 36,
   },
-  drawerBackdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    flex: 1,
-  },
-  drawerBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: palette.success,
-    borderRadius: 999,
-    color: palette.card,
-    fontSize: 12,
-    fontWeight: '800',
-    overflow: 'hidden',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  drawerChild: {
-    paddingBottom: 12,
-    paddingLeft: 14,
-  },
-  drawerChildText: {
-    color: palette.inkSoft,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  drawerItem: {
-    paddingBottom: 10,
-  },
-  drawerItemLabel: {
-    color: palette.ink,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  drawerMeta: {
-    color: palette.inkSoft,
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  drawerName: {
-    color: palette.ink,
-    fontSize: 20,
-    fontWeight: '900',
-    marginBottom: 6,
-  },
-  drawerPanel: {
-    backgroundColor: palette.bg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    height: '78%',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-  },
-  drawerProfile: {
-    borderBottomColor: palette.border,
-    borderBottomWidth: 1,
-    marginBottom: 16,
-    paddingBottom: 18,
-  },
-  drawerSection: {
-    borderBottomColor: '#EEE6D6',
-    borderBottomWidth: 1,
-    marginBottom: 12,
-    paddingBottom: 8,
-  },
   emptyText: {
     color: palette.inkSoft,
     fontSize: 14,
@@ -1935,17 +1766,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 14,
-  },
-  headerIcon: {
-    color: palette.card,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  headerIconWrap: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
   headerRefresh: {
     backgroundColor: palette.accent,
@@ -2137,7 +1957,36 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 80, // Space for floating tab bar
+    paddingBottom: 80,
+  },
+  jobsSubNav: {
+    flexDirection: 'row',
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  jobsSubTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  jobsSubTabActive: {
+    backgroundColor: palette.nav,
+  },
+  jobsSubTabText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: palette.inkSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  jobsSubTabTextActive: {
+    color: palette.accent,
   },
   secondaryButton: {
     alignItems: 'center',

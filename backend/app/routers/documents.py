@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.response import ok, created
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.document import Document, DocType
@@ -65,3 +66,16 @@ def submit_document(
     DocType(doc_type)
     doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
     return created(data=_doc_dict(doc), message="Document submitted for review")
+
+
+@router.post("/submit-upload", status_code=201)
+def submit_uploaded_document(
+    doc_type: str = Query(...),
+    key: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    DocType(doc_type)
+    file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
+    return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")

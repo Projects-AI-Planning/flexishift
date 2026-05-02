@@ -20,8 +20,25 @@ def _gen_load_code() -> str:
 
 
 async def create_job(db: Session, haulier: User, data: dict) -> Job:
-    if not haulier.profile_complete:
-        raise HTTPException(status_code=403, detail="Complete your profile before posting a job")
+    from app.services.maps import geocode_address
+
+    if not data.get("pickup_lat") or not data.get("pickup_lng"):
+        try:
+            geo = await geocode_address(data["pickup_address"])
+            data["pickup_lat"] = geo["lat"]
+            data["pickup_lng"] = geo["lng"]
+            data["pickup_address"] = geo["formatted_address"]
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+    if not data.get("drop_lat") or not data.get("drop_lng"):
+        try:
+            geo = await geocode_address(data["drop_address"])
+            data["drop_lat"] = geo["lat"]
+            data["drop_lng"] = geo["lng"]
+            data["drop_address"] = geo["formatted_address"]
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
 
     route = await get_route_info(
         data["pickup_lat"], data["pickup_lng"],
@@ -80,7 +97,7 @@ def list_jobs(
     # ADMIN sees all
 
     if status:
-        q = q.filter(Job.status == JobStatus(status))
+        q = q.filter(Job.status == JobStatus(status.upper()))
 
     total = q.count()
     items = q.order_by(Job.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
@@ -116,6 +133,21 @@ def close_job(db: Session, job_id: str, current_user: User) -> Job:
     db.commit()
     db.refresh(job)
     return job
+
+
+def list_available_jobs(
+    db: Session,
+    current_user: User,
+    page: int = 1,
+    per_page: int = 20,
+    vehicle_type: str | None = None,
+) -> dict:
+    q = db.query(Job).filter(Job.status == JobStatus.OPEN, Job.deleted_at.is_(None))
+    if vehicle_type:
+        q = q.filter(Job.vehicle_type == vehicle_type)
+    total = q.count()
+    items = q.order_by(Job.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 def list_my_jobs(db: Session, current_user: User, page: int = 1, per_page: int = 20) -> dict:

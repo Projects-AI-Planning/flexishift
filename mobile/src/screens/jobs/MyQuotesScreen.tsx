@@ -5,215 +5,356 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  SafeAreaView,
   RefreshControl,
   Alert,
 } from 'react-native';
-import Card from '../../components/common/Card';
-import {colors, radius, spacing} from '../../theme';
+import {colors, radius, spacing, shadow} from '../../theme';
 
 interface MyQuotesScreenProps {
   quotes: any[];
   refreshing: boolean;
   onRefresh: () => void;
-  onEditQuote: (quote: any) => void;
+  onProceedToCompliance: (jobId: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE:    'Pending',
+  PENDING:   'Pending',
+  ACCEPTED:  'Accepted',
+  BOOKED:    'Accepted',
+  DECLINED:  'Declined',
+  WITHDRAWN: 'Withdrawn',
+};
 
 const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
   quotes,
   refreshing,
   onRefresh,
-  onEditQuote,
+  onProceedToCompliance,
   onWithdrawQuote,
 }) => {
   const handleWithdraw = (quoteId: string) => {
     Alert.alert('Withdraw Bid', 'Are you sure you want to withdraw this bid?', [
       {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Withdraw',
-        style: 'destructive',
-        onPress: () => onWithdrawQuote(quoteId),
-      },
+      {text: 'Withdraw', style: 'destructive', onPress: () => onWithdrawQuote(quoteId)},
     ]);
   };
 
-  const renderQuoteItem = ({item}: {item: any}) => (
-    <Card
-      title={item.jobReference || 'Job Bid'}
-      subtitle={`Submitted on ${item.createdAt || 'Recently'}`}
-      rightLabel={String(item.status || 'PENDING').toUpperCase()}
-      variant={item.status === 'accepted' ? 'accent' : 'default'}>
-      <View style={styles.quoteInfo}>
-        <View style={styles.amountBox}>
-          <Text style={styles.amountLabel}>Your Bid</Text>
-          <Text style={styles.amountValue}>Rs {item.quoteAmount}</Text>
-        </View>
-        <View style={styles.infoDivider} />
-        <View style={styles.amountBox}>
-          <Text style={styles.amountLabel}>Job Date</Text>
-          <Text style={styles.amountValue}>{item.jobDate || 'N/A'}</Text>
-        </View>
-      </View>
+  const renderItem = ({item}: {item: any}) => {
+    const statusUpper = (item.status ?? '').toUpperCase();
+    const isAccepted  = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED';
+    const isPending   = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
+    const isDeclined  = statusUpper === 'DECLINED' || statusUpper === 'WITHDRAWN';
+    const jobId       = String(item.jobId ?? '');
 
-      {item.notes ? (
-        <Text style={styles.notesText} numberOfLines={2}>
-          "{item.notes}"
-        </Text>
-      ) : null}
-
-      {item.status === 'pending' ? (
-        <View style={styles.actionRow}>
-          <Pressable onPress={() => onEditQuote(item)} style={styles.editBtn}>
-            <Text style={styles.editBtnText}>Edit Bid</Text>
-          </Pressable>
-          <Pressable onPress={() => handleWithdraw(item.quoteId)} style={styles.withdrawBtn}>
-            <Text style={styles.withdrawBtnText}>Withdraw</Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </Card>
-  );
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Active Bids</Text>
-        <Text style={styles.subtitle}>
-          Track and manage your submitted quotes for available loads.
-        </Text>
-      </View>
-
-      <FlatList
-        data={quotes}
-        renderItem={renderQuoteItem}
-        keyExtractor={item => item.quoteId || String(Math.random())}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>{'\u270D'}</Text>
-            <Text style={styles.emptyTitle}>No Active Bids</Text>
-            <Text style={styles.emptySubtitle}>
-              Go to the Find Loads tab to place your first bid.
+    return (
+      <View style={[styles.card, isAccepted && styles.cardAccepted]}>
+        {/* Top row: ref + status badge */}
+        <View style={styles.cardHeader}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.jobRef} numberOfLines={1}>
+              {item.jobReference ?? item.jobRef ?? `Job #${jobId.slice(-6)}`}
+            </Text>
+            <Text style={styles.submittedAt}>
+              {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Recently'}
             </Text>
           </View>
-        }
-      />
-    </SafeAreaView>
+          <View style={[
+            styles.statusBadge,
+            isAccepted ? styles.badgeGreen :
+            isDeclined ? styles.badgeRed   :
+            styles.badgeGrey,
+          ]}>
+            <Text style={[
+              styles.statusText,
+              isAccepted ? styles.statusTextGreen :
+              isDeclined ? styles.statusTextRed   :
+              styles.statusTextGrey,
+            ]}>
+              {STATUS_LABELS[statusUpper] ?? item.status}
+            </Text>
+          </View>
+        </View>
+
+        {/* Route */}
+        {(item.pickupLocation || item.dropLocation) ? (
+          <View style={styles.routeRow}>
+            <View style={[styles.dot, styles.dotGreen]} />
+            <Text style={styles.routeText} numberOfLines={1}>{item.pickupLocation ?? '—'}</Text>
+            <Text style={styles.routeArrow}>→</Text>
+            <View style={[styles.dot, styles.dotAmber]} />
+            <Text style={styles.routeText} numberOfLines={1}>{item.dropLocation ?? '—'}</Text>
+          </View>
+        ) : null}
+
+        {/* Bid amount + job date */}
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Your Bid</Text>
+            <Text style={styles.statValue}>
+              {item.currency ?? 'Rs'} {Number(item.quoteAmount ?? item.amount ?? 0).toLocaleString()}
+            </Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Job Date</Text>
+            <Text style={styles.statValue}>{item.jobDate ?? 'TBC'}</Text>
+          </View>
+        </View>
+
+        {item.notes ? (
+          <Text style={styles.notesText} numberOfLines={2}>"{item.notes}"</Text>
+        ) : null}
+
+        {/* Accepted — Proceed to Compliance */}
+        {isAccepted && (
+          <View style={styles.acceptedSection}>
+            <View style={styles.acceptedBanner}>
+              <Text style={styles.acceptedBannerIcon}>🎉</Text>
+              <View>
+                <Text style={styles.acceptedBannerTitle}>Your bid was accepted!</Text>
+                <Text style={styles.acceptedBannerSub}>
+                  Proceed to verify the load code at pickup.
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => onProceedToCompliance(jobId)}
+              style={styles.complianceBtn}>
+              <Text style={styles.complianceBtnText}>Proceed to Compliance →</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Pending — Withdraw */}
+        {isPending && (
+          <View style={styles.actionRow}>
+            <Pressable
+              onPress={() => handleWithdraw(item.quoteId)}
+              style={styles.withdrawBtn}>
+              <Text style={styles.withdrawBtnText}>Withdraw Bid</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <FlatList
+      data={quotes}
+      renderItem={renderItem}
+      keyExtractor={item => item.quoteId ?? String(Math.random())}
+      contentContainerStyle={styles.listContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyIcon}>✍️</Text>
+          <Text style={styles.emptyTitle}>No Active Bids</Text>
+          <Text style={styles.emptySub}>
+            Go to Find Jobs to place your first bid.
+          </Text>
+        </View>
+      }
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    padding: spacing.xl,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: colors.navy,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: colors.inkSoft,
-    lineHeight: 21,
-  },
   listContent: {
     padding: spacing.xl,
     paddingBottom: 120,
+    gap: spacing.md,
   },
-  quoteInfo: {
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.md,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardAccepted: {
+    borderColor: '#34D399',
+    borderWidth: 2,
+  },
+  cardHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.neutralSoft,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  amountBox: {
+  headerLeft: {
     flex: 1,
+    marginRight: spacing.md,
   },
-  amountLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.inkSoft,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  amountValue: {
+  jobRef: {
+    color: colors.navy,
     fontSize: 16,
     fontWeight: '900',
-    color: colors.navy,
   },
-  infoDivider: {
+  submittedAt: {
+    color: colors.inkSoft,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  statusBadge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  badgeGreen: {backgroundColor: '#DCFCE7'},
+  badgeRed:   {backgroundColor: '#FEE2E2'},
+  badgeGrey:  {backgroundColor: '#F1F5F9'},
+  statusText: {
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statusTextGreen: {color: '#15803D'},
+  statusTextRed:   {color: '#B91C1C'},
+  statusTextGrey:  {color: '#64748B'},
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFD',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  dotGreen: {backgroundColor: '#34D399'},
+  dotAmber: {backgroundColor: colors.accent},
+  routeText: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  routeArrow: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    flexShrink: 0,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFD',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  statBox: {flex: 1},
+  statDivider: {
     width: 1,
     backgroundColor: colors.border,
     marginHorizontal: spacing.md,
   },
-  notesText: {
-    fontSize: 13,
+  statLabel: {
     color: colors.inkSoft,
-    fontStyle: 'italic',
-    marginBottom: spacing.md,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 2,
   },
-  actionRow: {
-    flexDirection: 'row',
+  statValue: {
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  notesText: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  acceptedSection: {
     gap: spacing.md,
   },
-  editBtn: {
-    flex: 1,
-    backgroundColor: colors.navy,
-    paddingVertical: 12,
-    borderRadius: 16,
+  acceptedBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#F0FDF4',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
-  editBtnText: {
-    color: colors.card,
-    fontSize: 13,
-    fontWeight: '800',
+  acceptedBannerIcon: {fontSize: 24},
+  acceptedBannerTitle: {
+    color: '#15803D',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  acceptedBannerSub: {
+    color: '#166534',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  complianceBtn: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.lg,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  complianceBtnText: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  actionRow: {
+    marginTop: 2,
   },
   withdrawBtn: {
-    flex: 1,
     borderWidth: 1,
     borderColor: colors.danger,
-    paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: radius.md,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.card,
   },
   withdrawBtnText: {
     color: colors.danger,
     fontSize: 13,
     fontWeight: '800',
   },
-  emptyContainer: {
+  emptyBox: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 80,
+    gap: spacing.md,
   },
-  emptyIcon: {
-    fontSize: 56,
-    marginBottom: spacing.md,
-  },
+  emptyIcon: {fontSize: 56},
   emptyTitle: {
+    color: colors.navy,
     fontSize: 22,
     fontWeight: '900',
-    color: colors.navy,
-    marginBottom: spacing.sm,
   },
-  emptySubtitle: {
-    fontSize: 15,
+  emptySub: {
     color: colors.inkSoft,
+    fontSize: 14,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
+    lineHeight: 20,
   },
 });
 

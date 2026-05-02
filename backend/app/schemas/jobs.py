@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 
 class JobCreateRequest(BaseModel):
     pickup_address: str = Field(..., alias="pickupAddress")
-    pickup_lat: float = Field(..., alias="pickupLat")
-    pickup_lng: float = Field(..., alias="pickupLng")
+    pickup_lat: Optional[float] = Field(None, alias="pickupLat")
+    pickup_lng: Optional[float] = Field(None, alias="pickupLng")
     drop_address: str = Field(..., alias="dropAddress")
-    drop_lat: float = Field(..., alias="dropLat")
-    drop_lng: float = Field(..., alias="dropLng")
+    drop_lat: Optional[float] = Field(None, alias="dropLat")
+    drop_lng: Optional[float] = Field(None, alias="dropLng")
     goods_type: str = Field(..., alias="goodsType")
     weight_kg: float = Field(..., alias="weightKg")
     vehicle_type: str = Field(..., alias="vehicleType")

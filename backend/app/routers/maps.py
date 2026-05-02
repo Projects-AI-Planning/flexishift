@@ -29,9 +29,30 @@ class CalculateRouteRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+async def _geocode_nominatim(address: str) -> dict:
+    """Free fallback geocoder using OpenStreetMap Nominatim (no API key required)."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": address, "format": "json", "limit": 1, "addressdetails": 1},
+            headers={"User-Agent": "FreightFlex/1.0 (logistics-platform)"},
+            timeout=10,
+        )
+    results = resp.json()
+    if not results:
+        raise HTTPException(status_code=422, detail="Address could not be found. Please enter a more specific address.")
+    r = results[0]
+    return {
+        "formatted_address": r.get("display_name", address),
+        "lat": float(r["lat"]),
+        "lng": float(r["lon"]),
+        "place_id": r.get("place_id"),
+    }
+
+
 async def _geocode(address: str) -> dict:
     if not settings.GOOGLE_MAPS_API_KEY:
-        raise HTTPException(status_code=503, detail="Google Maps API key not configured")
+        return await _geocode_nominatim(address)
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             GEOCODE_URL,
@@ -40,7 +61,7 @@ async def _geocode(address: str) -> dict:
         )
     data = resp.json()
     if data.get("status") != "OK" or not data.get("results"):
-        raise HTTPException(status_code=422, detail="Address could not be validated")
+        return await _geocode_nominatim(address)
     result = data["results"][0]
     loc = result["geometry"]["location"]
     return {
@@ -74,7 +95,21 @@ async def autocomplete_address(
     current_user: User = Depends(get_current_user),
 ):
     if not settings.GOOGLE_MAPS_API_KEY:
-        raise HTTPException(status_code=503, detail="Google Maps API key not configured")
+        # Nominatim fallback: search and return top suggestions
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": input, "format": "json", "limit": 5, "addressdetails": 1},
+                headers={"User-Agent": "FreightFlex/1.0 (logistics-platform)"},
+                timeout=10,
+            )
+        results = resp.json()
+        predictions = [
+            {"description": r.get("display_name", ""), "placeId": str(r.get("place_id", ""))}
+            for r in results
+        ]
+        return ok(data={"predictions": predictions, "total": len(predictions)}, message="Autocomplete results")
+
     AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
     async with httpx.AsyncClient() as client:
         resp = await client.get(

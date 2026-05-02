@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import uuid4
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -18,6 +19,8 @@ _USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id"}
 _PROFILE_FIELDS = {
     "photo_url", "licence_number", "vehicle_type",
     "vehicle_registration", "company_name", "company_address", "coverage_area",
+    "equipment_details",
+    "driver_assignments",
 }
 
 
@@ -71,6 +74,8 @@ def _user_data(user: User) -> dict:
             "companyName": profile.company_name if profile else None,
             "companyAddress": profile.company_address if profile else None,
             "coverageArea": profile.coverage_area if profile else None,
+            "equipmentDetails": profile.equipment_details if profile else [],
+            "driverAssignments": profile.driver_assignments if profile else [],
         } if profile else None,
     }
 
@@ -121,12 +126,63 @@ def update_profile(
 
 
 @router.post("/photo/upload")
-def get_photo_upload_url(current_user: User = Depends(get_current_user)):
+def get_photo_upload_url(
+    content_type: str = Query("image/jpeg", alias="contentType"),
+    current_user: User = Depends(get_current_user),
+):
     key = f"photos/{current_user.id}/profile.jpg"
-    result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, "image/jpeg")
+    result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, content_type)
     return ok(
         data={**result, "field": "photoUrl", "note": "After upload, call PUT /profile/update with photoUrl"},
         message="Presigned upload URL generated",
+    )
+
+
+@router.post("/photo/upload-direct")
+async def upload_photo_direct(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    suffix = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }.get(file.content_type or "", (file.filename or "").split(".")[-1] or "jpg")
+    key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
+    contents = await file.read()
+    photo_url = s3.upload_bytes(settings.AWS_S3_BUCKET_DOCS, key, contents, file.content_type or "image/jpeg")
+    _apply_updates(current_user, {"photo_url": photo_url}, db)
+    return ok(
+        data={
+            "photoUrl": photo_url,
+            "key": key,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+        },
+        message="Profile photo uploaded successfully",
+    )
+
+
+class PhotoSubmitRequest(BaseModel):
+    key: str
+
+
+@router.post("/photo/submit-upload")
+def submit_photo_upload(
+    body: PhotoSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    photo_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{body.key}"
+    _apply_updates(current_user, {"photo_url": photo_url}, db)
+    return ok(
+        data={
+            "photoUrl": photo_url,
+            "key": body.key,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+        },
+        message="Profile photo updated successfully",
     )
 
 
