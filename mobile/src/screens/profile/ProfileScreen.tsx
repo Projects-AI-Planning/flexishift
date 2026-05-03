@@ -25,6 +25,7 @@ interface ProfileScreenProps {
   profileForm: ProfileForm;
   onChange: (patch: Partial<ProfileForm>) => void;
   onSave: () => void;
+  onLogout: () => void;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -63,6 +64,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   profileForm,
   onChange,
   onSave,
+  onLogout,
   loading,
   refreshing,
   onRefresh,
@@ -165,6 +167,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         ) : (
           <Text style={styles.saveButtonText}>Save Profile</Text>
         )}
+      </Pressable>
+
+      <Pressable
+        onPress={onLogout}
+        style={styles.logoutButton}>
+        <Text style={styles.logoutButtonText}>Log Out</Text>
       </Pressable>
 
     </ScrollView>
@@ -323,6 +331,20 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: colors.navy,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  logoutButton: {
+    backgroundColor: '#FDE8E6',
+    borderRadius: radius.lg,
+    minHeight: 58,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3B4B0',
+  },
+  logoutButtonText: {
+    color: colors.danger,
     fontSize: 18,
     fontWeight: '900',
   },

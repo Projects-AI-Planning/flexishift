@@ -217,6 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       icon: 'local_shipping',
       label: 'My Jobs',
       children: [
+        { to: '/haulier/jobs', label: 'All Jobs & Quotes' },
         { to: '/haulier/jobs/open', label: 'Open' },
         { to: '/haulier/jobs/booked', label: 'Booked' },
         { to: '/haulier/jobs/transit', label: 'In Transit' },

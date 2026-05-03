@@ -8,7 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
 
 interface RegisterScreenProps {
   registerForm: any;
@@ -18,6 +18,40 @@ interface RegisterScreenProps {
   authError: string | null;
   setAuthMode: (mode: any) => void;
 }
+
+const Field = ({
+  icon,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+  secureTextEntry,
+}: {
+  icon: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  secureTextEntry?: boolean;
+}) => (
+  <View style={styles.fieldWrap}>
+    <View style={styles.fieldRow}>
+      <Text style={styles.fieldIcon}>{icon}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#7A8494"
+        style={styles.input}
+        keyboardType={keyboardType ?? 'default'}
+        autoCapitalize={autoCapitalize ?? 'none'}
+        secureTextEntry={secureTextEntry}
+      />
+    </View>
+  </View>
+);
 
 const RegisterScreen: React.FC<RegisterScreenProps> = ({
   registerForm,
@@ -29,74 +63,55 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 }) => {
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.brand}>FreightFlex</Text>
-          <Text style={styles.subtitle}>Create your driver account</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.brandRow}>
+          <View style={styles.brandBadge}>
+            <Text style={styles.brandBadgeText}>⛟</Text>
+          </View>
+          <Text style={styles.brandText}>FREIGHTFLEX</Text>
+        </View>
+
+        <View style={styles.hero}>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Start managing your logistics pipeline today.</Text>
         </View>
 
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
-        <View style={styles.card}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              onChangeText={name =>
-                setRegisterForm((current: any) => ({...current, name}))
-              }
-              placeholder="John Doe"
-              placeholderTextColor="#9AA4B2"
-              style={styles.input}
-              value={registerForm.name}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={email =>
-                setRegisterForm((current: any) => ({...current, email}))
-              }
-              placeholder="driver.77@freightflex.com"
-              placeholderTextColor="#9AA4B2"
-              style={styles.input}
-              value={registerForm.email}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              keyboardType="phone-pad"
-              onChangeText={phone =>
-                setRegisterForm((current: any) => ({...current, phone}))
-              }
-              placeholder="+91 9876543210"
-              placeholderTextColor="#9AA4B2"
-              style={styles.input}
-              value={registerForm.phone}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              onChangeText={password =>
-                setRegisterForm((current: any) => ({...current, password}))
-              }
-              placeholder="••••••••••"
-              placeholderTextColor="#9AA4B2"
-              secureTextEntry
-              style={styles.input}
-              value={registerForm.password}
-            />
-          </View>
+        <View style={styles.form}>
+          <Field
+            icon="👤"
+            value={registerForm.name}
+            onChangeText={(name) => setRegisterForm((current: any) => ({ ...current, name }))}
+            placeholder="Full Name"
+          />
+          <Field
+            icon="✉"
+            value={registerForm.email}
+            onChangeText={(email) => setRegisterForm((current: any) => ({ ...current, email }))}
+            placeholder="Email Address"
+            keyboardType="email-address"
+          />
+          <Field
+            icon="☎"
+            value={registerForm.phone}
+            onChangeText={(phone) => setRegisterForm((current: any) => ({ ...current, phone }))}
+            placeholder="Phone Number"
+            keyboardType="phone-pad"
+          />
+          <Field
+            icon="🔒"
+            value={registerForm.password}
+            onChangeText={(password) => setRegisterForm((current: any) => ({ ...current, password }))}
+            placeholder="Password"
+            secureTextEntry
+          />
 
           <Pressable onPress={handleRegister} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>
               {authLoading ? 'Creating...' : 'Sign Up'}
+              {'  '}
+              {'→'}
             </Text>
           </Pressable>
         </View>
@@ -104,7 +119,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <Pressable onPress={() => setAuthMode('login')}>
-            <Text style={styles.footerLink}>Sign In</Text>
+            <Text style={styles.footerLink}>Login here</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -115,74 +130,106 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#F4F7FB',
   },
   content: {
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  header: {
-    marginBottom: spacing.lg,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 24,
+    marginTop: 4,
   },
-  brand: {
-    color: colors.navy,
-    fontSize: 36,
+  brandBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.navy,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brandBadgeText: {
+    color: colors.card,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: -1,
+  },
+  brandText: {
+    color: colors.navy,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  hero: {
+    marginBottom: 34,
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 30,
+    fontWeight: '400',
+    letterSpacing: -0.3,
   },
   subtitle: {
-    color: colors.inkSoft,
+    marginTop: 12,
+    color: '#525863',
     fontSize: 18,
-    marginTop: 6,
+    lineHeight: 26,
   },
   errorText: {
     borderWidth: 1,
     borderColor: '#F3B4B0',
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: '#FFF1EF',
     color: colors.danger,
     borderRadius: radius.lg,
-    padding: spacing.md,
+    padding: 14,
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: spacing.lg,
+    marginBottom: 18,
   },
-  card: {
+  form: {
+    gap: 16,
+  },
+  fieldWrap: {
     backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: spacing.xl,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 5,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#C9CFD9',
   },
-  inputGroup: {
-    marginBottom: spacing.lg,
+  fieldRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
-  label: {
-    color: colors.navy,
+  fieldIcon: {
+    width: 24,
+    marginRight: 12,
+    color: '#6E7685',
     fontSize: 16,
-    fontWeight: '900',
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
+    textAlign: 'center',
   },
   input: {
-    borderWidth: 2,
-    borderColor: '#D6DCE5',
-    borderRadius: 18,
-    minHeight: 62,
-    paddingHorizontal: spacing.lg,
-    fontSize: 17,
+    flex: 1,
+    minHeight: 54,
     color: colors.ink,
-    backgroundColor: '#F8FAFD',
+    fontSize: 18,
+    paddingVertical: 0,
   },
   primaryButton: {
-    backgroundColor: colors.accent,
+    marginTop: 10,
+    minHeight: 62,
     borderRadius: 18,
-    minHeight: 64,
+    backgroundColor: colors.navy,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    shadowColor: 'rgba(16, 34, 53, 0.28)',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 4,
   },
   primaryButtonText: {
     color: colors.card,
@@ -193,15 +240,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginTop: 28,
+    paddingHorizontal: 8,
   },
   footerText: {
     color: colors.inkSoft,
-    fontSize: 16,
+    fontSize: 15,
   },
   footerLink: {
     color: colors.accent,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
 });

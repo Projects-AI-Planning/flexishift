@@ -19,6 +19,7 @@ const SuspendedUsersPage: React.FC = () => {
   const { data, loading, error, refresh } = useAdminUsers(params);
   const [selectedUser, setSelectedUser] = useState<ExtendedUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const selectedRole = selectedUser?.role?.toLowerCase();
 
   const handleActivate = async (userId: string) => {
     try {
@@ -237,7 +238,7 @@ const SuspendedUsersPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {selectedUser.role === 'haulier' && (
+                  {selectedRole === 'haulier' && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Name</p>
@@ -249,7 +250,7 @@ const SuspendedUsersPage: React.FC = () => {
                       </div>
                     </>
                   )}
-                  {selectedUser.role === 'driver' && (
+                  {selectedRole === 'driver' && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Type</p>

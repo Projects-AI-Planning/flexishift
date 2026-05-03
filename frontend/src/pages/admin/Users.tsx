@@ -25,6 +25,7 @@ const UsersPage: React.FC = () => {
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [createError, setCreateError] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
+  const selectedRole = selectedUser?.role?.toLowerCase();
 
   const handleStatusUpdate = async (userId: string, newStatus: string) => {
     try {
@@ -398,7 +399,7 @@ const UsersPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {selectedUser.role === 'haulier' && (
+                  {selectedRole === 'haulier' && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Name</p>
@@ -410,7 +411,7 @@ const UsersPage: React.FC = () => {
                       </div>
                     </>
                   )}
-                  {selectedUser.role === 'driver' && (
+                  {selectedRole === 'driver' && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Type</p>

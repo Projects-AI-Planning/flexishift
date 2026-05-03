@@ -88,10 +88,23 @@ export const driverApi = {
       }),
   },
   bookings: {
+    accept: (bookingId: string) =>
+      request<Record<string, unknown>>(`/bookings/${bookingId}/accept`, {
+        method: 'POST',
+      }),
     getDetails: (bookingId: string) =>
       request<Record<string, unknown>>(`/bookings/${bookingId}`),
     list: (params?: Record<string, string | number | boolean | undefined>) =>
       request<Record<string, unknown>>('/bookings/list', {params}),
+    listMine: (params?: Record<string, string | number | boolean | undefined>) =>
+      request<Record<string, unknown>>('/bookings/list', {params}),
+  },
+  incidents: {
+    report: (payload: Record<string, unknown>) =>
+      request<Record<string, unknown>>('/tracking/incident', {
+        method: 'POST',
+        body: jsonBody(payload),
+      }),
   },
   compliance: {
     getDeliveryStatus: (jobId: string) =>

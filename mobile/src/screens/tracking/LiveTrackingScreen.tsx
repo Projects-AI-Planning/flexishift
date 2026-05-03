@@ -5,6 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import Card from '../../components/common/Card';
 import {colors, radius, shadow, spacing} from '../../theme';
@@ -12,139 +13,271 @@ import {colors, radius, shadow, spacing} from '../../theme';
 interface LiveTrackingScreenProps {
   activeJob: any;
   trackingEta: any;
+  complianceStatus: any;
   onUpdateLocation: (location: any) => void;
   onStopTracking: () => void;
+  onGoToLoadCode: () => void;
+  onGoToHandover: () => void;
+  onGoToDelivery: () => void;
+  onReportIncident: () => void;
 }
+
+type ComplianceStep = 'load_code' | 'handover' | 'in_transit' | 'delivery' | 'done';
+
+function resolveStep(complianceStatus: any, activeJob: any): ComplianceStep {
+  const status = (complianceStatus?.currentStep ?? activeJob?.currentComplianceStep ?? '').toLowerCase();
+  if (!status || status === 'load_code') {return 'load_code';}
+  if (status === 'handover' || status === 'vehicle_handover') {return 'handover';}
+  if (status === 'in_transit') {return 'in_transit';}
+  if (status === 'delivery' || status === 'deliver') {return 'delivery';}
+  if (status === 'completed' || status === 'done') {return 'done';}
+  const jobStatus = (activeJob?.status ?? '').toLowerCase();
+  if (jobStatus === 'in_transit') {return 'in_transit';}
+  return 'load_code';
+}
+
+const STEPS = [
+  {id: 'load_code', label: 'Load Code'},
+  {id: 'handover', label: 'Handover'},
+  {id: 'in_transit', label: 'In Transit'},
+  {id: 'delivery', label: 'Delivery'},
+];
 
 const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   activeJob,
   trackingEta,
+  complianceStatus,
   onUpdateLocation,
   onStopTracking,
+  onGoToLoadCode,
+  onGoToHandover,
+  onGoToDelivery,
+  onReportIncident,
 }) => {
   const [progress, setProgress] = useState(12);
+  const currentStep = resolveStep(complianceStatus, activeJob);
+  const isInTransit = currentStep === 'in_transit';
 
   useEffect(() => {
+    if (!isInTransit) {return;}
     const interval = setInterval(() => {
       setProgress(prev => (prev < 92 ? prev + 1 : 92));
     }, 1500);
     return () => clearInterval(interval);
-  }, []);
+  }, [isInTransit]);
+
+  const stepIndex = STEPS.findIndex(s => s.id === currentStep);
+
+  if (!activeJob) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.noJobWrap}>
+          <Text style={styles.noJobIcon}>🚚</Text>
+          <Text style={styles.noJobTitle}>No Active Trip</Text>
+          <Text style={styles.noJobSub}>
+            Accept a job and proceed through compliance to start live tracking.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Compliance Step Progress Bar */}
+      <View style={styles.stepBar}>
+        {STEPS.map((step, idx) => {
+          const isDone = idx < stepIndex;
+          const isCurrent = idx === stepIndex;
+          return (
+            <React.Fragment key={step.id}>
+              <View style={styles.stepItem}>
+                <View style={[
+                  styles.stepDot,
+                  isDone && styles.stepDotDone,
+                  isCurrent && styles.stepDotCurrent,
+                ]}>
+                  <Text style={[styles.stepDotText, (isDone || isCurrent) && styles.stepDotTextActive]}>
+                    {isDone ? '✓' : String(idx + 1)}
+                  </Text>
+                </View>
+                <Text style={[styles.stepLabel, isCurrent && styles.stepLabelCurrent]}>
+                  {step.label}
+                </Text>
+              </View>
+              {idx < STEPS.length - 1 && (
+                <View style={[styles.stepLine, idx < stepIndex && styles.stepLineDone]} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </View>
+
+      {/* Map View */}
       <View style={styles.mapContainer}>
         <View style={styles.mapHeader}>
           <Text style={styles.mapHeaderTitle}>{activeJob?.jobReference || 'Active Trip'}</Text>
           <Text style={styles.mapHeaderSubtitle}>
-            {trackingEta?.estimatedArrival || 'ETA 14:30'}
+            ETA {trackingEta?.estimatedArrival || '—'}
           </Text>
         </View>
         <View style={styles.mapMock}>
           <View style={styles.routeLine} />
           <View style={styles.routeLineSecondary} />
           <View style={[styles.marker, styles.markerStart]} />
-          <View style={[styles.marker, styles.markerTruck, {left: `${progress}%`}]} />
+          {isInTransit && (
+            <View style={[styles.marker, styles.markerTruck, {left: `${progress}%`}]} />
+          )}
           <View style={[styles.marker, styles.markerEnd]} />
           <Text style={styles.remainingText}>
-            {trackingEta?.distanceRemaining || '84 miles remaining'}
+            {trackingEta?.distanceRemaining || '— km remaining'}
           </Text>
         </View>
         <View style={styles.zoomStack}>
           <Pressable style={styles.zoomBtn}>
-            <Text style={styles.zoomText}>{'+'}</Text>
+            <Text style={styles.zoomText}>+</Text>
           </Pressable>
           <Pressable style={styles.zoomBtn}>
-            <Text style={styles.zoomText}>{'-'}</Text>
-          </Pressable>
-          <Pressable style={[styles.zoomBtn, styles.targetBtn]}>
-            <Text style={styles.zoomText}>{'\u25CF'}</Text>
+            <Text style={styles.zoomText}>−</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.sheet}>
+      {/* Bottom Sheet */}
+      <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
         <View style={styles.sheetHandle} />
+
         <View style={styles.metricsRow}>
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>
-              {trackingEta?.estimatedArrival || '14:30'}
-            </Text>
+            <Text style={styles.metricValue}>{trackingEta?.estimatedArrival || '—'}</Text>
             <Text style={styles.metricLabel}>ETA</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>
-              {trackingEta?.distanceRemaining || '12.5 km'}
-            </Text>
+            <Text style={styles.metricValue}>{trackingEta?.distanceRemaining || '—'}</Text>
             <Text style={styles.metricLabel}>Distance</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>
-              {trackingEta?.estimatedDuration || '25 min'}
-            </Text>
+            <Text style={styles.metricValue}>{trackingEta?.estimatedDuration || '—'}</Text>
             <Text style={styles.metricLabel}>Time Left</Text>
           </View>
         </View>
 
-        <Card
-          title={activeJob?.jobReference || 'Active Assignment'}
-          subtitle={activeJob?.dropLocation || 'Destination tracking in progress'}
-          variant="dark"
-          rightLabel="LIVE">
-          <Text style={styles.routeLabel}>Current route</Text>
-          <Text style={styles.routeValue}>
-            {activeJob?.pickupLocation || 'Mumbai'} {'\u2192'} {activeJob?.dropLocation || 'Pune Warehouse'}
-          </Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, {width: `${progress}%`}]} />
-          </View>
-          <View style={styles.actionRow}>
-            <Pressable style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>Share Status</Text>
-            </Pressable>
-            <Pressable onPress={onStopTracking} style={styles.stopBtn}>
-              <Text style={styles.stopBtnText}>Finish Trip</Text>
-            </Pressable>
-          </View>
-        </Card>
-      </View>
+        {/* Compliance Action CTA */}
+        {currentStep === 'load_code' && (
+          <Pressable onPress={onGoToLoadCode} style={styles.complianceCta}>
+            <Text style={styles.complianceCtaIcon}>🔑</Text>
+            <View style={styles.complianceCtaText}>
+              <Text style={styles.complianceCtaTitle}>Enter Load Code</Text>
+              <Text style={styles.complianceCtaSub}>Verify pickup at warehouse — Step 1 of 3</Text>
+            </View>
+            <Text style={styles.complianceCtaArrow}>→</Text>
+          </Pressable>
+        )}
+
+        {currentStep === 'handover' && (
+          <Pressable onPress={onGoToHandover} style={[styles.complianceCta, styles.complianceCtaBlue]}>
+            <Text style={styles.complianceCtaIcon}>📋</Text>
+            <View style={styles.complianceCtaText}>
+              <Text style={styles.complianceCtaTitle}>Vehicle Handover Check</Text>
+              <Text style={styles.complianceCtaSub}>Upload photos & sign handover — Step 2 of 3</Text>
+            </View>
+            <Text style={styles.complianceCtaArrow}>→</Text>
+          </Pressable>
+        )}
+
+        {currentStep === 'delivery' && (
+          <Pressable onPress={onGoToDelivery} style={[styles.complianceCta, styles.complianceCtaGreen]}>
+            <Text style={styles.complianceCtaIcon}>📦</Text>
+            <View style={styles.complianceCtaText}>
+              <Text style={styles.complianceCtaTitle}>Submit Delivery Proof</Text>
+              <Text style={styles.complianceCtaSub}>Upload proof & get signature — Step 3 of 3</Text>
+            </View>
+            <Text style={styles.complianceCtaArrow}>→</Text>
+          </Pressable>
+        )}
+
+        {isInTransit && (
+          <Card
+            title={activeJob?.jobReference || 'Active Trip'}
+            subtitle={`${activeJob?.pickupLocation || '—'} → ${activeJob?.dropLocation || '—'}`}
+            variant="dark"
+            rightLabel="LIVE">
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, {width: `${progress}%`}]} />
+            </View>
+            <View style={styles.actionRow}>
+              <Pressable onPress={onReportIncident} style={styles.incidentBtn}>
+                <Text style={styles.incidentBtnText}>⚠️ Report Issue</Text>
+              </Pressable>
+              <Pressable onPress={onStopTracking} style={styles.stopBtn}>
+                <Text style={styles.stopBtnText}>Finish Trip</Text>
+              </Pressable>
+            </View>
+          </Card>
+        )}
+
+        {/* Quick incident button always visible during transit */}
+        {!isInTransit && (
+          <Pressable onPress={onReportIncident} style={styles.incidentFullBtn}>
+            <Text style={styles.incidentFullBtnText}>⚠️ Report Incident to Haulier</Text>
+          </Pressable>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  mapContainer: {
-    flex: 1,
-    backgroundColor: '#DCE7F2',
-  },
-  mapHeader: {
-    position: 'absolute',
-    top: spacing.xl,
-    left: spacing.xl,
-    zIndex: 2,
-  },
-  mapHeaderTitle: {
-    color: colors.navy,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  mapHeaderSubtitle: {
-    color: colors.inkSoft,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  mapMock: {
+  container: {flex: 1, backgroundColor: colors.bg},
+  noJobWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    padding: spacing.xl,
+    gap: spacing.lg,
   },
+  noJobIcon: {fontSize: 60},
+  noJobTitle: {color: colors.navy, fontSize: 24, fontWeight: '900'},
+  noJobSub: {
+    color: colors.inkSoft,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: spacing.xl,
+  },
+  stepBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  stepItem: {alignItems: 'center', gap: 4},
+  stepDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepDotDone: {backgroundColor: colors.success},
+  stepDotCurrent: {backgroundColor: colors.navy},
+  stepDotText: {color: '#94A3B8', fontSize: 11, fontWeight: '900'},
+  stepDotTextActive: {color: colors.card},
+  stepLabel: {color: '#94A3B8', fontSize: 9, fontWeight: '800', textTransform: 'uppercase'},
+  stepLabelCurrent: {color: colors.navy},
+  stepLine: {flex: 1, height: 2, backgroundColor: '#E2E8F0', marginBottom: 16},
+  stepLineDone: {backgroundColor: colors.success},
+  mapContainer: {flex: 1, backgroundColor: '#DCE7F2'},
+  mapHeader: {position: 'absolute', top: spacing.xl, left: spacing.xl, zIndex: 2},
+  mapHeaderTitle: {color: colors.navy, fontSize: 20, fontWeight: '900'},
+  mapHeaderSubtitle: {color: colors.inkSoft, fontSize: 14, marginTop: 4},
+  mapMock: {flex: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden'},
   routeLine: {
     position: 'absolute',
     left: '10%',
@@ -172,23 +305,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     top: '48%',
   },
-  markerStart: {
-    left: '10%',
-    backgroundColor: colors.navy,
-  },
-  markerTruck: {
-    backgroundColor: '#2563EB',
-  },
-  markerEnd: {
-    right: '10%',
-    backgroundColor: colors.success,
-  },
+  markerStart: {left: '10%', backgroundColor: colors.navy},
+  markerTruck: {backgroundColor: '#2563EB'},
+  markerEnd: {right: '10%', backgroundColor: colors.success},
   remainingText: {
     position: 'absolute',
     left: spacing.xl,
     bottom: spacing.xl,
     color: colors.card,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowRadius: 4,
@@ -196,7 +321,7 @@ const styles = StyleSheet.create({
   zoomStack: {
     position: 'absolute',
     right: spacing.md,
-    top: 90,
+    top: 60,
     gap: spacing.sm,
   },
   zoomBtn: {
@@ -212,65 +337,45 @@ const styles = StyleSheet.create({
     shadowRadius: shadow.radius,
     elevation: 4,
   },
-  targetBtn: {
-    backgroundColor: '#8BC0EE',
-  },
-  zoomText: {
-    color: colors.navy,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: spacing.xl,
-  },
+  zoomText: {color: colors.navy, fontSize: 22, fontWeight: '900'},
+  sheet: {backgroundColor: colors.card, maxHeight: 340},
+  sheetContent: {padding: spacing.xl, gap: spacing.lg},
   sheetHandle: {
     width: 44,
     height: 4,
     borderRadius: 999,
     backgroundColor: '#D6DCE5',
     alignSelf: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  metric: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricValue: {
-    color: colors.navy,
-    fontSize: 18,
-    fontWeight: '900',
-  },
+  metricsRow: {flexDirection: 'row', alignItems: 'center'},
+  metric: {flex: 1, alignItems: 'center'},
+  metricValue: {color: colors.navy, fontSize: 16, fontWeight: '900'},
   metricLabel: {
     color: colors.inkSoft,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     marginTop: 4,
     textTransform: 'uppercase',
   },
-  metricDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.border,
+  metricDivider: {width: 1, height: 30, backgroundColor: colors.border},
+  complianceCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#FEF3C7',
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  routeLabel: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  routeValue: {
-    color: colors.card,
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: spacing.md,
-  },
+  complianceCtaBlue: {backgroundColor: '#EFF6FF', borderColor: '#BFDBFE'},
+  complianceCtaGreen: {backgroundColor: '#F0FDF4', borderColor: '#BBF7D0'},
+  complianceCtaIcon: {fontSize: 28},
+  complianceCtaText: {flex: 1},
+  complianceCtaTitle: {color: colors.navy, fontSize: 14, fontWeight: '900'},
+  complianceCtaSub: {color: colors.inkSoft, fontSize: 11, marginTop: 2},
+  complianceCtaArrow: {color: colors.navy, fontSize: 20, fontWeight: '900'},
   progressTrack: {
     height: 6,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -283,23 +388,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderRadius: 999,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  secondaryBtn: {
+  actionRow: {flexDirection: 'row', gap: spacing.md},
+  incidentBtn: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: '#FECACA',
     alignItems: 'center',
+    backgroundColor: '#FEF2F2',
   },
-  secondaryBtnText: {
-    color: colors.card,
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  incidentBtnText: {color: colors.danger, fontSize: 13, fontWeight: '800'},
   stopBtn: {
     flex: 1,
     backgroundColor: colors.accent,
@@ -307,11 +406,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
   },
-  stopBtnText: {
-    color: colors.navy,
-    fontSize: 14,
-    fontWeight: '900',
+  stopBtnText: {color: colors.navy, fontSize: 14, fontWeight: '900'},
+  incidentFullBtn: {
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
   },
+  incidentFullBtnText: {color: colors.danger, fontSize: 14, fontWeight: '800'},
 });
 
 export default LiveTrackingScreen;

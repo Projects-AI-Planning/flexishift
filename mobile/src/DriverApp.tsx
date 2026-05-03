@@ -31,14 +31,17 @@ import EarningsHistoryScreen from './screens/earnings/EarningsHistoryScreen';
 import RatingsListScreen from './screens/ratings/RatingsListScreen';
 import RatingSubmissionScreen from './screens/ratings/RatingSubmissionScreen';
 import LiveTrackingScreen from './screens/tracking/LiveTrackingScreen';
+import IncidentReportScreen from './screens/tracking/IncidentReportScreen';
 import NotificationsScreen from './screens/notifications/NotificationsScreen';
 import InvoicesScreen from './screens/invoices/InvoicesScreen';
 import PasswordScreen from './screens/profile/PasswordScreen';
 import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
 import SupportScreen from './screens/support/SupportScreen';
+import BookingAcceptanceScreen from './screens/bookings/BookingAcceptanceScreen';
 import {bottomTabs} from './navigation/driverNavigation';
 import type {
   AvailabilityResponse,
+  BookingDetail,
   DashboardOverview,
   DocumentSummary,
   DrawerRouteKey,
@@ -83,42 +86,17 @@ const palette = {
   success: '#18794E',
 };
 
-const defaultLogin = {
-  email: '',
-  password: '',
-};
-
+const defaultLogin = {email: '', password: ''};
 const defaultRegister = {
   email: 'john@example.com',
   name: 'John Doe',
   password: 'Driver@1234',
   phone: '9876543210',
 };
-
-const defaultVerify = {
-  email: 'john@example.com',
-  otp: '',
-};
-
-const defaultReset = {
-  confirmPassword: '',
-  newPassword: '',
-  resetToken: '',
-};
-
-const defaultQuoteForm = {
-  currency: 'INR',
-  jobId: '',
-  notes: '',
-  quoteAmount: '',
-};
-
-const defaultPasswordForm = {
-  confirmPassword: '',
-  currentPassword: '',
-  newPassword: '',
-};
-
+const defaultVerify = {email: 'john@example.com', otp: ''};
+const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
+const defaultQuoteForm = {currency: 'INR', jobId: '', notes: '', quoteAmount: ''};
+const defaultPasswordForm = {confirmPassword: '', currentPassword: '', newPassword: ''};
 const defaultNotificationPrefs = {
   pushNotifications: {
     compliance_alerts: true,
@@ -128,63 +106,76 @@ const defaultNotificationPrefs = {
     payment_updates: true,
     system_alerts: false,
   },
-  smsNotifications: {
-    enabled: true,
-    job_updates: true,
-    payment_updates: true,
-  },
+  smsNotifications: {enabled: true, job_updates: true, payment_updates: true},
 };
 
-const availabilityDays = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];
-
 const cast = <T,>(value: unknown) => value as T;
+
+function toAddress(value: unknown): string {
+  if (!value) {return '';}
+  if (typeof value === 'string') {return value;}
+  if (typeof value === 'object' && value !== null && 'address' in value) {
+    return String((value as {address?: string}).address ?? '');
+  }
+  return '';
+}
+
+function formatLabel(value: string) {
+  return value.replace(/[_.]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function EmptyState({title}: {title: string}) {
+  return <Text style={styles.emptyText}>{title}</Text>;
+}
+
+function SectionCard({children, title}: {children: React.ReactNode; title: string}) {
+  return (
+    <View style={styles.sectionCard}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
 
 function DriverApp(): React.JSX.Element {
   const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<DriverSession | null>(null);
 
+  // Navigation
   const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
   const [activeRoute, setActiveRoute] = useState<DrawerRouteKey>('home');
-  const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
+
+  // Auth
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [loginForm, setLoginForm] = useState(defaultLogin);
   const [registerForm, setRegisterForm] = useState(defaultRegister);
   const [verifyForm, setVerifyForm] = useState(defaultVerify);
-  const [forgotEmail, setForgotEmail] = useState(defaultLogin.email);
+  const [forgotEmail, setForgotEmail] = useState('');
   const [resetForm, setResetForm] = useState(defaultReset);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authInfo, setAuthInfo] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Loading states
   const [contentLoading, setContentLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Data
   const [dashboard, setDashboard] = useState<DashboardOverview | null>(null);
-  const [availableJobs, setAvailableJobs] = useState<
-    Array<Record<string, unknown>>
-  >([]);
-  const [upcomingJobs, setUpcomingJobs] = useState<
-    Array<Record<string, unknown>>
-  >([]);
-  const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>(
-    [],
-  );
-  const [selectedJob, setSelectedJob] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  const [selectedJobDetails, setSelectedJobDetails] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  const [availableJobs, setAvailableJobs] = useState<Array<Record<string, unknown>>>([]);
+  const [upcomingJobs, setUpcomingJobs] = useState<Array<Record<string, unknown>>>([]);
+  const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedJob, setSelectedJob] = useState<Record<string, unknown> | null>(null);
+  const [selectedJobDetails, setSelectedJobDetails] = useState<Record<string, unknown> | null>(null);
   const [quoteForm, setQuoteForm] = useState<QuoteFormState>(defaultQuoteForm);
+  const [myQuotes, setMyQuotes] = useState<Array<Record<string, unknown>>>([]);
+
+  // Booking
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
+  const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
+
+  // Profile
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [profileForm, setProfileForm] = useState({
     name: '',
@@ -194,17 +185,14 @@ function DriverApp(): React.JSX.Element {
     vehicleRegistration: '',
   });
   const [passwordForm, setPasswordForm] = useState(defaultPasswordForm);
-  const [notificationPrefs, setNotificationPrefs] = useState(
-    defaultNotificationPrefs,
-  );
+  const [notificationPrefs, setNotificationPrefs] = useState(defaultNotificationPrefs);
+
+  // Documents
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
-  const [verificationStatus, setVerificationStatus] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  const [availability, setAvailability] = useState<AvailabilityResponse | null>(
-    null,
-  );
+  const [verificationStatus, setVerificationStatus] = useState<Record<string, unknown> | null>(null);
+
+  // Availability
+  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [availabilityForm, setAvailabilityForm] = useState({
     availableDays: ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
     endTime: '18:00',
@@ -213,22 +201,21 @@ function DriverApp(): React.JSX.Element {
     startTime: '08:00',
     timezone: 'Asia/Kolkata',
   });
+
+  // Notifications & other
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
   const [earnings, setEarnings] = useState<EarningsResponse | null>(null);
   const [payments, setPayments] = useState<Array<Record<string, unknown>>>([]);
   const [invoices, setInvoices] = useState<Array<Record<string, unknown>>>([]);
-  const [myQuotes, setMyQuotes] = useState<Array<Record<string, unknown>>>([]);
   const [ratings, setRatings] = useState<RatingSummary | null>(null);
-  const [trackingEta, setTrackingEta] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  const [complianceStatus, setComplianceStatus] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  const [trackingEta, setTrackingEta] = useState<Record<string, unknown> | null>(null);
+  const [complianceStatus, setComplianceStatus] = useState<Record<string, unknown> | null>(null);
+
+  // Banners
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // ─── Data loaders ────────────────────────────────────────────────────────────
 
   const loadHome = useCallback(async () => {
     const [overviewData, earningsData, notificationData] = await Promise.all([
@@ -245,31 +232,19 @@ function DriverApp(): React.JSX.Element {
 
   const loadJobs = useCallback(async () => {
     const [availableData, upcomingData, historyData] = await Promise.all([
-      driverApi.jobs.listAvailable({limit: 10, page: 1, status: 'open'}),
-      driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1}),
-      driverApi.dashboard.getJobHistory({limit: 10, page: 1}),
+      driverApi.jobs.listAvailable({limit: 20, page: 1, status: 'open'}),
+      driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
+      driverApi.dashboard.getJobHistory({limit: 20, page: 1}),
     ]);
     const jobs = (availableData.items as Array<Record<string, unknown>>) ?? [];
     setAvailableJobs(jobs);
-    setUpcomingJobs(
-      (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
-    );
+    setUpcomingJobs((upcomingData.jobs as Array<Record<string, unknown>>) ?? []);
     setJobHistory((historyData.jobs as Array<Record<string, unknown>>) ?? []);
-
-    if (!selectedJob && jobs.length > 0) {
-      const firstJob = jobs[0];
-      setSelectedJob(firstJob);
-      setQuoteForm(current => ({
-        ...current,
-        jobId: String(firstJob.jobId ?? ''),
-      }));
-    }
-  }, [selectedJob]);
+  }, []);
 
   const loadTracking = useCallback(async () => {
     const overview =
-      dashboard ??
-      cast<DashboardOverview>(await driverApi.dashboard.getOverview());
+      dashboard ?? cast<DashboardOverview>(await driverApi.dashboard.getOverview());
     setDashboard(overview);
     if (overview.activeJob?.jobId) {
       const [eta, compliance] = await Promise.all([
@@ -285,165 +260,28 @@ function DriverApp(): React.JSX.Element {
   }, [dashboard]);
 
   const loadProfile = useCallback(async () => {
-    const [profileData, ratingData, notificationData] = await Promise.all([
+    const [profileData, ratingData] = await Promise.all([
       driverApi.profile.getMe(),
       session?.userId
         ? driverApi.ratings.getSummary(session.userId)
         : Promise.resolve(null),
-      driverApi.notifications.list({limit: 10, page: 1}),
     ]);
     const nextProfile = cast<ProfileResponse>(profileData);
     setProfile(nextProfile);
     setProfileForm({
       name: String(nextProfile.name ?? ''),
       phone: String(nextProfile.phone ?? ''),
-      licenceNumber: String(nextProfile.profile?.licenceNumber ?? ''),
-      vehicleType: String(nextProfile.profile?.vehicleType ?? ''),
-      vehicleRegistration: String(nextProfile.profile?.vehicleRegistration ?? ''),
+      licenceNumber: String((nextProfile as any).profile?.licenceNumber ?? ''),
+      vehicleType: String((nextProfile as any).profile?.vehicleType ?? ''),
+      vehicleRegistration: String((nextProfile as any).profile?.vehicleRegistration ?? ''),
     });
     setRatings(ratingData ? cast<RatingSummary>(ratingData) : null);
-    setNotifications(
-      ((notificationData.notifications ?? []) as NotificationSummary[]) || [],
-    );
   }, [session?.userId]);
 
-  const handleVerifyLoadCode = async (code: string) => {
-    const jobId = dashboard?.activeJob?.jobId;
-    if (!jobId) return;
-    setActionLoading(true);
-    setErrorBanner(null);
-    try {
-      await driverApi.compliance.verifyLoadCode({jobId, loadCode: code});
-      setSuccessBanner('Load code verified successfully!');
-      setActiveRoute('compliance.handover');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Invalid load code. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSubmitHandover = async (checklist: any, photos: any[]) => {
-    const jobId = dashboard?.activeJob?.jobId;
-    if (!jobId) return;
-    setActionLoading(true);
-    setErrorBanner(null);
-    try {
-      await driverApi.compliance.submitVehicleChecklist({jobId, checklist});
-      // In a real app, we would upload photos here
-      await driverApi.compliance.signDriverHandover({jobId, signature: 'driver_signed'});
-      setSuccessBanner('Handover completed! You can now start the trip.');
-      setActiveRoute('tracking.active');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to submit handover. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSubmitDelivery = async (proofData: any, photos: any[]) => {
-    const jobId = dashboard?.activeJob?.jobId;
-    if (!jobId) return;
-    setActionLoading(true);
-    setErrorBanner(null);
-    try {
-      await driverApi.compliance.submitDeliveryProof({jobId, ...proofData});
-      // In a real app, we would upload photos here
-      setSuccessBanner('Delivery completed successfully!');
-      setActiveRoute('home');
-      setActiveTab('home');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to submit delivery proof. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDocumentUpload = async (documentType: string, expiryDate: string, file: any) => {
-    setActionLoading(true);
-    setErrorBanner(null);
-    try {
-      // In a real app, we would create a FormData object with the file
-      const formData = new FormData();
-      formData.append('documentType', documentType);
-      formData.append('expiryDate', expiryDate);
-      // formData.append('file', file);
-      
-      await driverApi.documents.upload(formData);
-      setSuccessBanner('Document uploaded successfully and is under review.');
-      setActiveRoute('documents.status');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to upload document. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRatingSubmit = async (rating: number, comment: string) => {
-    const jobId = dashboard?.activeJob?.jobId;
-    if (!jobId) return;
-    setActionLoading(true);
-    setErrorBanner(null);
-    try {
-      await driverApi.ratings.submit({
-        jobId,
-        rating,
-        comment,
-      });
-      setSuccessBanner('Rating submitted! Thank you for your feedback.');
-      setActiveRoute('ratings.received');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to submit rating. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleUpdateLocation = async (location: any) => {
-    try {
-      await driverApi.tracking.updateLocation({
-        latitude: location.latitude,
-        longitude: location.longitude,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      // Silent error for background updates
-    }
-  };
-
-  const handleStopTracking = async () => {
-    const jobId = dashboard?.activeJob?.jobId;
-    if (!jobId) return;
-    setActionLoading(true);
-    try {
-      await driverApi.tracking.stop(jobId, {reason: 'trip_completed'});
-      setSuccessBanner('Tracking stopped. Job completed!');
-      setActiveRoute('compliance.delivery');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to stop tracking.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleWithdrawQuote = async (quoteId: string) => {
-    setActionLoading(true);
-    try {
-      await driverApi.quotes.withdraw(quoteId);
-      setSuccessBanner('Quote withdrawn successfully.');
-      await refreshActiveView();
-    } catch (err) {
-      setErrorBanner('Failed to withdraw quote.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const loadMyQuotes = useCallback(async () => {
+    const quotesData = await driverApi.quotes.listMine();
+    setMyQuotes((quotesData.quotes as Array<Record<string, unknown>>) ?? []);
+  }, []);
 
   const loadDrawerRoute = useCallback(
     async (route: DrawerRouteKey) => {
@@ -460,62 +298,40 @@ function DriverApp(): React.JSX.Element {
         }
         case 'availability.set':
         case 'availability.toggle': {
-          const availabilityData = cast<AvailabilityResponse>(
-            await driverApi.availability.getMine(),
-          );
-          setAvailability(availabilityData);
+          const avail = cast<AvailabilityResponse>(await driverApi.availability.getMine());
+          setAvailability(avail);
           setAvailabilityForm({
-            availableDays: availabilityData.availableDays?.length
-              ? availabilityData.availableDays
+            availableDays: avail.availableDays?.length
+              ? avail.availableDays
               : ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
-            endTime: String(
-              availabilityData.timeSlots?.[0]?.endTime ?? '18:00',
-            ),
-            isAvailable: availabilityData.isAvailable ?? true,
-            reason: String(availabilityData.reason ?? ''),
-            startTime: String(
-              availabilityData.timeSlots?.[0]?.startTime ?? '08:00',
-            ),
-            timezone: availabilityData.timezone ?? 'Asia/Kolkata',
+            endTime: String(avail.timeSlots?.[0]?.endTime ?? '18:00'),
+            isAvailable: avail.isAvailable ?? true,
+            reason: String(avail.reason ?? ''),
+            startTime: String(avail.timeSlots?.[0]?.startTime ?? '08:00'),
+            timezone: avail.timezone ?? 'Asia/Kolkata',
           });
           break;
         }
         case 'earnings.total':
         case 'earnings.monthly': {
-          const earningsData = await driverApi.dashboard.getEarnings({
-            period: 'monthly',
-          });
-          setEarnings(cast<EarningsResponse>(earningsData));
+          const ed = await driverApi.dashboard.getEarnings({period: 'monthly'});
+          setEarnings(cast<EarningsResponse>(ed));
           break;
         }
         case 'earnings.history': {
-          const history = await driverApi.payments.getHistory({
-            limit: 10,
-            page: 1,
-          });
-          setPayments(
-            (history.payments as Array<Record<string, unknown>>) ?? [],
-          );
+          const hist = await driverApi.payments.getHistory({limit: 20, page: 1});
+          setPayments((hist.payments as Array<Record<string, unknown>>) ?? []);
           break;
         }
         case 'invoices.list': {
-          const invoiceData = await driverApi.invoices.list({
-            limit: 10,
-            page: 1,
-          });
-          setInvoices(
-            (invoiceData.invoices as Array<Record<string, unknown>>) ?? [],
-          );
+          const inv = await driverApi.invoices.list({limit: 20, page: 1});
+          setInvoices((inv.invoices as Array<Record<string, unknown>>) ?? []);
           break;
         }
         case 'notifications.all': {
-          const notificationData = await driverApi.notifications.list({
-            limit: 20,
-            page: 1,
-          });
+          const nd = await driverApi.notifications.list({limit: 30, page: 1});
           setNotifications(
-            ((notificationData.notifications ?? []) as NotificationSummary[]) ||
-              [],
+            ((nd.notifications ?? []) as NotificationSummary[]) || [],
           );
           break;
         }
@@ -528,43 +344,45 @@ function DriverApp(): React.JSX.Element {
           break;
         }
         case 'jobs.myQuotes': {
-          const quotesData = await driverApi.quotes.listMine();
-          setMyQuotes((quotesData.quotes as Array<Record<string, unknown>>) ?? []);
+          await loadMyQuotes();
+          break;
+        }
+        case 'jobs.upcoming': {
+          const upcomingData = await driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1});
+          setUpcomingJobs((upcomingData.jobs as Array<Record<string, unknown>>) ?? []);
+          break;
+        }
+        case 'jobs.history': {
+          const historyData = await driverApi.dashboard.getJobHistory({limit: 20, page: 1});
+          setJobHistory((historyData.jobs as Array<Record<string, unknown>>) ?? []);
           break;
         }
         case 'compliance.loadCode':
         case 'compliance.handover':
         case 'compliance.delivery': {
-          const jobId = dashboard?.activeJob?.jobId;
+          const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
           if (jobId) {
-            setComplianceStatus(
-              await driverApi.compliance.getFullStatus(jobId),
-            );
+            setComplianceStatus(await driverApi.compliance.getFullStatus(jobId));
           } else {
             setComplianceStatus(null);
           }
           break;
         }
-        case 'profile.edit': {
+        case 'profile.edit':
           await loadProfile();
           break;
-        }
         case 'profile.password':
           setPasswordForm(defaultPasswordForm);
-          break;
-        case 'profile.preferences':
           break;
         default:
           break;
       }
     },
-    [dashboard?.activeJob?.jobId, loadProfile, session?.userId],
+    [complianceJobId, dashboard?.activeJob?.jobId, loadMyQuotes, loadProfile, session?.userId],
   );
 
   const refreshActiveView = useCallback(async () => {
-    if (!session) {
-      return;
-    }
+    if (!session) {return;}
     setContentLoading(true);
     setErrorBanner(null);
     setSuccessBanner(null);
@@ -573,14 +391,18 @@ function DriverApp(): React.JSX.Element {
         await loadHome();
       } else if (activeTab === 'jobs' || activeRoute.startsWith('jobs.')) {
         if (activeRoute === 'jobs.myQuotes') {
-          await loadDrawerRoute('jobs.myQuotes');
+          await loadMyQuotes();
+        } else if (activeRoute === 'jobs.upcoming') {
+          await loadDrawerRoute('jobs.upcoming');
+        } else if (activeRoute === 'jobs.history') {
+          await loadDrawerRoute('jobs.history');
         } else {
           await loadJobs();
         }
       } else if (
+        activeRoute.startsWith('compliance.') ||
         activeTab === 'tracking' ||
-        activeRoute.startsWith('tracking.') ||
-        activeRoute.startsWith('compliance.')
+        activeRoute.startsWith('tracking.')
       ) {
         await loadTracking();
         if (activeRoute.startsWith('compliance.')) {
@@ -596,20 +418,14 @@ function DriverApp(): React.JSX.Element {
       }
     } catch (error) {
       setErrorBanner(
-        error instanceof Error ? error.message : 'Failed to load mobile data.',
+        error instanceof Error ? error.message : 'Failed to load data.',
       );
     } finally {
       setContentLoading(false);
     }
   }, [
-    activeRoute,
-    activeTab,
-    loadDrawerRoute,
-    loadHome,
-    loadJobs,
-    loadProfile,
-    loadTracking,
-    session,
+    activeRoute, activeTab, loadDrawerRoute, loadHome, loadJobs,
+    loadMyQuotes, loadProfile, loadTracking, session,
   ]);
 
   useEffect(() => {
@@ -628,16 +444,15 @@ function DriverApp(): React.JSX.Element {
         .getDetails(String(selectedJob.jobId))
         .then(data => {
           setSelectedJobDetails(data);
-          setQuoteForm(current => ({
-            ...current,
-            jobId: String(selectedJob.jobId),
-          }));
+          setQuoteForm(c => ({...c, jobId: String(selectedJob.jobId)}));
         })
         .catch(() => undefined);
     } else {
       setSelectedJobDetails(null);
     }
   }, [selectedJob]);
+
+  // ─── Action helpers ───────────────────────────────────────────────────────────
 
   const runAction = async (task: () => Promise<void>) => {
     setActionLoading(true);
@@ -646,13 +461,20 @@ function DriverApp(): React.JSX.Element {
     try {
       await task();
     } catch (error) {
-      setErrorBanner(
-        error instanceof Error ? error.message : 'Action failed on mobile app.',
-      );
+      setErrorBanner(error instanceof Error ? error.message : 'Action failed.');
     } finally {
       setActionLoading(false);
     }
   };
+
+  const navigate = (tab: DriverTabKey, route: DrawerRouteKey) => {
+    setActiveTab(tab);
+    setActiveRoute(route);
+    setSuccessBanner(null);
+    setErrorBanner(null);
+  };
+
+  // ─── Auth handlers ────────────────────────────────────────────────────────────
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -677,17 +499,11 @@ function DriverApp(): React.JSX.Element {
     try {
       await driverApi.auth.register(registerForm);
       setVerifyForm({email: registerForm.email, otp: ''});
-      setLoginForm(current => ({
-        ...current,
-        email: registerForm.email,
-        password: registerForm.password,
-      }));
+      setLoginForm(c => ({...c, email: registerForm.email, password: registerForm.password}));
       setAuthInfo('Registration succeeded. Enter the OTP to verify email.');
       setAuthMode('verify');
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Registration failed.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'Registration failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -702,9 +518,7 @@ function DriverApp(): React.JSX.Element {
       setAuthInfo('Email verified. You can now sign in.');
       setAuthMode('login');
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Email verification failed.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'Verification failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -713,14 +527,11 @@ function DriverApp(): React.JSX.Element {
   const handleResendOtp = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    setAuthInfo(null);
     try {
       await driverApi.auth.resendVerification(verifyForm.email);
       setAuthInfo('Verification OTP sent again.');
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'OTP resend failed.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'OTP resend failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -729,16 +540,12 @@ function DriverApp(): React.JSX.Element {
   const handleForgotPassword = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    setAuthInfo(null);
     try {
       await driverApi.auth.forgotPassword(forgotEmail);
-      setResetForm(current => ({...current}));
-      setAuthInfo('Reset link requested. Use the reset token from email.');
+      setAuthInfo('Reset token sent. Check your email.');
       setAuthMode('reset');
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Forgot password failed.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'Forgot password failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -747,50 +554,23 @@ function DriverApp(): React.JSX.Element {
   const handleResetPassword = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    setAuthInfo(null);
     try {
       await driverApi.auth.resetPassword(resetForm);
-      setAuthInfo('Password reset complete. Sign in with the new password.');
-      setLoginForm(current => ({
-        ...current,
-        email: forgotEmail || current.email,
-        password: resetForm.newPassword,
-      }));
+      setAuthInfo('Password reset. Sign in with the new password.');
+      setLoginForm(c => ({...c, email: forgotEmail || c.email, password: resetForm.newPassword}));
       setAuthMode('login');
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Reset password failed.',
-      );
+      setAuthError(error instanceof Error ? error.message : 'Reset failed.');
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const onSelectDrawerRoute = (route: DrawerRouteKey) => {
-    setActiveRoute(route);
-    setSuccessBanner(null);
-    if (route === 'home') {
-      setActiveTab('home');
-    } else if (route.startsWith('jobs.')) {
-      setActiveTab('jobs');
-    } else if (
-      route.startsWith('tracking.') ||
-      route.startsWith('compliance.')
-    ) {
-      setActiveTab('tracking');
-    } else if (route.startsWith('profile.')) {
-      setActiveTab('profile');
-    }
-  };
-
   const handleLogout = async () => {
     try {
-      if (session?.refreshToken) {
-        await driverApi.auth.logout(session.refreshToken);
-      }
-    } catch {
-      // ignore logout failure and clear local session
-    } finally {
+      if (session?.refreshToken) {await driverApi.auth.logout(session.refreshToken);}
+    } catch {/* ignore */}
+    finally {
       setSession(null);
       setApiAccessToken(null);
       setAuthMode('login');
@@ -799,30 +579,187 @@ function DriverApp(): React.JSX.Element {
     }
   };
 
-  const handleQuoteSubmit = async () => {
+  // ─── Job & Quote handlers ────────────────────────────────────────────────────
+
+  const handleQuoteSubmit = async (amount: string, notes: string) => {
     await runAction(async () => {
       await driverApi.quotes.submit({
-        currency: quoteForm.currency,
-        jobId: quoteForm.jobId,
-        notes: quoteForm.notes,
-        quoteAmount: Number(quoteForm.quoteAmount),
+        currency: 'INR',
+        jobId: String((selectedJobDetails ?? selectedJob)?.jobId ?? ''),
+        notes,
+        quoteAmount: Number(amount),
       });
-      setSuccessBanner('Quote submitted successfully.');
-      setQuoteForm(current => ({...current, notes: '', quoteAmount: ''}));
-      await loadJobs();
+      setSuccessBanner('Quote submitted! We will notify you when it is reviewed.');
+      setSelectedJob(null);
+      setSelectedJobDetails(null);
+      setActiveRoute('jobs.myQuotes');
+      await loadMyQuotes();
     });
   };
 
+  const handleWithdrawQuote = async (quoteId: string) => {
+    await runAction(async () => {
+      await driverApi.quotes.withdraw(quoteId);
+      setSuccessBanner('Quote withdrawn.');
+      await loadMyQuotes();
+    });
+  };
+
+  // ─── Booking acceptance ──────────────────────────────────────────────────────
+
+  const handleProceedToBooking = async (jobId: string) => {
+    try {
+      const bookingData = await driverApi.bookings.list({jobId, limit: 1});
+      const bookings = (bookingData.bookings ?? bookingData.items ?? []) as BookingDetail[];
+      const booking = bookings[0] ?? null;
+      if (booking) {
+        setSelectedBooking(cast<BookingDetail>(booking));
+        setComplianceJobId(jobId);
+        navigate('jobs', 'jobs.booking');
+      } else {
+        // No booking found yet — go directly to compliance
+        setComplianceJobId(jobId);
+        navigate('tracking', 'compliance.loadCode');
+      }
+    } catch {
+      setComplianceJobId(jobId);
+      navigate('tracking', 'compliance.loadCode');
+    }
+  };
+
+  const handleAcceptBooking = async (bookingId: string) => {
+    await runAction(async () => {
+      await driverApi.bookings.accept(bookingId);
+      setSuccessBanner('Booking accepted! Proceed to pickup location.');
+      await loadTracking();
+    });
+  };
+
+  // ─── Compliance handlers ─────────────────────────────────────────────────────
+
+  const handleVerifyLoadCode = async (code: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.compliance.verifyLoadCode({jobId, loadCode: code});
+      setSuccessBanner('Load code verified! Proceed to vehicle handover.');
+      navigate('tracking', 'compliance.handover');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Invalid load code.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSubmitHandover = async (checklist: any, photos: any[]) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.compliance.submitVehicleChecklist({jobId, checklist});
+      await driverApi.compliance.signDriverHandover({jobId, signature: 'driver_signed'});
+      // Start live tracking
+      try {
+        await driverApi.tracking.start(jobId, {startedAt: new Date().toISOString()});
+      } catch {/* tracking start may fail if already started */}
+      setSuccessBanner('Handover complete. Trip started — live tracking is active!');
+      navigate('tracking', 'tracking.active');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Handover failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSubmitDelivery = async (proofData: any, photos: any[]) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.compliance.submitDeliveryProof({jobId, ...proofData});
+      setSuccessBanner('Delivery submitted! Awaiting haulier approval to release payment.');
+      navigate('profile', 'ratings.given');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Delivery submission failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ─── Tracking handlers ────────────────────────────────────────────────────────
+
+  const handleUpdateLocation = async (location: any) => {
+    try {
+      await driverApi.tracking.updateLocation({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {/* silent */}
+  };
+
+  const handleStopTracking = async () => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    try {
+      await driverApi.tracking.stop(jobId, {reason: 'arrived_at_destination'});
+      setSuccessBanner('Arrived at destination. Submit delivery proof to complete the job.');
+      navigate('tracking', 'compliance.delivery');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Failed to stop tracking.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleIncidentReport = async (type: string, description: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    await runAction(async () => {
+      await driverApi.incidents.report({jobId, incidentType: type, description});
+      setSuccessBanner('Haulier notified of the incident.');
+      navigate('tracking', 'tracking.active');
+    });
+  };
+
+  // ─── Document handlers ────────────────────────────────────────────────────────
+
+  const handleDocumentUpload = async (documentType: string, expiryDate: string, file: any) => {
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      const formData = new FormData();
+      formData.append('documentType', documentType);
+      formData.append('expiryDate', expiryDate);
+      if (file?.uri) {
+        formData.append('file', {uri: file.uri, name: file.fileName ?? 'doc.jpg', type: 'image/jpeg'} as any);
+      }
+      await driverApi.documents.upload(formData);
+      setSuccessBanner('Document submitted for verification.');
+      navigate('profile', 'documents.status');
+      await loadDrawerRoute('documents.status');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ─── Profile handlers ─────────────────────────────────────────────────────────
+
   const handleProfileSave = async () => {
     await runAction(async () => {
-      await driverApi.profile.update({
-        name: profileForm.name,
-        phone: profileForm.phone,
-        licenceNumber: profileForm.licenceNumber,
-        vehicleType: profileForm.vehicleType,
-        vehicleRegistration: profileForm.vehicleRegistration,
-      });
-      setSuccessBanner('Profile updated successfully.');
+      await driverApi.profile.update(profileForm);
+      setSuccessBanner('Profile updated.');
       await loadProfile();
     });
   };
@@ -831,7 +768,7 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       await driverApi.auth.changePassword(passwordForm);
       setPasswordForm(defaultPasswordForm);
-      setSuccessBanner('Password changed successfully.');
+      setSuccessBanner('Password changed.');
     });
   };
 
@@ -841,6 +778,8 @@ function DriverApp(): React.JSX.Element {
       setSuccessBanner('Notification preferences updated.');
     });
   };
+
+  // ─── Availability handlers ─────────────────────────────────────────────────────
 
   const handleAvailabilitySave = async () => {
     const payload = {
@@ -852,14 +791,13 @@ function DriverApp(): React.JSX.Element {
       })),
       timezone: availabilityForm.timezone,
     };
-
     await runAction(async () => {
       if (availability?.availabilityId) {
         await driverApi.availability.update(payload);
       } else {
         await driverApi.availability.set(payload);
       }
-      setSuccessBanner('Availability saved successfully.');
+      setSuccessBanner('Availability saved.');
       await loadDrawerRoute('availability.set');
     });
   };
@@ -870,31 +808,43 @@ function DriverApp(): React.JSX.Element {
         isAvailable: availabilityForm.isAvailable,
         reason: availabilityForm.reason,
       });
-      setSuccessBanner(
-        availabilityForm.isAvailable
-          ? 'Driver marked as available.'
-          : 'Driver marked as unavailable.',
-      );
+      setSuccessBanner(availabilityForm.isAvailable ? 'Marked as available.' : 'Marked as unavailable.');
       await loadDrawerRoute('availability.toggle');
     });
   };
 
+  // ─── Ratings ──────────────────────────────────────────────────────────────────
+
+  const handleRatingSubmit = async (rating: number, comment: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    await runAction(async () => {
+      await driverApi.ratings.submit({jobId, rating, comment});
+      setSuccessBanner('Rating submitted! Thank you.');
+      navigate('profile', 'ratings.received');
+    });
+  };
+
+  // ─── Notifications ────────────────────────────────────────────────────────────
+
   const handleMarkAllNotificationsRead = async () => {
     await runAction(async () => {
       await driverApi.notifications.markAllRead();
-      setSuccessBanner('All notifications marked as read.');
+      setSuccessBanner('All marked as read.');
       await loadDrawerRoute('notifications.all');
     });
   };
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
+
   const toggleAvailabilityDay = (day: string) => {
-    setAvailabilityForm(current => {
-      const exists = current.availableDays.includes(day);
+    setAvailabilityForm(c => {
+      const exists = c.availableDays.includes(day);
       return {
-        ...current,
+        ...c,
         availableDays: exists
-          ? current.availableDays.filter(item => item !== day)
-          : [...current.availableDays, day],
+          ? c.availableDays.filter(d => d !== day)
+          : [...c.availableDays, day],
       };
     });
   };
@@ -904,224 +854,58 @@ function DriverApp(): React.JSX.Element {
     key: string,
     value: boolean,
   ) => {
-    setNotificationPrefs(current => ({
-      ...current,
-      [channel]: {
-        ...current[channel],
-        [key]: value,
-      },
-    }));
+    setNotificationPrefs(c => ({...c, [channel]: {...c[channel], [key]: value}}));
   };
 
-  const renderList = (
-    items: Array<Record<string, unknown>>,
-    emptyLabel: string,
-    selectable?: boolean,
-  ) => {
-    if (!items.length) {
-      return <EmptyState title={emptyLabel} />;
-    }
-
-    return items.map(item => {
-      const pickup = toAddress(item.pickupLocation);
-      const drop = toAddress(item.dropLocation);
-      const id = String(
-        item.jobId ?? item.quoteId ?? item.paymentId ?? item.invoiceId ?? '',
-      );
-      const selected = selectable && selectedJob?.jobId === item.jobId;
-
-      return (
-        <Pressable
-          key={id}
-          onPress={() => {
-            if (selectable) {
-              setSelectedJob(item);
-            }
-          }}
-          style={[styles.listCard, selected ? styles.listCardSelected : null]}>
-          <Text style={styles.cardEyebrow}>
-            {String(
-              item.status ?? item.jobReference ?? item.paymentStatus ?? 'Item',
-            )}
-          </Text>
-          <Text style={styles.listTitle}>
-            {String(
-              item.jobReference ??
-                item.invoiceNumber ??
-                item.paymentId ??
-                'Untitled',
-            )}
-          </Text>
-          <Text style={styles.listMeta}>
-            {pickup && drop
-              ? `${pickup} to ${drop}`
-              : String(
-                  item.createdAt ?? item.jobDate ?? item.generatedAt ?? '',
-                )}
-          </Text>
-          {item.agreedAmount || item.amount || item.totalAmount ? (
-            <Text style={styles.amountText}>
-              Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
-            </Text>
-          ) : null}
-        </Pressable>
-      );
-    });
+  const onSelectDrawerRoute = (route: DrawerRouteKey) => {
+    setActiveRoute(route);
+    setSuccessBanner(null);
+    setErrorBanner(null);
+    if (route === 'home') {setActiveTab('home');}
+    else if (route.startsWith('jobs.')) {setActiveTab('jobs');}
+    else if (route.startsWith('tracking.') || route.startsWith('compliance.')) {setActiveTab('tracking');}
+    else if (route.startsWith('profile.')) {setActiveTab('profile');}
   };
 
-  const renderAuthCard = () => {
-    const modeTitle = {
-      forgot: 'Forgot Password',
-      login: 'Mobile Control Center',
-      register: 'Register Driver',
-      reset: 'Reset Password',
-      verify: 'Verify Email',
-    }[authMode];
+  // ─── Render helpers ───────────────────────────────────────────────────────────
 
+  const renderJobCard = (item: Record<string, unknown>) => {
+    const pickup = toAddress(item.pickupLocation);
+    const drop = toAddress(item.dropLocation);
+    const id = String(item.jobId ?? item.quoteId ?? item.paymentId ?? item.invoiceId ?? Math.random());
     return (
-      <SafeAreaView style={styles.authShell}>
-        <StatusBar barStyle="light-content" backgroundColor={palette.nav} />
-        {authMode === 'login' ? (
-          <LoginScreen
-            loginForm={loginForm}
-            setLoginForm={setLoginForm}
-            handleLogin={handleLogin}
-            authLoading={authLoading}
-            authError={authError}
-            setAuthMode={setAuthMode}
-          />
-        ) : (
-          <View style={styles.authCard}>
-            <Text style={styles.brandOverline}>FreightFlex Driver</Text>
-            <Text style={styles.authTitle}>{modeTitle}</Text>
-            <Text style={styles.authSubtitle}>
-              Mobile driver access to jobs, compliance, tracking, earnings,
-              documents, and profile operations.
-            </Text>
-            {authInfo ? <Text style={styles.successText}>{authInfo}</Text> : null}
-            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-
-            {authMode === 'register' ? (
-              <RegisterScreen
-                registerForm={registerForm}
-                setRegisterForm={setRegisterForm}
-                handleRegister={handleRegister}
-                authLoading={authLoading}
-                authError={authError}
-                setAuthMode={setAuthMode}
-              />
-            ) : null}
-
-            {authMode === 'verify' ? (
-              <VerifyScreen
-                verifyForm={verifyForm}
-                setVerifyForm={setVerifyForm}
-                handleVerify={handleVerify}
-                handleResendOtp={handleResendOtp}
-                authLoading={authLoading}
-                authError={authError}
-                setAuthMode={setAuthMode}
-              />
-            ) : null}
-
-            {authMode === 'forgot' ? (
-            <>
-              <TextInput
-                autoCapitalize="none"
-                keyboardType="email-address"
-                onChangeText={setForgotEmail}
-                placeholder="Email"
-                placeholderTextColor="#8A94A0"
-                style={styles.input}
-                value={forgotEmail}
-              />
-              <Pressable
-                onPress={handleForgotPassword}
-                style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>
-                  {authLoading ? 'Requesting...' : 'Send Reset Link'}
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          {authMode === 'reset' ? (
-            <>
-              <TextInput
-                autoCapitalize="none"
-                onChangeText={resetToken =>
-                  setResetForm(current => ({...current, resetToken}))
-                }
-                placeholder="Reset token"
-                placeholderTextColor="#8A94A0"
-                style={styles.input}
-                value={resetForm.resetToken}
-              />
-              <TextInput
-                onChangeText={newPassword =>
-                  setResetForm(current => ({...current, newPassword}))
-                }
-                placeholder="New password"
-                placeholderTextColor="#8A94A0"
-                secureTextEntry
-                style={styles.input}
-                value={resetForm.newPassword}
-              />
-              <TextInput
-                onChangeText={confirmPassword =>
-                  setResetForm(current => ({...current, confirmPassword}))
-                }
-                placeholder="Confirm password"
-                placeholderTextColor="#8A94A0"
-                secureTextEntry
-                style={styles.input}
-                value={resetForm.confirmPassword}
-              />
-              <Pressable
-                onPress={handleResetPassword}
-                style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>
-                  {authLoading ? 'Resetting...' : 'Reset Password'}
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          <View style={styles.authSwitchRow}>
-            <Pressable onPress={() => setAuthMode('login')}>
-              <Text style={styles.linkText}>Sign In</Text>
-            </Pressable>
-            <Pressable onPress={() => setAuthMode('register')}>
-              <Text style={styles.linkText}>Register</Text>
-            </Pressable>
-            <Pressable onPress={() => setAuthMode('verify')}>
-              <Text style={styles.linkText}>Verify</Text>
-            </Pressable>
-            <Pressable onPress={() => setAuthMode('forgot')}>
-              <Text style={styles.linkText}>Forgot</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.hintText}>
-            API base: the mobile app appends /api/v1 automatically. Update
-            src/config/env.ts with your backend domain before release.
+      <View key={id} style={styles.listCard}>
+        <Text style={styles.cardEyebrow}>
+          {String(item.status ?? item.jobReference ?? 'Job')}
+        </Text>
+        <Text style={styles.listTitle}>
+          {String(item.jobReference ?? item.invoiceNumber ?? item.paymentId ?? 'Untitled')}
+        </Text>
+        <Text style={styles.listMeta}>
+          {pickup && drop ? `${pickup} → ${drop}` : String(item.createdAt ?? item.jobDate ?? '')}
+        </Text>
+        {(item.agreedAmount || item.amount || item.totalAmount) ? (
+          <Text style={styles.amountText}>
+            Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
           </Text>
-          </View>
-        )}
-      </SafeAreaView>
+        ) : null}
+      </View>
     );
   };
+
+  // ─── Main view router ─────────────────────────────────────────────────────────
 
   const renderCurrentView = () => {
     if (contentLoading) {
       return (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={palette.accent} size="large" />
-          <Text style={styles.loaderText}>Loading driver mobile data...</Text>
+          <Text style={styles.loaderText}>Loading...</Text>
         </View>
       );
     }
 
+    // Home
     if (activeTab === 'home' && activeRoute === 'home') {
       return (
         <DashboardScreen
@@ -1140,21 +924,105 @@ function DriverApp(): React.JSX.Element {
             setActiveRoute('jobs.available');
           }}
           onQuickAction={(action: string) => {
-            if (action === 'find_jobs') {
-              setActiveTab('jobs');
-              setActiveRoute('jobs.available');
-            } else if (action === 'tracking') {
-              setActiveTab('tracking');
-              setActiveRoute('tracking.active');
-            } else if (action === 'payouts') {
-              setActiveRoute('earnings.history');
-            }
+            if (action === 'find_jobs') {navigate('jobs', 'jobs.available');}
+            else if (action === 'tracking') {navigate('tracking', 'tracking.active');}
+            else if (action === 'payouts') {navigate('profile', 'earnings.history');}
           }}
         />
       );
     }
 
+    // ── COMPLIANCE SCREENS (must be checked BEFORE tracking tab check) ──────────
+    if (activeRoute === 'compliance.loadCode') {
+      return (
+        <LoadCodeScreen
+          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+          jobReference={dashboard?.activeJob?.jobReference ?? complianceJobId ?? ''}
+          onVerify={handleVerifyLoadCode}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    if (activeRoute === 'compliance.handover') {
+      return (
+        <HandoverScreen
+          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          onSubmit={handleSubmitHandover}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    if (activeRoute === 'compliance.delivery') {
+      return (
+        <DeliveryScreen
+          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          onSubmit={handleSubmitDelivery}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    // ── INCIDENT REPORT ────────────────────────────────────────────────────────
+    if (activeRoute === 'tracking.incident') {
+      return (
+        <IncidentReportScreen
+          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          onSubmit={handleIncidentReport}
+          onBack={() => navigate('tracking', 'tracking.active')}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    // ── TRACKING ───────────────────────────────────────────────────────────────
+    if (activeTab === 'tracking' || activeRoute.startsWith('tracking.')) {
+      return (
+        <LiveTrackingScreen
+          activeJob={dashboard?.activeJob}
+          trackingEta={trackingEta}
+          complianceStatus={complianceStatus}
+          onUpdateLocation={handleUpdateLocation}
+          onStopTracking={handleStopTracking}
+          onGoToLoadCode={() => navigate('tracking', 'compliance.loadCode')}
+          onGoToHandover={() => navigate('tracking', 'compliance.handover')}
+          onGoToDelivery={() => navigate('tracking', 'compliance.delivery')}
+          onReportIncident={() => navigate('tracking', 'tracking.incident')}
+        />
+      );
+    }
+
+    // ── JOBS TAB ───────────────────────────────────────────────────────────────
     if (activeTab === 'jobs' || activeRoute.startsWith('jobs.')) {
+      // Booking acceptance
+      if (activeRoute === 'jobs.booking') {
+        return (
+          <BookingAcceptanceScreen
+            booking={selectedBooking}
+            onAccept={handleAcceptBooking}
+            onBack={() => {
+              if (selectedBooking) {
+                setComplianceJobId(selectedBooking.jobId);
+                navigate('tracking', 'compliance.loadCode');
+              } else {
+                navigate('jobs', 'jobs.myQuotes');
+              }
+            }}
+            loading={actionLoading}
+            error={errorBanner}
+          />
+        );
+      }
+
+      // My Quotes
       if (activeRoute === 'jobs.myQuotes') {
         return (
           <MyQuotesScreen
@@ -1162,83 +1030,84 @@ function DriverApp(): React.JSX.Element {
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
-              await loadDrawerRoute('jobs.myQuotes');
+              await loadMyQuotes();
               setRefreshing(false);
             }}
-            onProceedToCompliance={(jobId: string) => {
-              setComplianceJobId(jobId);
-              setActiveTab('tracking');
-              setActiveRoute('compliance.loadCode');
-            }}
+            onProceedToCompliance={handleProceedToBooking}
             onWithdrawQuote={handleWithdrawQuote}
           />
         );
       }
-      if (activeRoute === 'jobs.available' && !selectedJob) {
+
+      // Upcoming jobs
+      if (activeRoute === 'jobs.upcoming') {
         return (
-          <JobDiscoveryScreen
-            availableJobs={availableJobs}
-            onSelectJob={(job: any) => {
-              setSelectedJob(job);
-              setSelectedJobDetails(job);
-            }}
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await refreshActiveView();
-              setRefreshing(false);
-            }}
-          />
+          <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContentPad}>
+            <Text style={styles.listScreenTitle}>Upcoming Jobs</Text>
+            {upcomingJobs.length
+              ? upcomingJobs.map(renderJobCard)
+              : <EmptyState title="No upcoming jobs." />}
+          </ScrollView>
         );
       }
-      return (
-        <JobDetailScreen
-          job={selectedJobDetails ?? selectedJob}
-          onSubmitQuote={async (amount, notes) => {
-            await runAction(async () => {
-              await driverApi.quotes.submit({
-                currency: 'INR',
-                jobId: String((selectedJobDetails ?? selectedJob)?.jobId ?? ''),
-                notes,
-                quoteAmount: Number(amount),
-              });
-              setSuccessBanner('Quote submitted successfully.');
+
+      // Job History
+      if (activeRoute === 'jobs.history') {
+        return (
+          <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContentPad}>
+            <Text style={styles.listScreenTitle}>Job History</Text>
+            {jobHistory.length
+              ? jobHistory.map(renderJobCard)
+              : <EmptyState title="No completed jobs yet." />}
+          </ScrollView>
+        );
+      }
+
+      // Job Detail
+      if (selectedJob) {
+        return (
+          <JobDetailScreen
+            job={selectedJobDetails ?? selectedJob}
+            onSubmitQuote={handleQuoteSubmit}
+            onBack={() => {
               setSelectedJob(null);
               setSelectedJobDetails(null);
               setActiveRoute('jobs.available');
-              await loadJobs();
-            });
-          }}
-          onBack={() => {
-            setSelectedJob(null);
-            setSelectedJobDetails(null);
-            setActiveRoute('jobs.available');
-          }}
-          loading={actionLoading}
-          error={errorBanner}
-        />
-      );
-    }
+            }}
+            loading={actionLoading}
+            error={errorBanner}
+          />
+        );
+      }
 
-    if (activeTab === 'tracking' || activeRoute.startsWith('tracking.')) {
+      // Job Discovery (default)
       return (
-        <LiveTrackingScreen
-          activeJob={dashboard?.activeJob}
-          trackingEta={trackingEta}
-          onUpdateLocation={handleUpdateLocation}
-          onStopTracking={handleStopTracking}
+        <JobDiscoveryScreen
+          availableJobs={availableJobs}
+          onSelectJob={(job: any) => {
+            setSelectedJob(job);
+            setSelectedJobDetails(job);
+          }}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await refreshActiveView();
+            setRefreshing(false);
+          }}
         />
       );
     }
 
+    // ── PROFILE TAB ────────────────────────────────────────────────────────────
     if (activeTab === 'profile' && activeRoute === 'profile.edit') {
       return (
         <ProfileScreen
           profile={profile}
           session={session}
           profileForm={profileForm}
-          onChange={patch => setProfileForm(current => ({...current, ...patch}))}
+          onChange={patch => setProfileForm(c => ({...c, ...patch}))}
           onSave={handleProfileSave}
+          onLogout={handleLogout}
           loading={actionLoading}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -1250,6 +1119,7 @@ function DriverApp(): React.JSX.Element {
       );
     }
 
+    // ── DRAWER ROUTES ──────────────────────────────────────────────────────────
     switch (activeRoute) {
       case 'documents.status':
         return (
@@ -1262,7 +1132,7 @@ function DriverApp(): React.JSX.Element {
               await loadDrawerRoute('documents.status');
               setRefreshing(false);
             }}
-            onUploadNew={() => setActiveRoute('documents.upload')}
+            onUploadNew={() => navigate('profile', 'documents.upload')}
           />
         );
       case 'documents.upload':
@@ -1271,7 +1141,7 @@ function DriverApp(): React.JSX.Element {
             onUpload={handleDocumentUpload}
             loading={actionLoading}
             error={errorBanner}
-            onCancel={() => setActiveRoute('documents.status')}
+            onCancel={() => navigate('profile', 'documents.status')}
           />
         );
       case 'earnings.history':
@@ -1285,29 +1155,14 @@ function DriverApp(): React.JSX.Element {
               await loadDrawerRoute('earnings.history');
               setRefreshing(false);
             }}
-            onViewInvoice={async (id) => {
+            onViewInvoice={async (id: string) => {
               try {
                 const result = await driverApi.invoices.download(id);
-                // In a real app, 'result' would contain a signed URL or file data
-                return (result as any).downloadUrl || 'https://example.com/invoice.pdf';
-              } catch (err) {
-                setErrorBanner('Failed to get invoice link.');
+                return (result as any).downloadUrl ?? '';
+              } catch {
+                setErrorBanner('Failed to get invoice.');
               }
             }}
-          />
-        );
-      case 'availability.set':
-      case 'availability.toggle':
-        return (
-          <AvailabilityScreen
-            availabilityForm={availabilityForm}
-            onToggleDay={toggleAvailabilityDay}
-            onChangeForm={patch =>
-              setAvailabilityForm(current => ({...current, ...patch}))
-            }
-            onSave={handleAvailabilitySave}
-            onToggleAvailability={handleAvailabilityToggle}
-            loading={actionLoading}
           />
         );
       case 'earnings.total':
@@ -1315,29 +1170,10 @@ function DriverApp(): React.JSX.Element {
         return (
           <SectionCard title="Earnings Summary">
             <Text style={styles.sectionValue}>
-              Rs{' '}
-              {String(
-                earnings?.summary?.totalEarnings ??
-                  earnings?.allTimeEarnings ??
-                  0,
-              )}
+              Rs {String(earnings?.summary?.totalEarnings ?? earnings?.allTimeEarnings ?? 0)}
             </Text>
-            <Text style={styles.sectionText}>
-              Jobs:{' '}
-              {String(
-                earnings?.summary?.totalJobs ?? earnings?.allTimeJobs ?? 0,
-              )}
-            </Text>
-            <Text style={styles.sectionHint}>
-              Average per job: Rs{' '}
-              {String(earnings?.summary?.averagePerJob ?? 0)}
-            </Text>
-          </SectionCard>
-        );
-      case 'earnings.history':
-        return (
-          <SectionCard title="Payment History">
-            {renderList(payments, 'No payment history yet')}
+            <Text style={styles.sectionText}>Jobs: {String(earnings?.summary?.totalJobs ?? earnings?.allTimeJobs ?? 0)}</Text>
+            <Text style={styles.sectionHint}>Avg per job: Rs {String(earnings?.summary?.averagePerJob ?? 0)}</Text>
           </SectionCard>
         );
       case 'invoices.list':
@@ -1350,8 +1186,19 @@ function DriverApp(): React.JSX.Element {
           />
         );
       case 'ratings.received':
+        return (
+          <RatingsListScreen
+            ratings={ratings}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('ratings.received');
+              setRefreshing(false);
+            }}
+          />
+        );
       case 'ratings.given':
-        if (activeRoute === 'ratings.given' && dashboard?.activeJob) {
+        if (dashboard?.activeJob) {
           return (
             <RatingSubmissionScreen
               jobId={dashboard.activeJob.jobId}
@@ -1359,7 +1206,7 @@ function DriverApp(): React.JSX.Element {
               onSubmit={handleRatingSubmit}
               loading={actionLoading}
               error={errorBanner}
-              onCancel={() => setActiveRoute('ratings.received')}
+              onCancel={() => navigate('profile', 'ratings.received')}
             />
           );
         }
@@ -1378,9 +1225,7 @@ function DriverApp(): React.JSX.Element {
         return (
           <PasswordScreen
             passwordForm={passwordForm}
-            onChange={patch =>
-              setPasswordForm(current => ({...current, ...patch}))
-            }
+            onChange={patch => setPasswordForm(c => ({...c, ...patch}))}
             onSave={handlePasswordChange}
             loading={actionLoading}
           />
@@ -1389,82 +1234,201 @@ function DriverApp(): React.JSX.Element {
         return (
           <NotificationPreferencesScreen
             notificationPrefs={notificationPrefs}
-            onToggle={(group, key, value) =>
-              updateNotificationPreference(group, key, value)
-            }
+            onToggle={updateNotificationPreference}
             onSave={handleNotificationPreferencesSave}
             loading={actionLoading}
           />
         );
-      case 'compliance.loadCode':
+      case 'availability.set':
+      case 'availability.toggle':
         return (
-          <LoadCodeScreen
-            jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
-            jobReference={dashboard?.activeJob?.jobReference ?? complianceJobId ?? ''}
-            onVerify={handleVerifyLoadCode}
+          <AvailabilityScreen
+            availabilityForm={availabilityForm}
+            onToggleDay={toggleAvailabilityDay}
+            onChangeForm={patch => setAvailabilityForm(c => ({...c, ...patch}))}
+            onSave={handleAvailabilitySave}
+            onToggleAvailability={handleAvailabilityToggle}
             loading={actionLoading}
-            error={errorBanner}
-          />
-        );
-      case 'compliance.handover':
-        return (
-          <HandoverScreen
-            jobId={dashboard?.activeJob?.jobId ?? ''}
-            jobReference={dashboard?.activeJob?.jobReference ?? ''}
-            onSubmit={handleSubmitHandover}
-            loading={actionLoading}
-            error={errorBanner}
-          />
-        );
-      case 'compliance.delivery':
-        return (
-          <DeliveryScreen
-            jobId={dashboard?.activeJob?.jobId ?? ''}
-            jobReference={dashboard?.activeJob?.jobReference ?? ''}
-            onSubmit={handleSubmitDelivery}
-            loading={actionLoading}
-            error={errorBanner}
           />
         );
       case 'support.faq':
       case 'support.contact':
         return <SupportScreen mode={activeRoute === 'support.contact' ? 'contact' : 'faq'} />;
       default:
-        return (
-          <EmptyState title="Open the drawer to continue." />
-        );
+        return <EmptyState title="Open the drawer to navigate." />;
     }
   };
 
+  // ─── Auth screens ─────────────────────────────────────────────────────────────
+
   if (showSplash) {
-    return <SplashScreen onGetStarted={() => setShowSplash(false)} />;
+    return (
+      <SplashScreen
+        onGetStarted={() => {
+          setAuthMode('register');
+          setShowSplash(false);
+        }}
+      />
+    );
   }
 
   if (!session) {
-    return renderAuthCard();
+    const modeTitle: Record<string, string> = {
+      forgot: 'Forgot Password',
+      login: 'Sign In',
+      register: 'Create Account',
+      reset: 'Reset Password',
+      verify: 'Verify Email',
+    };
+    return (
+      <SafeAreaView style={styles.authShell}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.nav} />
+        {authMode === 'login' ? (
+          <LoginScreen
+            loginForm={loginForm}
+            setLoginForm={setLoginForm}
+            handleLogin={handleLogin}
+            authLoading={authLoading}
+            authError={authError}
+            setAuthMode={setAuthMode}
+          />
+        ) : authMode === 'register' ? (
+          <View style={styles.authCard}>
+            <Text style={styles.brandOverline}>FreightFlex Driver</Text>
+            <Text style={styles.authTitle}>{modeTitle[authMode]}</Text>
+            {authInfo ? <Text style={styles.successText}>{authInfo}</Text> : null}
+            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+            <RegisterScreen
+              registerForm={registerForm}
+              setRegisterForm={setRegisterForm}
+              handleRegister={handleRegister}
+              authLoading={authLoading}
+              authError={null}
+              setAuthMode={setAuthMode}
+            />
+          </View>
+        ) : authMode === 'verify' ? (
+          <View style={styles.authCard}>
+            <Text style={styles.brandOverline}>FreightFlex Driver</Text>
+            <Text style={styles.authTitle}>Verify Email</Text>
+            {authInfo ? <Text style={styles.successText}>{authInfo}</Text> : null}
+            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+            <VerifyScreen
+              verifyForm={verifyForm}
+              setVerifyForm={setVerifyForm}
+              handleVerify={handleVerify}
+              handleResendOtp={handleResendOtp}
+              authLoading={authLoading}
+              authError={null}
+              setAuthMode={setAuthMode}
+            />
+          </View>
+        ) : authMode === 'forgot' ? (
+          <View style={styles.authCard}>
+            <Text style={styles.brandOverline}>FreightFlex Driver</Text>
+            <Text style={styles.authTitle}>Forgot Password</Text>
+            {authInfo ? <Text style={styles.successText}>{authInfo}</Text> : null}
+            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+            <TextInput
+              autoCapitalize="none"
+              keyboardType="email-address"
+              onChangeText={setForgotEmail}
+              placeholder="Your email address"
+              placeholderTextColor="#8A94A0"
+              style={styles.input}
+              value={forgotEmail}
+            />
+            <Pressable onPress={handleForgotPassword} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>
+                {authLoading ? 'Sending...' : 'Send Reset Link'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setAuthMode('login')} style={styles.linkRow}>
+              <Text style={styles.linkText}>← Back to Sign In</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.authCard}>
+            <Text style={styles.brandOverline}>FreightFlex Driver</Text>
+            <Text style={styles.authTitle}>Reset Password</Text>
+            {authInfo ? <Text style={styles.successText}>{authInfo}</Text> : null}
+            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+            {(['resetToken', 'newPassword', 'confirmPassword'] as const).map(field => (
+              <TextInput
+                key={field}
+                autoCapitalize="none"
+                secureTextEntry={field !== 'resetToken'}
+                onChangeText={val => setResetForm(c => ({...c, [field]: val}))}
+                placeholder={
+                  field === 'resetToken' ? 'Reset token from email' :
+                  field === 'newPassword' ? 'New password' : 'Confirm password'
+                }
+                placeholderTextColor="#8A94A0"
+                style={styles.input}
+                value={resetForm[field]}
+              />
+            ))}
+            <Pressable onPress={handleResetPassword} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>
+                {authLoading ? 'Resetting...' : 'Reset Password'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+        {authMode !== 'login' ? (
+          <View style={styles.authSwitchRow}>
+            {(['login', 'register', 'verify'] as AuthMode[]).map(m => (
+              <Pressable key={m} onPress={() => setAuthMode(m)}>
+                <Text style={styles.linkText}>
+                  {m === 'login' ? 'Sign In' : m === 'register' ? 'Register' : 'Verify OTP'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </SafeAreaView>
+    );
   }
+
+  // ─── Main app shell ───────────────────────────────────────────────────────────
+
+  const showsSubNav =
+    (activeTab === 'jobs' && !selectedJob && activeRoute !== 'jobs.booking');
+
+  const isFullScreen =
+    activeRoute === 'jobs.available' ||
+    activeRoute === 'jobs.myQuotes' ||
+    activeRoute === 'jobs.booking' ||
+    activeRoute === 'home' ||
+    (activeTab === 'profile' && activeRoute === 'profile.edit') ||
+    (activeTab === 'jobs' && !!selectedJob);
 
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={palette.nav} />
+
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>
-            {bottomTabs.find(tab => tab.key === activeTab)?.label ?? 'Driver'}
+            {activeRoute.startsWith('compliance.')
+              ? 'Compliance'
+              : activeRoute === 'tracking.incident'
+              ? 'Incident Report'
+              : bottomTabs.find(t => t.key === activeTab)?.label ?? 'Driver'}
           </Text>
           <Text style={styles.headerSubtitle}>
             {session.name} | {session.role}
           </Text>
         </View>
         <Pressable
-          onPress={() => {
-            refreshActiveView().catch(() => undefined);
-          }}
+          onPress={() => refreshActiveView().catch(() => undefined)}
           style={styles.headerRefresh}>
-          <Text style={styles.headerRefreshText}>{'\u21BB'}</Text>
+          <Text style={styles.headerRefreshText}>↻</Text>
         </Pressable>
       </View>
 
+      {/* Banners */}
       {errorBanner ? (
         <View style={styles.bannerError}>
           <Text style={styles.bannerText}>{errorBanner}</Text>
@@ -1476,43 +1440,35 @@ function DriverApp(): React.JSX.Element {
         </View>
       ) : null}
 
-      {/* Jobs sub-nav: Find Jobs | My Bids */}
-      {activeTab === 'jobs' && !selectedJob && (
+      {/* Jobs sub-nav */}
+      {showsSubNav && (
         <View style={styles.jobsSubNav}>
-          <Pressable
-            onPress={() => {
-              setActiveRoute('jobs.available');
-            }}
-            style={[
-              styles.jobsSubTab,
-              activeRoute !== 'jobs.myQuotes' && styles.jobsSubTabActive,
-            ]}>
-            <Text style={[
-              styles.jobsSubTabText,
-              activeRoute !== 'jobs.myQuotes' && styles.jobsSubTabTextActive,
-            ]}>Find Jobs</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setActiveRoute('jobs.myQuotes');
-            }}
-            style={[
-              styles.jobsSubTab,
-              activeRoute === 'jobs.myQuotes' && styles.jobsSubTabActive,
-            ]}>
-            <Text style={[
-              styles.jobsSubTabText,
-              activeRoute === 'jobs.myQuotes' && styles.jobsSubTabTextActive,
-            ]}>My Bids</Text>
-          </Pressable>
+          {(['jobs.available', 'jobs.myQuotes', 'jobs.upcoming', 'jobs.history'] as DrawerRouteKey[]).map(route => {
+            const label =
+              route === 'jobs.available' ? 'Find Jobs' :
+              route === 'jobs.myQuotes' ? 'My Bids' :
+              route === 'jobs.upcoming' ? 'Upcoming' : 'History';
+            return (
+              <Pressable
+                key={route}
+                onPress={() => {
+                  setActiveRoute(route);
+                  if (route !== 'jobs.available') {
+                    loadDrawerRoute(route).catch(() => undefined);
+                  }
+                }}
+                style={[styles.jobsSubTab, activeRoute === route && styles.jobsSubTabActive]}>
+                <Text style={[styles.jobsSubTabText, activeRoute === route && styles.jobsSubTabTextActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
-      {(activeRoute === 'jobs.available' && !selectedJob) ||
-      activeRoute === 'jobs.myQuotes' ||
-      activeRoute === 'home' ||
-      (activeTab === 'profile' && activeRoute === 'profile.edit') ||
-      (activeTab === 'jobs' && !!selectedJob) ? (
+      {/* Content */}
+      {isFullScreen ? (
         <View style={[styles.contentContainer, {flex: 1}]}>
           {renderCurrentView()}
         </View>
@@ -1525,140 +1481,39 @@ function DriverApp(): React.JSX.Element {
         </ScrollView>
       )}
 
+      {/* Bottom Tab Bar */}
       <View style={styles.bottomTabBar}>
         {bottomTabs.map(tab => (
           <Pressable
             key={tab.key}
             onPress={() => {
               setActiveTab(tab.key);
-              if (tab.key === 'home') {
-                setActiveRoute('home');
-              }
-              if (tab.key === 'jobs') {
-                setActiveRoute('jobs.available');
-              }
-              if (tab.key === 'tracking') {
-                setActiveRoute('tracking.active');
-              }
-              if (tab.key === 'profile') {
-                setActiveRoute('profile.edit');
-              }
+              setSelectedJob(null);
+              setSelectedJobDetails(null);
+              if (tab.key === 'home') {setActiveRoute('home');}
+              else if (tab.key === 'jobs') {setActiveRoute('jobs.available'); loadJobs().catch(() => undefined);}
+              else if (tab.key === 'tracking') {setActiveRoute('tracking.active'); loadTracking().catch(() => undefined);}
+              else if (tab.key === 'profile') {setActiveRoute('profile.edit'); loadProfile().catch(() => undefined);}
             }}
             style={styles.bottomTabButton}>
             <Text style={styles.bottomTabIcon}>{tab.icon}</Text>
-            <Text
-              style={[
-                styles.bottomTabLabel,
-                activeTab === tab.key ? styles.bottomTabLabelActive : null,
-              ]}>
+            <Text style={[
+              styles.bottomTabLabel,
+              activeTab === tab.key ? styles.bottomTabLabelActive : null,
+            ]}>
               {tab.label}
             </Text>
           </Pressable>
         ))}
       </View>
-
     </SafeAreaView>
   );
 }
 
-function EmptyState({title}: {title: string}) {
-  return <Text style={styles.emptyText}>{title}</Text>;
-}
-
-function HeroCard({
-  rightLabel,
-  subtitle,
-  title,
-}: {
-  rightLabel: string;
-  subtitle: string;
-  title: string;
-}) {
-  return (
-    <View style={styles.heroCard}>
-      <View style={styles.heroCopy}>
-        <Text style={styles.heroTitle}>{title}</Text>
-        <Text style={styles.heroSubtitle}>{subtitle}</Text>
-      </View>
-      <View style={styles.heroPill}>
-        <Text style={styles.heroPillText}>{rightLabel}</Text>
-      </View>
-    </View>
-  );
-}
-
-function MetricCard({label, value}: {label: string; value: string}) {
-  return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SectionCard({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Chip({label}: {label: string}) {
-  return (
-    <View style={styles.chip}>
-      <Text style={styles.chipText}>{label}</Text>
-    </View>
-  );
-}
-
-function renderNotifications(notifications: NotificationSummary[]) {
-  if (!notifications.length) {
-    return <EmptyState title="No notifications found." />;
-  }
-
-  return notifications.map(notification => (
-    <View key={notification.notificationId} style={styles.listCard}>
-      <Text style={styles.cardEyebrow}>{formatLabel(notification.type)}</Text>
-      <Text style={styles.listTitle}>{notification.title}</Text>
-      <Text style={styles.listMeta}>{notification.message}</Text>
-    </View>
-  ));
-}
-
-function toAddress(value: unknown) {
-  if (!value) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (typeof value === 'object' && value !== null && 'address' in value) {
-    return String((value as {address?: string}).address ?? '');
-  }
-  return '';
-}
-
-function formatLabel(value: string) {
-  return value
-    .replace(/[_.]/g, ' ')
-    .replace(/\b\w/g, letter => letter.toUpperCase());
-}
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  amountText: {
-    color: palette.accent,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 8,
-  },
+  amountText: {color: palette.accent, fontSize: 16, fontWeight: '800', marginTop: 8},
   authCard: {
     backgroundColor: palette.card,
     borderColor: palette.border,
@@ -1667,255 +1522,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 24,
   },
-  authShell: {
-    backgroundColor: palette.nav,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  authSubtitle: {
-    color: '#C4CDD6',
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 20,
-  },
+  authShell: {backgroundColor: palette.nav, flex: 1, justifyContent: 'center'},
   authSwitchRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginTop: 12,
-  },
-  authTitle: {
-    color: palette.ink,
-    fontSize: 28,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-  bannerError: {
-    backgroundColor: '#EAC9C6',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  bannerSuccess: {
-    backgroundColor: '#CCE7D8',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  bannerText: {
-    color: palette.ink,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  brandOverline: {
-    color: palette.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  cardEyebrow: {
-    color: palette.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  chip: {
-    backgroundColor: palette.accentSoft,
-    borderRadius: 999,
-    marginBottom: 10,
-    marginRight: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  chipActive: {
-    backgroundColor: palette.nav,
-  },
-  chipText: {
-    color: palette.ink,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  chipTextActive: {
-    color: palette.card,
-  },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  content: {
-    gap: 16,
-    padding: 18,
-    paddingBottom: 36,
-  },
-  emptyText: {
-    color: palette.inkSoft,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  errorText: {
-    color: palette.danger,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  header: {
-    alignItems: 'center',
-    backgroundColor: palette.nav,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  headerRefresh: {
-    backgroundColor: palette.accent,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  headerRefreshText: {
-    color: palette.nav,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  headerSubtitle: {
-    color: '#C4CDD6',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  headerTextWrap: {
-    flex: 1,
-    paddingHorizontal: 14,
-  },
-  headerTitle: {
-    color: palette.card,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  heroCard: {
-    backgroundColor: palette.nav,
-    borderRadius: 24,
-    minHeight: 140,
-    overflow: 'hidden',
-    padding: 20,
-  },
-  heroCopy: {
-    marginBottom: 18,
-  },
-  heroPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: palette.accent,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  heroPillText: {
-    color: palette.nav,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  heroSubtitle: {
-    color: '#C4CDD6',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
-  },
-  heroTitle: {
-    color: palette.card,
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  hintText: {
-    color: palette.inkSoft,
-    fontSize: 12,
-    lineHeight: 18,
+    justifyContent: 'center',
     marginTop: 16,
   },
-  input: {
-    backgroundColor: '#FAF8F3',
-    borderColor: palette.border,
-    borderRadius: 14,
-    borderWidth: 1,
-    color: palette.ink,
-    fontSize: 15,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  linkText: {
-    color: palette.accent,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  listCard: {
-    backgroundColor: '#FCFBF7',
-    borderColor: palette.border,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 12,
-    padding: 14,
-  },
-  listCardSelected: {
-    borderColor: palette.accent,
-    borderWidth: 2,
-  },
-  listMeta: {
-    color: palette.inkSoft,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  listTitle: {
-    color: palette.ink,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  loaderText: {
-    color: palette.inkSoft,
-    marginTop: 12,
-  },
-  loaderWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 220,
-  },
-  metricCard: {
-    backgroundColor: palette.card,
-    borderColor: palette.border,
-    borderRadius: 18,
-    borderWidth: 1,
-    minWidth: '47%',
-    padding: 16,
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  metricLabel: {
-    color: palette.inkSoft,
-    fontSize: 12,
-    marginTop: 6,
-  },
-  metricValue: {
-    color: palette.ink,
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: palette.accent,
-    borderRadius: 14,
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  primaryButtonText: {
-    color: palette.nav,
-    fontSize: 14,
-    fontWeight: '900',
-  },
+  authTitle: {color: palette.ink, fontSize: 26, fontWeight: '900', marginBottom: 8},
+  bannerError: {backgroundColor: '#EAC9C6', paddingHorizontal: 18, paddingVertical: 10},
+  bannerSuccess: {backgroundColor: '#CCE7D8', paddingHorizontal: 18, paddingVertical: 10},
+  bannerText: {color: palette.ink, fontSize: 13, fontWeight: '700'},
   bottomTabBar: {
     backgroundColor: palette.nav,
     flexDirection: 'row',
@@ -1933,11 +1551,8 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 20,
   },
-  bottomTabButton: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
+  bottomTabButton: {alignItems: 'center', flex: 1, justifyContent: 'center'},
+  bottomTabIcon: {fontSize: 20},
   bottomTabLabel: {
     color: '#8A94A0',
     fontSize: 10,
@@ -1945,28 +1560,62 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'uppercase',
   },
-  bottomTabLabelActive: {
+  bottomTabLabelActive: {color: palette.accent},
+  brandOverline: {
     color: palette.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
-  bottomTabIcon: {
-    fontSize: 20,
+  cardEyebrow: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
-  screen: {
-    backgroundColor: palette.bg,
-    flex: 1,
+  content: {gap: 16, padding: 18, paddingBottom: 100},
+  contentContainer: {flex: 1, paddingBottom: 80},
+  emptyText: {color: palette.inkSoft, fontSize: 14, lineHeight: 20},
+  errorText: {color: palette.danger, fontSize: 13, fontWeight: '700', marginBottom: 10},
+  header: {
+    alignItems: 'center',
+    backgroundColor: palette.nav,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  contentContainer: {
-    flex: 1,
-    paddingBottom: 80,
+  headerRefresh: {
+    backgroundColor: palette.accent,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  headerRefreshText: {color: palette.nav, fontSize: 12, fontWeight: '900'},
+  headerSubtitle: {color: '#C4CDD6', fontSize: 12, marginTop: 2},
+  headerTextWrap: {flex: 1, paddingHorizontal: 14},
+  headerTitle: {color: palette.card, fontSize: 18, fontWeight: '900'},
+  input: {
+    backgroundColor: '#FAF8F3',
+    borderColor: palette.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    color: palette.ink,
+    fontSize: 15,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   jobsSubNav: {
     flexDirection: 'row',
     backgroundColor: palette.card,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
-    gap: 8,
+    gap: 4,
   },
   jobsSubTab: {
     flex: 1,
@@ -1975,35 +1624,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
-  jobsSubTabActive: {
-    backgroundColor: palette.nav,
-  },
+  jobsSubTabActive: {backgroundColor: palette.nav},
   jobsSubTabText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '800',
     color: palette.inkSoft,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  jobsSubTabTextActive: {
-    color: palette.accent,
-  },
-  secondaryButton: {
-    alignItems: 'center',
+  jobsSubTabTextActive: {color: palette.accent},
+  linkRow: {alignItems: 'center', marginTop: 12},
+  linkText: {color: palette.accent, fontSize: 13, fontWeight: '800'},
+  listCard: {
+    backgroundColor: '#FCFBF7',
     borderColor: palette.border,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    justifyContent: 'center',
     marginBottom: 12,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    padding: 14,
   },
-  secondaryButtonText: {
-    color: palette.ink,
-    fontSize: 13,
-    fontWeight: '800',
+  listContainer: {flex: 1, backgroundColor: palette.bg},
+  listContentPad: {padding: 18, paddingBottom: 100},
+  listMeta: {color: palette.inkSoft, fontSize: 13, lineHeight: 18},
+  listScreenTitle: {color: palette.ink, fontSize: 22, fontWeight: '900', marginBottom: 16},
+  listTitle: {color: palette.ink, fontSize: 16, fontWeight: '800', marginBottom: 6},
+  loaderText: {color: palette.inkSoft, marginTop: 12},
+  loaderWrap: {alignItems: 'center', justifyContent: 'center', minHeight: 220},
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: palette.accent,
+    borderRadius: 14,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
+  primaryButtonText: {color: palette.nav, fontSize: 14, fontWeight: '900'},
+  screen: {backgroundColor: palette.bg, flex: 1},
   sectionCard: {
     backgroundColor: palette.card,
     borderColor: palette.border,
@@ -2011,45 +1668,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 18,
   },
-  sectionHint: {
-    color: palette.inkSoft,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  sectionText: {
-    color: palette.ink,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    color: palette.ink,
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 14,
-  },
-  sectionValue: {
-    color: palette.ink,
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-  successText: {
-    color: palette.success,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  switchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  textArea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
+  sectionHint: {color: palette.inkSoft, fontSize: 13, lineHeight: 19},
+  sectionText: {color: palette.ink, fontSize: 14, lineHeight: 21, marginBottom: 8},
+  sectionTitle: {color: palette.ink, fontSize: 18, fontWeight: '900', marginBottom: 14},
+  sectionValue: {color: palette.ink, fontSize: 22, fontWeight: '900', marginBottom: 8},
+  successText: {color: palette.success, fontSize: 13, fontWeight: '700', marginBottom: 10},
 });
 
 export default DriverApp;

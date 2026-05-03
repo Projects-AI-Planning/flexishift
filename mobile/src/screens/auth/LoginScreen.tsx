@@ -29,6 +29,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.background}>
+        <View style={styles.glowTop} />
+        <View style={styles.glowBottom} />
         <View style={styles.topBar}>
           <Pressable onPress={() => setAuthMode('login')} style={styles.backBtn}>
             <Text style={styles.backIcon}>{'\u2190'}</Text>
@@ -39,8 +41,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           <View style={styles.logoMark}>
             <Text style={styles.logoIcon}>{'\uD83D\uDE9A'}</Text>
           </View>
+          <Text style={styles.brandKicker}>Driver Portal</Text>
           <Text style={styles.brand}>FreightFlex</Text>
-          <Text style={styles.tagline}>Secure Driver Access</Text>
+          <Text style={styles.tagline}>Secure access for drivers, dispatch, and delivery operations.</Text>
         </View>
 
         {authError ? (
@@ -119,6 +122,25 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     backgroundColor: '#F4F7FB',
+    overflow: 'hidden',
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -100,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(223, 166, 34, 0.18)',
+  },
+  glowBottom: {
+    position: 'absolute',
+    bottom: 80,
+    left: -90,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(16, 34, 53, 0.08)',
   },
   topBar: {
     paddingHorizontal: spacing.xl,
@@ -159,6 +181,14 @@ const styles = StyleSheet.create({
     color: colors.card,
     fontSize: 46,
   },
+  brandKicker: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
   brand: {
     color: colors.navy,
     fontSize: 38,
@@ -167,8 +197,11 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: '#4F5560',
-    fontSize: 20,
-    marginTop: 8,
+    fontSize: 17,
+    marginTop: 10,
+    maxWidth: 280,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -262,7 +295,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: colors.card,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
   },
   footer: {
@@ -270,14 +303,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
   footerText: {
     color: '#5A606B',
-    fontSize: 18,
+    fontSize: 15,
   },
   footerLink: {
     color: colors.accent,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
     textDecorationLine: 'underline',
   },

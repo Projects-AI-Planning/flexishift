@@ -19,20 +19,67 @@ interface RequestOptions {
 
 const withQuery = (path: string, params?: RequestOptions['params']) => {
   const base = `${API_BASE_URL}${path}`;
-  if (!params) {
-    return base;
-  }
+  if (!params) {return base;}
   const qs = Object.entries(params)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');
   return qs ? `${base}?${qs}` : base;
 };
+
+// ─── Network logger ───────────────────────────────────────────────────────────
+
+const LOG_PREFIX = '[FreightFlex API]';
+const RESET  = '\x1b[0m';
+const CYAN   = '\x1b[36m';
+const GREEN  = '\x1b[32m';
+const RED    = '\x1b[31m';
+const YELLOW = '\x1b[33m';
+const GREY   = '\x1b[90m';
+
+let reqCounter = 0;
+
+function logRequest(id: number, method: string, url: string, body: unknown) {
+  console.log(
+    `\n${CYAN}${LOG_PREFIX} ──► #${id} ${method} ${url}${RESET}`,
+  );
+  if (body && typeof body === 'string') {
+    try {
+      const parsed = JSON.parse(body);
+      console.log(`${GREY}  BODY:${RESET}`, JSON.stringify(parsed, null, 2));
+    } catch {
+      console.log(`${GREY}  BODY (raw):${RESET}`, String(body).slice(0, 300));
+    }
+  }
+}
+
+function logResponse(id: number, status: number, ok: boolean, data: unknown) {
+  const color = ok ? GREEN : RED;
+  const label = ok ? '✓ OK' : '✗ ERR';
+  console.log(
+    `${color}${LOG_PREFIX} ◄── #${id} ${status} ${label}${RESET}`,
+  );
+  console.log(`${GREY}  RESPONSE:${RESET}`, JSON.stringify(data, null, 2));
+}
+
+function logError(id: number, error: unknown) {
+  console.log(
+    `${RED}${LOG_PREFIX} ✗ #${id} NETWORK ERROR: ${
+      error instanceof Error ? error.message : String(error)
+    }${RESET}`,
+  );
+}
+
+// ─── Core request function ────────────────────────────────────────────────────
 
 export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  const id = ++reqCounter;
+  const method = options.method ?? 'GET';
+  const url = withQuery(path, options.params);
+
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(options.isFormData ? {} : {'Content-Type': 'application/json'}),
@@ -43,15 +90,25 @@ export async function request<T>(
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(withQuery(path, options.params), {
-    body: options.body,
-    headers,
-    method: options.method ?? 'GET',
-  });
+  logRequest(id, method, url, options.isFormData ? '[FormData]' : options.body);
 
-  const payload = (await response
-    .json()
-    .catch(() => null)) as ApiResponse<T> | null;
+  let response: Response;
+  let payload: ApiResponse<T> | null = null;
+
+  try {
+    response = await fetch(url, {body: options.body, headers, method});
+  } catch (err) {
+    logError(id, err);
+    throw err;
+  }
+
+  try {
+    payload = (await response.json()) as ApiResponse<T> | null;
+  } catch {
+    payload = null;
+  }
+
+  logResponse(id, response.status, response.ok && !!payload?.status, payload);
 
   if (!response.ok || !payload?.status) {
     throw new Error(

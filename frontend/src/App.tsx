@@ -27,6 +27,7 @@ import InvoiceReportsPage from './pages/admin/InvoiceReports';
 import ActiveDisputesPage from './pages/admin/ActiveDisputes';
 import ResolvedDisputesPage from './pages/admin/ResolvedDisputes';
 import EscalatedDisputesPage from './pages/admin/EscalatedDisputes';
+import RatingsPage from './pages/admin/Ratings';
 import RevenueAnalyticsPage from './pages/admin/analytics/RevenueAnalytics';
 import JobsAnalyticsPage from './pages/admin/analytics/JobsAnalytics';
 import UsersAnalyticsPage from './pages/admin/analytics/UsersAnalytics';
@@ -58,6 +59,11 @@ import HaulierSupportHelpPage from './pages/haulier/SupportHelp';
 import HaulierSupportContactPage from './pages/haulier/SupportContact';
 import HaulierTrackingPage from './pages/haulier/Tracking';
 import PostJobPage from './pages/haulier/PostJob';
+import HaulierJobsPage from './pages/haulier/Jobs';
+
+// Auth Pages
+import RegisterPage from './pages/haulier/Register';
+import VerifyEmailPage from './pages/haulier/VerifyEmail';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
@@ -84,6 +90,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
       
       {/* Admin Section */}
       <Route 
@@ -129,7 +137,9 @@ function AppRoutes() {
               <Route path="disputes/resolved" element={<ResolvedDisputesPage />} />
               <Route path="disputes/escalated" element={<EscalatedDisputesPage />} />
               <Route path="disputes/*" element={<DisputesPage />} />
-              <Route path="ratings/*" element={<AdminDashboard />} />
+              <Route path="ratings/all" element={<RatingsPage />} />
+              <Route path="ratings/reported" element={<RatingsPage />} />
+              <Route path="ratings/*" element={<Navigate to="/admin/ratings/all" replace />} />
               <Route path="settings" element={<Navigate to="/admin/settings/config" replace />} />
               <Route path="settings/config" element={<PlatformConfigPage />} />
               <Route path="settings/logs" element={<SystemLogsPage />} />
@@ -152,7 +162,7 @@ function AppRoutes() {
             <Routes>
               <Route index element={<HaulierOverview />} />
               <Route path="post-job" element={<PostJobPage />} />
-              <Route path="jobs" element={<Navigate to="/haulier/jobs/open" replace />} />
+              <Route path="jobs" element={<HaulierJobsPage />} />
               <Route path="jobs/open" element={<OpenJobsPage />} />
               <Route path="jobs/book" element={<BookedJobsPage />} />
               <Route path="jobs/booked" element={<BookedJobsPage />} />

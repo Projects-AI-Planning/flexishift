@@ -21,6 +21,16 @@ type ApiUser = Partial<User> & {
   accountStatus?: string;
 };
 
+const normalizeQueryValue = (value?: string) => {
+  if (!value) return undefined;
+  return value.trim() || undefined;
+};
+
+const normalizeUppercaseQueryValue = (value?: string) => {
+  const normalized = normalizeQueryValue(value);
+  return normalized ? normalized.toUpperCase() : undefined;
+};
+
 type ApiJob = Partial<Job> & {
   jobReference?: string;
   loadCode?: string;
@@ -48,7 +58,7 @@ const mapUsersResponse = (data: {
     email: user.email ?? '',
     phone: user.phone,
     role: user.role ?? '',
-    status: user.status ?? user.accountStatus ?? '',
+    status: (user.status ?? user.accountStatus ?? '').toUpperCase(),
     isVerified: user.isVerified,
     joinedAt: user.joinedAt,
   })),
@@ -230,7 +240,14 @@ const adminService = {
   getOverview: () => client.get('/dashboard/admin/overview').then((res) => res.data.data),
   getStats: () => client.get('/admin/stats').then((res) => res.data.data as AdminStats),
   listUsers: (params?: { page?: number; limit?: number; role?: string; status?: string; search?: string }) =>
-    client.get('/dashboard/admin/users/list', { params }).then((res) => mapUsersResponse(res.data.data)),
+    client.get('/dashboard/admin/users/list', {
+      params: {
+        ...params,
+        role: normalizeUppercaseQueryValue(params?.role),
+        status: normalizeUppercaseQueryValue(params?.status),
+        search: normalizeQueryValue(params?.search),
+      },
+    }).then((res) => mapUsersResponse(res.data.data)),
   createUser: (data: { fullName: string; email: string; phone: string; password: string; role: string; status: string }) =>
     client.post('/admin/users', data).then((res) => res.data),
   suspendUser: (userId: string, data: { reason: string; suspensionDuration: string; notifyUser: boolean }) =>
@@ -238,9 +255,20 @@ const adminService = {
   activateUser: (userId: string, data: { reason: string; notifyUser: boolean }) =>
     client.put(`/dashboard/admin/users/activate/${userId}`, data).then((res) => res.data),
   getPendingVerifications: (params?: { page?: number; limit?: number; role?: string }) =>
-    client.get('/dashboard/admin/verifications/pending', { params }).then((res) => res.data.data),
+    client.get('/dashboard/admin/verifications/pending', {
+      params: {
+        ...params,
+        role: normalizeUppercaseQueryValue(params?.role),
+      },
+    }).then((res) => res.data.data),
   getProcessedVerifications: (params?: { page?: number; limit?: number; role?: string; status?: string }) =>
-    client.get('/dashboard/admin/verifications/processed', { params }).then((res) => res.data.data),
+    client.get('/dashboard/admin/verifications/processed', {
+      params: {
+        ...params,
+        role: normalizeUppercaseQueryValue(params?.role),
+        status: normalizeUppercaseQueryValue(params?.status),
+      },
+    }).then((res) => res.data.data),
   monitorJobs: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
     client.get('/dashboard/admin/jobs/monitor', { params }).then((res) => mapJobsResponse(res.data.data)),
   getRevenueReport: (params?: { period?: string; month?: string; year?: string }) =>

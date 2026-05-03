@@ -4,12 +4,14 @@ export type DrawerRouteKey =
   | 'home'
   | 'jobs.available'
   | 'jobs.myQuotes'
+  | 'jobs.booking'
   | 'jobs.upcoming'
   | 'jobs.history'
   | 'compliance.loadCode'
   | 'compliance.handover'
   | 'compliance.delivery'
   | 'tracking.active'
+  | 'tracking.incident'
   | 'earnings.total'
   | 'earnings.monthly'
   | 'earnings.history'
@@ -139,6 +141,26 @@ export interface NotificationSummary {
   notificationId: string;
   title: string;
   type: string;
+}
+
+export interface BookingDetail {
+  bookingId: string;
+  bookingReference?: string;
+  driverId?: string;
+  escrowAmount?: number;
+  escrowStatus?: string;
+  jobDate?: string;
+  jobId: string;
+  jobReference?: string;
+  paymentStatus?: string;
+  pickupLocation?: string | {address?: string};
+  dropLocation?: string | {address?: string};
+  status: string;
+  goodsType?: string;
+  weight?: string;
+  distance?: string;
+  currency?: string;
+  createdAt?: string;
 }
 
 export interface RatingSummary {
