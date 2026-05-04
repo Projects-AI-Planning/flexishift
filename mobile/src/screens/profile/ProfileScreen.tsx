@@ -1,14 +1,18 @@
-import React from 'react';
+import React, {useMemo, useState} from 'react';
 import {
-  View,
-  Text,
-  TextInput,
+  ActivityIndicator,
+  Alert,
+  Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
-  RefreshControl,
-  ActivityIndicator,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import {launchImageLibrary} from 'react-native-image-picker';
+import {driverApi} from '../../api/driverApi';
 import {colors, radius, spacing, shadow} from '../../theme';
 
 interface ProfileForm {
@@ -47,14 +51,21 @@ const Field = ({
   <View style={styles.fieldGroup}>
     <Text style={styles.fieldLabel}>{label}</Text>
     <TextInput
-      style={styles.fieldInput}
-      value={value}
+      autoCapitalize="none"
+      keyboardType={keyboardType ?? 'default'}
       onChangeText={onChange}
       placeholder={placeholder ?? label}
       placeholderTextColor="#9AA4B2"
-      keyboardType={keyboardType ?? 'default'}
-      autoCapitalize="none"
+      style={styles.fieldInput}
+      value={value}
     />
+  </View>
+);
+
+const StatCard = ({label, value}: {label: string; value: string}) => (
+  <View style={styles.statCard}>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
 
@@ -69,57 +80,150 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   refreshing,
   onRefresh,
 }) => {
+  const [photoUploading, setPhotoUploading] = useState(false);
+
   const name = profile?.name ?? session?.name ?? '';
   const email = profile?.email ?? session?.email ?? '';
   const role = profile?.role ?? session?.role ?? 'DRIVER';
-  const isComplete = profile?.profileComplete ?? false;
-  const rating = profile?.avgRating ?? 0;
-  const completedJobs = profile?.completedJobs ?? 0;
+  const isComplete = Boolean(profile?.profileComplete);
+  const isVerified = Boolean(profile?.isVerified);
+  const rating = Number(profile?.avgRating ?? 0);
+  const completedJobs = Number(profile?.completedJobs ?? 0);
+  const photoUrl = profile?.profile?.photoUrl ?? profile?.profilePhoto ?? '';
+  const documentStatus = profile?.verificationStatus ?? 'PENDING';
+  const locationLabel =
+    profile?.locationLat && profile?.locationLng
+      ? `${profile.locationLat}, ${profile.locationLng}`
+      : 'Location not shared';
+
+  const initials = useMemo(() => {
+    const base = name.trim() || email.trim() || 'D';
+    return base.charAt(0).toUpperCase();
+  }, [email, name]);
+
+  const uploadPhoto = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.85,
+        selectionLimit: 1,
+      });
+
+      if (result.didCancel || result.errorCode || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset.uri) {
+        return;
+      }
+
+      setPhotoUploading(true);
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: asset.fileName ?? 'profile.jpg',
+        type: asset.type ?? 'image/jpeg',
+      } as any);
+      await driverApi.profile.uploadPhotoDirect(formData);
+      onRefresh();
+    } catch (error) {
+      Alert.alert(
+        'Photo upload failed',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   return (
     <ScrollView
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      showsVerticalScrollIndicator={false}>
+      contentContainerStyle={styles.content}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageOverline}>Driver Account</Text>
+        <Text style={styles.pageTitle}>Profile</Text>
+        <Text style={styles.pageSubtitle}>
+          Manage your backend-backed driver details, documents, and
+          availability.
+        </Text>
+      </View>
 
-      {/* Hero card */}
       <View style={styles.heroCard}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {name.charAt(0).toUpperCase() || 'D'}
-          </Text>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatarCircle}>
+            {photoUrl ? (
+              <Image source={{uri: photoUrl}} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </View>
+          <Pressable onPress={uploadPhoto} style={styles.photoBtn}>
+            {photoUploading ? (
+              <ActivityIndicator color={colors.card} />
+            ) : (
+              <Text style={styles.photoBtnText}>
+                {photoUrl ? 'Change Photo' : 'Upload Photo'}
+              </Text>
+            )}
+          </Pressable>
         </View>
+
         <View style={styles.heroInfo}>
-          <Text style={styles.heroName}>{name}</Text>
-          <Text style={styles.heroEmail}>{email}</Text>
-          <View style={styles.heroMeta}>
-            <View style={[styles.badge, isComplete ? styles.badgeGreen : styles.badgeOrange]}>
+          <View style={styles.badgeRow}>
+            <View
+              style={[
+                styles.badge,
+                isComplete ? styles.badgeGreen : styles.badgeOrange,
+              ]}>
               <Text style={styles.badgeText}>
-                {isComplete ? 'Profile Complete' : 'Incomplete'}
+                {isComplete ? 'Profile Complete' : 'Profile Incomplete'}
               </Text>
             </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{role}</Text>
-            </View>
+            {isVerified ? (
+              <View style={[styles.badge, styles.badgeBlue]}>
+                <Text style={styles.badgeText}>Verified</Text>
+              </View>
+            ) : null}
           </View>
+          <Text style={styles.heroName}>{name || 'Driver Profile'}</Text>
+          <Text style={styles.heroEmail}>{email}</Text>
+          <Text style={styles.heroRole}>{role}</Text>
         </View>
       </View>
 
-      {/* Stats row */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>★ {Number(rating).toFixed(1)}</Text>
-          <Text style={styles.statLabel}>Rating</Text>
+        <StatCard label="Rating" value={`★ ${rating.toFixed(1)}`} />
+        <StatCard label="Jobs Done" value={String(completedJobs)} />
+        <StatCard label="Status" value={isVerified ? 'Active' : 'Pending'} />
+      </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Account Snapshot</Text>
+        <View style={styles.snapshotRow}>
+          <Text style={styles.snapshotLabel}>Profile Status</Text>
+          <Text style={styles.snapshotValue}>
+            {isComplete ? 'Complete' : 'Needs Review'}
+          </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{completedJobs}</Text>
-          <Text style={styles.statLabel}>Jobs Done</Text>
+        <View style={styles.snapshotRow}>
+          <Text style={styles.snapshotLabel}>Verification</Text>
+          <Text style={styles.snapshotValue}>
+            {String(documentStatus).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.snapshotRow}>
+          <Text style={styles.snapshotLabel}>Current Location</Text>
+          <Text style={styles.snapshotValue}>{locationLabel}</Text>
         </View>
       </View>
 
-      {/* Edit form */}
-      <View style={styles.formCard}>
+      <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Personal Details</Text>
         <Field
           label="Full Name"
@@ -136,7 +240,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         />
       </View>
 
-      <View style={styles.formCard}>
+      <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Vehicle & Licence</Text>
         <Field
           label="Licence Number"
@@ -158,23 +262,45 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         />
       </View>
 
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Backend Summary</Text>
+        <Text style={styles.summaryText}>
+          Profile completion is driven from the backend profile record,
+          including verification and vehicle details.
+        </Text>
+        <Text style={styles.summaryText}>
+          Changes saved here update `/profile/update`, and the avatar uses
+          `/profile/photo/upload-direct`.
+        </Text>
+      </View>
+
+      <View style={styles.quickGrid}>
+        <Pressable style={styles.quickCard} onPress={onRefresh}>
+          <Text style={styles.quickIcon}>{'\u21BB'}</Text>
+          <Text style={styles.quickTitle}>Refresh</Text>
+          <Text style={styles.quickText}>Pull latest backend profile data</Text>
+        </Pressable>
+        <Pressable style={styles.quickCard} onPress={onLogout}>
+          <Text style={styles.quickIcon}>{'\uD83D\uDEAA'}</Text>
+          <Text style={styles.quickTitle}>Logout</Text>
+          <Text style={styles.quickText}>End the current driver session</Text>
+        </Pressable>
+      </View>
+
       <Pressable
+        disabled={loading}
         onPress={onSave}
-        style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-        disabled={loading}>
+        style={[styles.saveButton, loading && styles.saveButtonDisabled]}>
         {loading ? (
-          <ActivityIndicator color={colors.navy} />
+          <ActivityIndicator color={colors.nav} />
         ) : (
           <Text style={styles.saveButtonText}>Save Profile</Text>
         )}
       </Pressable>
 
-      <Pressable
-        onPress={onLogout}
-        style={styles.logoutButton}>
+      <Pressable onPress={onLogout} style={styles.logoutButton}>
         <Text style={styles.logoutButtonText}>Log Out</Text>
       </Pressable>
-
     </ScrollView>
   );
 };
@@ -189,6 +315,38 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: spacing.lg,
   },
+  pageHeader: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  pageOverline: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  pageTitle: {
+    color: colors.navy,
+    fontSize: 34,
+    fontWeight: '900',
+    lineHeight: 38,
+  },
+  pageSubtitle: {
+    color: colors.inkSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+  },
   heroCard: {
     backgroundColor: colors.navy,
     borderRadius: radius.xl,
@@ -202,22 +360,70 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
+  avatarWrap: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
   },
   avatarText: {
     color: colors.navy,
     fontSize: 32,
     fontWeight: '900',
   },
+  photoBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  photoBtnText: {
+    color: colors.card,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
   heroInfo: {
     flex: 1,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+    marginBottom: spacing.sm,
+  },
+  badge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  badgeGreen: {
+    backgroundColor: '#18794E',
+  },
+  badgeOrange: {
+    backgroundColor: '#B45309',
+  },
+  badgeBlue: {
+    backgroundColor: colors.accent,
+  },
+  badgeText: {
+    color: colors.card,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   heroName: {
     color: colors.card,
@@ -228,34 +434,36 @@ const styles = StyleSheet.create({
   heroEmail: {
     color: '#C4CDD6',
     fontSize: 13,
-    marginBottom: spacing.sm,
+    marginBottom: 4,
   },
-  heroMeta: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeGreen: {
-    backgroundColor: '#18794E',
-  },
-  badgeOrange: {
-    backgroundColor: '#B45309',
-  },
-  badgeText: {
-    color: colors.card,
-    fontSize: 11,
+  heroRole: {
+    color: colors.accentSoft,
+    fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   statsRow: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  snapshotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: 6,
+  },
+  snapshotLabel: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  snapshotValue: {
+    color: colors.ink,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
   },
   statCard: {
     flex: 1,
@@ -268,17 +476,17 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: colors.navy,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
     marginBottom: 4,
   },
   statLabel: {
     color: colors.inkSoft,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  formCard: {
+  sectionCard: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,
     padding: spacing.xl,
@@ -292,7 +500,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   fieldGroup: {
     gap: 6,
@@ -314,6 +522,44 @@ const styles = StyleSheet.create({
     color: colors.ink,
     backgroundColor: '#F8FAFD',
   },
+  summaryText: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: 6,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  quickIcon: {
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  quickTitle: {
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  quickText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   saveButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.lg,
@@ -330,7 +576,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveButtonText: {
-    color: colors.navy,
+    color: colors.nav,
     fontSize: 18,
     fontWeight: '900',
   },

@@ -9,11 +9,16 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import Card from '../../components/common/Card';
 import {colors, radius, spacing} from '../../theme';
 
 interface DocumentUploadScreenProps {
-  onUpload: (documentType: string, expiryDate: string, file: any) => Promise<void>;
+  onUpload: (
+    documentType: string,
+    expiryDate: string,
+    file: any,
+  ) => Promise<void>;
   loading: boolean;
   error: string | null;
   onCancel: () => void;
@@ -37,18 +42,68 @@ const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({
   const [expiryDate, setExpiryDate] = useState('');
   const [selectedFile, setSelectedFile] = useState<any>(null);
 
+  const applyPickedAsset = (asset: {
+    uri?: string;
+    fileName?: string | null;
+    type?: string | null;
+  }) => {
+    if (!asset.uri) {
+      return;
+    }
+
+    setSelectedFile({
+      uri: asset.uri,
+      fileName: asset.fileName ?? 'document.jpg',
+      type: asset.type ?? 'image/jpeg',
+    });
+  };
+
+  const pickImage = async (source: 'camera' | 'gallery') => {
+    try {
+      const response =
+        source === 'camera'
+          ? await launchCamera({
+              mediaType: 'photo',
+              quality: 0.8,
+              saveToPhotos: false,
+            })
+          : await launchImageLibrary({
+              mediaType: 'photo',
+              quality: 0.8,
+              selectionLimit: 1,
+            });
+
+      if (
+        response.didCancel ||
+        response.errorCode ||
+        !response.assets?.length
+      ) {
+        return;
+      }
+
+      applyPickedAsset(response.assets[0]);
+    } catch (pickerError) {
+      Alert.alert(
+        'Photo upload failed',
+        pickerError instanceof Error
+          ? pickerError.message
+          : 'Please try selecting the photo again.',
+      );
+    }
+  };
+
   const handlePickImage = () => {
     Alert.alert('Select Image', 'Choose a method to upload your document', [
       {
         text: 'Camera',
         onPress: () => {
-          setSelectedFile({uri: 'mock-uri', fileName: 'document.jpg'});
+          pickImage('camera').catch(() => undefined);
         },
       },
       {
         text: 'Gallery',
         onPress: () => {
-          setSelectedFile({uri: 'mock-uri', fileName: 'document.jpg'});
+          pickImage('gallery').catch(() => undefined);
         },
       },
       {text: 'Cancel', style: 'cancel'},
@@ -70,7 +125,8 @@ const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({
           </Pressable>
           <Text style={styles.title}>Upload Document</Text>
           <Text style={styles.subtitle}>
-            Please provide clear photos of your documents for faster verification.
+            Please provide clear photos of your documents for faster
+            verification.
           </Text>
         </View>
 
@@ -106,7 +162,9 @@ const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({
             onChangeText={setExpiryDate}
           />
 
-          <Text style={[styles.label, {marginTop: spacing.xl}]}>Document Photo</Text>
+          <Text style={[styles.label, {marginTop: spacing.xl}]}>
+            Document Photo
+          </Text>
           <Pressable
             onPress={handlePickImage}
             style={[styles.uploadBox, selectedFile && styles.uploadBoxActive]}>

@@ -1,64 +1,105 @@
-import httpx
+import asyncio
+import smtplib
 import structlog
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from app.config import settings
 
 log = structlog.get_logger()
 
-SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
+
+def _send_smtp(to: str, subject: str, html_body: str) -> None:
+    """Synchronous SMTP send — called via asyncio.to_thread()."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{settings.EMAIL_FROM_NAME} <{settings.GMAIL_USER}>"
+    msg["To"] = to
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+        smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
 
 
 async def send_email(to: str, subject: str, html_body: str) -> None:
-    if not settings.SENDGRID_API_KEY:
-        log.warning("sendgrid_not_configured", to=to, subject=subject)
+    if not settings.GMAIL_USER or not settings.GMAIL_APP_PASSWORD:
+        log.warning("gmail_not_configured", to=to, subject=subject)
         return
-
-    payload = {
-        "personalizations": [{"to": [{"email": to}]}],
-        "from": {"email": settings.SENDGRID_FROM_EMAIL},
-        "subject": subject,
-        "content": [{"type": "text/html", "value": html_body}],
-    }
-    headers = {
-        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(SENDGRID_URL, json=payload, headers=headers, timeout=10)
-        if resp.status_code not in (200, 202):
-            log.error("sendgrid_error", status=resp.status_code, body=resp.text)
+    try:
+        await asyncio.to_thread(_send_smtp, to, subject, html_body)
+        log.info("email_sent", to=to, subject=subject)
+    except Exception as exc:
+        log.error("email_send_failed", to=to, subject=subject, error=str(exc))
 
 
-async def send_verification_email(to: str, full_name: str, token: str) -> None:
-    link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+async def send_verification_email(to: str, full_name: str, otp: str) -> None:
     html = f"""
-    <h2>Welcome to FreightFlex, {full_name}!</h2>
-    <p>Please verify your email address by clicking the link below:</p>
-    <a href="{link}" style="padding:10px 20px;background:#1D4ED8;color:#fff;text-decoration:none;border-radius:4px;">
-      Verify Email
-    </a>
-    <p>This link expires in 24 hours.</p>
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <h2 style="color:#0B1E3E;margin:0;">FreightFlex</h2>
+        <p style="color:#64748B;font-size:13px;margin:4px 0 0;">Email Verification</p>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:28px 24px;border:1px solid #E2E8F0;">
+        <p style="color:#0B1E3E;font-size:16px;font-weight:600;margin:0 0 8px;">Hi {full_name},</p>
+        <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;">
+          Use the one-time code below to verify your FreightFlex account.
+          This code expires in <strong>10 minutes</strong>.
+        </p>
+        <div style="text-align:center;margin:24px 0;">
+          <span style="display:inline-block;background:#EAF3FD;color:#1D4ED8;font-size:36px;font-weight:900;letter-spacing:12px;padding:16px 28px;border-radius:10px;border:2px dashed #93C5FD;">
+            {otp}
+          </span>
+        </div>
+        <p style="color:#94A3B8;font-size:12px;text-align:center;margin:16px 0 0;">
+          If you didn't create a FreightFlex account, you can safely ignore this email.
+        </p>
+      </div>
+    </div>
     """
-    await send_email(to, "Verify your FreightFlex account", html)
+    await send_email(to, "Your FreightFlex verification code", html)
 
 
-async def send_password_reset_email(to: str, full_name: str, token: str) -> None:
-    link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+async def send_password_reset_email(to: str, full_name: str, otp: str) -> None:
     html = f"""
-    <h2>Password Reset - FreightFlex</h2>
-    <p>Hi {full_name}, we received a request to reset your password.</p>
-    <a href="{link}" style="padding:10px 20px;background:#1D4ED8;color:#fff;text-decoration:none;border-radius:4px;">
-      Reset Password
-    </a>
-    <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <h2 style="color:#0B1E3E;margin:0;">FreightFlex</h2>
+        <p style="color:#64748B;font-size:13px;margin:4px 0 0;">Password Reset</p>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:28px 24px;border:1px solid #E2E8F0;">
+        <p style="color:#0B1E3E;font-size:16px;font-weight:600;margin:0 0 8px;">Hi {full_name},</p>
+        <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;">
+          Use the one-time code below to reset your FreightFlex password.
+          This code expires in <strong>10 minutes</strong>.
+        </p>
+        <div style="text-align:center;margin:24px 0;">
+          <span style="display:inline-block;background:#FFF7ED;color:#C2410C;font-size:36px;font-weight:900;letter-spacing:12px;padding:16px 28px;border-radius:10px;border:2px dashed #FED7AA;">
+            {otp}
+          </span>
+        </div>
+        <p style="color:#94A3B8;font-size:12px;text-align:center;margin:16px 0 0;">
+          If you didn't request a password reset, you can safely ignore this email.
+        </p>
+      </div>
+    </div>
     """
-    await send_email(to, "Reset your FreightFlex password", html)
+    await send_email(to, "Your FreightFlex password reset code", html)
 
 
 async def send_job_booked_email(to: str, full_name: str, job_ref: str) -> None:
     html = f"""
-    <h2>Job Booked - {job_ref}</h2>
-    <p>Hi {full_name}, your job <strong>{job_ref}</strong> has been booked and payment is secured in escrow.</p>
-    <p>The driver will contact you before pickup.</p>
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
+      <h2 style="color:#0B1E3E;text-align:center;">Job Booked ✓</h2>
+      <div style="background:#fff;border-radius:10px;padding:28px 24px;border:1px solid #E2E8F0;">
+        <p style="color:#0B1E3E;">Hi {full_name},</p>
+        <p style="color:#475569;font-size:14px;line-height:1.6;">
+          Your job <strong>{job_ref}</strong> has been booked and payment is secured in escrow.
+          The driver will contact you before pickup.
+        </p>
+      </div>
+    </div>
     """
     await send_email(to, f"Job {job_ref} Booked Successfully", html)

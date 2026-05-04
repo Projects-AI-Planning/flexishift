@@ -16,6 +16,7 @@ interface LoginScreenProps {
   authLoading: boolean;
   authError: string | null;
   setAuthMode: (mode: any) => void;
+  onBackToSplash: () => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -25,6 +26,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
   authLoading,
   authError,
   setAuthMode,
+  onBackToSplash,
 }) => {
   return (
     <SafeAreaView style={styles.container}>
@@ -32,7 +34,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.glowTop} />
         <View style={styles.glowBottom} />
         <View style={styles.topBar}>
-          <Pressable onPress={() => setAuthMode('login')} style={styles.backBtn}>
+          <Pressable onPress={onBackToSplash} style={styles.backBtn}>
             <Text style={styles.backIcon}>{'\u2190'}</Text>
           </Pressable>
         </View>
@@ -43,7 +45,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           </View>
           <Text style={styles.brandKicker}>Driver Portal</Text>
           <Text style={styles.brand}>FreightFlex</Text>
-          <Text style={styles.tagline}>Secure access for drivers, dispatch, and delivery operations.</Text>
+          <Text style={styles.tagline}>
+            Secure access for drivers, dispatch, and delivery operations.
+          </Text>
         </View>
 
         {authError ? (
@@ -107,7 +111,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         </View>
 
         <View style={styles.bottomBar}>
-          <Text style={styles.bottomCopy}>© 2024 FreightFlow Systems. All rights reserved.</Text>
+          <Text style={styles.bottomCopy}>
+            © 2024 FreightFlow Systems. All rights reserved.
+          </Text>
         </View>
       </View>
     </SafeAreaView>

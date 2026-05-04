@@ -12,21 +12,29 @@ import {colors, radius, spacing} from '../../theme';
 
 interface InvoicesScreenProps {
   invoices: any[];
+  onViewInvoice: (invoice: any) => void;
   onRefreshInvoices?: () => void;
 }
 
-const InvoicesScreen: React.FC<InvoicesScreenProps> = ({invoices}) => {
+const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
+  invoices,
+  onViewInvoice,
+}) => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Invoices</Text>
-          <Text style={styles.subtitle}>Track every completed trip invoice</Text>
+          <Text style={styles.subtitle}>
+            Track every completed trip invoice
+          </Text>
         </View>
 
         <Card title="Invoice Summary" variant="accent">
           <Text style={styles.summaryValue}>{invoices.length}</Text>
-          <Text style={styles.summaryLabel}>Available invoices in your account</Text>
+          <Text style={styles.summaryLabel}>
+            Available invoices in your account
+          </Text>
         </Card>
 
         {invoices.length > 0 ? (
@@ -42,9 +50,13 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({invoices}) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Trip</Text>
-                <Text style={styles.value}>{invoice.jobReference || 'N/A'}</Text>
+                <Text style={styles.value}>
+                  {invoice.jobReference || 'N/A'}
+                </Text>
               </View>
-              <Pressable style={styles.button}>
+              <Pressable
+                onPress={() => onViewInvoice(invoice)}
+                style={styles.button}>
                 <Text style={styles.buttonText}>View Invoice</Text>
               </Pressable>
             </Card>

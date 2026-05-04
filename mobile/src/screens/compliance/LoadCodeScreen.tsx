@@ -9,20 +9,22 @@ import {
   Platform,
 } from 'react-native';
 import Card from '../../components/common/Card';
-import {colors, radius, spacing} from '../../theme';
+import {colors, spacing} from '../../theme';
 
 interface LoadCodeScreenProps {
   jobId: string;
   jobReference: string;
   onVerify: (code: string) => Promise<void>;
+  onOpenScanner: () => void;
   loading: boolean;
   error: string | null;
 }
 
 const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
-  jobId,
+  jobId: _jobId,
   jobReference,
   onVerify,
+  onOpenScanner,
   loading,
   error,
 }) => {
@@ -39,7 +41,10 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           Enter the 6-digit code provided by the warehouse or shipper at pickup.
         </Text>
 
-        <Card title="Pickup Verification" subtitle={`Ref: ${jobReference}`} variant="accent">
+        <Card
+          title="Pickup Verification"
+          subtitle={`Ref: ${jobReference}`}
+          variant="accent">
           <Text style={styles.label}>Enter Load Code</Text>
           <TextInput
             style={styles.codeInput}
@@ -73,6 +78,10 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 
         <Pressable style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>Can't find code?</Text>
+        </Pressable>
+
+        <Pressable onPress={onOpenScanner} style={styles.scannerButton}>
+          <Text style={styles.scannerButtonText}>Open Scanner</Text>
         </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -162,6 +171,19 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.accent,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  scannerButton: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.sm,
+    paddingVertical: 14,
+  },
+  scannerButtonText: {
+    color: colors.ink,
     fontSize: 14,
     fontWeight: '800',
   },

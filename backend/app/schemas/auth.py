@@ -66,7 +66,8 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
+    email: EmailStr
+    otp: str
     new_password: str = Field(..., alias="newPassword")
 
     model_config = {"populate_by_name": True}

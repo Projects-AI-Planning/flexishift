@@ -8,6 +8,7 @@ export type DrawerRouteKey =
   | 'jobs.upcoming'
   | 'jobs.history'
   | 'compliance.loadCode'
+  | 'compliance.scanner'
   | 'compliance.handover'
   | 'compliance.delivery'
   | 'tracking.active'
@@ -23,11 +24,13 @@ export type DrawerRouteKey =
   | 'ratings.received'
   | 'ratings.given'
   | 'notifications.all'
+  | 'invoices.detail'
   | 'profile.edit'
   | 'profile.password'
   | 'profile.preferences'
   | 'support.faq'
-  | 'support.contact';
+  | 'support.contact'
+  | 'legal.terms';
 
 export interface ApiResponse<T> {
   code: number;

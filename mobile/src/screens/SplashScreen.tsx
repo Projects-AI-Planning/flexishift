@@ -1,5 +1,10 @@
 import React from 'react';
-import {ImageBackground, Pressable, SafeAreaView, StyleSheet} from 'react-native';
+import {
+  ImageBackground,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+} from 'react-native';
 
 interface SplashScreenProps {
   onGetStarted: () => void;
@@ -8,7 +13,11 @@ interface SplashScreenProps {
 const SplashScreen: React.FC<SplashScreenProps> = ({onGetStarted}) => {
   return (
     <SafeAreaView style={styles.container}>
-      <Pressable style={styles.fill} onPress={onGetStarted}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue to create account"
+        onPress={onGetStarted}
+        style={styles.fill}>
         <ImageBackground
           source={require('../assets/screens/Freightflex.png')}
           resizeMode="cover"

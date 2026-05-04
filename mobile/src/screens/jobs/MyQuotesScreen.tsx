@@ -16,6 +16,7 @@ interface MyQuotesScreenProps {
   onRefresh: () => void;
   onProceedToCompliance: (jobId: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
+  onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
   onRefresh,
   onProceedToCompliance,
   onWithdrawQuote,
+  onViewQuoteStatus,
 }) => {
   const handleWithdraw = (quoteId: string) => {
     Alert.alert('Withdraw Bid', 'Are you sure you want to withdraw this bid?', [
@@ -107,23 +109,50 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           <Text style={styles.notesText} numberOfLines={2}>"{item.notes}"</Text>
         ) : null}
 
-        {/* Accepted — Proceed to Compliance */}
+        {/* Accepted — Proceed to Compliance + View notification */}
         {isAccepted && (
           <View style={styles.acceptedSection}>
             <View style={styles.acceptedBanner}>
               <Text style={styles.acceptedBannerIcon}>🎉</Text>
-              <View>
+              <View style={{flex: 1}}>
                 <Text style={styles.acceptedBannerTitle}>Your bid was accepted!</Text>
                 <Text style={styles.acceptedBannerSub}>
                   Proceed to verify the load code at pickup.
                 </Text>
               </View>
             </View>
+            {onViewQuoteStatus && (
+              <Pressable
+                onPress={() => onViewQuoteStatus(item)}
+                style={styles.viewNotifBtn}>
+                <Text style={styles.viewNotifText}>View Acceptance Details</Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={() => onProceedToCompliance(jobId)}
               style={styles.complianceBtn}>
               <Text style={styles.complianceBtnText}>Proceed to Compliance →</Text>
             </Pressable>
+          </View>
+        )}
+
+        {/* Declined */}
+        {isDeclined && (
+          <View style={styles.declinedSection}>
+            <View style={styles.declinedBanner}>
+              <Text style={styles.declinedIcon}>❌</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.declinedTitle}>Quote not selected</Text>
+                <Text style={styles.declinedSub}>Haulier chose a different driver.</Text>
+              </View>
+            </View>
+            {onViewQuoteStatus && (
+              <Pressable
+                onPress={() => onViewQuoteStatus(item)}
+                style={styles.viewNotifBtn}>
+                <Text style={styles.viewNotifText}>See Recommended Jobs</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -338,6 +367,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  viewNotifBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewNotifText: {color: colors.accent, fontSize: 13, fontWeight: '800'},
+  declinedSection: {gap: spacing.sm},
+  declinedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: '#FEF2F2', borderRadius: radius.md,
+    padding: spacing.md, borderWidth: 1, borderColor: '#FECACA',
+  },
+  declinedIcon: {fontSize: 20},
+  declinedTitle: {color: '#B91C1C', fontSize: 13, fontWeight: '900'},
+  declinedSub: {color: '#7F1D1D', fontSize: 11, marginTop: 2},
   emptyBox: {
     alignItems: 'center',
     marginTop: 80,

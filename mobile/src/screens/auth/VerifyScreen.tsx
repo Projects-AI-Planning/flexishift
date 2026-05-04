@@ -1,23 +1,25 @@
-import React from 'react';
+import React, {useRef, useState} from 'react';
 import {
-  View,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
-  Pressable,
-  StyleSheet,
-  SafeAreaView,
+  View,
 } from 'react-native';
 import {colors, radius, spacing} from '../../theme';
 
 interface VerifyScreenProps {
-  verifyForm: any;
-  setVerifyForm: (form: any) => void;
+  verifyForm: {email: string; otp: string};
+  setVerifyForm: (updater: (prev: any) => any) => void;
   handleVerify: () => void;
   handleResendOtp: () => void;
   authLoading: boolean;
   authError: string | null;
   setAuthMode: (mode: any) => void;
 }
+
+const OTP_LENGTH = 6;
 
 const VerifyScreen: React.FC<VerifyScreenProps> = ({
   verifyForm,
@@ -28,57 +30,113 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
   authError,
   setAuthMode,
 }) => {
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const inputs = useRef<Array<TextInput | null>>(Array(OTP_LENGTH).fill(null));
+
+  const handleDigitChange = (text: string, index: number) => {
+    const digit = text.replace(/[^0-9]/g, '').slice(-1);
+    const next = [...otpDigits];
+    next[index] = digit;
+    setOtpDigits(next);
+    const otp = next.join('');
+    setVerifyForm((prev: any) => ({...prev, otp}));
+    if (digit && index < OTP_LENGTH - 1) {
+      inputs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (key: string, index: number) => {
+    if (key === 'Backspace' && !otpDigits[index] && index > 0) {
+      inputs.current[index - 1]?.focus();
+    }
+  };
+
+  const onVerify = () => {
+    handleVerify();
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <Pressable onPress={() => setAuthMode('register')} style={styles.backBtn}>
+        <Text style={styles.backText}>← Back</Text>
+      </Pressable>
+
       <View style={styles.content}>
-        <Pressable onPress={() => setAuthMode('login')} style={styles.backBtn}>
-          <Text style={styles.backText}>{'\u2190'} Back</Text>
-        </Pressable>
+        {/* Icon */}
+        <View style={styles.iconCircle}>
+          <Text style={styles.iconText}>✉</Text>
+          <View style={styles.iconDot} />
+        </View>
 
         <Text style={styles.title}>Verify Email</Text>
-        <Text style={styles.subtitle}>Enter the one-time password sent to your email.</Text>
+        <Text style={styles.subtitle}>
+          {'We\'ve sent a 6-digit code to your email '}
+          <Text style={styles.emailHighlight}>{verifyForm.email}</Text>
+          {'. Please enter it below to verify your account.'}
+        </Text>
 
-        {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-
-        <View style={styles.card}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={email =>
-                setVerifyForm((current: any) => ({...current, email}))
-              }
-              placeholder="driver.77@freightflex.com"
-              placeholderTextColor="#9AA4B2"
-              style={styles.input}
-              value={verifyForm.email}
-            />
+        {/* Error */}
+        {authError ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{authError}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>OTP Code</Text>
+        {/* OTP boxes */}
+        <View style={styles.otpRow}>
+          {Array(OTP_LENGTH).fill(null).map((_, i) => (
             <TextInput
+              key={i}
+              ref={ref => {inputs.current[i] = ref;}}
+              style={[
+                styles.otpBox,
+                otpDigits[i] ? styles.otpBoxFilled : null,
+              ]}
+              value={otpDigits[i]}
+              onChangeText={text => handleDigitChange(text, i)}
+              onKeyPress={({nativeEvent}) => handleKeyPress(nativeEvent.key, i)}
               keyboardType="number-pad"
-              onChangeText={otp =>
-                setVerifyForm((current: any) => ({...current, otp}))
-              }
-              placeholder="123456"
-              placeholderTextColor="#9AA4B2"
-              style={styles.input}
-              value={verifyForm.otp}
+              maxLength={1}
+              textAlign="center"
+              selectTextOnFocus
+              caretHidden
             />
+          ))}
+        </View>
+
+        {/* Verify button */}
+        <Pressable
+          onPress={onVerify}
+          disabled={authLoading || otpDigits.join('').length < OTP_LENGTH}
+          style={[
+            styles.verifyBtn,
+            (authLoading || otpDigits.join('').length < OTP_LENGTH) && styles.verifyBtnDisabled,
+          ]}>
+          <Text style={styles.verifyBtnText}>
+            {authLoading ? 'Verifying...' : 'Verify & Continue  →'}
+          </Text>
+        </Pressable>
+
+        {/* Resend */}
+        <View style={styles.resendRow}>
+          <Text style={styles.resendLabel}>Didn't receive the code? </Text>
+          <Pressable onPress={handleResendOtp} disabled={authLoading}>
+            <Text style={styles.resendLink}>Resend Code</Text>
+          </Pressable>
+        </View>
+
+        {/* Support */}
+        <View style={styles.supportRow}>
+          <View style={styles.supportDivider} />
+          <View style={styles.supportContent}>
+            <View style={styles.supportAvatar}>
+              <Text style={styles.supportAvatarText}>💬</Text>
+            </View>
+            <View>
+              <Text style={styles.supportTitle}>Support is online</Text>
+              <Text style={styles.supportSubtitle}>Contact FreightFlex Support</Text>
+            </View>
           </View>
-
-          <Pressable onPress={handleVerify} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              {authLoading ? 'Verifying...' : 'Verify Email'}
-            </Text>
-          </Pressable>
-
-          <Pressable onPress={handleResendOtp} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Resend OTP</Text>
-          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -86,99 +144,85 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-  },
+  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
   backBtn: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.lg,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
   },
-  backText: {
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '800',
+  backText: {color: colors.navy, fontSize: 16, fontWeight: '800'},
+  content: {
+    flex: 1, paddingHorizontal: spacing.xl,
+    backgroundColor: '#fff',
+    marginHorizontal: spacing.xl, marginTop: spacing.sm,
+    borderRadius: radius.xl, padding: spacing.xxl,
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.06, shadowRadius: 16, elevation: 3,
   },
-  title: {
-    color: colors.navy,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+
+  // Icon
+  iconCircle: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#E8F1FA', alignSelf: 'center',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20, position: 'relative',
   },
-  subtitle: {
-    color: colors.inkSoft,
-    fontSize: 17,
-    marginTop: 8,
-    marginBottom: spacing.xl,
+  iconText: {fontSize: 32, color: colors.navy},
+  iconDot: {
+    position: 'absolute', top: 10, right: 10,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: colors.danger, borderWidth: 2, borderColor: '#fff',
   },
-  errorText: {
-    borderWidth: 1,
-    borderColor: '#F3B4B0',
-    backgroundColor: colors.dangerSoft,
-    color: colors.danger,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: spacing.lg,
+
+  // Text
+  title: {color: colors.navy, fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 12},
+  subtitle: {color: colors.inkSoft, fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 24},
+  emailHighlight: {color: colors.accent, fontWeight: '700'},
+
+  // Error
+  errorBox: {
+    backgroundColor: '#FFF1EF', borderColor: '#F3B4B0', borderWidth: 1,
+    borderRadius: radius.md, padding: spacing.md, marginBottom: 16,
   },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: spacing.xl,
+  errorText: {color: colors.danger, fontSize: 13, fontWeight: '700', textAlign: 'center'},
+
+  // OTP boxes
+  otpRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    gap: 8, marginBottom: 28,
   },
-  inputGroup: {
-    marginBottom: spacing.lg,
+  otpBox: {
+    flex: 1, height: 60, borderWidth: 1.5, borderColor: '#C9D0DB',
+    borderRadius: radius.md, fontSize: 22, fontWeight: '900',
+    color: colors.navy, backgroundColor: '#FAFBFD', textAlign: 'center',
   },
-  label: {
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
+  otpBoxFilled: {
+    borderColor: colors.accent, backgroundColor: '#EAF3FD',
   },
-  input: {
-    borderWidth: 2,
-    borderColor: '#D6DCE5',
-    borderRadius: 18,
-    minHeight: 62,
-    paddingHorizontal: spacing.lg,
-    fontSize: 17,
-    color: colors.ink,
-    backgroundColor: '#F8FAFD',
+
+  // Verify button
+  verifyBtn: {
+    backgroundColor: colors.accent, borderRadius: radius.lg,
+    minHeight: 58, justifyContent: 'center', alignItems: 'center', marginBottom: 20,
   },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 18,
-    minHeight: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.sm,
+  verifyBtnDisabled: {opacity: 0.5},
+  verifyBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
+
+  // Resend
+  resendRow: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24},
+  resendLabel: {color: colors.inkSoft, fontSize: 14},
+  resendLink: {color: colors.accent, fontSize: 14, fontWeight: '800'},
+
+  // Support
+  supportRow: {marginTop: 'auto'},
+  supportDivider: {height: 1, backgroundColor: colors.border, marginBottom: 16},
+  supportContent: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  supportAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.neutralSoft, justifyContent: 'center', alignItems: 'center',
   },
-  primaryButtonText: {
-    color: colors.card,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  secondaryButton: {
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    minHeight: 54,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.navy,
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  supportAvatarText: {fontSize: 18},
+  supportTitle: {color: colors.ink, fontSize: 14, fontWeight: '800'},
+  supportSubtitle: {color: colors.inkSoft, fontSize: 12, marginTop: 2},
 });
 
 export default VerifyScreen;

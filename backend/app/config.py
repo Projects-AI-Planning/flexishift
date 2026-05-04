@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@freightflex.io"
 
+    GMAIL_USER: str = ""
+    GMAIL_APP_PASSWORD: str = ""
+    EMAIL_FROM_NAME: str = "FreightFlex"
+
     FCM_SERVER_KEY: str = ""
     FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"

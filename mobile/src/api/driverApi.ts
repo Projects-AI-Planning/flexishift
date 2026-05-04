@@ -47,7 +47,7 @@ export const driverApi = {
     register: (payload: Record<string, unknown>) =>
       request<Record<string, unknown>>('/auth/register', {
         method: 'POST',
-        body: jsonBody({...payload, role: 'driver'}),
+        body: jsonBody({...payload, role: 'DRIVER'}),
       }),
     resendVerification: (email: string) =>
       request<{email: string; otpExpiresAt?: string}>(
@@ -270,6 +270,12 @@ export const driverApi = {
       }),
     uploadPhoto: (formData: FormData) =>
       request<Record<string, unknown>>('/profile/photo/upload', {
+        method: 'POST',
+        body: formData,
+        isFormData: true,
+      }),
+    uploadPhotoDirect: (formData: FormData) =>
+      request<Record<string, unknown>>('/profile/photo/upload-direct', {
         method: 'POST',
         body: formData,
         isFormData: true,

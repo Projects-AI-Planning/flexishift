@@ -36,7 +36,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
     token = body.get_token()
     if not token:
         raise HTTPException(status_code=400, detail="Verification token or OTP is required")
-    user = await auth_svc.verify_email(db, token)
+    user = await auth_svc.verify_email(db, token, email=body.email)
     return ok(data=None, message="Email verified. You can now log in.")
 
 
@@ -84,7 +84,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get
 
 @router.post("/reset-password")
 def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
-    auth_svc.reset_password(db, body.token, body.new_password)
+    auth_svc.reset_password(db, body.email, body.otp, body.new_password)
     return ok(data=None, message="Password reset successfully.")
 
 
