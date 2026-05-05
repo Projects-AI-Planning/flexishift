@@ -42,7 +42,7 @@ flowchart TD
     K --> N[Verify HMAC\nsignature]
     N --> O{Signature\nvalid?}
     O -->|No| P[Log error\nIgnore event]
-    O -->|Yes| Q{Event already\nprocessed?]
+    O -->|Yes| Q{Event already\nprocessed?}
     Q -->|Yes - duplicate| P
     Q -->|No| R[Update payment\nstatus = ESCROWED]
     R --> S[Update job\nstatus = PAYMENT_SECURED]
