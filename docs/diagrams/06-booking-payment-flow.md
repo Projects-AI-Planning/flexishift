@@ -6,16 +6,16 @@
 flowchart TD
     A([Haulier views\nquote comparison table]) --> B[Review all submitted\nquotes: Name · Rating · Price]
     B --> C[/Select preferred\nsupplier/]
-    C --> D[Confirmation modal:\n'Book [Supplier] for £XXX?']
+    C --> D["Confirmation modal:\nBook Supplier for £XXX?"]
     D --> E{Confirm?}
     E -->|Cancel| B
-    E -->|Yes| F[POST /jobs/:id/book\nwith quoteId]
+    E -->|Yes| F["POST /jobs/:id/book\nwith quoteId"]
     F --> G[Set job\nstatus = BOOKED]
     G --> H[Set selected\nsupplier on job]
     H --> I[Mark selected quote\nstatus = SELECTED]
     I --> J[Mark all other\nquotes = REJECTED]
-    J --> K[Notify selected\nsupplier:\n'You have been booked!']
-    K --> L[Notify rejected\nsuppliers:\n'Another supplier selected']
+    J --> K[Notify selected\nsupplier:\nYou have been booked!]
+    K --> L[Notify rejected\nsuppliers:\nAnother supplier selected]
     L --> M([Redirect to\nEscrow Payment screen])
 
     style A fill:#DBEAFE,stroke:#2563EB
@@ -26,9 +26,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Haulier on\nPayment screen]) --> B[Display:\nJob ref · Supplier\nPrice · Tax · Total]
+    A([Haulier on\nPayment screen]) --> B["Display:\nJob ref · Supplier\nPrice · Tax · Total"]
     B --> C[/Select payment\nmethod:\nUPI · Card · Bank Transfer/]
-    C --> D[POST /jobs/:id/payment/initiate]
+    C --> D["POST /jobs/:id/payment/initiate"]
     D --> E[Create payment order\nat gateway]
     E --> F[Return payment URL\nto frontend]
     F --> G[Redirect haulier to\ngateway payment page]
@@ -37,7 +37,7 @@ flowchart TD
     H -->|Payment fails| J[Gateway webhook:\npayment.failed]
     H -->|Payment succeeds| K[Gateway webhook:\npayment.captured]
     J --> L[Update payment\nstatus = FAILED]
-    L --> M[Notify haulier:\n'Payment failed\nPlease retry']
+    L --> M[Notify haulier:\nPayment failed - Please retry]
     M --> A
     K --> N[Verify HMAC\nsignature]
     N --> O{Signature\nvalid?}
@@ -46,8 +46,8 @@ flowchart TD
     Q -->|Yes - duplicate| P
     Q -->|No| R[Update payment\nstatus = ESCROWED]
     R --> S[Update job\nstatus = PAYMENT_SECURED]
-    S --> T[Notify supplier:\n'Payment secured ✓']
-    T --> U[Show haulier:\n'Funds held in escrow']
+    S --> T[Notify supplier:\nPayment secured]
+    T --> U[Show haulier:\nFunds held in escrow]
     U --> V([Awaiting job\nexecution])
 
     style A fill:#DBEAFE,stroke:#2563EB
@@ -60,7 +60,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Haulier approves\ndelivery report]) --> B[POST /jobs/:id/compliance/approve]
+    A([Haulier approves\ndelivery report]) --> B["POST /jobs/:id/compliance/approve"]
     B --> C[Set compliance\nstep3_approved_at]
     C --> D[Set job\nstatus = COMPLETED]
     D --> E[Trigger Payment\nRelease]
@@ -73,12 +73,12 @@ flowchart TD
     G -->|Yes| K[Update payment\nstatus = RELEASED]
     K --> L[Record\nreleased_at timestamp]
     L --> M[Generate invoice]
-    M --> N[Compile invoice data:\nJob ref · Parties · Price\nTax breakdown · Total]
+    M --> N["Compile invoice data:\nJob ref · Parties · Price\nTax breakdown · Total"]
     N --> O[Render HTML template]
     O --> P[Convert to PDF\nvia Puppeteer]
-    P --> Q[Upload PDF to S3\ninvoices/FF-XXXX.pdf]
+    P --> Q["Upload PDF to S3\ninvoices/FF-XXXX.pdf"]
     Q --> R[Store invoice URL\non job record]
-    R --> S[Notify supplier:\n'Payment released!\nInvoice ready']
+    R --> S[Notify supplier:\nPayment released - Invoice ready]
     S --> T[Send rating\nprompt to both parties]
     T --> U([Job COMPLETED\nRating flow begins])
 
