@@ -50,11 +50,15 @@ flowchart TD
     end
 
     E3 --> END1([Payment Released\nInvoice Generated\nRating Prompted])
-    F3 --> END2([Dispute Resolution\nProcess Opened])
+    F3 --> END2([Dispute raised by Haulier\nSee Diagram 06D for\nDriver Dispute Flow])
+    F3 --> DR1[Driver can also\nraise own dispute\nvia mobile app]
+    DR1 --> DR2["POST /jobs/:id/dispute\nJob → DISPUTED\nPayment → ON_HOLD"]
+    DR2 --> DR3([Haulier notified\nto resolve within 24h\nSee Diagram 06D])
 
     style START fill:#DBEAFE,stroke:#2563EB
     style END1 fill:#DCFCE7,stroke:#16A34A
     style END2 fill:#FEE2E2,stroke:#DC2626
+    style DR3 fill:#FEF9C3,stroke:#CA8A04
     style S1 fill:#FFF7ED,stroke:#EA580C
     style S2 fill:#EFF6FF,stroke:#2563EB
     style S3 fill:#F0FDF4,stroke:#16A34A
