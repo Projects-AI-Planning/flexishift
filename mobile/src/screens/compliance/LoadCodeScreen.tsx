@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {
+  View,
   Text,
   StyleSheet,
   TextInput,
@@ -16,6 +17,7 @@ interface LoadCodeScreenProps {
   jobReference: string;
   onVerify: (code: string) => Promise<void>;
   onOpenScanner: () => void;
+  onBack?: () => void;
   loading: boolean;
   error: string | null;
 }
@@ -25,6 +27,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
   jobReference,
   onVerify,
   onOpenScanner,
+  onBack,
   loading,
   error,
 }) => {
@@ -35,7 +38,16 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}>
-        <Text style={styles.stepTitle}>Step 1 of 3</Text>
+        <View style={styles.topRow}>
+          {onBack ? (
+            <Pressable onPress={onBack} style={styles.backBtn}>
+              <Text style={styles.backText}>{'\u2190'} Back</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backBtnSpacer} />
+          )}
+          <Text style={styles.stepTitle}>Step 1 of 3</Text>
+        </View>
         <Text style={styles.mainTitle}>Load Code Confirmation</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code provided by the warehouse or shipper at pickup.
@@ -76,13 +88,17 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           </Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Can't find code?</Text>
+        <Pressable onPress={onOpenScanner} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Can't find code? Open scanner</Text>
         </Pressable>
 
         <Pressable onPress={onOpenScanner} style={styles.scannerButton}>
           <Text style={styles.scannerButtonText}>Open Scanner</Text>
         </Pressable>
+
+        <Text style={styles.nextStepText}>
+          After verification, continue to the handover checklist. Trip start is enabled from the next step.
+        </Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -97,13 +113,28 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.xl,
   },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+  },
+  backBtnSpacer: {
+    width: 80,
+  },
+  backText: {
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: '800',
+  },
   stepTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.accent,
-    marginBottom: spacing.sm,
     textTransform: 'uppercase',
-    marginTop: spacing.sm,
   },
   mainTitle: {
     fontSize: 34,
@@ -186,6 +217,13 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 14,
     fontWeight: '800',
+  },
+  nextStepText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: spacing.lg,
   },
 });
 

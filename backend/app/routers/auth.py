@@ -44,6 +44,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
 def login(body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     tokens = auth_svc.login(db, r, body.email, body.password)
     user = db.query(User).filter(User.email == body.email).first()
+    profile = user.profile if user else None
     return ok(
         data={
             "accessToken": tokens["access_token"],
@@ -51,6 +52,12 @@ def login(body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis
             "tokenType": tokens["token_type"],
             "userId": user.id if user else None,
             "role": user.role.value if user else None,
+            "name": user.full_name if user else None,
+            "email": user.email if user else None,
+            "phone": user.phone if user else None,
+            "isVerified": user.verified if user else None,
+            "isProfileComplete": user.profile_complete if user else None,
+            "profilePhoto": profile.photo_url if profile else None,
         },
         message="Login successful",
     )

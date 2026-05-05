@@ -16,6 +16,7 @@ interface DeliveryScreenProps {
   jobId: string;
   jobReference: string;
   onSubmit: (proofData: any, photos: any[]) => Promise<void>;
+  onBack?: () => void;
   loading: boolean;
   error: string | null;
 }
@@ -24,6 +25,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
   jobId,
   jobReference,
   onSubmit,
+  onBack,
   loading,
   error,
 }) => {
@@ -49,8 +51,8 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
-          <Pressable style={styles.backBtn}>
-            <Text style={styles.backText}>{'\u2190'}</Text>
+          <Pressable onPress={onBack} style={styles.backBtn}>
+            <Text style={styles.backText}>{'\u2190'} Tracking</Text>
           </Pressable>
           <Text style={styles.title}>Step 3: Delivery Report</Text>
           <Text style={styles.brand}>LOGIFLOW</Text>
@@ -97,7 +99,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
         <Card title="Recipient Signature" variant="default">
           <View style={styles.signatureHeader}>
             <Text style={styles.signatureTitle}>RECIPIENT SIGNATURE</Text>
-            <Pressable>
+            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
               <Text style={[styles.clearText, {color: '#B42318'}]}>Clear</Text>
             </Pressable>
           </View>
@@ -127,6 +129,14 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
             onChangeText={setNotes}
           />
         </Card>
+
+        <View style={styles.nextStepCard}>
+          <Text style={styles.nextStepLabel}>After submit</Text>
+          <Text style={styles.nextStepTitle}>Delivery review and payment release</Text>
+          <Text style={styles.nextStepText}>
+            Once the report is submitted, the haulier reviews the delivery and payment moves to the release stage.
+          </Text>
+        </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -343,6 +353,31 @@ const styles = StyleSheet.create({
     minHeight: 160,
     textAlignVertical: 'top',
     paddingTop: spacing.lg,
+  },
+  nextStepCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: 4,
+  },
+  nextStepLabel: {
+    color: '#16A34A',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  nextStepTitle: {
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  nextStepText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
   },
   errorText: {
     color: colors.danger,

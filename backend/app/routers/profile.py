@@ -43,7 +43,10 @@ def _check_profile_complete(user: User) -> None:
     if not p:
         return
     if user.role == Role.DRIVER:
-        if p.licence_number and p.vehicle_type and p.vehicle_registration:
+        # Match the mobile onboarding flow: the driver finishes setup after
+        # providing licence number and vehicle type. Vehicle registration can
+        # still be completed later from the profile editor.
+        if p.licence_number and p.vehicle_type:
             user.profile_complete = True
     elif user.role in (Role.HAULIER, Role.FIRM):
         if p.company_name and p.company_address:

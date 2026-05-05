@@ -45,14 +45,35 @@ def _job_dict(job: Job) -> dict:
 
 
 def _quote_dict(quote: Quote) -> dict:
+    supplier = quote.supplier
+    job = quote.job
     return {
         "quoteId": quote.id,
         "jobId": quote.job_id,
+        "jobReference": job.job_ref if job else None,
         "supplierId": quote.supplier_id,
+        "supplier": {
+            "supplierId": supplier.id if supplier else None,
+            "name": supplier.full_name if supplier else None,
+            "phone": supplier.phone if supplier else None,
+        } if supplier else None,
         "quoteAmount": quote.price,
         "currency": quote.currency,
-        "status": quote.status,
+        "status": quote.status.value if hasattr(quote.status, "value") else quote.status,
+        "job": {
+            "jobId": job.id if job else None,
+            "jobRef": job.job_ref if job else None,
+            "pickupLocation": job.pickup_address if job else None,
+            "dropLocation": job.drop_address if job else None,
+            "goodsType": job.goods_type if job else None,
+            "weightKg": job.weight_kg if job else None,
+            "vehicleType": job.vehicle_type if job else None,
+            "jobDate": job.job_date.isoformat() if job and job.job_date else None,
+            "timeSlot": job.time_slot if job else None,
+            "status": job.status.value if job else None,
+        } if job else None,
         "createdAt": quote.created_at.isoformat() if quote.created_at else None,
+        "updatedAt": quote.updated_at.isoformat() if quote.updated_at else None,
     }
 
 
@@ -249,6 +270,17 @@ async def select_quote(
 ):
     quote = await quotes_svc.select_quote(db, job_id, quote_id, current_user)
     return ok(data=_quote_dict(quote), message="Quote accepted")
+
+
+@router.patch("/{job_id}/quotes/{quote_id}/reject")
+def reject_quote(
+    job_id: str,
+    quote_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    quote = quotes_svc.reject_quote(db, job_id, quote_id, current_user)
+    return ok(data=_quote_dict(quote), message="Quote rejected")
 
 
 @router.delete("/{job_id}/quotes/{quote_id}", status_code=200)

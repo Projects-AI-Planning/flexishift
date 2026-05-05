@@ -137,6 +137,25 @@ def withdraw_quote(db: Session, quote_id: str, supplier: User) -> Quote:
     return quote
 
 
+def reject_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quote:
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.haulier_id != haulier.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Job is not open")
+
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.job_id == job_id).first()
+    if not quote or quote.status != QuoteStatus.ACTIVE:
+        raise HTTPException(status_code=404, detail="Quote not found or not active")
+
+    quote.status = QuoteStatus.REJECTED
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
 def edit_quote(db: Session, quote_id: str, supplier: User, new_price: float) -> Quote:
     quote = db.query(Quote).filter(Quote.id == quote_id, Quote.supplier_id == supplier.id).first()
     if not quote:

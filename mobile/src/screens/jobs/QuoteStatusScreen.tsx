@@ -117,8 +117,11 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
           </View>
 
           <Pressable onPress={onViewJob} style={styles.primaryBtn}>
-            <Text style={styles.primaryBtnText}>View Job Details & Start  →</Text>
+            <Text style={styles.primaryBtnText}>Continue to Booking →</Text>
           </Pressable>
+          <Text style={styles.flowHint}>
+            This will open the booking step, then load code verification and handover.
+          </Text>
 
           <Pressable onPress={onDismiss} style={styles.dismissBtn}>
             <Text style={styles.dismissBtnText}>Dismiss</Text>
@@ -150,7 +153,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
         </Text>
 
         <Pressable onPress={onFindJobs} style={styles.findJobsBtn}>
-          <Text style={styles.findJobsBtnText}>🔍  Find New Jobs</Text>
+          <Text style={styles.findJobsBtnText}>🔍 Browse Available Jobs</Text>
         </Pressable>
 
         {/* Recommended Jobs */}
@@ -213,7 +216,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
         </View>
 
         <Pressable onPress={onDismiss} style={styles.dismissBtn}>
-          <Text style={styles.dismissBtnText}>Close</Text>
+          <Text style={styles.dismissBtnText}>Back to My Bids</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -249,6 +252,14 @@ const styles = StyleSheet.create({
   subAccepted: {
     color: colors.inkSoft, fontSize: 15, lineHeight: 22,
     textAlign: 'center', marginBottom: 24,
+  },
+  flowHint: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   jobRefText: {color: colors.accent, fontWeight: '800'},
 

@@ -125,13 +125,13 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
               <Pressable
                 onPress={() => onViewQuoteStatus(item)}
                 style={styles.viewNotifBtn}>
-                <Text style={styles.viewNotifText}>View Acceptance Details</Text>
+                <Text style={styles.viewNotifText}>View Accepted Steps</Text>
               </Pressable>
             )}
             <Pressable
               onPress={() => onProceedToCompliance(jobId)}
               style={styles.complianceBtn}>
-              <Text style={styles.complianceBtnText}>Proceed to Compliance →</Text>
+              <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>
             </Pressable>
           </View>
         )}
@@ -150,7 +150,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
               <Pressable
                 onPress={() => onViewQuoteStatus(item)}
                 style={styles.viewNotifBtn}>
-                <Text style={styles.viewNotifText}>See Recommended Jobs</Text>
+                <Text style={styles.viewNotifText}>See Similar Jobs</Text>
               </Pressable>
             )}
           </View>

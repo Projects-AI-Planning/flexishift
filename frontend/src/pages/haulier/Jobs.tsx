@@ -23,6 +23,8 @@ type ApiJob = {
 
 type Quote = {
   quoteId: string;
+  jobId?: string;
+  jobReference?: string;
   supplierId?: string;
   supplierName?: string;
   supplierPhone?: string;
@@ -31,6 +33,24 @@ type Quote = {
   currency?: string;
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
+  job?: {
+    jobId?: string;
+    jobRef?: string;
+    pickupLocation?: string;
+    dropLocation?: string;
+    goodsType?: string;
+    weightKg?: number;
+    vehicleType?: string;
+    jobDate?: string;
+    timeSlot?: string;
+    status?: string;
+  };
+  supplier?: {
+    supplierId?: string;
+    name?: string;
+    phone?: string;
+  };
 };
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
@@ -120,6 +140,7 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -152,6 +173,20 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
     }
   };
 
+  const reject = async (quoteId: string) => {
+    setRejecting(quoteId);
+    setError('');
+    try {
+      await haulierService.rejectQuote(jobId, quoteId);
+      void load();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to reject quote.');
+    } finally {
+      setRejecting(null);
+    }
+  };
+
   if (loading) return (
     <div className="py-4 flex justify-center">
       <span className="material-symbols-outlined text-primary animate-spin">progress_activity</span>
@@ -174,50 +209,100 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
         const amount = q.quoteAmount ?? q.amount ?? 0;
         const currency = q.currency ?? 'INR';
         const isActive = (q.status ?? '').toUpperCase() === 'ACTIVE';
+        const status = (q.status ?? 'ACTIVE').toUpperCase();
         const canAccept = jobStatus?.toUpperCase() === 'OPEN' && isActive;
+        const job = q.job ?? {};
+        const supplierName = q.supplier?.name ?? q.supplierName ?? 'Driver';
+        const supplierPhone = q.supplier?.phone ?? q.supplierPhone;
+        const quoteRef = q.quoteId.slice(0, 8).toUpperCase();
+        const jobRef = q.jobReference ?? job.jobRef ?? q.jobId ?? jobId;
+        const canReject = jobStatus?.toUpperCase() === 'OPEN' && isActive;
 
         return (
-          <div key={q.quoteId} className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-base text-primary">person</span>
+          <div key={q.quoteId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Quotation</p>
+                    <p className="mt-1 text-base font-black text-slate-900 truncate">{jobRef}</p>
+                    <p className="text-xs text-slate-400">Quote {quoteRef}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${
+                    status === 'ACTIVE'
+                      ? 'bg-blue-100 text-blue-700'
+                      : status === 'SELECTED'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : status === 'REJECTED'
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {status}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier</p>
+                    <p className="mt-1 font-black text-slate-900">{supplierName}</p>
+                    <p className="text-sm text-slate-500">{supplierPhone ?? 'No phone on file'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</p>
+                    <p className="mt-1 font-black text-primary">{currency} {Number(amount).toLocaleString()}</p>
+                    <p className="text-sm text-slate-500">
+                      {q.createdAt ? `Submitted ${new Date(q.createdAt).toLocaleString()}` : 'Recently submitted'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pickup</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{job.pickupLocation ?? 'N/A'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drop</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{job.dropLocation ?? 'N/A'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{job.goodsType ?? 'N/A'}</p>
+                    {job.weightKg != null && <p className="text-xs text-slate-500">{job.weightKg} kg</p>}
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schedule</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{job.jobDate ?? 'N/A'}</p>
+                    {job.timeSlot && <p className="text-xs text-slate-500">{job.timeSlot.replace(/_/g, ' ')}</p>}
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-black text-slate-800 truncate">
-                  {q.supplierName ?? 'Driver'}
-                </p>
-                {q.supplierPhone && (
-                  <p className="text-xs text-slate-400">{q.supplierPhone}</p>
-                )}
+
+              <div className="flex shrink-0 flex-col gap-2 lg:w-[180px]">
+                <button
+                  onClick={() => void accept(q.quoteId)}
+                  disabled={accepting === q.quoteId || !canAccept}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {accepting === q.quoteId
+                    ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    : <span className="material-symbols-outlined text-sm">check_circle</span>
+                  }
+                  Approve
+                </button>
+                <button
+                  onClick={() => void reject(q.quoteId)}
+                  disabled={rejecting === q.quoteId || !canReject}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-black text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {rejecting === q.quoteId
+                    ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    : <span className="material-symbols-outlined text-sm">cancel</span>
+                  }
+                  Reject
+                </button>
               </div>
             </div>
-
-            <div className="text-right shrink-0">
-              <p className="text-base font-black text-primary">
-                {currency} {Number(amount).toLocaleString()}
-              </p>
-              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                isActive ? 'bg-blue-100 text-blue-700' :
-                (q.status ?? '').toUpperCase() === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
-                'bg-slate-100 text-slate-500'
-              }`}>
-                {q.status ?? 'active'}
-              </span>
-            </div>
-
-            {canAccept && (
-              <button
-                onClick={() => void accept(q.quoteId)}
-                disabled={accepting === q.quoteId}
-                className="shrink-0 bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {accepting === q.quoteId
-                  ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                  : <span className="material-symbols-outlined text-sm">check_circle</span>
-                }
-                Accept
-              </button>
-            )}
           </div>
         );
       })}

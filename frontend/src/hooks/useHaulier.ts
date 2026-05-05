@@ -85,7 +85,18 @@ export const useHaulierJobs = (params?: Record<string, unknown>) => {
     if (isRefresh) setLoading(true);
     try {
       const result = await haulierService.listAllJobs(params);
-      setData({ jobs: (result as { items?: Job[] })?.items ?? [], total: (result as { total?: number })?.total ?? 0 });
+      const payload = result as {
+        items?: Job[];
+        jobs?: Job[];
+        total?: number;
+        totalJobs?: number;
+        totalUpcoming?: number;
+        perPage?: number;
+        limit?: number;
+      };
+      const jobs = payload.items ?? payload.jobs ?? [];
+      const total = payload.total ?? payload.totalJobs ?? payload.totalUpcoming ?? jobs.length;
+      setData({ jobs, total });
       setError(null);
     } catch {
       setError('Failed to load shipments');

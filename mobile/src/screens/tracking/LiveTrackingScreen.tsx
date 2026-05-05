@@ -164,6 +164,25 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           </View>
         </View>
 
+        <View style={styles.journeyCard}>
+          <Text style={styles.journeyLabel}>Journey actions</Text>
+          <Text style={styles.journeyTitle}>Move to the next job step</Text>
+          <View style={styles.journeyButtonRow}>
+            <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, currentStep === 'load_code' && styles.journeyBtnActive]}>
+              <Text style={styles.journeyBtnText}>Load Code</Text>
+            </Pressable>
+            <Pressable onPress={onGoToHandover} style={[styles.journeyBtn, currentStep === 'handover' && styles.journeyBtnActive]}>
+              <Text style={styles.journeyBtnText}>Handover</Text>
+            </Pressable>
+            <Pressable onPress={onGoToDelivery} style={[styles.journeyBtn, currentStep === 'delivery' && styles.journeyBtnActive]}>
+              <Text style={styles.journeyBtnText}>Delivery</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.journeyHint}>
+            Use these buttons to move through the compliance flow without leaving this screen.
+          </Text>
+        </View>
+
         {/* Compliance Action CTA */}
         {currentStep === 'load_code' && (
           <Pressable onPress={onGoToLoadCode} style={styles.complianceCta}>
@@ -357,6 +376,53 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
     textTransform: 'uppercase',
+  },
+  journeyCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: 10,
+  },
+  journeyLabel: {
+    color: colors.inkSoft,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  journeyTitle: {
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  journeyButtonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  journeyBtn: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#F8FAFD',
+  },
+  journeyBtnActive: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navy,
+  },
+  journeyBtnText: {
+    color: colors.navy,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  journeyHint: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
   },
   metricDivider: {width: 1, height: 30, backgroundColor: colors.border},
   complianceCta: {

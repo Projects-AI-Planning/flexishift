@@ -16,6 +16,7 @@ interface HandoverScreenProps {
   jobId: string;
   jobReference: string;
   onSubmit: (checklist: any, photos: any[]) => Promise<void>;
+  onBack?: () => void;
   loading: boolean;
   error: string | null;
 }
@@ -49,6 +50,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   jobId,
   jobReference,
   onSubmit,
+  onBack,
   loading,
   error,
 }) => {
@@ -84,11 +86,12 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
-          <Pressable style={styles.backBtn}>
-            <Text style={styles.backText}>{'\u2190'}</Text>
+          <Pressable onPress={onBack} style={styles.backBtn}>
+            <Text style={styles.backText}>{'\u2190'} Load Code</Text>
           </Pressable>
           <View style={styles.topTitleWrap}>
             <Text style={styles.stepTitle}>Step 2: Handover Check</Text>
+            <Text style={styles.stepSubtitle}>Verify the truck before leaving pickup.</Text>
           </View>
           <View style={styles.unitPill}>
             <Text style={styles.unitText}>Unit: VOL-882</Text>
@@ -155,7 +158,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
         <Card title="Driver Signature" variant="default">
           <View style={styles.signatureHeader}>
             <Text style={styles.signatureTitle}>DRIVER SIGNATURE</Text>
-            <Pressable>
+            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
               <Text style={styles.clearText}>Clear</Text>
             </Pressable>
           </View>
@@ -170,7 +173,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
         <Card title="Haulier Signature" variant="default">
           <View style={styles.signatureHeader}>
             <Text style={styles.signatureTitle}>HAULIER SIGNATURE</Text>
-            <Pressable>
+            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
               <Text style={styles.clearText}>Clear</Text>
             </Pressable>
           </View>
@@ -181,6 +184,14 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
             DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE.
           </Text>
         </Card>
+
+        <View style={styles.nextStepCard}>
+          <Text style={styles.nextStepLabel}>Next step</Text>
+          <Text style={styles.nextStepTitle}>Start Trip</Text>
+          <Text style={styles.nextStepText}>
+            After you submit this checklist, the app will open live tracking automatically.
+          </Text>
+        </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -228,6 +239,12 @@ const styles = StyleSheet.create({
   },
   topTitleWrap: {
     flex: 1,
+  },
+  stepSubtitle: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   stepTitle: {
     fontSize: 28,
@@ -419,6 +436,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: spacing.md,
     textTransform: 'uppercase',
+  },
+  nextStepCard: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: 4,
+  },
+  nextStepLabel: {
+    color: '#2563EB',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  nextStepTitle: {
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  nextStepText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
   },
   errorText: {
     color: colors.danger,

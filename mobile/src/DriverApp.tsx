@@ -30,9 +30,9 @@ import LoadCodeScreen from './screens/compliance/LoadCodeScreen';
 import ScannerInterfaceScreen from './screens/compliance/ScannerInterfaceScreen';
 import HandoverScreen from './screens/compliance/HandoverScreen';
 import DeliveryScreen from './screens/compliance/DeliveryScreen';
-import DocumentStatusScreen from './screens/profile/DocumentStatusScreen';
+import DocumentVerificationScreen from './screens/profile/DocumentVerificationScreen';
+import DocumentUploadStepScreen from './screens/profile/DocumentUploadStepScreen';
 import AvailabilityScreen from './screens/profile/AvailabilityScreen';
-import DocumentUploadScreen from './screens/profile/DocumentUploadScreen';
 import EarningsHistoryScreen from './screens/earnings/EarningsHistoryScreen';
 import InvoiceDetailScreen from './screens/invoices/InvoiceDetailScreen';
 import RatingsListScreen from './screens/ratings/RatingsListScreen';
@@ -93,6 +93,10 @@ const palette = {
   inkSoft: '#5B6671',
   nav: '#102235',
   success: '#18794E',
+};
+
+const mapDocumentItems = (payload: Record<string, unknown> | null | undefined): DocumentSummary[] => {
+  return (((payload?.items as DocumentSummary[] | undefined) ?? []) || []) as DocumentSummary[];
 };
 
 const defaultLogin = {email: '', password: ''};
@@ -192,6 +196,7 @@ function DriverApp(): React.JSX.Element {
   const [upcomingJobs, setUpcomingJobs] = useState<
     Array<Record<string, unknown>>
   >([]);
+  const [expandedUpcomingJobId, setExpandedUpcomingJobId] = useState<string | null>(null);
   const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>(
     [],
   );
@@ -289,15 +294,20 @@ function DriverApp(): React.JSX.Element {
   // ─── Data loaders ────────────────────────────────────────────────────────────
 
   const loadHome = useCallback(async () => {
-    const [overviewData, earningsData, notificationData] = await Promise.all([
-      driverApi.dashboard.getOverview(),
-      driverApi.dashboard.getEarnings({period: 'monthly'}),
-      driverApi.notifications.list({limit: 5, page: 1}),
-    ]);
+    const [overviewData, earningsData, notificationData, upcomingData] =
+      await Promise.all([
+        driverApi.dashboard.getOverview(),
+        driverApi.dashboard.getEarnings({period: 'monthly'}),
+        driverApi.notifications.list({limit: 5, page: 1}),
+        driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1}),
+      ]);
     setDashboard(cast<DashboardOverview>(overviewData));
     setEarnings(cast<EarningsResponse>(earningsData));
     setNotifications(
       ((notificationData.notifications ?? []) as NotificationSummary[]) || [],
+    );
+    setUpcomingJobs(
+      (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
     );
   }, []);
 
@@ -368,8 +378,8 @@ function DriverApp(): React.JSX.Element {
             driverApi.documents.list(),
             driverApi.documents.getStatus(),
           ]);
-          setDocuments(((docs.documents ?? []) as DocumentSummary[]) || []);
-          setVerificationStatus(status);
+          setDocuments(mapDocumentItems(docs as Record<string, unknown>));
+          setVerificationStatus(cast<Record<string, unknown>>(status));
           break;
         }
         case 'availability.set':
@@ -597,6 +607,7 @@ function DriverApp(): React.JSX.Element {
       if (!payload.isProfileComplete) {
         setSetupStep('profile');
       } else {
+        setSetupStep(null);
         setActiveTab('home');
         setActiveRoute('home');
       }
@@ -630,6 +641,13 @@ function DriverApp(): React.JSX.Element {
         name: data.name,
         vehicleType: data.vehicleType,
       });
+      // Pre-load any existing documents before showing step 3
+      try {
+        const docs = await driverApi.documents.list();
+        setDocuments(mapDocumentItems(docs as Record<string, unknown>));
+      } catch {
+        /* non-blocking */
+      }
       setSetupStep('documents');
     } catch (err) {
       setErrorBanner(
@@ -749,6 +767,7 @@ function DriverApp(): React.JSX.Element {
     } finally {
       setSession(null);
       setApiAccessToken(null);
+      setSetupStep(null);
       setAuthMode('login');
       setSuccessBanner(null);
       setErrorBanner(null);
@@ -970,7 +989,6 @@ function DriverApp(): React.JSX.Element {
       }
       await driverApi.documents.upload(formData);
       setSuccessBanner('Document submitted for verification.');
-      navigate('profile', 'documents.status');
       await loadDrawerRoute('documents.status');
     } catch (err) {
       setErrorBanner(err instanceof Error ? err.message : 'Upload failed.');
@@ -1091,6 +1109,26 @@ function DriverApp(): React.JSX.Element {
     }));
   };
 
+  const goBackFromLoadCode = () => {
+    if (dashboard?.activeJob?.jobId) {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+    if (selectedBooking) {
+      navigate('jobs', 'jobs.booking');
+      return;
+    }
+    navigate('jobs', 'jobs.myQuotes');
+  };
+
+  const goBackFromHandover = () => {
+    navigate('tracking', 'compliance.loadCode');
+  };
+
+  const goBackFromDelivery = () => {
+    navigate('tracking', 'tracking.active');
+  };
+
   const onSelectDrawerRoute = (route: DrawerRouteKey) => {
     setActiveRoute(route);
     setSuccessBanner(null);
@@ -1110,6 +1148,120 @@ function DriverApp(): React.JSX.Element {
   };
 
   // ─── Render helpers ───────────────────────────────────────────────────────────
+
+  const getItemId = (item: Record<string, unknown>) =>
+    String(
+      item.jobId ??
+        item.bookingId ??
+        item.quoteId ??
+        item.id ??
+        item.jobReference ??
+        Math.random(),
+    );
+
+  const goToUpcomingTrip = (item: Record<string, unknown>) => {
+    const jobId = String(item.jobId ?? '');
+    if (!jobId) {
+      setErrorBanner('This job is missing a job ID.');
+      return;
+    }
+
+    setComplianceJobId(jobId);
+    setSelectedBooking(null);
+    setSelectedJob(null);
+    setSelectedJobDetails(null);
+
+    const status = String(item.status ?? '').toLowerCase();
+    if (status === 'in_transit') {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+
+    navigate('tracking', 'compliance.loadCode');
+  };
+
+  const renderUpcomingJobCard = (item: Record<string, unknown>) => {
+    const id = getItemId(item);
+    const pickup = toAddress(item.pickupLocation);
+    const drop = toAddress(item.dropLocation);
+    const expanded = expandedUpcomingJobId === id;
+    const status = String(item.status ?? 'booked').toLowerCase();
+    const canStart = !['completed', 'cancelled'].includes(status);
+
+    return (
+      <View key={id} style={[styles.listCard, styles.upcomingCard]}>
+        <View style={styles.cardTopRow}>
+          <View style={{flex: 1}}>
+            <Text style={styles.cardEyebrow}>{status.replace(/_/g, ' ')}</Text>
+            <Text style={styles.listTitle}>
+              {String(item.jobReference ?? item.jobRef ?? 'Upcoming Job')}
+            </Text>
+            <Text style={styles.listMeta}>
+              {pickup && drop ? `${pickup} → ${drop}` : String(item.createdAt ?? item.jobDate ?? 'Scheduled')}
+            </Text>
+          </View>
+          <Text style={styles.upcomingBadge}>
+            {item.paymentSecured ? 'PAYMENT SECURED' : 'BOOKED'}
+          </Text>
+        </View>
+
+        {item.agreedAmount || item.amount || item.totalAmount ? (
+          <Text style={styles.amountText}>
+            Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
+          </Text>
+        ) : null}
+
+        <View style={styles.listActionRow}>
+          <Pressable
+            onPress={() => setExpandedUpcomingJobId(prev => (prev === id ? null : id))}
+            style={styles.listActionSecondary}>
+            <Text style={styles.listActionSecondaryText}>
+              {expanded ? 'Hide Details' : 'View Details'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => goToUpcomingTrip(item)}
+            disabled={!canStart}
+            style={[styles.listActionPrimary, !canStart && styles.listActionDisabled]}>
+            <Text style={styles.listActionPrimaryText}>
+              {status === 'in_transit' ? 'Open Tracking' : 'Start Trip'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {expanded && (
+          <View style={styles.upcomingDetails}>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Job Date</Text>
+              <Text style={styles.detailValueCompact}>{String(item.jobDate ?? 'TBD')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Time Slot</Text>
+              <Text style={styles.detailValueCompact}>{String(item.timeSlot ?? 'TBD').replace(/_/g, ' ')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Goods</Text>
+              <Text style={styles.detailValueCompact}>{String(item.goodsType ?? 'N/A')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Weight</Text>
+              <Text style={styles.detailValueCompact}>{String(item.weight ?? 'N/A')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Haulier</Text>
+              <Text style={styles.detailValueCompact}>{String((item.haulier as {name?: string} | undefined)?.name ?? 'Assigned haulier')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Trip State</Text>
+              <Text style={styles.detailValueCompact}>
+                {item.paymentSecured ? 'Payment secured' : 'Booked'}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderJobCard = (item: Record<string, unknown>) => {
     const pickup = toAddress(item.pickupLocation);
@@ -1167,6 +1319,7 @@ function DriverApp(): React.JSX.Element {
           dashboard={dashboard}
           driverName={session?.name}
           earnings={earnings}
+          upcomingJobs={upcomingJobs}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
@@ -1201,6 +1354,7 @@ function DriverApp(): React.JSX.Element {
           }
           onVerify={handleVerifyLoadCode}
           onOpenScanner={() => navigate('tracking', 'compliance.scanner')}
+          onBack={goBackFromLoadCode}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -1213,6 +1367,7 @@ function DriverApp(): React.JSX.Element {
           jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
           jobReference={dashboard?.activeJob?.jobReference ?? ''}
           onSubmit={handleSubmitHandover}
+          onBack={goBackFromHandover}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -1225,6 +1380,7 @@ function DriverApp(): React.JSX.Element {
           jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
           jobReference={dashboard?.activeJob?.jobReference ?? ''}
           onSubmit={handleSubmitDelivery}
+          onBack={goBackFromDelivery}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -1317,7 +1473,7 @@ function DriverApp(): React.JSX.Element {
             contentContainerStyle={styles.listContentPad}>
             <Text style={styles.listScreenTitle}>Upcoming Jobs</Text>
             {upcomingJobs.length ? (
-              upcomingJobs.map(renderJobCard)
+              upcomingJobs.map(renderUpcomingJobCard)
             ) : (
               <EmptyState title="No upcoming jobs." />
             )}
@@ -1451,6 +1607,8 @@ function DriverApp(): React.JSX.Element {
           profile={profile}
           session={session}
           profileForm={profileForm}
+          documents={documents}
+          verificationStatus={verificationStatus}
           onChange={patch => setProfileForm(c => ({...c, ...patch}))}
           onSave={handleProfileSave}
           onLogout={handleLogout}
@@ -1458,7 +1616,15 @@ function DriverApp(): React.JSX.Element {
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
-            await loadProfile();
+            await Promise.all([
+              loadProfile(),
+              driverApi.documents.getStatus().then(status => {
+                setVerificationStatus(cast<Record<string, unknown>>(status));
+              }).catch(() => undefined),
+              driverApi.documents.list().then(d => {
+                setDocuments(mapDocumentItems(d as Record<string, unknown>));
+              }).catch(() => undefined),
+            ]);
             setRefreshing(false);
           }}
         />
@@ -1469,7 +1635,7 @@ function DriverApp(): React.JSX.Element {
     switch (activeRoute) {
       case 'documents.status':
         return (
-          <DocumentStatusScreen
+          <DocumentVerificationScreen
             documents={documents}
             verificationStatus={verificationStatus}
             refreshing={refreshing}
@@ -1478,16 +1644,26 @@ function DriverApp(): React.JSX.Element {
               await loadDrawerRoute('documents.status');
               setRefreshing(false);
             }}
-            onUploadNew={() => navigate('profile', 'documents.upload')}
+            onUpload={handleDocumentUpload}
+            uploadLoading={actionLoading}
+            uploadError={errorBanner}
           />
         );
       case 'documents.upload':
         return (
-          <DocumentUploadScreen
+          <DocumentVerificationScreen
+            documents={documents}
+            verificationStatus={verificationStatus}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('documents.upload');
+              setRefreshing(false);
+            }}
             onUpload={handleDocumentUpload}
-            loading={actionLoading}
-            error={errorBanner}
-            onCancel={() => navigate('profile', 'documents.status')}
+            uploadLoading={actionLoading}
+            uploadError={errorBanner}
+            startInUploadMode
           />
         );
       case 'earnings.history':
@@ -1771,42 +1947,13 @@ function DriverApp(): React.JSX.Element {
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: '#F4F7FB'}}>
         <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
-        <View style={{flex: 1}}>
-          <View
-            style={{
-              paddingHorizontal: 20,
-              paddingTop: 16,
-              paddingBottom: 10,
-              backgroundColor: '#fff',
-              borderBottomWidth: 1,
-              borderBottomColor: '#E3E8F0',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-            <Text style={{fontSize: 17, fontWeight: '900', color: '#071A2D'}}>
-              Upload Documents
-            </Text>
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '800',
-                color: '#5B6574',
-                letterSpacing: 1,
-              }}>
-              STEP 3 OF 4
-            </Text>
-          </View>
-          <DocumentUploadScreen
-            onUpload={async (docType, expiry, file) => {
-              await handleDocumentUpload(docType, expiry, file);
-              finishSetup();
-            }}
-            loading={actionLoading}
-            error={errorBanner}
-            onCancel={finishSetup}
-          />
-        </View>
+        <DocumentUploadStepScreen
+          documents={documents}
+          onUpload={handleDocumentUpload}
+          uploadLoading={actionLoading}
+          uploadError={errorBanner}
+          onSkip={finishSetup}
+        />
       </SafeAreaView>
     );
   }
@@ -1910,7 +2057,7 @@ function DriverApp(): React.JSX.Element {
 
       {/* Content */}
       {isFullScreen ? (
-        <View style={[styles.contentContainer, {flex: 1}]}>
+        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 84}]}>
           {renderCurrentView()}
         </View>
       ) : (
@@ -1942,6 +2089,12 @@ function DriverApp(): React.JSX.Element {
               } else if (tab.key === 'profile') {
                 setActiveRoute('profile.edit');
                 loadProfile().catch(() => undefined);
+                driverApi.documents.getStatus().then(status => {
+                  setVerificationStatus(cast<Record<string, unknown>>(status));
+                }).catch(() => undefined);
+                driverApi.documents.list().then(d => {
+                  setDocuments(mapDocumentItems(d as Record<string, unknown>));
+                }).catch(() => undefined);
               }
             }}
             style={styles.bottomTabButton}>
@@ -2116,9 +2269,97 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 14,
   },
+  upcomingCard: {
+    backgroundColor: '#F8FAFF',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
   listContainer: {flex: 1, backgroundColor: palette.bg},
   listContentPad: {padding: 18, paddingBottom: 100},
   listMeta: {color: palette.inkSoft, fontSize: 13, lineHeight: 18},
+  upcomingBadge: {
+    color: palette.nav,
+    backgroundColor: palette.accent,
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    textTransform: 'uppercase',
+  },
+  listActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  listActionPrimary: {
+    alignItems: 'center',
+    backgroundColor: palette.nav,
+    borderRadius: 12,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionPrimaryText: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionSecondary: {
+    alignItems: 'center',
+    backgroundColor: '#EEF5FB',
+    borderColor: '#D6E5F1',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionSecondaryText: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionDisabled: {
+    opacity: 0.45,
+  },
+  upcomingDetails: {
+    backgroundColor: '#FFFFFF',
+    borderColor: palette.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+    gap: 8,
+  },
+  detailRowCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  detailKey: {
+    color: palette.inkSoft,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  detailValueCompact: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
   listScreenTitle: {
     color: palette.ink,
     fontSize: 22,

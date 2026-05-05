@@ -175,8 +175,11 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
               Proceed to the pickup location and enter the Load Code to begin.
             </Text>
             <Pressable onPress={onBack} style={styles.proceedBtn}>
-              <Text style={styles.proceedBtnText}>Go to Compliance →</Text>
+              <Text style={styles.proceedBtnText}>Continue to Load Code →</Text>
             </Pressable>
+            <Text style={styles.acceptedStateHint}>
+              Next screen: load code verification, then handover and trip start.
+            </Text>
           </View>
         ) : (
           <Pressable
@@ -316,6 +319,7 @@ const styles = StyleSheet.create({
   acceptedStateIcon: {fontSize: 44},
   acceptedStateText: {color: '#15803D', fontSize: 20, fontWeight: '900'},
   acceptedStateSub: {color: '#166534', fontSize: 13, textAlign: 'center', lineHeight: 18},
+  acceptedStateHint: {color: colors.inkSoft, fontSize: 12, textAlign: 'center', lineHeight: 18},
   proceedBtn: {
     backgroundColor: colors.navy,
     borderRadius: radius.lg,

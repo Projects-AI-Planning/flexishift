@@ -16,16 +16,38 @@ interface DashboardScreenProps {
   dashboard: any;
   driverName?: string;
   earnings: any;
+  upcomingJobs?: any[];
   refreshing: boolean;
   onRefresh: () => void;
   onViewJob: (job: any) => void;
   onQuickAction: (action: string) => void;
 }
 
+function formatScheduleDate(dateStr: any): {dayLabel: string; dayNum: string; timeLabel: string} {
+  if (!dateStr) return {dayLabel: 'TBD', dayNum: '--', timeLabel: ''};
+  try {
+    const d = new Date(String(dateStr));
+    if (isNaN(d.getTime())) return {dayLabel: 'TBD', dayNum: '--', timeLabel: ''};
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const h12 = hours % 12 || 12;
+    return {
+      dayLabel: dayNames[d.getDay()],
+      dayNum: String(d.getDate()).padStart(2, '0'),
+      timeLabel: `${h12}:${minutes} ${ampm}`,
+    };
+  } catch {
+    return {dayLabel: 'TBD', dayNum: '--', timeLabel: ''};
+  }
+}
+
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
   dashboard,
   driverName,
   earnings,
+  upcomingJobs = [],
   refreshing,
   onRefresh,
   onViewJob,
@@ -174,21 +196,65 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       {/* Upcoming Schedule */}
       <Text style={styles.sectionTitle}>Upcoming Schedule</Text>
-      <Card title="Regional Freight Haul" subtitle="Start time: 06:00 AM • 120 mi">
-        <View style={styles.scheduleRow}>
-          <View style={styles.dateBox}>
-            <Text style={styles.dateSmall}>TOM</Text>
-            <Text style={styles.dateLarge}>08</Text>
-          </View>
-          <View style={styles.scheduleMeta}>
-            <Text style={styles.scheduleTitle}>Regional Freight Haul</Text>
-            <Text style={styles.scheduleSubtitle}>
-              06:00 AM • 120 mi
-            </Text>
-          </View>
-          <Text style={styles.chevron}>{'›'}</Text>
-        </View>
-      </Card>
+      {upcomingJobs.length === 0 ? (
+        <Card title="No Upcoming Jobs" variant="accent">
+          <Text style={styles.emptyText}>
+            Accepted jobs will appear here once scheduled.
+          </Text>
+          <Pressable
+            onPress={() => onQuickAction('find_jobs')}
+            style={styles.viewButton}>
+            <Text style={styles.viewButtonText}>Browse Jobs</Text>
+          </Pressable>
+        </Card>
+      ) : (
+        upcomingJobs.map((job, idx) => {
+          const pickup =
+            typeof job.pickupLocation === 'object'
+              ? String((job.pickupLocation as any)?.address ?? '')
+              : String(job.pickupLocation ?? '');
+          const drop =
+            typeof job.dropLocation === 'object'
+              ? String((job.dropLocation as any)?.address ?? '')
+              : String(job.dropLocation ?? '');
+          const dist = job.estimatedDistance ?? job.distance ?? '';
+          const {dayLabel, dayNum, timeLabel} = formatScheduleDate(
+            job.scheduledDate ?? job.jobDate ?? job.pickupDate,
+          );
+          const distLabel = dist ? ` • ${String(dist)} mi` : '';
+          const timeStr = timeLabel ? `${timeLabel}${distLabel}` : distLabel.replace(' • ', '') || 'Scheduled';
+          return (
+            <Pressable key={String(job.jobId ?? idx)} onPress={() => onViewJob(job)}>
+              <Card
+                title={String(job.jobReference ?? `Job #${idx + 1}`)}
+                subtitle={pickup && drop ? `${pickup} → ${drop}` : timeStr}>
+                <View style={styles.scheduleRow}>
+                  <View style={styles.dateBox}>
+                    <Text style={styles.dateSmall}>{dayLabel}</Text>
+                    <Text style={styles.dateLarge}>{dayNum}</Text>
+                  </View>
+                  <View style={styles.scheduleMeta}>
+                    <Text style={styles.scheduleTitle}>
+                      {String(job.jobReference ?? job.cargoType ?? 'Freight Job')}
+                    </Text>
+                    <Text style={styles.scheduleSubtitle}>
+                      {timeStr}
+                    </Text>
+                    {pickup && drop ? (
+                      <Text style={styles.scheduleRoute} numberOfLines={1}>
+                        {pickup} → {drop}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.chevron}>{'›'}</Text>
+                </View>
+              </Card>
+            </Pressable>
+          );
+        })
+      )}
+
+      <View style={styles.bottomSpacer} />
 
     </ScrollView>
   );
@@ -201,7 +267,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.xl,
-    paddingBottom: 32,
+    paddingBottom: 160,
+    flexGrow: 1,
   },
   greeting: {
     color: colors.navy,
@@ -497,10 +564,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  scheduleRoute: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    marginTop: 2,
+  },
   chevron: {
     color: colors.inkSoft,
     fontSize: 28,
     marginLeft: spacing.sm,
+  },
+  bottomSpacer: {
+    height: 70,
   },
 });
 

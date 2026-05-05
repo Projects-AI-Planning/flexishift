@@ -55,6 +55,7 @@ const haulierService = {
   listQuotesForJob: (jobId: string, params?: Record<string, unknown>) => client.get(`/quotes/list/${jobId}`, { params }).then(res => res.data.data),
   getSingleQuote: (quoteId: string) => client.get(`/quotes/${quoteId}`).then(res => res.data.data),
   acceptQuote: (jobId: string, quoteId: string) => client.patch(`/jobs/${jobId}/quotes/${quoteId}/select`).then(res => res.data.data),
+  rejectQuote: (jobId: string, quoteId: string) => client.patch(`/jobs/${jobId}/quotes/${quoteId}/reject`).then(res => res.data.data),
 
   // EPIC 4: Booking & Payment
   createBooking: (data: { jobId: string, quoteId: string, supplierId: string }) => client.post('/bookings/create', data).then(res => res.data.data),
