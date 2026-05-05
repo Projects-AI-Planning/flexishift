@@ -5,18 +5,21 @@
 ```mermaid
 flowchart TD
     A([User opens FreightFlex]) --> B[/Fill registration form:\nName · Email · Phone\nPassword · Role/]
-    B --> C{Form valid?}
+    B --> TC{Terms and\nConditions\naccepted?}
+    TC -->|No - checkbox not ticked| TCD[Show: 'You must accept\nTerms and Conditions\nto register']
+    TCD --> B
+    TC -->|Yes| C{Form valid?}
     C -->|No| D[Show inline\nvalidation errors]
     D --> B
     C -->|Yes| E{Email already\nregistered?}
-    E -->|Yes| F[Show: 'Email already\nin use' error]
+    E -->|Yes| F[Show: Email already\nin use error]
     F --> B
     E -->|No| G[Hash password\nwith bcrypt]
-    G --> H[Create user record\nstatus = INACTIVE]
+    G --> H[Create user record\nstatus = INACTIVE\ntc_accepted_at = now]
     H --> I[Generate verification\ntoken · Send email]
-    I --> J[Show: 'Check your\nemail' screen]
+    I --> J[Show: Check your\nemail screen]
     J --> K{User clicks\nverification link}
-    K -->|Link expired| L[Show: 'Link expired'\nResend option]
+    K -->|Link expired| L[Show: Link expired\nResend option]
     L --> I
     K -->|Valid link| M[Activate account\nstatus = ACTIVE]
     M --> N([Redirect to\nLogin screen])
@@ -26,6 +29,8 @@ flowchart TD
     style D fill:#FEE2E2,stroke:#DC2626
     style F fill:#FEE2E2,stroke:#DC2626
     style L fill:#FEF3C7,stroke:#D97706
+    style TC fill:#FEF9C3,stroke:#CA8A04
+    style TCD fill:#FEE2E2,stroke:#DC2626
 ```
 
 ## 3B – Login & Role-Based Redirect Flow
