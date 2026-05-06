@@ -97,7 +97,12 @@ def list_jobs(
     # ADMIN sees all
 
     if status:
-        q = q.filter(Job.status == JobStatus(status.upper()))
+        if status.upper() == 'BOOKED':
+            q = q.filter(Job.status.in_([
+                JobStatus.BOOKED, JobStatus.PAYMENT_PENDING, JobStatus.PAYMENT_SECURED,
+            ]))
+        else:
+            q = q.filter(Job.status == JobStatus(status.upper()))
 
     total = q.count()
     items = q.order_by(Job.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()

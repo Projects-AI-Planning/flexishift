@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import uuid
 import razorpay
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -8,6 +9,12 @@ from fastapi import HTTPException
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.config import settings
+
+MOCK_KEY = "mock_rzp_key"
+
+
+def _is_mock_mode() -> bool:
+    return not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET)
 
 
 def _client() -> razorpay.Client:
@@ -20,7 +27,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.haulier_id != haulier_id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    if job.status != JobStatus.BOOKED:
+    if job.status not in (JobStatus.BOOKED, JobStatus.PAYMENT_PENDING):
         raise HTTPException(status_code=422, detail="Job must be in BOOKED state to initiate payment")
 
     existing = db.query(Payment).filter(Payment.job_id == job_id).first()
@@ -33,8 +40,38 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     if not selected_quote:
         raise HTTPException(status_code=422, detail="No selected quote found")
 
-    amount_paise = int(float(selected_quote.price) * 100)
+    amount = float(selected_quote.price)
 
+    if _is_mock_mode():
+        order_id = f"order_mock_{uuid.uuid4().hex[:16]}"
+        if existing:
+            existing.gateway_order_id = order_id
+            existing.amount = selected_quote.price
+            existing.status = PaymentStatus.PENDING
+            db.commit()
+            payment = existing
+        else:
+            payment = Payment(
+                job_id=job_id,
+                gateway_order_id=order_id,
+                amount=selected_quote.price,
+                currency="INR",
+                status=PaymentStatus.PENDING,
+            )
+            db.add(payment)
+            db.commit()
+            db.refresh(payment)
+        job.status = JobStatus.PAYMENT_PENDING
+        db.commit()
+        return {
+            "payment_id": payment.id,
+            "gateway_order_id": order_id,
+            "amount": amount,
+            "currency": "INR",
+            "key_id": MOCK_KEY,
+        }
+
+    amount_paise = int(amount * 100)
     client = _client()
     order = client.order.create({
         "amount": amount_paise,
@@ -67,7 +104,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     return {
         "payment_id": payment.id,
         "gateway_order_id": order["id"],
-        "amount": float(selected_quote.price),
+        "amount": amount,
         "currency": "INR",
         "key_id": settings.RAZORPAY_KEY_ID,
     }
@@ -78,13 +115,14 @@ def verify_payment(db: Session, job_id: str, razorpay_order_id: str, razorpay_pa
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    expected = hmac.new(
-        settings.RAZORPAY_KEY_SECRET.encode(),
-        f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
-        hashlib.sha256,
-    ).hexdigest()
-    if not hmac.compare_digest(expected, razorpay_signature):
-        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    if not _is_mock_mode():
+        expected = hmac.new(
+            settings.RAZORPAY_KEY_SECRET.encode(),
+            f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected, razorpay_signature):
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
 
     payment.gateway_payment_id = razorpay_payment_id
     payment.status = PaymentStatus.ESCROWED

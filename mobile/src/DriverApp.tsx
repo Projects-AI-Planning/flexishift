@@ -312,10 +312,11 @@ function DriverApp(): React.JSX.Element {
   }, []);
 
   const loadJobs = useCallback(async () => {
-    const [availableData, upcomingData, historyData] = await Promise.all([
+    const [availableData, upcomingData, historyData, docsData] = await Promise.all([
       driverApi.jobs.listAvailable({limit: 20, page: 1, status: 'open'}),
       driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
       driverApi.dashboard.getJobHistory({limit: 20, page: 1}),
+      driverApi.documents.list().catch(() => null),
     ]);
     const jobs = (availableData.items as Array<Record<string, unknown>>) ?? [];
     setAvailableJobs(jobs);
@@ -323,6 +324,9 @@ function DriverApp(): React.JSX.Element {
       (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
     );
     setJobHistory((historyData.jobs as Array<Record<string, unknown>>) ?? []);
+    if (docsData) {
+      setDocuments(mapDocumentItems(docsData as Record<string, unknown>));
+    }
   }, []);
 
   const loadTracking = useCallback(async () => {
@@ -1186,30 +1190,62 @@ function DriverApp(): React.JSX.Element {
     const drop = toAddress(item.dropLocation);
     const expanded = expandedUpcomingJobId === id;
     const status = String(item.status ?? 'booked').toLowerCase();
-    const canStart = !['completed', 'cancelled'].includes(status);
+    const paymentSecured = item.paymentSecured === true || status === 'payment_secured' || status === 'in_transit' || status === 'delivery_submitted' || status === 'completed';
+    const canStart = !['completed', 'cancelled'].includes(status) && paymentSecured;
+    const currency = String(item.currency ?? 'INR');
+    const currencySymbol = currency === 'INR' ? '₹' : currency;
+    const rawAmount = item.agreedAmount ?? item.amount ?? item.totalAmount;
+    const distanceKm = item.distanceKm ?? item.distance;
+
+    const badgeLabel = status === 'payment_secured' || paymentSecured
+      ? 'PAYMENT SECURED'
+      : status === 'in_transit'
+      ? 'IN TRANSIT'
+      : 'BOOKED';
+
+    const actionLabel = status === 'in_transit'
+      ? 'Open Tracking'
+      : paymentSecured
+      ? 'Start Trip'
+      : 'Awaiting Payment';
 
     return (
       <View key={id} style={[styles.listCard, styles.upcomingCard]}>
         <View style={styles.cardTopRow}>
           <View style={{flex: 1}}>
-            <Text style={styles.cardEyebrow}>{status.replace(/_/g, ' ')}</Text>
+            <Text style={styles.cardEyebrow}>{status.replace(/_/g, ' ').toUpperCase()}</Text>
             <Text style={styles.listTitle}>
               {String(item.jobReference ?? item.jobRef ?? 'Upcoming Job')}
             </Text>
             <Text style={styles.listMeta}>
-              {pickup && drop ? `${pickup} → ${drop}` : String(item.createdAt ?? item.jobDate ?? 'Scheduled')}
+              {pickup && drop ? `${pickup} → ${drop}` : String(item.jobDate ?? 'Scheduled')}
             </Text>
+            {distanceKm ? (
+              <Text style={styles.listMetaSub}>{Number(distanceKm).toFixed(1)} km</Text>
+            ) : null}
           </View>
-          <Text style={styles.upcomingBadge}>
-            {item.paymentSecured ? 'PAYMENT SECURED' : 'BOOKED'}
+          <Text style={[styles.upcomingBadge, paymentSecured && styles.upcomingBadgePaid]}>
+            {badgeLabel}
           </Text>
         </View>
 
-        {item.agreedAmount || item.amount || item.totalAmount ? (
+        {rawAmount ? (
           <Text style={styles.amountText}>
-            Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
+            {currencySymbol} {String(rawAmount)}
           </Text>
         ) : null}
+
+        {!paymentSecured && (
+          <View style={styles.awaitingPaymentBanner}>
+            <Text style={styles.awaitingPaymentIcon}>🔒</Text>
+            <View style={{flex: 1}}>
+              <Text style={styles.awaitingPaymentTitle}>Waiting for payment</Text>
+              <Text style={styles.awaitingPaymentBody}>
+                The haulier must secure escrow payment before you can begin this trip. You will be notified once it's confirmed.
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.listActionRow}>
           <Pressable
@@ -1220,11 +1256,11 @@ function DriverApp(): React.JSX.Element {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => goToUpcomingTrip(item)}
+            onPress={() => canStart ? goToUpcomingTrip(item) : undefined}
             disabled={!canStart}
             style={[styles.listActionPrimary, !canStart && styles.listActionDisabled]}>
             <Text style={styles.listActionPrimaryText}>
-              {status === 'in_transit' ? 'Open Tracking' : 'Start Trip'}
+              {actionLabel}
             </Text>
           </Pressable>
         </View>
@@ -1232,12 +1268,26 @@ function DriverApp(): React.JSX.Element {
         {expanded && (
           <View style={styles.upcomingDetails}>
             <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Pickup</Text>
+              <Text style={styles.detailValueCompact}>{pickup || 'N/A'}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Drop-off</Text>
+              <Text style={styles.detailValueCompact}>{drop || 'N/A'}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Job Date</Text>
               <Text style={styles.detailValueCompact}>{String(item.jobDate ?? 'TBD')}</Text>
             </View>
             <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Time Slot</Text>
               <Text style={styles.detailValueCompact}>{String(item.timeSlot ?? 'TBD').replace(/_/g, ' ')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Distance</Text>
+              <Text style={styles.detailValueCompact}>
+                {distanceKm ? `${Number(distanceKm).toFixed(2)} km` : 'N/A'}
+              </Text>
             </View>
             <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Goods</Text>
@@ -1248,13 +1298,19 @@ function DriverApp(): React.JSX.Element {
               <Text style={styles.detailValueCompact}>{String(item.weight ?? 'N/A')}</Text>
             </View>
             <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Agreed Amount</Text>
+              <Text style={styles.detailValueCompact}>
+                {rawAmount ? `${currencySymbol} ${rawAmount}` : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Haulier</Text>
               <Text style={styles.detailValueCompact}>{String((item.haulier as {name?: string} | undefined)?.name ?? 'Assigned haulier')}</Text>
             </View>
             <View style={styles.detailRowCompact}>
-              <Text style={styles.detailKey}>Trip State</Text>
-              <Text style={styles.detailValueCompact}>
-                {item.paymentSecured ? 'Payment secured' : 'Booked'}
+              <Text style={styles.detailKey}>Next Step</Text>
+              <Text style={[styles.detailValueCompact, paymentSecured ? styles.detailValueSuccess : styles.detailValueWarning]}>
+                {paymentSecured ? '✓ Payment secured — tap Start Trip' : 'Haulier needs to pay on web dashboard'}
               </Text>
             </View>
           </View>
@@ -1465,17 +1521,17 @@ function DriverApp(): React.JSX.Element {
         );
       }
 
-      // Upcoming jobs
+      // My Jobs (upcoming / booked)
       if (activeRoute === 'jobs.upcoming') {
         return (
           <ScrollView
             style={styles.listContainer}
             contentContainerStyle={styles.listContentPad}>
-            <Text style={styles.listScreenTitle}>Upcoming Jobs</Text>
+            <Text style={styles.listScreenTitle}>My Jobs</Text>
             {upcomingJobs.length ? (
               upcomingJobs.map(renderUpcomingJobCard)
             ) : (
-              <EmptyState title="No upcoming jobs." />
+              <EmptyState title="No active jobs yet. Find a job below." />
             )}
           </ScrollView>
         );
@@ -1579,12 +1635,14 @@ function DriverApp(): React.JSX.Element {
       }
 
       // Job Discovery (default)
-      const documentsApproved =
-        documents.length === 0 || documents.some(d => d.status === 'approved');
+      const hasApproved = documents.some(d => String(d.status).toUpperCase() === 'APPROVED');
+      const hasPending = documents.some(d => String(d.status).toUpperCase() === 'PENDING');
+      const docStatus: 'approved' | 'pending' | 'none' =
+        hasApproved ? 'approved' : hasPending ? 'pending' : 'none';
       return (
         <JobDiscoveryScreen
           availableJobs={availableJobs}
-          documentsApproved={documentsApproved}
+          docStatus={docStatus}
           onSelectJob={(job: any) => {
             setSelectedJob(job);
             setSelectedJobDetails(job);
@@ -1966,6 +2024,8 @@ function DriverApp(): React.JSX.Element {
   const isFullScreen =
     activeRoute === 'jobs.available' ||
     activeRoute === 'jobs.myQuotes' ||
+    activeRoute === 'jobs.upcoming' ||
+    activeRoute === 'jobs.history' ||
     activeRoute === 'jobs.booking' ||
     (activeRoute as string) === 'payments.released' ||
     activeRoute === 'home' ||
@@ -2027,7 +2087,7 @@ function DriverApp(): React.JSX.Element {
                 : route === 'jobs.myQuotes'
                 ? 'My Bids'
                 : route === 'jobs.upcoming'
-                ? 'Upcoming'
+                ? 'My Jobs'
                 : 'History';
             return (
               <Pressable
@@ -2081,7 +2141,7 @@ function DriverApp(): React.JSX.Element {
               if (tab.key === 'home') {
                 setActiveRoute('home');
               } else if (tab.key === 'jobs') {
-                setActiveRoute('jobs.available');
+                setActiveRoute('jobs.upcoming');
                 loadJobs().catch(() => undefined);
               } else if (tab.key === 'tracking') {
                 setActiveRoute('tracking.active');
@@ -2281,6 +2341,7 @@ const styles = StyleSheet.create({
   listContainer: {flex: 1, backgroundColor: palette.bg},
   listContentPad: {padding: 18, paddingBottom: 100},
   listMeta: {color: palette.inkSoft, fontSize: 13, lineHeight: 18},
+  listMetaSub: {color: palette.inkSoft, fontSize: 12, marginTop: 2},
   upcomingBadge: {
     color: palette.nav,
     backgroundColor: palette.accent,
@@ -2290,6 +2351,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     textTransform: 'uppercase',
+  },
+  upcomingBadgePaid: {
+    backgroundColor: '#18794E',
+    color: '#FFFFFF',
+  },
+  awaitingPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FFF8EC',
+    borderColor: '#F6CC7A',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+  },
+  awaitingPaymentIcon: {
+    fontSize: 18,
+    marginTop: 1,
+  },
+  awaitingPaymentTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  awaitingPaymentBody: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
+  detailValueSuccess: {
+    color: '#18794E',
+  },
+  detailValueWarning: {
+    color: '#C17B00',
   },
   listActionRow: {
     flexDirection: 'row',

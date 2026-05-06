@@ -68,10 +68,12 @@ def _quote_dict(quote: Quote, include_job: bool = False) -> dict:
         d["job"] = {
             "jobId": job.id,
             "jobRef": job.job_ref,
-            "pickupAddress": job.pickup_address,
-            "dropAddress": job.drop_address,
+            "pickupLocation": job.pickup_address,
+            "dropLocation": job.drop_address,
             "jobDate": job.job_date.isoformat() if job.job_date else None,
+            "timeSlot": job.time_slot.value if job.time_slot else None,
             "goodsType": job.goods_type,
+            "weightKg": float(job.weight_kg) if job.weight_kg is not None else None,
             "vehicleType": job.vehicle_type,
             "status": job.status.value,
         }
@@ -125,7 +127,7 @@ def list_quotes_for_job(
 ):
     result = quotes_svc.list_quotes(db, job_id, current_user)
     return ok(
-        data={"items": [_quote_dict(q) for q in result["items"]], "total": result["total"]},
+        data={"items": [_quote_dict(q, include_job=True) for q in result["items"]], "total": result["total"]},
         message="Quotes retrieved",
     )
 

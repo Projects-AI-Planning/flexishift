@@ -42,15 +42,25 @@ interface DashboardData {
   summary: {
     totalSpentThisMonth: number;
     totalActiveJobs: number;
+    bookedAwaitingPayment?: number;
     openJobsWithQuotes: number;
   };
   activeJobs: Array<{
+    jobId?: string;
     jobReference: string;
     pickupLocation: string | { address: string };
     dropLocation: string | { address: string };
     driverName?: string;
     status: string;
     delay?: string;
+    goodsType?: string;
+    weightKg?: number;
+    distanceKm?: number;
+    jobDate?: string;
+    timeSlot?: string;
+    agreedAmount?: number;
+    paymentRequired?: boolean;
+    paymentStatus?: string;
   }>;
 }
 
@@ -106,6 +116,7 @@ const HaulierOverview: React.FC = () => {
   const stats = useMemo(() => ({
     totalSpend: dashboardData?.summary.totalSpentThisMonth ?? 0,
     activeShipments: dashboardData?.summary.totalActiveJobs ?? 0,
+    bookedAwaitingPayment: dashboardData?.summary.bookedAwaitingPayment ?? 0,
     pendingQuotes: dashboardData?.summary.openJobsWithQuotes ?? 0,
     fleetUtilization: dashboardData?.summary.totalActiveJobs ? 85 : 0,
   }), [dashboardData]);
@@ -117,13 +128,17 @@ const HaulierOverview: React.FC = () => {
 
       return {
         id: job.jobReference,
-        route: `${pickup} -> ${drop}`,
-        type: 'Freight',
+        jobId: job.jobId,
+        route: `${pickup} → ${drop}`,
+        type: job.goodsType ?? 'Freight',
         driver: job.driverName || 'Unassigned',
         status: job.status.toUpperCase(),
-        eta: 'Today',
+        eta: job.jobDate ?? 'Today',
         delay: job.delay,
         statusColor: toneForStatus(job.status),
+        paymentRequired: job.paymentRequired ?? false,
+        agreedAmount: job.agreedAmount,
+        distanceKm: job.distanceKm,
       };
     });
   }, [dashboardData]);
@@ -277,6 +292,11 @@ const HaulierOverview: React.FC = () => {
           <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {String(stats.activeShipments).padStart(2, '0')}
           </h3>
+          {stats.bookedAwaitingPayment > 0 && (
+            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-amber-600">
+              {stats.bookedAwaitingPayment} awaiting payment
+            </p>
+          )}
         </article>
 
         <article className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
@@ -464,11 +484,37 @@ const HaulierOverview: React.FC = () => {
         </aside>
       </section>
 
+      {activeJobs.some((j) => j.paymentRequired) && (
+        <section className="overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 px-6 py-5">
+          <div className="flex items-start gap-4">
+            <span className="material-symbols-outlined mt-0.5 text-amber-600">lock_open</span>
+            <div className="flex-1">
+              <p className="text-sm font-black text-amber-900">
+                {activeJobs.filter((j) => j.paymentRequired).length} booked job{activeJobs.filter((j) => j.paymentRequired).length > 1 ? 's' : ''} awaiting payment
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Payment must be secured before the driver can start the trip and enter the load code.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/haulier/jobs/booked')}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-amber-400"
+            >
+              View Booked Jobs
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <h3 className="text-xl font-black tracking-tight text-slate-950">Active Shipments</h3>
-          <button className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950">
-            <span className="material-symbols-outlined">filter_list</span>
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-slate-950">Active Shipments</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Booked, in-transit, and payment-secured jobs</p>
+          </div>
+          <button onClick={refresh} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950">
+            <span className="material-symbols-outlined">refresh</span>
           </button>
         </div>
 
@@ -476,39 +522,73 @@ const HaulierOverview: React.FC = () => {
           <table className="w-full border-collapse text-left">
             <thead className="bg-slate-50">
               <tr>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">ID</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Driver</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Goods / Driver</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">ETA</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Date</th>
+                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activeJobs.map((job) => (
-                <tr key={job.id} className="transition hover:bg-slate-50/70">
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-950">{job.route}</span>
-                      <span className="text-xs text-slate-500">{job.type}</span>
-                    </div>
+              {activeJobs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400 font-medium">
+                    No active shipments. Post a job to get started.
                   </td>
-                  <td className="px-6 py-5 text-sm font-mono text-slate-500">#{job.id}</td>
+                </tr>
+              ) : activeJobs.map((job) => (
+                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
                   <td className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-[10px] font-black text-slate-700">
+                    <p className="font-black text-slate-950 text-sm">{job.id}</p>
+                    {job.distanceKm != null && (
+                      <p className="text-[10px] text-slate-400">{job.distanceKm} km</p>
+                    )}
+                  </td>
+                  <td className="px-6 py-5 max-w-[240px]">
+                    <p className="text-sm font-bold text-slate-900 truncate">{job.route.split(' → ')[0]}</p>
+                    <p className="text-[10px] text-slate-300">▼</p>
+                    <p className="text-sm text-slate-500 truncate">{job.route.split(' → ')[1]}</p>
+                  </td>
+                  <td className="px-6 py-5">
+                    <p className="text-sm font-bold text-slate-900">{job.type}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[8px] font-black text-slate-700">
                         {job.driver.charAt(0)}
                       </div>
-                      <span className="text-sm font-medium text-slate-900">{job.driver}</span>
+                      <span className="text-xs text-slate-500">{job.driver}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${job.statusColor}`}>
                       {job.status}
                     </span>
+                    {job.paymentRequired && (
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-amber-600">Payment Required</p>
+                    )}
                   </td>
-                  <td className="px-6 py-5 text-right">
+                  <td className="px-6 py-5">
                     <span className="text-sm font-bold text-slate-900">{job.eta}</span>
                     {job.delay && <div className="text-[10px] font-bold text-rose-600">{job.delay}</div>}
+                  </td>
+                  <td className="px-6 py-5 text-right">
+                    {job.paymentRequired ? (
+                      <button
+                        onClick={() => navigate(`/haulier/payments/create?jobId=${job.jobId}`)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">lock</span>
+                        Secure Payment
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate('/haulier/tracking')}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-primary/40 hover:text-primary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">location_on</span>
+                        Track
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -516,9 +596,13 @@ const HaulierOverview: React.FC = () => {
           </table>
         </div>
 
-        <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 text-center">
-          <button className="inline-flex items-center gap-2 text-sm font-black text-primary transition hover:text-slate-950">
-            View All Active Shipments
+        <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 flex items-center justify-between">
+          <p className="text-xs text-slate-400">Showing {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''}</p>
+          <button
+            onClick={() => navigate('/haulier/jobs/booked')}
+            className="inline-flex items-center gap-2 text-sm font-black text-primary transition hover:text-slate-950"
+          >
+            View All Jobs
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         </div>

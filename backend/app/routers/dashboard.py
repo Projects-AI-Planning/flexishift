@@ -388,9 +388,16 @@ def haulier_overview(
         func.extract("year", Payment.created_at) == now.year,
     ).scalar() or 0.0
 
+    booked_jobs = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.BOOKED,
+        Job.deleted_at.is_(None),
+    ).order_by(Job.job_date.asc()).all()
+
     active_job_list = []
-    for j in active_jobs[:5]:
+    for j in booked_jobs[:10] + active_jobs[:10]:
         supplier = j.supplier
+        payment = j.payment
         active_job_list.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
@@ -398,6 +405,14 @@ def haulier_overview(
             "driverName": supplier.full_name if supplier else None,
             "pickupLocation": j.pickup_address,
             "dropLocation": j.drop_address,
+            "goodsType": j.goods_type,
+            "weightKg": float(j.weight_kg) if j.weight_kg else None,
+            "distanceKm": float(j.distance_km) if j.distance_km else None,
+            "jobDate": j.job_date.isoformat() if j.job_date else None,
+            "timeSlot": j.time_slot,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "paymentRequired": j.status == JobStatus.BOOKED,
+            "paymentStatus": payment.status.value.lower() if payment else None,
         })
 
     return ok(
@@ -405,7 +420,8 @@ def haulier_overview(
             "haulierId": current_user.id,
             "companyName": profile.company_name if profile else current_user.full_name,
             "summary": {
-                "totalActiveJobs": len(active_jobs),
+                "totalActiveJobs": len(active_jobs) + len(booked_jobs),
+                "bookedAwaitingPayment": len(booked_jobs),
                 "jobsAwaitingApproval": awaiting,
                 "openJobsWithQuotes": open_with_quotes,
                 "totalJobsThisMonth": month_jobs,

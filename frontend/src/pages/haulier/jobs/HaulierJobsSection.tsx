@@ -6,13 +6,16 @@ type JobStatus = 'OPEN' | 'BOOKED' | 'IN_TRANSIT' | 'COMPLETED';
 
 type HaulierJobRow = {
   jobId: string;
-  jobRef: string;
+  jobRef?: string;
+  jobReference?: string;
   loadCode?: string;
   status: string;
   createdAt?: string;
   jobDate?: string;
   pickupAddress?: string;
+  pickupLocation?: string;
   dropAddress?: string;
+  dropLocation?: string;
   goodsType?: string;
   vehicleType?: string;
   weightKg?: number;
@@ -247,26 +250,43 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status, allowPo
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
+                {status === 'BOOKED' && (
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Payment</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {jobs.map((job) => (
-                <tr key={job.jobId} className="transition hover:bg-slate-50/70">
+              {jobs.map((job) => {
+                const isPaymentSecured = job.status?.toUpperCase() === 'PAYMENT_SECURED';
+                const needsPayment = !isPaymentSecured && ['BOOKED', 'PAYMENT_PENDING'].includes(job.status?.toUpperCase() ?? '');
+                return (
+                <tr key={job.jobId} className={`transition hover:bg-slate-50/70 ${isPaymentSecured ? 'bg-emerald-50/30' : ''}`}>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${activeSection.tone}`}>
-                        <span className="material-symbols-outlined text-base">{activeSection.icon}</span>
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${isPaymentSecured ? 'bg-emerald-100 text-emerald-700' : activeSection.tone}`}>
+                        <span className="material-symbols-outlined text-base">{isPaymentSecured ? 'verified' : activeSection.icon}</span>
                       </div>
                       <div>
-                        <p className="font-black text-slate-950">{job.jobRef}</p>
-                        <p className="text-xs text-slate-400">{job.loadCode ?? 'No load code'}</p>
+                        <p className="font-black text-slate-950">{job.jobReference ?? job.jobRef}</p>
+                        {job.loadCode ? (
+                          <button
+                            onClick={() => { void navigator.clipboard.writeText(job.loadCode ?? ''); }}
+                            className="flex items-center gap-1 mt-0.5 group"
+                            title="Click to copy load code"
+                          >
+                            <span className="font-mono text-xs font-black text-primary">{job.loadCode}</span>
+                            <span className="material-symbols-outlined text-[11px] text-slate-400 group-hover:text-primary">content_copy</span>
+                          </button>
+                        ) : (
+                          <p className="text-xs text-slate-400">No load code</p>
+                        )}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-5 max-w-[260px]">
-                    <p className="text-sm font-bold text-slate-900 truncate">{job.pickupAddress ?? 'N/A'}</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{job.pickupLocation ?? job.pickupAddress ?? 'N/A'}</p>
                     <p className="text-[10px] text-slate-300 my-1">▼</p>
-                    <p className="text-sm text-slate-500 truncate">{job.dropAddress ?? 'N/A'}</p>
+                    <p className="text-sm text-slate-500 truncate">{job.dropLocation ?? job.dropAddress ?? 'N/A'}</p>
                   </td>
                   <td className="px-6 py-5">
                     <p className="text-sm font-bold text-slate-900">{job.goodsType ?? 'N/A'}</p>
@@ -289,12 +309,48 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status, allowPo
                       <p className="mt-1 text-xs font-black uppercase tracking-wider text-blue-600">Ready for quotes</p>
                     )}
                   </td>
+                  {status === 'BOOKED' && (
+                    <td className="px-6 py-5">
+                      {isPaymentSecured ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>
+                            <span className="text-xs font-black text-emerald-700">Payment Secured</span>
+                          </div>
+                          {job.loadCode && (
+                            <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1.5">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-0.5">Load Code — Share with driver</p>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-black text-emerald-800">{job.loadCode}</span>
+                                <button
+                                  onClick={() => { void navigator.clipboard.writeText(job.loadCode ?? ''); }}
+                                  className="text-emerald-500 hover:text-emerald-700"
+                                  title="Copy"
+                                >
+                                  <span className="material-symbols-outlined text-sm">content_copy</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : needsPayment ? (
+                        <button
+                          onClick={() => navigate(`/haulier/payments/create?jobId=${job.jobId}`)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">lock</span>
+                          Secure Payment
+                        </button>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
-              ))}
+                );
+              })}
 
               {!loading && jobs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={status === 'BOOKED' ? 7 : 6} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                         <span className="material-symbols-outlined text-2xl text-slate-400">search_off</span>

@@ -61,11 +61,11 @@ def create_payment_order(
     order = pay_svc.create_payment_order(db, job_id, current_user.id)
     return created(
         data={
-            "paymentId": order.payment_id,
-            "gatewayOrderId": order.gateway_order_id,
-            "amount": order.amount,
-            "currency": order.currency,
-            "keyId": order.key_id,
+            "paymentId": order["payment_id"],
+            "gatewayOrderId": order["gateway_order_id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "keyId": order["key_id"],
         },
         message="Payment order created",
     )
@@ -130,11 +130,11 @@ def initiate_payment(
     order = pay_svc.create_payment_order(db, body.booking_id, current_user.id)
     return created(
         data={
-            "paymentId": order.payment_id,
-            "gatewayOrderId": order.gateway_order_id,
-            "amount": order.amount,
-            "currency": order.currency,
-            "keyId": order.key_id,
+            "paymentId": order["payment_id"],
+            "gatewayOrderId": order["gateway_order_id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "keyId": order["key_id"],
         },
         message="Payment initiated",
     )
