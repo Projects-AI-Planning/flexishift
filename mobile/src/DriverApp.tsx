@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
@@ -126,6 +127,29 @@ const defaultNotificationPrefs = {
   smsNotifications: {enabled: true, job_updates: true, payment_updates: true},
 };
 
+const SESSION_KEY = '@ff_driver_session';
+
+function decodeJwtExp(token: string): number {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(
+      atob(b64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+    return (JSON.parse(json) as {exp?: number}).exp ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function isSessionValid(sess: DriverSession | null): boolean {
+  if (!sess?.accessToken) {return false;}
+  const exp = decodeJwtExp(sess.accessToken);
+  return exp > 0 && exp * 1000 > Date.now() + 60_000;
+}
+
 const cast = <T,>(value: unknown) => value as T;
 
 function toAddress(value: unknown): string {
@@ -165,6 +189,7 @@ function SectionCard({
 }
 
 function DriverApp(): React.JSX.Element {
+  const [initializing, setInitializing] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<DriverSession | null>(null);
 
@@ -295,21 +320,20 @@ function DriverApp(): React.JSX.Element {
   // ─── Data loaders ────────────────────────────────────────────────────────────
 
   const loadHome = useCallback(async () => {
-    const [overviewData, earningsData, notificationData, upcomingData] =
-      await Promise.all([
-        driverApi.dashboard.getOverview(),
-        driverApi.dashboard.getEarnings({period: 'monthly'}),
-        driverApi.notifications.list({limit: 5, page: 1}),
-        driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1}),
-      ]);
-    setDashboard(cast<DashboardOverview>(overviewData));
-    setEarnings(cast<EarningsResponse>(earningsData));
-    setNotifications(
-      ((notificationData.notifications ?? []) as NotificationSummary[]) || [],
-    );
-    setUpcomingJobs(
-      (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
-    );
+    await Promise.allSettled([
+      driverApi.dashboard.getOverview()
+        .then(d => setDashboard(cast<DashboardOverview>(d)))
+        .catch(() => {}),
+      driverApi.dashboard.getEarnings({period: 'monthly'})
+        .then(d => setEarnings(cast<EarningsResponse>(d)))
+        .catch(() => {}),
+      driverApi.notifications.list({limit: 5, page: 1})
+        .then(d => setNotifications(((d.notifications ?? []) as NotificationSummary[]) || []))
+        .catch(() => {}),
+      driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1})
+        .then(d => setUpcomingJobs((d.jobs as Array<Record<string, unknown>>) ?? []))
+        .catch(() => {}),
+    ]);
   }, []);
 
   const loadJobs = useCallback(async () => {
@@ -558,6 +582,29 @@ function DriverApp(): React.JSX.Element {
     setApiAccessToken(session?.accessToken ?? null);
   }, [session]);
 
+  // Restore persisted session on first mount
+  useEffect(() => {
+    AsyncStorage.getItem(SESSION_KEY)
+      .then(raw => {
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw) as DriverSession;
+            if (isSessionValid(saved)) {
+              setSession(saved);
+              setShowSplash(false);
+            } else {
+              AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+            }
+          } catch {
+            AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setInitializing(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (session) {
       refreshActiveView().catch(() => undefined);
@@ -608,7 +655,9 @@ function DriverApp(): React.JSX.Element {
     setAuthInfo(null);
     try {
       const payload = await driverApi.auth.login(loginForm);
-      setSession(cast<DriverSession>(payload));
+      const newSession = cast<DriverSession>(payload);
+      setSession(newSession);
+      AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession)).catch(() => {});
       if (!payload.isProfileComplete) {
         setSetupStep('profile');
       } else {
@@ -770,6 +819,7 @@ function DriverApp(): React.JSX.Element {
     } catch {
       /* ignore */
     } finally {
+      AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
       setSession(null);
       setApiAccessToken(null);
       setSetupStep(null);
@@ -1418,7 +1468,9 @@ function DriverApp(): React.JSX.Element {
   // ─── Main view router ─────────────────────────────────────────────────────────
 
   const renderCurrentView = () => {
-    if (contentLoading) {
+    // Home tab renders immediately; other screens block until data is ready
+    const isHomeDashboard = activeTab === 'home' && activeRoute === 'home';
+    if (contentLoading && !isHomeDashboard) {
       return (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={palette.accent} size="large" />
@@ -1952,11 +2004,16 @@ function DriverApp(): React.JSX.Element {
 
   // ─── Auth screens ─────────────────────────────────────────────────────────────
 
+  // Show blank nav-colour screen while restoring session from storage
+  if (initializing) {
+    return <SafeAreaView style={{flex: 1, backgroundColor: palette.nav}} />;
+  }
+
   if (showSplash) {
     return (
       <SplashScreen
         onGetStarted={() => {
-          setAuthMode('register');
+          setAuthMode('login');
           setShowSplash(false);
         }}
       />
