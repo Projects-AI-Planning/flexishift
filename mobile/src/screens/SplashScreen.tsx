@@ -4,8 +4,6 @@ import {
   Pressable,
   SafeAreaView,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 
 interface SplashScreenProps {
@@ -20,32 +18,20 @@ const SplashScreen: React.FC<SplashScreenProps> = ({onGetStarted, onLogin}) => {
         source={require('../assets/screens/Freightflex.png')}
         resizeMode="cover"
         style={styles.fill}>
-        {/* Spacer pushes buttons to the same vertical position as in the image */}
-        <View style={styles.spacer} />
-
-        {/* Covers + replaces the GET STARTED button baked into the image */}
+        {/* Invisible tap zone over the GET STARTED button in the image */}
         <Pressable
           onPress={onGetStarted}
-          style={({pressed}) => [styles.getStartedBtn, pressed && styles.getStartedBtnPressed]}
+          style={styles.getStartedArea}
           accessibilityRole="button"
-          accessibilityLabel="Get Started">
-          <Text style={styles.getStartedText}>GET STARTED  →</Text>
-        </Pressable>
-
-        {/* Covers + replaces the login anchor baked into the image */}
+          accessibilityLabel="Get Started"
+        />
+        {/* Invisible tap zone over the "Already have an account? Login" text */}
         <Pressable
           onPress={onLogin}
-          style={styles.loginRow}
+          style={styles.loginArea}
           accessibilityRole="link"
-          accessibilityLabel="Already have an account? Login">
-          <Text style={styles.loginPrompt}>
-            Already have an account?{'  '}
-            <Text style={styles.loginLink}>Login</Text>
-          </Text>
-        </Pressable>
-
-        {/* Bottom gap to sit above the system-status footer in the image */}
-        <View style={styles.footer} />
+          accessibilityLabel="Already have an account? Login"
+        />
       </ImageBackground>
     </SafeAreaView>
   );
@@ -59,39 +45,21 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
-  spacer: {
-    flex: 1,
+  // Sits over the blue GET STARTED button (~68–78% from top)
+  getStartedArea: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '68%',
+    height: '11%',
   },
-  getStartedBtn: {
-    marginHorizontal: 24,
-    backgroundColor: '#1A6FD4',
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  getStartedBtnPressed: {
-    opacity: 0.85,
-  },
-  getStartedText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  loginRow: {
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  loginPrompt: {
-    color: '#B0BCCC',
-    fontSize: 13,
-  },
-  loginLink: {
-    color: '#5BA8F5',
-    fontWeight: '600',
-  },
-  footer: {
-    height: 72,
+  // Sits over the "Already have an account? Login" text (~79–87% from top)
+  loginArea: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '79%',
+    height: '8%',
   },
 });
 
