@@ -361,14 +361,19 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                     </View>
                   </View>
 
-                  {isRejected && doc.rejectionReason ? (
+                  {isRejected && (
                     <View style={styles.rejectionRow}>
                       <Text style={styles.rejectionWarnIcon}>⚠</Text>
-                      <Text style={styles.rejectionText} numberOfLines={2}>
-                        {doc.rejectionReason}
-                      </Text>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.rejectionLabel}>Rejection Reason</Text>
+                        <Text style={styles.rejectionText}>
+                          {doc.rejectionReason?.trim()
+                            ? doc.rejectionReason
+                            : 'Document was rejected by the admin. Please upload a clearer, legible copy and resubmit.'}
+                        </Text>
+                      </View>
                     </View>
-                  ) : null}
+                  )}
 
                   {isVerified && (
                     <Pressable
@@ -535,10 +540,12 @@ const styles = StyleSheet.create({
 
   rejectionRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#FFF7ED', borderRadius: radius.sm, padding: spacing.sm,
+    backgroundColor: '#FEF2F2', borderRadius: radius.sm, padding: spacing.md,
+    borderWidth: 1, borderColor: '#FECACA',
   },
-  rejectionWarnIcon: {color: '#EA580C', fontSize: 14, flexShrink: 0},
-  rejectionText: {flex: 1, color: '#EA580C', fontSize: 12, lineHeight: 17},
+  rejectionWarnIcon: {color: '#DC2626', fontSize: 16, flexShrink: 0, marginTop: 1},
+  rejectionLabel: {color: '#B91C1C', fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 3},
+  rejectionText: {color: '#DC2626', fontSize: 13, lineHeight: 19, fontWeight: '500'},
 
   outlineBtn: {
     borderWidth: 1, borderColor: '#CBD5E1', borderRadius: radius.sm,
