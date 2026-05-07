@@ -2013,7 +2013,7 @@ function DriverApp(): React.JSX.Element {
     return (
       <SplashScreen
         onGetStarted={() => {
-          setAuthMode('login');
+          setAuthMode('register');
           setShowSplash(false);
         }}
       />
@@ -2083,19 +2083,15 @@ function DriverApp(): React.JSX.Element {
             onResend={() => handleForgotPassword(forgotEmail)}
           />
         )}
-        {authMode !== 'login' && authMode !== 'register' ? (
+        {authMode === 'verify' ? (
           <View style={styles.authSwitchRow}>
-            {(['login', 'register', 'verify'] as AuthMode[]).map(m => (
-              <Pressable key={m} onPress={() => setAuthMode(m)}>
-                <Text style={styles.linkText}>
-                  {m === 'login'
-                    ? 'Sign In'
-                    : m === 'register'
-                    ? 'Register'
-                    : 'Verify OTP'}
-                </Text>
-              </Pressable>
-            ))}
+            <Pressable onPress={() => setAuthMode('login')} style={styles.authSwitchPill}>
+              <Text style={styles.authSwitchPillText}>Sign In</Text>
+            </Pressable>
+            <Text style={styles.authSwitchDivider}>·</Text>
+            <Pressable onPress={() => setAuthMode('register')} style={styles.authSwitchPill}>
+              <Text style={styles.authSwitchPillText}>Create Account</Text>
+            </Pressable>
           </View>
         ) : null}
       </SafeAreaView>
@@ -2311,10 +2307,29 @@ const styles = StyleSheet.create({
   authShell: {backgroundColor: palette.nav, flex: 1, justifyContent: 'center'},
   authSwitchRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  authSwitchPill: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  authSwitchPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  authSwitchDivider: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 18,
+    fontWeight: '300',
   },
   authTitle: {
     color: palette.ink,
