@@ -4,17 +4,25 @@ buildscript {
         minSdkVersion = 21
         compileSdkVersion = 34
         targetSdkVersion = 34
-        kotlinVersion = "1.8.0"
+        kotlinVersion = "1.9.0"
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle")
+        // AGP 8.3.1 fixes the jlink --disable-plugin system-modules incompatibility with JDK 21
+        classpath("com.android.tools.build:gradle:8.3.1")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
     }
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Move all build outputs to C:\Temp to avoid OneDrive file locking
+def buildBase = new File("C:\\Temp\\FreightflexBuild")
+rootProject.buildDir = new File(buildBase, "_root")
+subprojects {
+    buildDir = new File(buildBase, project.name)
+}
