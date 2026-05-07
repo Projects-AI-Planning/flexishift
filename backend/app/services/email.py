@@ -10,18 +10,39 @@ log = structlog.get_logger()
 
 
 def _send_smtp(to: str, subject: str, html_body: str) -> None:
-    """Synchronous SMTP send — called via asyncio.to_thread()."""
+    """Synchronous SMTP send — tries port 587 (STARTTLS) then 465 (SSL)."""
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{settings.EMAIL_FROM_NAME} <{settings.GMAIL_USER}>"
     msg["To"] = to
     msg.attach(MIMEText(html_body, "html"))
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
-        smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+    last_err: Exception | None = None
+
+    # Port 587 STARTTLS — most common
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+        return
+    except OSError as exc:
+        last_err = exc
+        log.warning("smtp_587_failed_trying_465", error=str(exc))
+
+    # Port 465 SSL — fallback when 587 is blocked by host firewall
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+        return
+    except OSError as exc:
+        last_err = exc
+        log.error("smtp_465_also_failed", error=str(exc))
+
+    raise last_err  # type: ignore[misc]
 
 
 async def send_email(to: str, subject: str, html_body: str) -> None:
