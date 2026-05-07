@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -6,6 +6,90 @@ import 'leaflet/dist/leaflet.css';
 import { useHaulierOverview } from '../../hooks/useHaulier';
 import haulierService from '../../api/haulierService';
 import type { LiveDelivery } from '../../types';
+
+/* ── Signature Modal ─────────────────────────────────────────────────────────── */
+type SigPoint = { x: number; y: number };
+
+const DashboardSignModal: React.FC<{
+  job: { jobId: string; jobReference: string };
+  onClose: () => void;
+  onSigned: (jobId: string) => void;
+}> = ({ job, onClose, onSigned }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const lastPt = useRef<SigPoint | null>(null);
+  const [hasStrokes, setHasStrokes] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent): SigPoint => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const sx = canvasRef.current!.width / rect.width;
+    const sy = canvasRef.current!.height / rect.height;
+    if ('touches' in e) return { x: (e.touches[0].clientX - rect.left) * sx, y: (e.touches[0].clientY - rect.top) * sy };
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  };
+
+  const start = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); drawing.current = true; lastPt.current = getPos(e); setHasStrokes(true); };
+  const move = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const pt = getPos(e);
+    ctx.beginPath(); ctx.moveTo(lastPt.current!.x, lastPt.current!.y); ctx.lineTo(pt.x, pt.y);
+    ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    lastPt.current = pt;
+  };
+  const end = () => { drawing.current = false; lastPt.current = null; };
+  const clear = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); setHasStrokes(false); };
+
+  const submit = async () => {
+    if (!canvasRef.current || !hasStrokes) return;
+    setLoading(true); setError('');
+    try {
+      await haulierService.submitDigitalSignature({ jobId: job.jobId, signatureData: canvasRef.current.toDataURL('image/png') });
+      onSigned(job.jobId);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; detail?: string } } };
+      setError(e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to submit. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Step 2 · Handover</p>
+            <h2 className="text-xl font-black text-slate-900">Haulier Signature</h2>
+            <p className="text-sm text-slate-500">Job: <span className="font-bold">{job.jobReference}</span></p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <p className="mb-3 text-sm text-slate-600">Draw your signature to confirm dispatch officer vehicle release.</p>
+        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+          <canvas ref={canvasRef} width={560} height={200} className="w-full cursor-crosshair touch-none"
+            onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+            onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+          />
+          {!hasStrokes && <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">Draw your signature here</p>}
+        </div>
+        <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE</p>
+        {error && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
+        <div className="mt-5 flex gap-3">
+          <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
+          <button onClick={() => void submit()} disabled={loading || !hasStrokes} className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40">
+            {loading ? 'Submitting…' : 'Confirm Signature'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -103,6 +187,17 @@ function FlyToDelivery({ delivery }: { delivery: LiveDelivery | null }) {
   return null;
 }
 
+type HandoverInfo = {
+  jobId: string;
+  jobReference: string;
+  route: string;
+  driverSigned: boolean;
+  haulierSigned: boolean;
+  driverSignedAt?: string | null;
+  haulierSignedAt?: string | null;
+  loading: boolean;
+};
+
 const HaulierOverview: React.FC = () => {
   const navigate = useNavigate();
   const { data, loading, error, refresh } = useHaulierOverview();
@@ -110,6 +205,8 @@ const HaulierOverview: React.FC = () => {
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
+  const [handoverRows, setHandoverRows] = useState<HandoverInfo[]>([]);
+  const [sigModalJob, setSigModalJob] = useState<{ jobId: string; jobReference: string } | null>(null);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
 
@@ -170,6 +267,45 @@ const HaulierOverview: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [loadMap]);
 
+  // Load handover status for every payment-secured / in-transit job
+  useEffect(() => {
+    const jobs = (data as DashboardData | null)?.activeJobs ?? [];
+    if (!jobs.length) { setHandoverRows([]); return; }
+    let cancelled = false;
+
+    // seed with loading placeholders
+    const seed: HandoverInfo[] = jobs
+      .filter((j) => j.jobId)
+      .map((j) => ({
+        jobId: j.jobId!,
+        jobReference: j.jobReference,
+        route: `${stripLocation(j.pickupLocation)} → ${stripLocation(j.dropLocation)}`,
+        driverSigned: false,
+        haulierSigned: false,
+        loading: true,
+      }));
+    if (!cancelled) setHandoverRows(seed);
+
+    void Promise.all(
+      seed.map(async (row) => {
+        try {
+          const s = await haulierService.getHandoverStatus(row.jobId) as {
+            driverSigned?: boolean;
+            haulierSigned?: boolean;
+            driverSignedAt?: string | null;
+            haulierSignedAt?: string | null;
+          };
+          return { ...row, driverSigned: Boolean(s?.driverSigned), haulierSigned: Boolean(s?.haulierSigned), driverSignedAt: s?.driverSignedAt, haulierSignedAt: s?.haulierSignedAt, loading: false };
+        } catch {
+          return { ...row, loading: false };
+        }
+      }),
+    ).then((rows) => { if (!cancelled) setHandoverRows(rows); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   const deliveries = mapData?.deliveries ?? [];
   const selectedDelivery = deliveries.find((delivery) => delivery.jobId === selectedDeliveryId) ?? deliveries[0] ?? null;
 
@@ -227,8 +363,96 @@ const HaulierOverview: React.FC = () => {
 
   return (
     <div className="relative space-y-8 overflow-hidden">
+      {/* Signature modal */}
+      {sigModalJob && (
+        <DashboardSignModal
+          job={sigModalJob}
+          onClose={() => setSigModalJob(null)}
+          onSigned={(jobId) => {
+            setSigModalJob(null);
+            setHandoverRows((prev) =>
+              prev.map((r) => r.jobId === jobId ? { ...r, haulierSigned: true, haulierSignedAt: new Date().toISOString() } : r)
+            );
+          }}
+        />
+      )}
+
       <div className="pointer-events-none absolute -top-24 right-[-90px] h-64 w-64 rounded-full bg-amber-400/15 blur-3xl" />
       <div className="pointer-events-none absolute left-[-120px] top-40 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+
+      {/* ── Vehicle Handover Sign ───────────────────────────────────────────── */}
+      {handoverRows.length > 0 && (
+        <section className="overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
+          <div className="flex items-center gap-4 border-b border-amber-100 bg-amber-50 px-6 py-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-white shadow">
+              <span className="material-symbols-outlined">draw</span>
+            </span>
+            <div className="flex-1">
+              <h2 className="font-black text-amber-900 text-lg">Vehicle Handover Signatures</h2>
+              <p className="text-sm text-amber-700">Sign each active job to authorise the vehicle release.</p>
+            </div>
+            {handoverRows.filter((r) => !r.haulierSigned).length > 0 && (
+              <span className="rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-white">
+                {handoverRows.filter((r) => !r.haulierSigned).length} need your sign
+              </span>
+            )}
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {handoverRows.map((row) => (
+              <div key={row.jobId} className={`flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center ${!row.haulierSigned ? 'bg-amber-50/30' : ''}`}>
+                {/* Job info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-black text-slate-950">{row.jobReference}</p>
+                    {row.driverSigned && !row.haulierSigned && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">Driver signed — awaiting you</span>
+                    )}
+                    {row.haulierSigned && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">Both signed ✓</span>
+                    )}
+                    {!row.driverSigned && !row.haulierSigned && !row.loading && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Awaiting driver checklist</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500 truncate">{row.route}</p>
+                  <div className="mt-2 flex gap-4 text-xs text-slate-500">
+                    <span className={`flex items-center gap-1 font-semibold ${row.driverSigned ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span className="material-symbols-outlined text-sm">{row.driverSigned ? 'check_circle' : 'radio_button_unchecked'}</span>
+                      Driver signature
+                    </span>
+                    <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-amber-500'}`}>
+                      <span className="material-symbols-outlined text-sm">{row.haulierSigned ? 'check_circle' : 'pending'}</span>
+                      Your signature
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action */}
+                <div className="shrink-0">
+                  {row.loading ? (
+                    <span className="text-xs text-slate-400">Loading…</span>
+                  ) : row.haulierSigned ? (
+                    <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700">
+                      <span className="material-symbols-outlined text-base">verified</span>
+                      Signed
+                      {row.haulierSignedAt && <span className="font-normal text-emerald-500 text-xs">{new Date(row.haulierSignedAt).toLocaleDateString('en-GB')}</span>}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setSigModalJob({ jobId: row.jobId, jobReference: row.jobReference })}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-md shadow-amber-300/50 transition hover:bg-amber-600 active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-base">draw</span>
+                      Sign Now
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-7 shadow-[0_18px_50px_rgba(15,23,42,0.18)] md:px-8">
         <div className="absolute inset-0 opacity-25" style={{
@@ -538,7 +762,7 @@ const HaulierOverview: React.FC = () => {
                   </td>
                 </tr>
               ) : activeJobs.map((job) => (
-                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
+                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? 'bg-amber-50/60' : job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
                   <td className="px-6 py-5">
                     <p className="font-black text-slate-950 text-sm">{job.id}</p>
                     {job.distanceKm != null && (
@@ -579,6 +803,14 @@ const HaulierOverview: React.FC = () => {
                       >
                         <span className="material-symbols-outlined text-sm">lock</span>
                         Secure Payment
+                      </button>
+                    ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
+                      <button
+                        onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 shadow-sm transition hover:bg-amber-400 hover:text-white active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-sm">draw</span>
+                        Sign Handover
                       </button>
                     ) : (
                       <button

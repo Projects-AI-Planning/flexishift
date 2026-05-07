@@ -216,6 +216,7 @@ function DriverApp(): React.JSX.Element {
     null,
   );
   const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
+  const [handoverStatus, setHandoverStatus] = useState<{haulierSigned?: boolean; haulierSignedAt?: string | null} | null>(null);
 
   // Profile
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -808,7 +809,19 @@ function DriverApp(): React.JSX.Element {
 
   // ─── Booking acceptance ──────────────────────────────────────────────────────
 
+  const resolveComplianceRoute = async (jobId: string): Promise<'compliance.loadCode' | 'compliance.handover' | 'tracking.active'> => {
+    try {
+      const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
+      if (compliance?.step1_handover_completed) return 'tracking.active';
+      if (compliance?.load_code_verified) return 'compliance.handover';
+    } catch {
+      /* fall through */
+    }
+    return 'compliance.loadCode';
+  };
+
   const handleProceedToBooking = async (jobId: string) => {
+    setComplianceJobId(jobId);
     try {
       const bookingData = await driverApi.bookings.list({jobId, limit: 1});
       const bookings = (bookingData.bookings ??
@@ -817,15 +830,12 @@ function DriverApp(): React.JSX.Element {
       const booking = bookings[0] ?? null;
       if (booking) {
         setSelectedBooking(cast<BookingDetail>(booking));
-        setComplianceJobId(jobId);
         navigate('jobs', 'jobs.booking');
       } else {
-        // No booking found yet — go directly to compliance
-        setComplianceJobId(jobId);
-        navigate('tracking', 'compliance.loadCode');
+        const route = await resolveComplianceRoute(jobId);
+        navigate('tracking', route);
       }
     } catch {
-      setComplianceJobId(jobId);
       navigate('tracking', 'compliance.loadCode');
     }
   };
@@ -837,6 +847,38 @@ function DriverApp(): React.JSX.Element {
       await loadTracking();
     });
   };
+
+  // ─── Poll haulier signature when driver is on handover screen ───────────────
+
+  useEffect(() => {
+    if (activeRoute !== 'compliance.handover') {
+      return;
+    }
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await driverApi.compliance.getHandoverStatus(jobId) as {haulierSigned?: boolean; haulierSignedAt?: string | null};
+        if (!cancelled) {
+          setHandoverStatus({
+            haulierSigned: status?.haulierSigned,
+            haulierSignedAt: status?.haulierSignedAt,
+          });
+        }
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeRoute, complianceJobId, dashboard?.activeJob?.jobId]);
 
   // ─── Compliance handlers ─────────────────────────────────────────────────────
 
@@ -1163,7 +1205,7 @@ function DriverApp(): React.JSX.Element {
         Math.random(),
     );
 
-  const goToUpcomingTrip = (item: Record<string, unknown>) => {
+  const goToUpcomingTrip = async (item: Record<string, unknown>) => {
     const jobId = String(item.jobId ?? '');
     if (!jobId) {
       setErrorBanner('This job is missing a job ID.');
@@ -1176,12 +1218,29 @@ function DriverApp(): React.JSX.Element {
     setSelectedJobDetails(null);
 
     const status = String(item.status ?? '').toLowerCase();
-    if (status === 'in_transit') {
+
+    // Already in transit or delivery submitted — go straight to tracking
+    if (status === 'in_transit' || status === 'delivery_submitted') {
       navigate('tracking', 'tracking.active');
       return;
     }
 
-    navigate('tracking', 'compliance.loadCode');
+    // Check compliance progress so the driver resumes from the correct step
+    try {
+      const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
+      if (compliance?.step1_handover_completed) {
+        // Handover done — driver is on their way
+        navigate('tracking', 'tracking.active');
+      } else if (compliance?.load_code_verified) {
+        // Load code done — resume at handover
+        navigate('tracking', 'compliance.handover');
+      } else {
+        // Nothing verified yet — start at load code
+        navigate('tracking', 'compliance.loadCode');
+      }
+    } catch {
+      navigate('tracking', 'compliance.loadCode');
+    }
   };
 
   const renderUpcomingJobCard = (item: Record<string, unknown>) => {
@@ -1426,6 +1485,8 @@ function DriverApp(): React.JSX.Element {
           onBack={goBackFromHandover}
           loading={actionLoading}
           error={errorBanner}
+          haulierSigned={handoverStatus?.haulierSigned ?? false}
+          haulierSignedAt={handoverStatus?.haulierSignedAt}
         />
       );
     }

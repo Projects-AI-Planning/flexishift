@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import haulierService from '../../api/haulierService';
 
 type JobSummary = {
@@ -62,9 +62,13 @@ type DeliveryStatus = {
   notes?: string | null;
 };
 
-const badge = (ok: boolean) => (ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600');
+type Point = { x: number; y: number };
 
-const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleString('en-IN') : 'N/A');
+const badge = (ok: boolean) =>
+  ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600';
+
+const formatDate = (value?: string | null) =>
+  value ? new Date(value).toLocaleString('en-IN') : 'N/A';
 
 const stepTone = (done?: boolean, active?: boolean) => {
   if (done) return 'bg-emerald-500 text-white';
@@ -72,6 +76,143 @@ const stepTone = (done?: boolean, active?: boolean) => {
   return 'bg-slate-100 text-slate-400';
 };
 
+/* ── Signature Canvas Component ────────────────────────────────────────────── */
+function SignatureCanvas({
+  onSave,
+  onCancel,
+  loading,
+}: {
+  onSave: (dataUrl: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const lastPoint = useRef<Point | null>(null);
+  const [hasStrokes, setHasStrokes] = useState(false);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    drawing.current = true;
+    lastPoint.current = getPos(e);
+    setHasStrokes(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1e3a5f';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    lastPoint.current = pos;
+  };
+
+  const endDraw = () => {
+    drawing.current = false;
+    lastPoint.current = null;
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    setHasStrokes(false);
+  };
+
+  const save = () => {
+    if (!canvasRef.current || !hasStrokes) return;
+    onSave(canvasRef.current.toDataURL('image/png'));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">
+              Step 2 · Handover
+            </p>
+            <h2 className="text-xl font-black text-primary">Haulier Signature</h2>
+          </div>
+          <button
+            onClick={onCancel}
+            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <p className="mb-3 text-sm text-slate-500">
+          Sign below to confirm dispatch officer vehicle release approval.
+        </p>
+
+        {/* Canvas */}
+        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+          <canvas
+            ref={canvasRef}
+            width={480}
+            height={180}
+            className="w-full cursor-crosshair touch-none"
+            onMouseDown={startDraw}
+            onMouseMove={draw}
+            onMouseUp={endDraw}
+            onMouseLeave={endDraw}
+            onTouchStart={startDraw}
+            onTouchMove={draw}
+            onTouchEnd={endDraw}
+          />
+          {!hasStrokes && (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
+              Draw your signature here
+            </p>
+          )}
+        </div>
+
+        <p className="mt-2 text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+          DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+        </p>
+
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={clear}
+            disabled={loading}
+            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50"
+          >
+            Clear
+          </button>
+          <button
+            onClick={save}
+            disabled={loading || !hasStrokes}
+            className="flex-1 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
+          >
+            {loading ? 'Submitting…' : 'Confirm Signature'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Page ────────────────────────────────────────────────────────────────── */
 export default function HaulierCompliancePage() {
   const [section, setSection] = useState<'active' | 'pending'>('active');
   const [activeJobs, setActiveJobs] = useState<JobSummary[]>([]);
@@ -88,6 +229,11 @@ export default function HaulierCompliancePage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
 
+  /* Signature modal state */
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [signLoading, setSignLoading] = useState(false);
+  const [signError, setSignError] = useState('');
+
   const loadJobs = async () => {
     setLoading(true);
     try {
@@ -95,7 +241,6 @@ export default function HaulierCompliancePage() {
         haulierService.getActiveJobs({ page: 1, limit: 50 }),
         haulierService.getPendingApprovalJobs({ page: 1, limit: 50 }),
       ]);
-
       const activeItems = ((active as { jobs?: JobSummary[] })?.jobs ?? []) as JobSummary[];
       const pendingItems = ((pending as { jobs?: JobSummary[] })?.jobs ?? []) as JobSummary[];
       setActiveJobs(activeItems);
@@ -103,9 +248,7 @@ export default function HaulierCompliancePage() {
       setSelectedJobId((prev) => prev ?? activeItems[0]?.jobId ?? pendingItems[0]?.jobId ?? null);
       setError('');
     } catch (err: unknown) {
-      const response = err as {
-        response?: { data?: { message?: string; detail?: string } };
-      };
+      const response = err as { response?: { data?: { message?: string; detail?: string } } };
       const message = response.response?.data?.message || response.response?.data?.detail;
       setError(message ? `Failed to load compliance jobs: ${message}` : 'Failed to load compliance jobs.');
     } finally {
@@ -113,62 +256,95 @@ export default function HaulierCompliancePage() {
     }
   };
 
-  useEffect(() => {
-    void loadJobs();
-  }, []);
+  useEffect(() => { void loadJobs(); }, []);
 
   const selectedJob = useMemo(
     () => [...activeJobs, ...pendingJobs].find((job) => job.jobId === selectedJobId) ?? null,
     [activeJobs, pendingJobs, selectedJobId],
   );
 
+  const fetchDetail = async (jobId: string, silent = false) => {
+    if (!silent) setDetailLoading(true);
+    try {
+      const [full, loadCode, handover, delivery, photos] = await Promise.all([
+        haulierService.getFullComplianceStatus(jobId),
+        haulierService.getLoadCodeStatus(jobId),
+        haulierService.getHandoverStatus(jobId),
+        haulierService.getDeliveryStatus(jobId),
+        haulierService.viewHandoverPhotos(jobId),
+      ]);
+      setDetail({
+        full: full as FullCompliance,
+        loadCode: loadCode as LoadCodeStatus,
+        handover: handover as HandoverStatus,
+        delivery: delivery as DeliveryStatus,
+        photos: ((photos as { photos?: Array<{ url?: string; note?: string }> })?.photos ?? []) as Array<{ url?: string; note?: string }>,
+      });
+    } catch {
+      if (!silent) setDetail({ photos: [] });
+    } finally {
+      if (!silent) setDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
     const jobId = selectedJob?.jobId;
     if (!jobId) return;
-
     let mounted = true;
-    const fetchDetail = async () => {
+    const run = async () => {
       setDetailLoading(true);
       try {
-        const [full, loadCode, handover, delivery, photos] = await Promise.all([
-          haulierService.getFullComplianceStatus(jobId),
-          haulierService.getLoadCodeStatus(jobId),
-          haulierService.getHandoverStatus(jobId),
-          haulierService.getDeliveryStatus(jobId),
-          haulierService.viewHandoverPhotos(jobId),
-        ]);
-
-        if (!mounted) return;
-        setDetail({
-          full: full as FullCompliance,
-          loadCode: loadCode as LoadCodeStatus,
-          handover: handover as HandoverStatus,
-          delivery: delivery as DeliveryStatus,
-          photos: ((photos as { photos?: Array<{ url?: string; note?: string }> })?.photos ?? []) as Array<{ url?: string; note?: string }>,
-        });
-      } catch {
-        if (!mounted) return;
-        setDetail({ photos: [] });
+        await fetchDetail(jobId);
       } finally {
         if (mounted) setDetailLoading(false);
       }
     };
-
-    void fetchDetail();
-    return () => {
-      mounted = false;
-    };
+    void run();
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedJob?.jobId]);
+
+  const handleHaulierSign = async (signatureDataUrl: string) => {
+    if (!selectedJobId) return;
+    setSignLoading(true);
+    setSignError('');
+    try {
+      await haulierService.submitDigitalSignature({
+        jobId: selectedJobId,
+        signatureData: signatureDataUrl,
+      });
+      setShowSignModal(false);
+      await fetchDetail(selectedJobId);
+    } catch (err: unknown) {
+      const response = err as { response?: { data?: { message?: string; detail?: string } } };
+      const message = response.response?.data?.message || response.response?.data?.detail;
+      setSignError(message ?? 'Failed to submit signature. Please try again.');
+    } finally {
+      setSignLoading(false);
+    }
+  };
 
   const step1Done = Boolean(detail.full?.step1_handover_completed || detail.handover?.step1Completed);
   const step2Done = Boolean(detail.full?.step2_delivery_submitted || detail.delivery?.submitted);
   const step3Done = Boolean(detail.full?.step3_approved || detail.delivery?.approved);
   const loadCodeDone = Boolean(detail.full?.load_code_verified || detail.loadCode?.verified);
+  const driverSigned = Boolean(detail.handover?.driverSigned);
+  const haulierSigned = Boolean(detail.handover?.haulierSigned);
+  const needsHaulierSignature = driverSigned && !haulierSigned && !step1Done;
 
   const jobs = section === 'active' ? activeJobs : pendingJobs;
 
   return (
     <div className="space-y-8">
+      {/* Signature modal */}
+      {showSignModal && (
+        <SignatureCanvas
+          onSave={handleHaulierSign}
+          onCancel={() => { setShowSignModal(false); setSignError(''); }}
+          loading={signLoading}
+        />
+      )}
+
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Documents & Compliance</p>
@@ -206,6 +382,7 @@ export default function HaulierCompliancePage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        {/* ── Job list sidebar ── */}
         <aside className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -253,6 +430,7 @@ export default function HaulierCompliancePage() {
           </div>
         </aside>
 
+        {/* ── Detail panel ── */}
         <section className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -260,7 +438,9 @@ export default function HaulierCompliancePage() {
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Selected Job</p>
                 <h2 className="mt-1 text-2xl font-black text-primary">{selectedJob?.jobReference ?? 'No job selected'}</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  {selectedJob ? `${selectedJob.pickupLocation ?? 'Pickup N/A'} → ${selectedJob.dropLocation ?? 'Drop N/A'}` : 'Choose a job from the list to view compliance details.'}
+                  {selectedJob
+                    ? `${selectedJob.pickupLocation ?? 'Pickup N/A'} → ${selectedJob.dropLocation ?? 'Drop N/A'}`
+                    : 'Choose a job from the list to view compliance details.'}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm lg:w-[360px]">
@@ -299,7 +479,61 @@ export default function HaulierCompliancePage() {
             </div>
           </div>
 
+          {/* ── Haulier Signature Banner ────────────────────────────────────── */}
+          {selectedJob && !detailLoading && (
+            <>
+              {needsHaulierSignature && (
+                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                        <span className="material-symbols-outlined text-xl">edit</span>
+                      </span>
+                      <div>
+                        <p className="font-black text-amber-800">Your signature is required</p>
+                        <p className="mt-1 text-sm text-amber-700">
+                          The driver has completed their handover checklist and signed.
+                          Sign now to confirm vehicle release and start the trip.
+                        </p>
+                        <p className="mt-2 text-xs text-amber-600">
+                          Driver signed at: {formatDate(detail.handover?.driverSignedAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setSignError(''); setShowSignModal(true); }}
+                      className="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-md shadow-amber-300/40 transition hover:bg-amber-600"
+                    >
+                      Sign Now
+                    </button>
+                  </div>
+                  {signError && (
+                    <p className="mt-3 rounded-xl bg-red-100 px-3 py-2 text-sm font-medium text-red-700">{signError}</p>
+                  )}
+                </div>
+              )}
+
+              {haulierSigned && (
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <span className="material-symbols-outlined">verified</span>
+                    </span>
+                    <div>
+                      <p className="font-black text-emerald-800">Haulier signature recorded</p>
+                      <p className="text-sm text-emerald-700">
+                        Signed at {formatDate(detail.handover?.haulierSignedAt)} · Handover{' '}
+                        {step1Done ? 'complete — trip is in progress' : 'awaiting driver confirmation'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           <div className="grid gap-6 lg:grid-cols-3">
+            {/* ── Compliance timeline ── */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -318,12 +552,28 @@ export default function HaulierCompliancePage() {
                     {loadCodeDone ? `Verified at ${formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}` : 'Not verified yet'}
                   </p>
                 </div>
+
+                {/* Handover signatures detail */}
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="font-black text-slate-900">Vehicle handover</p>
                   <p className="mt-1 text-slate-600">
-                    {step1Done ? `Completed at ${formatDate(detail.handover?.step1CompletedAt ?? detail.full?.step1_completed_at)}` : 'Waiting for handover completion'}
+                    {step1Done
+                      ? `Completed at ${formatDate(detail.handover?.step1CompletedAt ?? detail.full?.step1_completed_at)}`
+                      : 'Waiting for handover completion'}
                   </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${driverSigned ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {driverSigned ? '✓' : '○'} Driver signed
+                      {driverSigned && <span className="ml-1 opacity-70">{formatDate(detail.handover?.driverSignedAt)}</span>}
+                    </div>
+                    <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${haulierSigned ? 'bg-emerald-100 text-emerald-700' : needsHaulierSignature ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {haulierSigned ? '✓' : '○'} Haulier signed
+                      {haulierSigned && <span className="ml-1 opacity-70">{formatDate(detail.handover?.haulierSignedAt)}</span>}
+                      {needsHaulierSignature && !haulierSigned && <span className="ml-1">— action needed</span>}
+                    </div>
+                  </div>
                 </div>
+
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="font-black text-slate-900">Delivery submission</p>
                   <p className="mt-1 text-slate-600">
@@ -345,6 +595,7 @@ export default function HaulierCompliancePage() {
               </div>
             </div>
 
+            {/* ── Evidence ── */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-black text-primary">Evidence</h3>
               <p className="text-sm text-slate-500">Photos and proof linked to the selected job.</p>

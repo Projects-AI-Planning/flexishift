@@ -50,7 +50,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
         </View>
         <Text style={styles.mainTitle}>Load Code Confirmation</Text>
         <Text style={styles.subtitle}>
-          Enter the 6-digit code provided by the warehouse or shipper at pickup.
+          Enter the 8-character code provided by the warehouse or shipper at pickup.
         </Text>
 
         <Card
@@ -60,12 +60,14 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           <Text style={styles.label}>Enter Load Code</Text>
           <TextInput
             style={styles.codeInput}
-            placeholder="000000"
+            placeholder="XXXXXXXX"
             placeholderTextColor="#9AA4B2"
-            keyboardType="number-pad"
-            maxLength={6}
+            keyboardType="default"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={8}
             value={code}
-            onChangeText={setCode}
+            onChangeText={text => setCode(text.toUpperCase())}
             autoFocus
           />
 
@@ -78,10 +80,10 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 
         <Pressable
           onPress={() => onVerify(code)}
-          disabled={loading || code.length < 6}
+          disabled={loading || code.length < 8}
           style={[
             styles.primaryButton,
-            (loading || code.length < 6) && styles.disabledButton,
+            (loading || code.length < 8) && styles.disabledButton,
           ]}>
           <Text style={styles.primaryButtonText}>
             {loading ? 'Verifying...' : 'Confirm & Proceed'}

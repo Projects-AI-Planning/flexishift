@@ -6,11 +6,9 @@ import {
   ScrollView,
   Pressable,
   SafeAreaView,
-  Switch,
   Alert,
 } from 'react-native';
-import Card from '../../components/common/Card';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
 
 interface HandoverScreenProps {
   jobId: string;
@@ -19,476 +17,656 @@ interface HandoverScreenProps {
   onBack?: () => void;
   loading: boolean;
   error: string | null;
+  vehicleUnit?: string;
+  haulierSigned?: boolean;
+  haulierSignedAt?: string | null;
 }
 
 const checklistItems = [
   {
-    key: 'vehicleClean',
+    key: 'lightsSignals',
     label: 'Lights & Signals',
     description: 'Headlamps, indicators, brake lights',
   },
   {
-    key: 'noVisibleDamage',
+    key: 'tirePressure',
     label: 'Tire Pressure',
     description: 'All axles within operating PSI',
   },
   {
-    key: 'safetyGearReady',
+    key: 'fluidLevels',
     label: 'Fluid Levels',
     description: 'Oil, coolant, and wiper fluid',
   },
   {
-    key: 'documentsReceived',
+    key: 'bodyDamage',
     label: 'Body Damage',
     description: 'No new dents, cracks, or loose panels',
   },
 ] as const;
 
-const photoSides = ['Front', 'Rear', 'Left', 'Right'] as const;
+type ChecklistKey = 'lightsSignals' | 'tirePressure' | 'fluidLevels' | 'bodyDamage';
+
+const photoSlots: {key: string; label: string}[] = [
+  {key: 'front', label: 'Vehicle Front'},
+  {key: 'side', label: 'Vehicle Side'},
+  {key: 'rear', label: 'Vehicle Rear'},
+  {key: 'cargo', label: 'Cargo Secure'},
+];
 
 const HandoverScreen: React.FC<HandoverScreenProps> = ({
-  jobId,
-  jobReference,
+  jobId: _jobId,
+  jobReference: _jobReference,
   onSubmit,
   onBack,
   loading,
   error,
+  vehicleUnit = 'VOL-882',
+  haulierSigned = false,
+  haulierSignedAt,
 }) => {
-  const [checklist, setChecklist] = useState({
-    vehicleClean: false,
-    noVisibleDamage: false,
-    safetyGearReady: false,
-    documentsReceived: false,
+  const [checklist, setChecklist] = useState<Record<ChecklistKey, boolean>>({
+    lightsSignals: false,
+    tirePressure: false,
+    fluidLevels: false,
+    bodyDamage: false,
   });
   const [photos, setPhotos] = useState<Record<string, any>>({});
+  const [driverSigned, setDriverSigned] = useState(false);
 
-  const handlePickPhoto = (side: string) => {
-    Alert.alert('Capture Photo', `Take a photo of the ${side.toLowerCase()} of the vehicle`, [
+  const toggleItem = (key: ChecklistKey) => {
+    setChecklist(prev => ({...prev, [key]: !prev[key]}));
+  };
+
+  const handlePickPhoto = (key: string, label: string) => {
+    Alert.alert('Capture Photo', `Take a photo: ${label}`, [
       {
         text: 'Capture',
-        onPress: () => {
-          setPhotos(prev => ({...prev, [side]: {uri: 'mock-uri', side}}));
-        },
+        onPress: () => setPhotos(prev => ({...prev, [key]: {uri: 'mock-uri', key}})),
       },
       {text: 'Cancel', style: 'cancel'},
     ]);
   };
 
-  const toggleItem = (key: keyof typeof checklist) => {
-    setChecklist(prev => ({...prev, [key]: !prev[key]}));
+  const handleRaiseIssue = () => {
+    Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
   };
 
-  const isComplete =
-    Object.values(checklist).every(value => value === true) &&
-    Object.keys(photos).length >= 4;
+  const handleDriverSign = () => {
+    setDriverSigned(true);
+  };
+
+  const allChecked = Object.values(checklist).every(v => v === true);
+  const allPhotos = Object.keys(photos).length >= 4;
+  const isComplete = allChecked && allPhotos && driverSigned;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topBar}>
-          <Pressable onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backText}>{'\u2190'} Load Code</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Header ───────────────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
           </Pressable>
-          <View style={styles.topTitleWrap}>
-            <Text style={styles.stepTitle}>Step 2: Handover Check</Text>
-            <Text style={styles.stepSubtitle}>Verify the truck before leaving pickup.</Text>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Step 2: Handover</Text>
+            <Text style={styles.headerTitle}>Check</Text>
           </View>
+
+          <Pressable onPress={handleRaiseIssue} style={styles.raiseBtn}>
+            <Text style={styles.raiseIcon}>⚠</Text>
+            <Text style={styles.raiseBtnText}>Raise{'\n'}Issue</Text>
+          </Pressable>
+
           <View style={styles.unitPill}>
-            <Text style={styles.unitText}>Unit: VOL-882</Text>
+            <Text style={styles.unitText}>Unit: {vehicleUnit}</Text>
           </View>
         </View>
 
-        <View style={styles.stepper}>
-          <View style={styles.stepNodeActive}>
-            <Text style={styles.stepNodeActiveText}>{'\u2713'}</Text>
+        {/* ── Progress Stepper ─────────────────────────────────────────────── */}
+        <View style={styles.stepperRow}>
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeDone]}>
+              <Text style={styles.stepNodeDoneText}>✓</Text>
+            </View>
+            <Text style={styles.stepLabelDone}>Arrival</Text>
           </View>
-          <View style={styles.stepLineActive} />
-          <View style={styles.stepNodeCurrent}>
-            <Text style={styles.stepNodeCurrentText}>2</Text>
+
+          <View style={styles.stepLineDone} />
+
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeActive]}>
+              <Text style={styles.stepNodeActiveText}>2</Text>
+            </View>
+            <Text style={styles.stepLabelActive}>Handover</Text>
           </View>
-          <View style={styles.stepLine} />
-          <View style={styles.stepNodeIdle}>
-            <Text style={styles.stepNodeIdleText}>3</Text>
+
+          <View style={styles.stepLineIdle} />
+
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeIdle]}>
+              <Text style={styles.stepNodeIdleText}>3</Text>
+            </View>
+            <Text style={styles.stepLabelIdle}>Departure</Text>
           </View>
-        </View>
-        <View style={styles.stepLabels}>
-          <Text style={styles.stepLabel}>Arrival</Text>
-          <Text style={styles.stepLabelCurrent}>Handover</Text>
-          <Text style={styles.stepLabel}>Departure</Text>
         </View>
 
-        <Card title="Vehicle Checklist" variant="default">
-          {checklistItems.map(item => {
+        {/* ── Vehicle Checklist ────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderIcon}>☑</Text>
+            <Text style={styles.cardHeaderTitle}>Vehicle Checklist</Text>
+          </View>
+
+          {checklistItems.map((item, idx) => {
             const checked = checklist[item.key];
             return (
               <Pressable
                 key={item.key}
                 onPress={() => toggleItem(item.key)}
-                style={styles.checkCard}>
+                style={[styles.checkRow, idx < checklistItems.length - 1 && styles.checkRowBorder]}>
+                <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                  {checked && <Text style={styles.checkboxTick}>✓</Text>}
+                </View>
                 <View style={styles.checkCopy}>
                   <Text style={styles.checkTitle}>{item.label}</Text>
                   <Text style={styles.checkSubtitle}>{item.description}</Text>
                 </View>
-                <Switch
-                  value={checked}
-                  onValueChange={() => toggleItem(item.key)}
-                  trackColor={{false: '#C9D1DD', true: colors.accent}}
-                  thumbColor={colors.card}
-                />
               </Pressable>
             );
           })}
-        </Card>
-
-        <Text style={styles.sectionHeading}>Required Photo Evidence</Text>
-        <View style={styles.photoGrid}>
-          {photoSides.map(side => (
-            <Pressable
-              key={side}
-              onPress={() => handlePickPhoto(side)}
-              style={[styles.photoBox, photos[side] ? styles.photoBoxActive : null]}>
-              <Text style={styles.photoIcon}>
-                {photos[side] ? '\u2713' : '\uD83D\uDCF7'}
-              </Text>
-              <Text style={styles.photoLabel}>{side} Vehicle</Text>
-            </Pressable>
-          ))}
         </View>
 
-        <Card title="Driver Signature" variant="default">
-          <View style={styles.signatureHeader}>
-            <Text style={styles.signatureTitle}>DRIVER SIGNATURE</Text>
-            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
+        {/* ── Required Photo Evidence ───────────────────────────────────────── */}
+        <Text style={styles.sectionHeading}>Required Photo Evidence</Text>
+        <View style={styles.photoGrid}>
+          {photoSlots.map(slot => {
+            const taken = !!photos[slot.key];
+            const isCargo = slot.key === 'cargo';
+            return (
+              <Pressable
+                key={slot.key}
+                onPress={() => handlePickPhoto(slot.key, slot.label)}
+                style={[styles.photoBox, taken && styles.photoBoxDone]}>
+                {taken ? (
+                  isCargo ? (
+                    <View style={styles.cargoGraphic}>
+                      <View style={styles.cargoBox}>
+                        <Text style={styles.cargoCheck}>✓</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.photoDoneIcon}>
+                      <Text style={styles.photoDoneTick}>✓</Text>
+                    </View>
+                  )
+                ) : (
+                  <Text style={styles.cameraIcon}>📷</Text>
+                )}
+                <Text style={[styles.photoLabel, taken && styles.photoLabelDone]}>
+                  {slot.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* ── Driver Signature ──────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.sigHeader}>
+            <Text style={styles.sigTitle}>DRIVER SIGNATURE</Text>
+            <Pressable onPress={() => setDriverSigned(false)}>
               <Text style={styles.clearText}>Clear</Text>
             </Pressable>
           </View>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureHint}>Sign Here</Text>
-          </View>
-          <Text style={styles.confirmText}>
+          <Pressable
+            onPress={handleDriverSign}
+            style={[styles.sigBox, driverSigned && styles.sigBoxSigned]}>
+            {driverSigned ? (
+              <Text style={styles.sigDoneText}>~ Signature ~</Text>
+            ) : (
+              <Text style={styles.sigHint}>Sign Here</Text>
+            )}
+          </Pressable>
+          <Text style={styles.sigConfirmText}>
             I CONFIRM THAT I HAVE INSPECTED THE VEHICLE AND LOAD.
           </Text>
-        </Card>
+        </View>
 
-        <Card title="Haulier Signature" variant="default">
-          <View style={styles.signatureHeader}>
-            <Text style={styles.signatureTitle}>HAULIER SIGNATURE</Text>
-            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
-              <Text style={styles.clearText}>Clear</Text>
-            </Pressable>
+        {/* ── Haulier Signature ─────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.sigHeader}>
+            <Text style={styles.sigTitle}>HAULIER SIGNATURE</Text>
+            {haulierSigned && (
+              <View style={styles.signedBadge}>
+                <Text style={styles.signedBadgeText}>✓ Signed</Text>
+              </View>
+            )}
           </View>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureHint}>Awaiting Signature...</Text>
-          </View>
-          <Text style={styles.confirmText}>
-            DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE.
-          </Text>
-        </Card>
-
-        <View style={styles.nextStepCard}>
-          <Text style={styles.nextStepLabel}>Next step</Text>
-          <Text style={styles.nextStepTitle}>Start Trip</Text>
-          <Text style={styles.nextStepText}>
-            After you submit this checklist, the app will open live tracking automatically.
-          </Text>
+          {haulierSigned ? (
+            <View style={[styles.sigBox, styles.sigBoxSigned]}>
+              <Text style={styles.sigDoneText}>~ Authorised ~</Text>
+            </View>
+          ) : (
+            <View style={[styles.sigBox, styles.sigBoxPending]}>
+              <Text style={styles.pendingIcon}>⏳</Text>
+              <Text style={styles.sigHint}>Awaiting Signature...</Text>
+              <Text style={styles.pendingSubtext}>Haulier signs from their dashboard</Text>
+            </View>
+          )}
+          {haulierSigned && haulierSignedAt ? (
+            <Text style={styles.sigConfirmText}>
+              SIGNED AT {new Date(haulierSignedAt).toLocaleString()}
+            </Text>
+          ) : (
+            <Text style={styles.sigConfirmText}>
+              DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE.
+            </Text>
+          )}
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+        {/* ── Confirm Button ────────────────────────────────────────────────── */}
         <Pressable
           onPress={() => onSubmit(checklist, Object.values(photos))}
           disabled={loading || !isComplete}
-          style={[
-            styles.primaryButton,
-            (loading || !isComplete) && styles.disabledButton,
-          ]}>
-          <Text style={styles.primaryButtonText}>
-            {'\uD83D\uDD12'} {loading ? 'Submitting...' : 'Confirm & Start Trip'}
+          style={[styles.confirmBtn, (loading || !isComplete) && styles.confirmBtnDisabled]}>
+          <Text style={styles.confirmBtnText}>
+            🔒  {loading ? 'Submitting...' : 'Confirm & Start Trip'}
           </Text>
         </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+const NODE_SIZE = 44;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FB',
+    backgroundColor: '#F4F6FA',
   },
   content: {
-    padding: spacing.xl,
-    paddingBottom: 120,
+    padding: 16,
+    paddingBottom: 48,
   },
-  topBar: {
+
+  /* Header */
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 20,
+    gap: 8,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
+    padding: 4,
   },
-  backText: {
-    fontSize: 28,
+  backArrow: {
+    fontSize: 22,
     color: colors.navy,
-    fontWeight: '900',
+    fontWeight: '700',
   },
-  topTitleWrap: {
+  headerCenter: {
     flex: 1,
   },
-  stepSubtitle: {
-    color: colors.inkSoft,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  stepTitle: {
-    fontSize: 28,
-    fontWeight: '900',
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '800',
     color: colors.navy,
-    letterSpacing: -0.6,
+    lineHeight: 22,
+  },
+  raiseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E8732A',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
+  },
+  raiseIcon: {
+    fontSize: 13,
+    color: '#E8732A',
+  },
+  raiseBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#E8732A',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   unitPill: {
     backgroundColor: '#E6EBF2',
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   unitText: {
     color: '#8796AA',
-    fontWeight: '800',
-    fontSize: 16,
+    fontWeight: '700',
+    fontSize: 12,
   },
-  stepper: {
+
+  /* Stepper */
+  stepperRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  stepCol: {
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    gap: 6,
+  },
+  stepNode: {
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeDone: {
+    backgroundColor: '#2563EB',
+  },
+  stepNodeDoneText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '900',
   },
   stepNodeActive: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#2563EB',
   },
   stepNodeActiveText: {
-    color: colors.card,
-    fontSize: 28,
+    color: '#fff',
+    fontSize: 18,
     fontWeight: '900',
-  },
-  stepLineActive: {
-    flex: 1,
-    height: 3,
-    backgroundColor: colors.accent,
-  },
-  stepNodeCurrent: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.navy,
-    borderWidth: 6,
-    borderColor: '#FFA84D',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNodeCurrentText: {
-    color: colors.card,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  stepLine: {
-    flex: 1,
-    height: 3,
-    backgroundColor: '#D8DEE7',
   },
   stepNodeIdle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#D9DEE5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#C9D1DC',
   },
   stepNodeIdleText: {
-    color: '#555B66',
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  stepLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xl,
-    paddingHorizontal: 4,
-  },
-  stepLabel: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#4A5563',
+    color: '#6B7280',
     fontSize: 18,
+    fontWeight: '700',
+  },
+  stepLineDone: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#2563EB',
+    marginTop: NODE_SIZE / 2 - 1.5,
+  },
+  stepLineIdle: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#C9D1DC',
+    marginTop: NODE_SIZE / 2 - 1.5,
+  },
+  stepLabelDone: {
+    fontSize: 13,
+    color: '#4B5563',
     fontWeight: '500',
   },
-  stepLabelCurrent: {
-    flex: 1,
-    textAlign: 'center',
+  stepLabelActive: {
+    fontSize: 13,
     color: colors.navy,
-    fontSize: 18,
     fontWeight: '800',
   },
-  checkCard: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
+  stepLabelIdle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+
+  /* Card */
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E7EF',
-    padding: spacing.lg,
+    borderColor: '#E5E9F0',
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    gap: 8,
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F6',
+  },
+  cardHeaderIcon: {
+    fontSize: 18,
+    color: colors.navy,
+  },
+  cardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.navy,
+  },
+
+  /* Checklist rows */
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  checkRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F6',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#C9D1DC',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  checkboxTick: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
   },
   checkCopy: {
     flex: 1,
-    paddingRight: spacing.md,
   },
   checkTitle: {
-    color: colors.ink,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
   },
   checkSubtitle: {
-    color: '#5B6671',
-    fontSize: 18,
-    marginTop: 4,
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
+
+  /* Photo grid */
   sectionHeading: {
-    color: colors.ink,
-    fontSize: 26,
-    fontWeight: '500',
-    marginTop: spacing.xl,
-    marginBottom: spacing.lg,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
   },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
+    gap: 10,
+    marginBottom: 16,
   },
   photoBox: {
-    width: '47%',
+    width: '47.5%',
     aspectRatio: 1,
-    borderRadius: 24,
-    borderWidth: 3,
-    borderColor: '#D3D7DE',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#C9D1DC',
     borderStyle: 'dashed',
-    backgroundColor: colors.card,
+    backgroundColor: '#FAFBFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  photoBoxDone: {
+    borderStyle: 'solid',
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  cameraIcon: {
+    fontSize: 32,
+    color: '#9CA3AF',
+  },
+  photoLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  photoLabelDone: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  photoDoneIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photoBoxActive: {
-    borderStyle: 'solid',
-    borderColor: colors.accent,
-    backgroundColor: '#F3F9FF',
+  photoDoneTick: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '900',
   },
-  photoIcon: {
-    fontSize: 48,
-    color: colors.inkSoft,
-    marginBottom: spacing.md,
+  cargoGraphic: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  photoLabel: {
-    fontSize: 18,
-    color: '#4A5563',
+  cargoBox: {
+    width: 48,
+    height: 36,
+    backgroundColor: '#F59E0B',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  signatureHeader: {
+  cargoCheck: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '900',
+  },
+
+  /* Signature */
+  sigHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 10,
   },
-  signatureTitle: {
-    color: colors.navy,
-    fontSize: 18,
+  sigTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    textTransform: 'uppercase',
+    color: colors.navy,
+    letterSpacing: 0.5,
   },
   clearText: {
-    color: colors.accent,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  signatureBox: {
-    borderWidth: 1,
-    borderColor: '#CAD1DB',
-    borderRadius: 16,
-    height: 170,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FBFCFE',
-  },
-  signatureHint: {
-    color: '#D1D5DB',
-    fontSize: 24,
-  },
-  confirmText: {
-    color: '#5B6671',
-    fontSize: 13,
-    marginTop: spacing.md,
-    textTransform: 'uppercase',
-  },
-  nextStepCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: 4,
-  },
-  nextStepLabel: {
-    color: '#2563EB',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  nextStepTitle: {
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  nextStepText: {
-    color: colors.inkSoft,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  errorText: {
-    color: colors.danger,
     fontSize: 14,
     fontWeight: '700',
-    marginTop: spacing.md,
-    textAlign: 'center',
+    color: '#2563EB',
   },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 24,
-    minHeight: 72,
+  sigBox: {
+    height: 130,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F0F4FA',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xl,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 5,
   },
-  disabledButton: {
-    opacity: 0.5,
+  sigBoxSigned: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
   },
-  primaryButtonText: {
-    color: colors.card,
-    fontSize: 24,
-    fontWeight: '900',
+  sigHint: {
+    fontSize: 16,
+    color: '#C4CAD4',
+    fontStyle: 'italic',
+  },
+  sigDoneText: {
+    fontSize: 22,
+    color: '#2563EB',
+    fontStyle: 'italic',
+    fontWeight: '700',
+  },
+  sigConfirmText: {
+    marginTop: 8,
+    fontSize: 10,
+    color: '#6B7280',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  sigBoxPending: {
+    gap: 4,
+  },
+  pendingIcon: {
+    fontSize: 22,
+  },
+  pendingSubtext: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  signedBadge: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  signedBadgeText: {
+    color: '#16A34A',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  /* Error */
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginVertical: spacing.md,
+  },
+
+  /* Confirm button */
+  confirmBtn: {
+    backgroundColor: colors.navy,
+    borderRadius: 14,
+    height: 58,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  confirmBtnDisabled: {
+    opacity: 0.45,
+  },
+  confirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });
 
