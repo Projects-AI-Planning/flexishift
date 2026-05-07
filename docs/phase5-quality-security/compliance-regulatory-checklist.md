@@ -35,7 +35,7 @@ Each item must be marked **Done**, **In Progress**, or **Not Applicable** before
 |---|---|---|---|---|---|
 | DP-01 | Data Protection Officer (DPO) appointed (if required by GDPR/DPDPA) | GDPR Art. 37 / DPDPA | ☐ | DPO appointment letter | CEO / Legal |
 | DP-02 | Records of Processing Activities (RoPA) documented | GDPR Art. 30 | ☐ | RoPA document | DPO |
-| DP-03 | Data Processing Agreements (DPA) signed with all sub-processors: Google Maps, Razorpay/Stripe, SendGrid, Firebase, AWS | GDPR Art. 28 | ☐ | Signed DPAs | Legal |
+| DP-03 | Data Processing Agreements (DPA) signed with all sub-processors: Google Maps, Razorpay/Stripe, SendGrid, Firebase, Azure | GDPR Art. 28 | ☐ | Signed DPAs | Legal |
 | DP-04 | Lawful basis for each processing activity documented | GDPR Art. 6 / DPDPA | ☐ | Privacy Assessment doc | DPO |
 | DP-05 | Explicit consent collected for GPS tracking at registration | GDPR Art. 7 | ☐ | Dev sign-off: consent screen in app | Dev Team |
 | DP-06 | Consent withdrawal mechanism implemented (disable GPS tracking) | GDPR Art. 7 | ☐ | Dev sign-off | Dev Team |
@@ -84,9 +84,9 @@ Each item must be marked **Done**, **In Progress**, or **Not Applicable** before
 | SEC-04 | OWASP Top 10 assessment completed; Critical/High findings remediated | OWASP | ☐ | ZAP scan report | QA / Dev |
 | SEC-05 | Dependency vulnerability scan clean (Snyk / npm audit) | OWASP A06 | ☐ | Snyk report | DevOps |
 | SEC-06 | Secrets stored in Secrets Manager (no secrets in code) | Best practice | ☐ | Code review + Secrets Manager config | Dev Lead |
-| SEC-07 | S3 buckets: no public access enabled | AWS best practice | ☐ | AWS S3 Block Public Access config | DevOps |
+| SEC-07 | Azure Blob containers: no public access enabled | Azure best practice | ☐ | Azure Blob Storage Block Public Access config | DevOps |
 | SEC-08 | Database: encryption at rest enabled | PCI DSS / GDPR | ☐ | RDS encryption config | DevOps |
-| SEC-09 | IAM: least privilege roles; no root account used for app | AWS best practice | ☐ | IAM policy review | DevOps |
+| SEC-09 | IAM: least privilege roles; no root account used for app | Azure best practice | ☐ | IAM policy review | DevOps |
 | SEC-10 | File uploads: type and size validation + malware scan | Best practice | ☐ | Code review sign-off | Dev Lead |
 | SEC-11 | Rate limiting on auth and sensitive endpoints | OWASP | ☐ | Load test confirms limits applied | Dev / QA |
 | SEC-12 | Logging: sensitive fields masked (password, token, card) | GDPR / Best practice | ☐ | Log review in staging | Dev Lead |

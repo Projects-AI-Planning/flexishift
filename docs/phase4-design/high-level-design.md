@@ -27,7 +27,7 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
           ▼                 ▼                   ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     CDN / Load Balancer                     │
-│                  (AWS CloudFront / ALB)                     │
+│                  (Azure CDN / ALB)                     │
 └─────────────────────────┬───────────────────────────────────┘
                           │
           ┌───────────────┴───────────────┐
@@ -59,7 +59,7 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
          ▼                      ▼                  ▼
 ┌─────────────┐      ┌──────────────┐   ┌─────────────────┐
 │  MySQL 8.0  │      │   Redis 7    │   │  Cloud Storage  │
-│  (InnoDB)   │      │  (Cache +    │   │  (AWS S3 / GCS) │
+│  (InnoDB)   │      │  (Cache +    │   │  (Azure Blob Storage) │
 │  Primary +  │      │  Sessions +  │   │  Documents,     │
 │  Read Replica│     │  Pub/Sub +   │   │  Photos, PDFs   │
 └─────────────┘      │  Rate limit) │   └─────────────────┘
@@ -89,8 +89,8 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
 - WebSocket: native browser WebSocket API / `react-native` WebSocket
 
 ### 3.2 API Gateway / Load Balancer
-- AWS Application Load Balancer (ALB) routes traffic to FastAPI REST and WebSocket containers.
-- AWS CloudFront serves static assets (React build) with edge caching.
+- Azure Application Load Balancer (ALB) routes traffic to FastAPI REST and WebSocket containers.
+- Azure CDN serves static assets (React build) with edge caching.
 - SSL termination at the load balancer (ACM wildcard certificate).
 
 ### 3.3 REST API Server (FastAPI)
@@ -100,7 +100,7 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
 - **Routing:** Versioned routers mounted at `/api/v1/`
 - **Validation:** Pydantic v2 models on all request/response schemas
 - **Middleware:** CORS, rate limiting (slowapi), JWT auth dependency, structured logging (structlog)
-- **Containerisation:** Docker image → AWS ECS Fargate
+- **Containerisation:** Docker image → Azure Container Apps
 - **Auto docs:** FastAPI auto-generates OpenAPI 3.0 docs at `/docs` (disabled in production)
 
 ### 3.4 WebSocket Server (FastAPI)
@@ -117,7 +117,7 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
 - **Connection pooling:** SQLAlchemy `create_engine` with `pool_size=10, max_overflow=20`
 - **Read replica:** For dashboard analytics and matching queries
 - **Migrations:** Alembic (versioned, reversible)
-- **Backups:** AWS RDS automated daily snapshots, 7-day retention
+- **Backups:** Azure Database for MySQL automated daily snapshots, 7-day retention
 
 ### 3.6 Cache (Redis 7)
 - JWT refresh token store (`refresh:{token_hash}` → `user_id`, TTL 30 days)
@@ -142,12 +142,12 @@ FreightFlex follows a **three-tier, service-modular monolith** architecture for 
 | `webhooks_router` | `/api/v1/webhooks` | Payment gateway webhook receiver |
 | `ws_router` | `/ws` | WebSocket endpoint for GPS tracking |
 
-### 3.8 Cloud Storage (AWS S3 / GCS)
+### 3.8 Cloud Storage (Azure Blob Storage)
 - Driver documents, vehicle photos, delivery proof photos, signatures.
 - Generated PDF invoices (`invoices/{job_ref}.pdf`).
 - Pre-signed URLs (time-limited 7 days) for secure download.
 - Buckets with `Block Public Access` enforced.
-- Server-side encryption (SSE-S3 or SSE-KMS).
+- Server-side encryption (Azure SSE (AES-256)).
 
 ## 4. Data Flow – Key Journeys
 
@@ -185,7 +185,7 @@ Haulier approves → POST /api/v1/compliance/{job_id}/approve
 → PaymentService.release_payment(job_id)
 → RazorpayClient.create_payout(supplier.bank_account_id, amount)
 → db.execute(UPDATE payments SET status='RELEASED', released_at=now())
-→ InvoiceService.generate_pdf(job_id) → WeasyPrint/ReportLab → upload S3
+→ InvoiceService.generate_pdf(job_id) → WeasyPrint/ReportLab → upload Azure Blob
 → NotificationService.send(supplier_id, 'PAYMENT_RELEASED')
 → RatingService.create_prompts(job_id)
 ```
@@ -194,8 +194,8 @@ Haulier approves → POST /api/v1/compliance/{job_id}/approve
 | Environment | Infrastructure | Purpose |
 |---|---|---|
 | Development | Local Docker Compose (FastAPI + MySQL + Redis) | Developer local env |
-| Staging | AWS ECS Fargate + RDS MySQL Multi-AZ | Integration testing, UAT |
-| Production | AWS ECS Fargate + RDS MySQL Multi-AZ + Read Replica | Live platform |
+| Staging | Azure Container Apps + RDS MySQL Multi-AZ | Integration testing, UAT |
+| Production | Azure Container Apps + RDS MySQL Multi-AZ + Read Replica | Live platform |
 
 ## 6. Python Package Dependencies (Core)
 ```
@@ -211,7 +211,7 @@ pydantic-settings==2.2.* # env config via .env
 python-jose[cryptography]==3.3.*  # JWT RS256
 passlib[bcrypt]==1.7.*   # password hashing
 python-multipart==0.0.*  # file uploads
-boto3==1.34.*            # AWS S3
+azure-storage-blob==12.19.0*            # Azure Blob Storage
 aioredis==2.0.*          # async Redis
 httpx==0.27.*            # async HTTP (Google Maps, FCM, SendGrid)
 slowapi==0.1.*           # rate limiting
@@ -223,12 +223,12 @@ celery==5.3.*            # background tasks (email, notifications)
 
 ## 7. Security Architecture
 - All HTTP traffic redirected to HTTPS (ALB + HSTS header).
-- JWT tokens signed with RS256 (private key in AWS Secrets Manager).
+- JWT tokens signed with RS256 (private key in Azure Key Vault).
 - Passwords hashed via `passlib.hash.bcrypt` (rounds=12).
 - File uploads: MIME type + magic-byte check, ClamAV scan, quarantine bucket.
 - RBAC implemented as FastAPI `Depends(require_role([...]))` dependency.
 - CORS restricted via FastAPI `CORSMiddleware` to approved origins.
-- Secrets loaded via `pydantic-settings` from AWS Secrets Manager / env (never hardcoded).
+- Secrets loaded via `pydantic-settings` from Azure Key Vault / env (never hardcoded).
 
 ## 8. Scalability Strategy
 | Layer | Approach |
@@ -237,5 +237,5 @@ celery==5.3.*            # background tasks (email, notifications)
 | FastAPI WebSocket | Horizontal + Redis Pub/Sub for cross-instance broadcast |
 | MySQL | Vertical first; read replica for analytics and matching |
 | Redis | Single instance Phase 1; Redis Cluster Phase 2 |
-| File storage | S3 / GCS — unlimited scale |
+| File storage | Azure Blob Storage — unlimited scale |
 | Background tasks | Celery + Redis broker (email, notifications, PDF generation) |

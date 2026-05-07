@@ -316,7 +316,7 @@ CREATE TABLE compliance_records (
     job_id                  CHAR(36)    NOT NULL,
     step1_completed_at      DATETIME,
     checklist_data          JSON,
-    condition_photo_urls    JSON        COMMENT 'JSON array of S3 URLs',
+    condition_photo_urls    JSON        COMMENT 'JSON array of Azure Blob URLs',
     driver_signature_url    VARCHAR(500),
     driver_signed_at        DATETIME,
     haulier_signature_url   VARCHAR(500),
@@ -337,7 +337,7 @@ CREATE TABLE compliance_records (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-> **Note:** MySQL 8.0 supports the `JSON` column type natively (stored as binary JSON internally). Arrays of S3 URLs are stored as JSON arrays — e.g. `["https://...photo1.jpg", "https://...photo2.jpg"]`. SQLAlchemy maps this to Python `list` automatically using `JSON` column type.
+> **Note:** MySQL 8.0 supports the `JSON` column type natively (stored as binary JSON internally). Arrays of Azure Blob URLs are stored as JSON arrays — e.g. `["https://...photo1.jpg", "https://...photo2.jpg"]`. SQLAlchemy maps this to Python `list` automatically using `JSON` column type.
 
 ---
 

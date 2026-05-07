@@ -18,7 +18,7 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively i
 | 10 | [End-to-End Sequence Diagrams](./10-end-to-end-sequence.md) | Sequence | Full happy-path across all actors, registration sequence, dispute resolution |
 | 11 | [User Role & Navigation Flow](./11-user-role-navigation.md) | Flowchart + Journey | Role-based navigation map, haulier journey map, driver journey map |
 | 12 | [Notification Flow](./12-notification-flow.md) | Flowchart | All notification triggers, channel routing (push/email/in-app), retry logic |
-| 13 | [Deployment & Infrastructure](./13-deployment-infrastructure.md) | Architecture | AWS cloud infrastructure, CI/CD pipeline, environment promotion |
+| 13 | [Deployment & Infrastructure](./13-deployment-infrastructure.md) | Architecture | Azure cloud infrastructure, CI/CD pipeline, environment promotion |
 | 14 | [Data Flow Diagrams](./14-data-flow-diagram.md) | DFD | Level 0 context, Level 1 process breakdown, payment data flow detail |
 | 15 | [Security & Authentication Flow](./15-security-flow.md) | Sequence + Flowchart | JWT auth lifecycle, RBAC matrix, file upload security pipeline |
 

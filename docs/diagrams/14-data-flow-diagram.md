@@ -47,11 +47,11 @@ flowchart TB
     P7["7.0\nRatings &\nReviews"]
 
     DS1[("Users DB")]
-    DS2[("Documents Store\n(S3)")]
+    DS2[("Documents Store\n(Azure Blob)")]
     DS3[("Jobs DB")]
     DS4[("Quotes DB")]
     DS5[("Payments DB")]
-    DS6[("Compliance DB\n+ Media (S3)")]
+    DS6[("Compliance DB\n+ Media (Azure Blob)")]
     DS7[("Tracking Points\nDB")]
     DS8[("Ratings DB")]
 
@@ -111,7 +111,7 @@ flowchart TD
         PDB[("Payments DB")]
         PE[("Payment Events\n(Idempotency)")]
         JDB[("Jobs DB")]
-        S3I["☁️ S3\nInvoices"]
+        S3I["☁️ Azure Blob\nInvoices"]
     end
 
     H -->|1. Initiate escrow| PI

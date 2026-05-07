@@ -76,7 +76,7 @@ flowchart TD
     M --> N["Compile invoice data:\nJob ref · Parties · Price\nTax breakdown · Total"]
     N --> O[Render HTML template]
     O --> P[Convert to PDF\nvia Puppeteer]
-    P --> Q["Upload PDF to S3\ninvoices/FF-XXXX.pdf"]
+    P --> Q["Upload PDF to\nAzure Blob Storage\ninvoices/FF-XXXX.pdf"]
     Q --> R[Store invoice URL\non job record]
     R --> S[Notify supplier:\nPayment released - Invoice ready]
     S --> T[Send rating\nprompt to both parties]

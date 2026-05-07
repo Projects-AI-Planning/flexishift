@@ -149,13 +149,13 @@ flowchart TD
     E -->|Yes| G[Check magic bytes\n(actual file header)]
     G --> H{Magic bytes\nmatch declared type?}
     H -->|No - spoofed type| I[❌ Reject:\n'File type mismatch']
-    H -->|Yes| J[Upload to\nquarantine bucket]
+    H -->|Yes| J[Upload to\nquarantine container]
     J --> K[Run antivirus scan\nClamAV / cloud scanner]
     K --> L{Scan\nresult?}
-    L -->|Infected| M[❌ Delete from quarantine\nLog security event\nAlert admin]
-    L -->|Clean| N[Move to\nproduction bucket]
-    N --> O[Generate pre-signed\nURL TTL = 7 days]
-    O --> P[Store S3 URL\nin database]
+    L -->|Infected| M[Delete from quarantine\nLog security event\nAlert admin]
+    L -->|Clean| N[Move to\nproduction container]
+    N --> O[Generate SAS token\nTTL = 7 days]
+    O --> P[Store Azure Blob URL\nin database]
     P --> Q([Return success\nto user])
 
     style A fill:#DBEAFE,stroke:#2563EB

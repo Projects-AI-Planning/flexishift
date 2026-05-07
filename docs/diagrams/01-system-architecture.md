@@ -10,7 +10,7 @@ graph TB
 
     subgraph GATEWAY["GATEWAY LAYER"]
         CDN["CDN<br/>(CloudFront)"]
-        ALB["Load Balancer<br/>(AWS ALB)"]
+        ALB["Load Balancer<br/>(Azure Application Gateway)"]
     end
 
     subgraph API["APPLICATION LAYER"]
@@ -35,7 +35,7 @@ graph TB
     subgraph DATA["DATA LAYER"]
         PG[("MySQL 8.0<br/>(InnoDB)<br/>Primary + Read Replica")]
         RD[("Redis 7<br/>(Cache + Sessions<br/>+ Pub/Sub + Rate limit)")]
-        S3["☁️ Cloud Storage<br/>(AWS S3 / GCS)<br/>Documents · Photos · PDFs"]
+        S3["☁️ Cloud Storage<br/>(Azure Blob Storage)<br/>Documents · Photos · PDFs"]
     end
 
     subgraph EXTERNAL["EXTERNAL INTEGRATIONS"]

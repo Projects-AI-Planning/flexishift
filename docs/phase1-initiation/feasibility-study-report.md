@@ -17,8 +17,8 @@ This report assesses whether FreightFlex can be successfully developed, deployed
 | Real-time Tracking | FastAPI WebSocket + Redis Pub/Sub | High – built-in async WebSocket support in FastAPI |
 | Maps & Routing | Google Maps Platform (Directions API) | High – industry standard |
 | Payment Gateway | Razorpay / Stripe (with escrow support) | High – available in target markets |
-| File Storage | AWS S3 / Google Cloud Storage | High – scalable, cost-effective |
-| Hosting | AWS / GCP (containerised via Docker + K8s) | High |
+| File Storage | Azure Blob Storage / Google Cloud Storage | High – scalable, cost-effective |
+| Hosting | Azure (containerised via Docker + K8s) | High |
 | CI/CD | GitHub Actions | High |
 
 ### 2.2 Key Technical Risks

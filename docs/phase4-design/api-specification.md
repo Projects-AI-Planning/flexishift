@@ -345,7 +345,7 @@ Get invoice download URL.
 Response 200:
 {
   "success": true,
-  "data": { "invoiceUrl": "https://s3.amazonaws.com/...?presigned..." }
+  "data": { "invoiceUrl": "https://{account}.blob.core.windows.net/freightflex-invoices/invoices/FF-XXXX.pdf?{sas_token}" }
 }
 ```
 

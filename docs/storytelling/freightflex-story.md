@@ -272,7 +272,7 @@ Every moment in this story is powered by a deliberate technical choice:
 | Story Moment | Technology |
 |---|---|
 | Arjun types a pickup address and sees a route instantly | **React.js** + Google Maps Places Autocomplete + FastAPI `/jobs` endpoint |
-| Priya's documents are reviewed and approved | **FastAPI** `/admin/documents/:id/review` + AWS S3 pre-signed URLs |
+| Priya's documents are reviewed and approved | **FastAPI** `/admin/documents/:id/review` + Azure Blob Storage pre-signed URLs |
 | Job reference generated on submission | **Python** `secrets.token_hex` + nanoid in FastAPI `job_service.py` |
 | Quote comparison loaded in milliseconds | **SQLAlchemy 2.0** query against **MySQL 8.0** `quotes` table with indexed join |
 | Escrow payment held securely | **Razorpay** nodal account + HMAC webhook verification in FastAPI `webhooks_router` |
@@ -280,7 +280,7 @@ Every moment in this story is powered by a deliberate technical choice:
 | Priya's truck moves on Arjun's map | **FastAPI WebSocket** + **Redis Pub/Sub** broadcasting GPS coordinates every 10–15 seconds |
 | ETA recalculates in real time | **Google Maps Directions API** called from `tracking_service.py` on each GPS update |
 | Delay alert fires at 55 minutes | Python delta calculation in `tracking_service.py` → **Firebase Cloud Messaging** push |
-| PDF invoice generated automatically | **WeasyPrint** + Jinja2 HTML template rendered server-side, uploaded to **AWS S3** |
+| PDF invoice generated automatically | **WeasyPrint** + Jinja2 HTML template rendered server-side, uploaded to **Azure Blob Storage** |
 | Rating updates Priya's profile average | **MySQL** `UPDATE users SET avg_rating = (SELECT AVG(stars) FROM ratings WHERE rated_id = ?)` |
 
 ---

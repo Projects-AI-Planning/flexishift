@@ -93,7 +93,7 @@ sequenceDiagram
     API->>GW: Trigger payout to driver bank account
     GW-->>API: Payout confirmed
     API->>DB: payment=RELEASED
-    API->>API: Generate PDF invoice → upload to S3
+    API->>API: Generate PDF invoice → upload to Azure Blob Storage
     API->>DApp: Push: "Payment released! Invoice ready."
     API->>DApp: Push: "Rate your haulier"
     API->>HWeb: Push: "Rate your driver"

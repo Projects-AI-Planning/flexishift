@@ -112,8 +112,10 @@ class Settings(BaseSettings):
     JWT_PUBLIC_KEY: str
     ACCESS_TOKEN_EXPIRE_HOURS: int = 24
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    AWS_S3_BUCKET_DOCS: str
-    AWS_S3_BUCKET_INVOICES: str
+    AZURE_STORAGE_ACCOUNT_NAME: str
+    AZURE_STORAGE_ACCOUNT_KEY: str
+    AZURE_CONTAINER_DOCS: str
+    AZURE_CONTAINER_INVOICES: str
     GOOGLE_MAPS_API_KEY: str
     RAZORPAY_KEY_ID: str
     RAZORPAY_KEY_SECRET: str
@@ -476,9 +478,9 @@ async def generate_invoice(db: Session, job_id: str) -> str:
     pdf_bytes = HTML(string=html).write_pdf()
 
     key = f"invoices/{job.job_ref}.pdf"
-    s3_client.put_object(Bucket=settings.AWS_S3_BUCKET_INVOICES,
-                         Key=key, Body=pdf_bytes, ContentType="application/pdf")
-    url = f"https://{settings.AWS_S3_BUCKET_INVOICES}.s3.amazonaws.com/{key}"
+    blob_client = BlobServiceClient.from_connection_string(azure_conn_str)
+    blob_client.get_blob_client(settings.AZURE_CONTAINER_INVOICES, key).upload_blob(pdf_bytes, overwrite=True)
+    url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_INVOICES}/{key}"
     db.execute(update(Job).where(Job.id == job_id).values(invoice_url=url))
     db.commit()
     return url

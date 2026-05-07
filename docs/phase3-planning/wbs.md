@@ -44,7 +44,7 @@ The WBS decomposes the total project scope into manageable work packages. Each l
 | 1.3.2 | CI/CD pipeline (GitHub Actions) | DevOps | 2 days |
 | 1.3.3 | Docker containerisation | DevOps | 1 day |
 | 1.3.4 | Database provisioning (PostgreSQL + Redis) | DevOps | 1 day |
-| 1.3.5 | Cloud storage setup (S3/GCS) | DevOps | 0.5 day |
+| 1.3.5 | Cloud storage setup (Azure Blob Storage) | DevOps | 0.5 day |
 | 1.3.6 | Monitoring and alerting (Datadog / Sentry) | DevOps | 1 day |
 | 1.3.7 | SSL certificates and domain setup | DevOps | 0.5 day |
 

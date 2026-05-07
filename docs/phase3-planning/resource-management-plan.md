@@ -65,7 +65,7 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 | Celery background tasks | Yes | Backend Dev | Confirm at hire |
 | Google Maps Platform API | Yes | Backend / FE Dev | Self-paced training |
 | Razorpay / Stripe SDK (Python) | Yes | Backend Dev | External advisor as backup |
-| Docker / AWS ECS | Yes | DevOps | Confirm at hire |
+| Docker / Azure Container Apps | Yes | DevOps | Confirm at hire |
 | Automated testing (Pytest + Playwright) | Yes | QA | Confirm at hire |
 | Figma / UI design | Yes | Designer | Available |
 
@@ -104,8 +104,8 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 ## 9. Procurement Plan
 | Item | Vendor | Procurement Method | Lead Time |
 |---|---|---|---|
-| Cloud hosting (AWS/GCP) | AWS / GCP | Direct sign-up | Immediate |
-| Google Maps Platform API | Google | API key via GCP Console | 1 day |
+| Cloud hosting (Azure) | Azure | Direct sign-up | Immediate |
+| Google Maps Platform API | Google | API key via Azure Console | 1 day |
 | Payment Gateway (Razorpay/Stripe) | Razorpay / Stripe | Account + escrow agreement | 3–5 business days |
 | Email service (SendGrid) | Twilio SendGrid | Direct sign-up | Immediate |
 | Push notifications (FCM) | Google | Firebase Console | Immediate |

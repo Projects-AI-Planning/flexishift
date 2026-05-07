@@ -92,15 +92,15 @@
 |---|---|
 | TLS | TLS 1.2 minimum; TLS 1.3 preferred |
 | HSTS | Strict-Transport-Security header (max-age 1 year, includeSubDomains) |
-| Certificate | Wildcard cert via AWS Certificate Manager / Let's Encrypt |
+| Certificate | Wildcard cert via Azure App Service Certificates / Let's Encrypt |
 | WebSocket | WSS (TLS-encrypted WebSocket) |
 
 ### 5.3 Data at Rest
 | Control | Implementation |
 |---|---|
-| Database encryption | AWS RDS encryption at rest (AES-256) |
-| S3 / GCS encryption | Server-side encryption (SSE-S3 or SSE-KMS) |
-| Secrets management | AWS Secrets Manager; no secrets in code or env files in repos |
+| Database encryption | Azure Database for MySQL encryption at rest (AES-256) |
+| Azure Blob encryption | Server-side encryption (Azure SSE (AES-256)) |
+| Secrets management | Azure Key Vault; no secrets in code or env files in repos |
 | Backup encryption | RDS automated backups inherit encryption |
 
 ### 5.4 Application Security (OWASP Top 10 Mapping)
@@ -121,8 +121,8 @@
 - Allowed types: PDF, JPG, PNG only (MIME type + magic bytes check).
 - Maximum file size: 10 MB.
 - Files scanned for malware (ClamAV or cloud-native scanning) before storage.
-- Files served via pre-signed S3 URLs (time-limited, no public access).
-- Files stored in separate S3 bucket with no public-read ACL.
+- Files served via Azure SAS token URLs (time-limited, no public access).
+- Files stored in separate Azure Blob container with no public-read ACL.
 
 ### 5.6 Payment Security
 - No card data stored on FreightFlex servers (PCI DSS scope minimisation).
@@ -137,7 +137,7 @@
 | Security groups | Minimal open ports; no 0.0.0.0/0 on DB or internal services |
 | IAM | Least-privilege IAM roles; no root account used |
 | Container scanning | ECR image scanning on push |
-| DDoS protection | AWS Shield Standard (Phase 1); WAF rules for rate limiting |
+| DDoS protection | Azure DDoS Protection Standard (Phase 1); WAF rules for rate limiting |
 
 ---
 
@@ -192,4 +192,4 @@ The Privacy Policy (to be drafted by Legal) must cover:
 | Payment gateway escrow agreement signed | PM / Legal | Week 4 |
 | Data Processing Agreements (DPA) with Google, Razorpay, SendGrid | Legal | Week 8 |
 | RDS encryption at rest confirmed | DevOps | Sprint 0 |
-| S3 bucket policy: no public access confirmed | DevOps | Sprint 0 |
+| Azure Blob container policy: no public access confirmed | DevOps | Sprint 0 |

@@ -21,7 +21,7 @@ Records all individuals, groups, and organisations with an interest in or influe
 | S12 | Admin Team | Platform Operators | Internal | High | Medium | Admin panel UAT, training sessions | TBD |
 | S13 | Google Maps Platform | Third-Party API | External | Low | Medium | API usage within terms of service | Support portal |
 | S14 | Payment Gateway (Razorpay/Stripe) | Third-Party API | External | Low | High | Integration SLA, escrow licensing | Account manager |
-| S15 | Cloud Provider (AWS/GCP) | Infrastructure | External | Low | Medium | SLA and cost monitoring | Support portal |
+| S15 | Cloud Provider (Azure) | Infrastructure | External | Low | Medium | SLA and cost monitoring | Support portal |
 | S16 | Regulators (RBI / DPDPA) | Regulatory Body | External | Low | High | Compliance adherence; no direct engagement unless required | Public documentation |
 
 ## 3. Engagement Levels Defined
