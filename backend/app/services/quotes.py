@@ -37,26 +37,6 @@ def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quot
     return quote
 
 
-def edit_quote(db: Session, job_id: str, quote_id: str, supplier: User, new_price: float) -> Quote:
-    quote = db.query(Quote).filter(
-        Quote.id == quote_id,
-        Quote.job_id == job_id,
-        Quote.supplier_id == supplier.id,
-    ).first()
-    if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
-    if quote.status != QuoteStatus.ACTIVE:
-        raise HTTPException(status_code=422, detail="Only active quotes can be edited")
-
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if job and job.status != JobStatus.OPEN:
-        raise HTTPException(status_code=422, detail="Job is no longer open")
-
-    quote.price = new_price
-    db.commit()
-    db.refresh(quote)
-    return quote
-
 
 def list_quotes(db: Session, job_id: str, current_user: User) -> dict:
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
@@ -162,6 +142,9 @@ def edit_quote(db: Session, quote_id: str, supplier: User, new_price: float) -> 
         raise HTTPException(status_code=404, detail="Quote not found")
     if quote.status != QuoteStatus.ACTIVE:
         raise HTTPException(status_code=422, detail="Only active quotes can be edited")
+    job = db.query(Job).filter(Job.id == quote.job_id).first()
+    if job and job.status != JobStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Job is no longer open")
     quote.price = new_price
     db.commit()
     db.refresh(quote)
