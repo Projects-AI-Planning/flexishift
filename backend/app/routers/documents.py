@@ -76,6 +76,6 @@ def submit_uploaded_document(
     current_user: User = Depends(get_current_user),
 ):
     DocType(doc_type)
-    file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+    file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
     doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")

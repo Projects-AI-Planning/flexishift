@@ -95,7 +95,7 @@ def get_system_config(_: User = Depends(require_role(Role.ADMIN))):
             "disputeResolutionHours": 24,
             "maintenanceMode": False,
             "googleMapsConfigured": bool(settings.GOOGLE_MAPS_API_KEY),
-            "awsConfigured": bool(settings.AWS_ACCESS_KEY_ID),
+            "azureConfigured": bool(settings.AZURE_STORAGE_ACCOUNT_NAME),
             "razorpayConfigured": bool(settings.RAZORPAY_KEY_ID),
             "sendgridConfigured": bool(settings.SENDGRID_API_KEY),
             "redisConfigured": bool(settings.REDIS_URL),

@@ -134,7 +134,7 @@ def get_photo_upload_url(
     current_user: User = Depends(get_current_user),
 ):
     key = f"photos/{current_user.id}/profile.jpg"
-    result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, content_type)
+    result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, content_type)
     return ok(
         data={**result, "field": "photoUrl", "note": "After upload, call PUT /profile/update with photoUrl"},
         message="Presigned upload URL generated",
@@ -155,7 +155,7 @@ async def upload_photo_direct(
     }.get(file.content_type or "", (file.filename or "").split(".")[-1] or "jpg")
     key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
     contents = await file.read()
-    photo_url = s3.upload_bytes(settings.AWS_S3_BUCKET_DOCS, key, contents, file.content_type or "image/jpeg")
+    photo_url = s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
     _apply_updates(current_user, {"photo_url": photo_url}, db)
     return ok(
         data={
@@ -177,7 +177,7 @@ def submit_photo_upload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    photo_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{body.key}"
+    photo_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{body.key}"
     _apply_updates(current_user, {"photo_url": photo_url}, db)
     return ok(
         data={

@@ -10,7 +10,7 @@ from app.services import s3
 
 def get_upload_url(doc_type: str, user_id: str) -> dict:
     key = f"documents/{user_id}/{doc_type}/{doc_type.lower()}.pdf"
-    return s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, "application/pdf")
+    return s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, "application/pdf")
 
 
 def upsert_document(db: Session, user_id: str, doc_type: str, file_url: str) -> Document:

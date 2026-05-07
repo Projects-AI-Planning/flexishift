@@ -27,11 +27,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_HOURS: int = 24
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "ap-south-1"
-    AWS_S3_BUCKET_DOCS: str = "freightflex-docs"
-    AWS_S3_BUCKET_INVOICES: str = "freightflex-invoices"
+    AZURE_STORAGE_ACCOUNT_NAME: str = ""
+    AZURE_STORAGE_ACCOUNT_KEY: str = ""
+    AZURE_CONTAINER_DOCS: str = "freightflex-docs"
+    AZURE_CONTAINER_INVOICES: str = "freightflex-invoices"
 
     GOOGLE_MAPS_API_KEY: str = ""
 

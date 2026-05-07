@@ -78,14 +78,13 @@ class Settings(BaseSettings):
     # ── Bcrypt ────────────────────────────────────────────────────────────────
     BCRYPT_ROUNDS: int = 12
 
-    # ── AWS S3 ────────────────────────────────────────────────────────────────
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "ap-south-1"
-    AWS_S3_BUCKET_DOCS: str = "freightflex-docs"
-    AWS_S3_BUCKET_PHOTOS: str = "freightflex-photos"
-    AWS_S3_BUCKET_INVOICES: str = "freightflex-invoices"
-    AWS_S3_PRESIGNED_URL_EXPIRY: int = 604800   # 7 days in seconds
+    # ── Azure Blob Storage ────────────────────────────────────────────────────
+    AZURE_STORAGE_ACCOUNT_NAME: str = ""
+    AZURE_STORAGE_ACCOUNT_KEY: str = ""
+    AZURE_CONTAINER_DOCS: str = "freightflex-docs"
+    AZURE_CONTAINER_PHOTOS: str = "freightflex-photos"
+    AZURE_CONTAINER_INVOICES: str = "freightflex-invoices"
+    AZURE_SAS_EXPIRY_SECONDS: int = 604800      # 7 days
 
     # ── Google Maps Platform ──────────────────────────────────────────────────
     GOOGLE_MAPS_API_KEY: str = ""

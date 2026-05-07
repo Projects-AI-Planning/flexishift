@@ -160,8 +160,8 @@ def get_handover_photo_upload_urls(
     urls = []
     for i in range(min(body.count, 10)):
         key = f"compliance/{body.job_id}/handover/{uuid4()}.jpg"
-        result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, "image/jpeg")
-        file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+        result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, "image/jpeg")
+        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
         urls.append({**result, "fileUrl": file_url})
     return ok(data={"uploads": urls}, message="Upload URLs generated")
 
@@ -314,8 +314,8 @@ def get_delivery_photo_upload_urls(
     urls = []
     for _ in range(min(body.count, 10)):
         key = f"compliance/{body.job_id}/delivery/{uuid4()}.jpg"
-        result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, "image/jpeg")
-        file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+        result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, "image/jpeg")
+        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
         urls.append({**result, "fileUrl": file_url})
     return ok(data={"uploads": urls}, message="Upload URLs generated")
 

@@ -29,8 +29,8 @@ celery==5.4.0
 # Payment gateway
 razorpay==1.4.1
 
-# AWS S3
-boto3==1.34.110
+# Azure Blob Storage
+azure-storage-blob==12.19.0
 
 # PDF invoice
 fpdf2==2.7.9

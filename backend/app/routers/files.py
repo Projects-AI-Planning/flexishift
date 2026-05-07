@@ -19,6 +19,13 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 
+def _blob_url(key: str) -> str:
+    return (
+        f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
+        f".blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    )
+
+
 class UploadRequest(BaseModel):
     filename: str
     content_type: str = "application/octet-stream"
@@ -42,8 +49,8 @@ def request_upload_url(
     file_id = f"fil_{str(uuid4())[:8]}"
     folder = body.folder or "uploads"
     key = f"{folder}/{current_user.id}/{file_id}/{body.filename}"
-    result = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, body.content_type)
-    file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+    result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, body.content_type)
+    file_url = _blob_url(key)
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     return created(
         data={
@@ -72,8 +79,8 @@ def request_multiple_upload_urls(
     for f in body.files:
         file_id = f"fil_{str(uuid4())[:8]}"
         key = f"{folder}/{current_user.id}/{file_id}/{f.filename}"
-        presigned = s3.generate_presigned_upload(settings.AWS_S3_BUCKET_DOCS, key, f.content_type)
-        file_url = f"https://{settings.AWS_S3_BUCKET_DOCS}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
+        presigned = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, f.content_type)
+        file_url = _blob_url(key)
         uploaded_files.append({
             "fileId": file_id,
             "fileName": f.filename,
@@ -96,7 +103,7 @@ def get_signed_url(
     file_key: str,
     current_user: User = Depends(get_current_user),
 ):
-    url = s3.generate_presigned_download(settings.AWS_S3_BUCKET_DOCS, file_key)
+    url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, file_key)
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     filename = file_key.split("/")[-1]
     return ok(
@@ -118,7 +125,7 @@ def delete_file(
 ):
     if not file_key.startswith(f"uploads/{current_user.id}/"):
         raise HTTPException(status_code=403, detail="You can only delete your own files")
-    s3.delete_object(settings.AWS_S3_BUCKET_DOCS, file_key)
+    s3.delete_object(settings.AZURE_CONTAINER_DOCS, file_key)
     return ok(
         data={
             "fileId": file_key,

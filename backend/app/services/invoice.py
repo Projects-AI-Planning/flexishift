@@ -72,5 +72,5 @@ def generate_invoice_pdf(job, payment) -> bytes:
 async def generate_and_upload_invoice(job, payment) -> str:
     pdf_bytes = generate_invoice_pdf(job, payment)
     key = f"invoices/{job.job_ref}.pdf"
-    url = s3.upload_bytes(settings.AWS_S3_BUCKET_INVOICES, key, pdf_bytes, "application/pdf")
+    url = s3.upload_bytes(settings.AZURE_CONTAINER_INVOICES, key, pdf_bytes, "application/pdf")
     return url
