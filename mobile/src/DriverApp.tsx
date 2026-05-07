@@ -2016,6 +2016,10 @@ function DriverApp(): React.JSX.Element {
           setAuthMode('register');
           setShowSplash(false);
         }}
+        onLogin={() => {
+          setAuthMode('login');
+          setShowSplash(false);
+        }}
       />
     );
   }
