@@ -255,7 +255,7 @@ const CreatePaymentTab: React.FC = () => {
     }
   };
 
-  const pendingJobs = jobs.filter((j) => !successJobIds.has(j.jobId));
+  const pendingJobs = jobs.filter((j) => !successJobIds.has(j.bookingId));
 
   return (
     <div className="space-y-6">
