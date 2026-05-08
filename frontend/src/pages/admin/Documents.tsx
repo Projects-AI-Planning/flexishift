@@ -11,9 +11,88 @@ interface ExtendedVerificationRequest extends VerificationRequest {
   supplierId: string;
 }
 
+interface RejectModalProps {
+  docId: string;
+  onClose: () => void;
+  onSubmitted: () => void;
+}
+
+const RejectModal: React.FC<RejectModalProps> = ({ docId, onClose, onSubmitted }) => {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) { setError('Please enter a rejection reason.'); return; }
+    setSubmitting(true);
+    setError('');
+    try {
+      await adminService.rejectDocument(docId, reason.trim());
+      onSubmitted();
+    } catch {
+      setError('Failed to reject document. Please try again.');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-red-50">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-red-600">cancel</span>
+            <h3 className="font-black text-red-900 text-lg">Reject Document</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-red-100 transition-colors">
+            <span className="material-symbols-outlined text-red-400">close</span>
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-slate-600 font-medium">
+            The driver will see this reason in their app. Please be clear and specific so they know exactly what to fix before resubmitting.
+          </p>
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+              Rejection Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => { setReason(e.target.value); setError(''); }}
+              rows={4}
+              placeholder="e.g. Document is blurry and unreadable. Please upload a clearer photo with all details visible."
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 placeholder-slate-300 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 resize-none"
+            />
+            {error && <p className="text-xs text-red-600 font-bold mt-1">{error}</p>}
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-100 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !reason.trim()}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white font-black rounded-xl text-sm hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Rejecting…</>
+            ) : (
+              <><span className="material-symbols-outlined text-sm">cancel</span> Reject Document</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DocumentsPage: React.FC = () => {
   const [params] = useState({ page: 1 });
   const { data, loading, error, refresh } = useAdminVerifications(params);
+  const [rejectDocId, setRejectDocId] = useState<string | null>(null);
 
   const handleApprove = async (docId: string) => {
     try {
@@ -24,21 +103,21 @@ const DocumentsPage: React.FC = () => {
     }
   };
 
-  const handleReject = async (docId: string) => {
-    const reason = prompt('Please enter rejection reason:');
-    if (!reason) return;
-    try {
-      await adminService.rejectDocument(docId, reason);
-      refresh();
-    } catch {
-      alert('Failed to reject document');
-    }
+  const handleReject = (docId: string) => {
+    setRejectDocId(docId);
   };
 
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
     <div className="space-y-8">
+      {rejectDocId && (
+        <RejectModal
+          docId={rejectDocId}
+          onClose={() => setRejectDocId(null)}
+          onSubmitted={() => { setRejectDocId(null); refresh(); }}
+        />
+      )}
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

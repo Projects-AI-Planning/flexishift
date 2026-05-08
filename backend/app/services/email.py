@@ -1,6 +1,7 @@
 import asyncio
 import smtplib
 import structlog
+import httpx
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -9,28 +10,83 @@ from app.config import settings
 log = structlog.get_logger()
 
 
+async def _send_via_sendgrid(to: str, subject: str, html_body: str) -> None:
+    """Send email via SendGrid HTTP API — works on servers where SMTP is firewalled."""
+    payload = {
+        "personalizations": [{"to": [{"email": to}]}],
+        "from": {
+            "email": settings.SENDGRID_FROM_EMAIL,
+            "name": settings.EMAIL_FROM_NAME,
+        },
+        "subject": subject,
+        "content": [{"type": "text/html", "value": html_body}],
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            json=payload,
+            headers=headers,
+        )
+    if resp.status_code not in (200, 202):
+        raise RuntimeError(f"SendGrid error {resp.status_code}: {resp.text}")
+
+
 def _send_smtp(to: str, subject: str, html_body: str) -> None:
-    """Synchronous SMTP send — called via asyncio.to_thread()."""
+    """Synchronous SMTP send — tries port 587 (STARTTLS) then 465 (SSL)."""
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{settings.EMAIL_FROM_NAME} <{settings.GMAIL_USER}>"
     msg["To"] = to
     msg.attach(MIMEText(html_body, "html"))
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
-        smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+    last_err: Exception | None = None
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+        return
+    except OSError as exc:
+        last_err = exc
+        log.warning("smtp_587_failed_trying_465", error=str(exc))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
+        return
+    except OSError as exc:
+        last_err = exc
+        log.error("smtp_465_also_failed", error=str(exc))
+
+    raise last_err  # type: ignore[misc]
 
 
 async def send_email(to: str, subject: str, html_body: str) -> None:
+    # Prefer SendGrid HTTP API (works even when SMTP ports are firewalled)
+    if settings.SENDGRID_API_KEY:
+        try:
+            await _send_via_sendgrid(to, subject, html_body)
+            log.info("email_sent_sendgrid", to=to, subject=subject)
+            return
+        except Exception as exc:
+            log.error("sendgrid_send_failed", to=to, subject=subject, error=str(exc))
+            return
+
+    # Fallback: Gmail SMTP (dev environments)
     if not settings.GMAIL_USER or not settings.GMAIL_APP_PASSWORD:
-        log.warning("gmail_not_configured", to=to, subject=subject)
+        log.warning("no_email_provider_configured", to=to, subject=subject)
         return
     try:
         await asyncio.to_thread(_send_smtp, to, subject, html_body)
-        log.info("email_sent", to=to, subject=subject)
+        log.info("email_sent_smtp", to=to, subject=subject)
     except Exception as exc:
         log.error("email_send_failed", to=to, subject=subject, error=str(exc))
 
