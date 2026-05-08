@@ -197,7 +197,7 @@ const PostJobPage: React.FC = () => {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 overflow-hidden">
           {/* green banner */}
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-8 py-10 text-center">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 sm:px-8 py-10 text-center">
             <div className="w-20 h-20 rounded-full bg-white/20 ring-4 ring-white/30 flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
             </div>
@@ -208,9 +208,9 @@ const PostJobPage: React.FC = () => {
           </div>
 
           {/* details */}
-          <div className="px-8 py-8 space-y-6">
+          <div className="px-4 sm:px-8 py-8 space-y-6">
             {/* ref + load code */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Job Reference</p>
                 <p className="text-xl font-black text-primary font-mono">{created.jobRef}</p>
@@ -307,7 +307,7 @@ const PostJobPage: React.FC = () => {
       </div>
 
       {/* step bar */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-8 py-6">
+      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-4 sm:px-8 py-6">
         <StepBar current={step} />
       </div>
 
@@ -317,7 +317,7 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 1: Route ── */}
         {step === 1 && (
           <div>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-sm">route</span>
@@ -329,7 +329,7 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-8">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-8">
               {/* Pickup */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -395,7 +395,7 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 2: Cargo & Schedule ── */}
         {step === 2 && (
           <div>
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-slate-900 text-sm">inventory_2</span>
@@ -407,7 +407,7 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-7">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-7">
               {/* Goods type */}
               <div className="relative">
                 <Label text="Goods Type" required />
@@ -437,7 +437,7 @@ const PostJobPage: React.FC = () => {
               </div>
 
               {/* Weight + Vehicle */}
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <Label text="Total Weight" required hint="(kg)" />
                   <input
@@ -520,7 +520,7 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 3: Review ── */}
         {step === 3 && (
           <div>
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-sm">fact_check</span>
@@ -532,7 +532,7 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-6">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
               {/* Route */}
               <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
                 <div className="flex items-start gap-4">
@@ -557,7 +557,7 @@ const PostJobPage: React.FC = () => {
 
               {/* Cargo */}
               <ReviewSection title="Cargo" icon="inventory_2" iconBg="bg-amber-50" iconColor="text-amber-500">
-                <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
                   <ReviewRow label="Goods Type" value={form.goodsType} />
                   <ReviewRow label="Weight" value={`${form.weightKg} kg`} />
                   <ReviewRow label="Vehicle" value={VEHICLE_TYPES.find(v => v.value === form.vehicleType)?.label ?? form.vehicleType} />
@@ -588,14 +588,14 @@ const PostJobPage: React.FC = () => {
 
         {/* Error banner */}
         {error && (
-          <div className="mx-8 mb-0 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-4">
+          <div className="mx-4 sm:mx-8 mb-0 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-4">
             <span className="material-symbols-outlined text-red-500 shrink-0 text-base mt-0.5">error</span>
             <p className="text-sm text-red-700 font-semibold">{error}</p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="px-8 py-6 border-t border-slate-100 flex justify-between items-center gap-4">
+        <div className="px-4 sm:px-8 py-6 border-t border-slate-100 flex justify-between items-center gap-4">
           <button
             onClick={step === 1 ? () => navigate('/haulier') : back}
             className="px-6 py-3 rounded-xl text-sm font-black text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"

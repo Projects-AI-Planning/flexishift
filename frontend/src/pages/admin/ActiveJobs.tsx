@@ -95,7 +95,7 @@ const ActiveJobsPage: React.FC = () => {
                 </div>
 
                 {/* Parties */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Haulier</p>
                     <p className="text-sm font-bold text-primary truncate">{job.haulier?.name || '—'}</p>

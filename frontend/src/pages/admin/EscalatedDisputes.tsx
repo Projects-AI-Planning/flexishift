@@ -216,7 +216,7 @@ export default function EscalatedDisputesPage() {
             </div>
 
             {resolution.resolution === 'partial_refund' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier (₹)</label>
                   <input type="number" value={resolution.refundAmount} onChange={(e) => setResolution((r) => ({ ...r, refundAmount: Number(e.target.value) }))}

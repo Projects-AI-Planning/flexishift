@@ -101,7 +101,7 @@ const EscrowPage: React.FC = () => {
               </div>
 
               {/* Middle — parties */}
-              <div className="grid grid-cols-2 gap-4 min-w-[240px]">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Haulier</p>
                   <p className="text-sm font-bold text-primary">{p.haulier?.name || '—'}</p>
