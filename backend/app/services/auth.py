@@ -21,6 +21,7 @@ def _generate_otp() -> str:
 # only intended for development without a Redis instance.
 # ---------------------------------------------------------------------------
 _memory_store: dict[str, str] = {}  # token → user_id
+_otp_store: dict[str, str] = {}    # phone → otp (in-memory fallback)
 
 REFRESH_PREFIX = "refresh:"
 
@@ -174,6 +175,36 @@ async def forgot_password(db: Session, email: str) -> None:
     db.add(pr)
     db.commit()
     await send_password_reset_email(email, user.full_name, otp)
+
+
+OTP_TTL = 600  # 10 minutes
+PHONE_OTP_PREFIX = "phone_otp:"
+
+
+def send_mobile_otp(r, phone: str) -> str:
+    """Generate a 6-digit OTP for the given phone number, store it, and return it."""
+    otp = _generate_otp()
+    if r is not None:
+        r.setex(f"{PHONE_OTP_PREFIX}{phone}", OTP_TTL, otp)
+    else:
+        _otp_store[phone] = otp
+    return otp
+
+
+def verify_mobile_otp(r, phone: str, otp: str) -> bool:
+    """Return True and consume the OTP if it matches, False otherwise."""
+    if r is not None:
+        key = f"{PHONE_OTP_PREFIX}{phone}"
+        stored = r.get(key)
+        if stored and stored == otp:
+            r.delete(key)
+            return True
+        return False
+    stored = _otp_store.get(phone)
+    if stored and stored == otp:
+        del _otp_store[phone]
+        return True
+    return False
 
 
 def reset_password(db: Session, email: str, otp: str, new_password: str) -> None:

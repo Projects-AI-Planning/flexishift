@@ -8,6 +8,7 @@ from app.database import get_db
 from app.dependencies import get_redis, get_current_user
 from app.models.user import User
 from app.core.security import verify_password, hash_password
+from pydantic import BaseModel
 from app.schemas.auth import (
     RegisterRequest, VerifyEmailRequest, LoginRequest,
     TokenResponse, RefreshRequest, ForgotPasswordRequest,
@@ -17,6 +18,19 @@ from app.services import auth as auth_svc
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+class MobileOtpRequest(BaseModel):
+    phone: str
+
+
+@router.post("/mobile-otp")
+def send_mobile_otp(body: MobileOtpRequest, r=Depends(get_redis)):
+    otp = auth_svc.send_mobile_otp(r, body.phone)
+    return ok(
+        data={"phone": body.phone, "otp": otp, "expiresInSeconds": 600},
+        message="OTP generated successfully",
+    )
 
 
 @router.post("/register", status_code=201)
