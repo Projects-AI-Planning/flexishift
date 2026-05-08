@@ -181,6 +181,36 @@ OTP_TTL = 600  # 10 minutes
 PHONE_OTP_PREFIX = "phone_otp:"
 
 
+EMAIL_OTP_PREFIX = "email_otp:"
+_email_otp_store: dict[str, str] = {}  # email → otp (in-memory fallback)
+
+
+def send_email_otp(r, email: str) -> str:
+    """Generate a 6-digit OTP for the given email, store it, and return it."""
+    otp = _generate_otp()
+    if r is not None:
+        r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
+    else:
+        _email_otp_store[email] = otp
+    return otp
+
+
+def verify_email_otp(r, email: str, otp: str) -> bool:
+    """Return True and consume the OTP if it matches, False otherwise."""
+    if r is not None:
+        key = f"{EMAIL_OTP_PREFIX}{email}"
+        stored = r.get(key)
+        if stored and stored == otp:
+            r.delete(key)
+            return True
+        return False
+    stored = _email_otp_store.get(email)
+    if stored and stored == otp:
+        del _email_otp_store[email]
+        return True
+    return False
+
+
 def send_mobile_otp(r, phone: str) -> str:
     """Generate a 6-digit OTP for the given phone number, store it, and return it."""
     otp = _generate_otp()

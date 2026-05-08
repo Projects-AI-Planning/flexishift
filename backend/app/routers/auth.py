@@ -19,6 +19,15 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+@router.get("/email-otp")
+def send_email_otp(email: str = Query(..., description="Email address to send OTP to"), r=Depends(get_redis)):
+    otp = auth_svc.send_email_otp(r, email)
+    return ok(
+        data={"email": email, "otp": otp, "expiresInSeconds": 600},
+        message="OTP generated successfully",
+    )
+
+
 @router.get("/mobile-otp")
 def send_mobile_otp(phone: str = Query(..., description="Mobile number to send OTP to"), r=Depends(get_redis)):
     otp = auth_svc.send_mobile_otp(r, phone)
