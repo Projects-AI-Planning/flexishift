@@ -51,7 +51,7 @@ def _revoke_refresh(r, token: str) -> None:
         _memory_store.pop(token, None)
 
 
-async def register(db: Session, full_name: str, email: str, phone: str, password: str, role: str) -> User:
+async def register(db: Session, full_name: str, email: str, phone: str, password: str, role: str, r=None) -> User:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -79,6 +79,9 @@ async def register(db: Session, full_name: str, email: str, phone: str, password
     db.commit()
     db.refresh(user)
 
+    _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
+    if r is not None:
+        r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
     await send_verification_email(email, full_name, otp)
     return user
 
@@ -146,7 +149,7 @@ def logout(r, refresh_token: str) -> None:
     _revoke_refresh(r, refresh_token)
 
 
-async def resend_verification(db: Session, email: str) -> None:
+async def resend_verification(db: Session, email: str, r=None) -> None:
     user = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
     if not user or user.verified:
         return  # silent — don't reveal state
@@ -158,6 +161,9 @@ async def resend_verification(db: Session, email: str) -> None:
     )
     db.add(ev)
     db.commit()
+    _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
+    if r is not None:
+        r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
     await send_verification_email(email, user.full_name, otp)
 
 
@@ -185,13 +191,15 @@ EMAIL_OTP_PREFIX = "email_otp:"
 _email_otp_store: dict[str, str] = {}  # email → otp (in-memory fallback)
 
 
-def send_email_otp(r, email: str) -> str:
-    """Generate a 6-digit OTP for the given email, store it, and return it."""
-    otp = _generate_otp()
+def get_email_otp(r, email: str) -> str:
+    """Return the active registration OTP for the given email. Raises 404 if none found."""
     if r is not None:
-        r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
-    else:
-        _email_otp_store[email] = otp
+        otp = r.get(f"{EMAIL_OTP_PREFIX}{email}")
+        if otp:
+            return otp
+    otp = _email_otp_store.get(email)
+    if not otp:
+        raise HTTPException(status_code=404, detail="No active OTP found for this email")
     return otp
 
 
@@ -218,6 +226,18 @@ def send_mobile_otp(r, phone: str) -> str:
         r.setex(f"{PHONE_OTP_PREFIX}{phone}", OTP_TTL, otp)
     else:
         _otp_store[phone] = otp
+    return otp
+
+
+def get_mobile_otp(r, phone: str) -> str:
+    """Return the active OTP for the given phone number. Raises 404 if none found."""
+    if r is not None:
+        otp = r.get(f"{PHONE_OTP_PREFIX}{phone}")
+        if otp:
+            return otp
+    otp = _otp_store.get(phone)
+    if not otp:
+        raise HTTPException(status_code=404, detail="No active OTP found for this phone number")
     return otp
 
 

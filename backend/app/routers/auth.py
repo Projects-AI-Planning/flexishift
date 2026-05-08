@@ -20,29 +20,29 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/email-otp")
-def send_email_otp(email: str = Query(..., description="Email address to send OTP to"), r=Depends(get_redis)):
-    otp = auth_svc.send_email_otp(r, email)
+def get_email_otp(email: str = Query(..., description="Email address to look up active OTP for"), r=Depends(get_redis)):
+    otp = auth_svc.get_email_otp(r, email)
     return ok(
-        data={"email": email, "otp": otp, "expiresInSeconds": 600},
-        message="OTP generated successfully",
+        data={"email": email, "otp": otp},
+        message="OTP retrieved successfully",
     )
 
 
 @router.get("/mobile-otp")
-def send_mobile_otp(phone: str = Query(..., description="Mobile number to send OTP to"), r=Depends(get_redis)):
-    otp = auth_svc.send_mobile_otp(r, phone)
+def get_mobile_otp(phone: str = Query(..., description="Mobile number to look up active OTP for"), r=Depends(get_redis)):
+    otp = auth_svc.get_mobile_otp(r, phone)
     return ok(
-        data={"phone": phone, "otp": otp, "expiresInSeconds": 600},
-        message="OTP generated successfully",
+        data={"phone": phone, "otp": otp},
+        message="OTP retrieved successfully",
     )
 
 
 @router.post("/register", status_code=201)
-async def register(body: RegisterRequest, db: Session = Depends(get_db)):
+async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    user = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role)
+    user = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r)
     return created(
         data={"userId": user.id, "email": user.email, "role": user.role.value, "isVerified": user.verified},
         message="Registration successful. Check your email to verify your account.",
@@ -114,8 +114,8 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/resend-verification")
-async def resend_verification(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    await auth_svc.resend_verification(db, body.email)
+async def resend_verification(body: ForgotPasswordRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
+    await auth_svc.resend_verification(db, body.email, r=r)
     return ok(data=None, message="If that email is registered and unverified, a new link has been sent.")
 
 
