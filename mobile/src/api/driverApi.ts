@@ -37,7 +37,7 @@ export const driverApi = {
         body: jsonBody({refreshToken}),
       }),
     refreshToken: (refreshToken: string) =>
-      request<{accessToken: string; expiresIn?: number}>(
+      request<{accessToken: string; refreshToken?: string; expiresIn?: number}>(
         '/auth/refresh-token',
         {
           method: 'POST',

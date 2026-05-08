@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -162,6 +163,82 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onRefresh,
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  // ── Upload modal state ───────────────────────────────────────────────────
+  type ModalDoc = {key: string; backendKey: string; label: string; icon: string};
+  const [activeModal, setActiveModal] = useState<ModalDoc | null>(null);
+  const [modalFile, setModalFile] = useState<any>(null);
+  const [modalExpiry, setModalExpiry] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalUploading, setModalUploading] = useState(false);
+
+  const openModal = (doc: ModalDoc) => {
+    setActiveModal(doc);
+    setModalFile(null);
+    setModalExpiry('');
+    setModalError(null);
+  };
+
+  const closeModal = () => {
+    if (modalUploading) return;
+    setActiveModal(null);
+    setModalFile(null);
+    setModalExpiry('');
+    setModalError(null);
+  };
+
+  const pickDocFile = async () => {
+    const result = await launchImageLibrary({mediaType: 'mixed', quality: 0.9, selectionLimit: 1});
+    if (result.didCancel || result.errorCode || !result.assets?.length) return;
+    setModalFile(result.assets[0]);
+    setModalError(null);
+  };
+
+  const validateExpiry = (val: string): string | null => {
+    const match = val.trim().match(/^(\d{2})\/(\d{4})$/);
+    if (!match) return 'Enter expiry as MM/YYYY';
+    const month = parseInt(match[1], 10);
+    const year = parseInt(match[2], 10);
+    if (month < 1 || month > 12) return 'Month must be 01–12';
+    const now = new Date();
+    if (year < now.getFullYear() || (year === now.getFullYear() && month <= now.getMonth() + 1)) {
+      return 'Expiry date must be in the future';
+    }
+    return null;
+  };
+
+  const handleModalUpload = async () => {
+    if (!activeModal) return;
+    if (!modalFile?.uri) { setModalError('Please select a document file'); return; }
+    const expiryErr = validateExpiry(modalExpiry);
+    if (expiryErr) { setModalError(expiryErr); return; }
+    setModalUploading(true);
+    setModalError(null);
+    try {
+      const formData = new FormData();
+      formData.append('documentType', activeModal.backendKey);
+      formData.append('expiryDate', modalExpiry);
+      formData.append('file', {
+        uri: modalFile.uri,
+        name: modalFile.fileName ?? 'document.jpg',
+        type: modalFile.type ?? 'image/jpeg',
+      } as any);
+      await driverApi.documents.upload(formData);
+      // Refresh local doc state after successful upload
+      const [docs, status] = await Promise.all([
+        driverApi.documents.list(),
+        driverApi.documents.getStatus(),
+      ]);
+      setLocalDocuments(((docs as any).items ?? []) as any[]);
+      setLocalVerificationStatus(status);
+      closeModal();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      setModalUploading(false);
+    }
+  };
+
   const [localDocuments, setLocalDocuments] = useState<any[]>(documents);
   const [localVerificationStatus, setLocalVerificationStatus] = useState<any>(verificationStatus);
 
@@ -343,7 +420,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* ── Cover + Avatar ────────────────────────────────────────────────── */}
       <View style={styles.coverWrap}>
-        <View style={styles.coverBg} />
+        <Image
+          source={require('../../assets/screens/Freightflex.png')}
+          style={styles.coverBg}
+        />
         <View style={styles.avatarArea}>
           <Pressable onPress={uploadPhoto} style={styles.avatarCircle}>
             {photoUrl
@@ -497,16 +577,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {DRIVER_DOCUMENTS.map((doc, i, arr) => {
           const status = docStatus[doc.key];
           const c = docColor(status);
+          const tappable = status === 'not_uploaded' || status === 'rejected';
           return (
-            <View key={doc.key} style={[styles.docRow, i < arr.length - 1 && styles.docRowBorder]}>
+            <Pressable
+              key={doc.key}
+              onPress={() => openModal(doc)}
+              style={({pressed}) => [
+                styles.docRow,
+                i < arr.length - 1 && styles.docRowBorder,
+                pressed && styles.docRowPressed,
+              ]}>
               <Text style={styles.docIcon}>{doc.icon}</Text>
               <Text style={styles.docLabel}>{doc.label}</Text>
-              <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
-                <Text style={[styles.docBadgeText, {color: c.text}]}>
-                  {docLabel(status)}
-                </Text>
+              <View style={styles.docRowRight}>
+                <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
+                  <Text style={[styles.docBadgeText, {color: c.text}]}>
+                    {docLabel(status)}
+                  </Text>
+                </View>
+                {tappable && (
+                  <Text style={styles.docRowChevron}>›</Text>
+                )}
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -535,6 +628,81 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.logoutBtnText}>Log Out</Text>
         </Pressable>
       </View>
+
+      {/* ── Document Upload Modal ─────────────────────────────────────────── */}
+      <Modal
+        visible={!!activeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModal}>
+        <Pressable style={styles.modalBackdrop} onPress={closeModal}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderIcon}>{activeModal?.icon}</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.modalTitle}>Upload Document</Text>
+                <Text style={styles.modalSubtitle}>{activeModal?.label}</Text>
+              </View>
+              <Pressable onPress={closeModal} style={styles.modalCloseBtn} disabled={modalUploading}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* File picker */}
+            <Text style={styles.modalFieldLabel}>DOCUMENT FILE</Text>
+            <Pressable onPress={pickDocFile} style={styles.filePicker} disabled={modalUploading}>
+              {modalFile ? (
+                <View style={styles.filePickerSelected}>
+                  <Text style={styles.filePickerSelectedIcon}>📄</Text>
+                  <Text style={styles.filePickerSelectedName} numberOfLines={1}>
+                    {modalFile.fileName ?? 'Selected file'}
+                  </Text>
+                  <Text style={styles.filePickerChange}>Change</Text>
+                </View>
+              ) : (
+                <View style={styles.filePickerEmpty}>
+                  <Text style={styles.filePickerEmptyIcon}>⬆</Text>
+                  <Text style={styles.filePickerEmptyText}>Tap to select file</Text>
+                  <Text style={styles.filePickerEmptyHint}>JPG, PNG or PDF</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Expiry date */}
+            <Text style={styles.modalFieldLabel}>EXPIRY DATE</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="MM/YYYY"
+              placeholderTextColor="#9CA3AF"
+              value={modalExpiry}
+              onChangeText={v => { setModalExpiry(v); setModalError(null); }}
+              keyboardType="numeric"
+              maxLength={7}
+              editable={!modalUploading}
+            />
+
+            {/* Error */}
+            {modalError ? (
+              <Text style={styles.modalError}>{modalError}</Text>
+            ) : null}
+
+            {/* Actions */}
+            <View style={styles.modalActions}>
+              <Pressable onPress={closeModal} style={styles.modalCancelBtn} disabled={modalUploading}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleModalUpload} style={styles.modalUploadBtn} disabled={modalUploading}>
+                {modalUploading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalUploadBtnText}>Upload</Text>}
+              </Pressable>
+            </View>
+
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </ScrollView>
   );
@@ -570,7 +738,7 @@ const styles = StyleSheet.create({
   coverWrap: {alignItems: 'center', marginBottom: 56},
   coverBg: {
     width: '100%', height: 170,
-    backgroundColor: '#1C2E45',
+    resizeMode: 'cover',
   },
   avatarArea: {
     position: 'absolute', bottom: -52,
@@ -695,13 +863,83 @@ const styles = StyleSheet.create({
   // ── Document rows ─────────────────────────────────────────────────────────
   docRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 12, borderRadius: radius.md,
   },
   docRowBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  docRowPressed: {backgroundColor: '#F8FAFC'},
+  docRowRight: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  docRowChevron: {fontSize: 20, color: '#9CA3AF', fontWeight: '300'},
   docIcon: {fontSize: 20, width: 28, textAlign: 'center'},
   docLabel: {flex: 1, fontSize: 14, fontWeight: '600', color: '#111827'},
   docBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
   docBadgeText: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
+
+  // ── Upload modal ──────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.lg, paddingBottom: 36, gap: spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4,
+  },
+  modalHeaderIcon: {fontSize: 28},
+  modalTitle: {fontSize: 18, fontWeight: '900', color: '#111827'},
+  modalSubtitle: {fontSize: 13, color: '#6B7280', fontWeight: '500', marginTop: 2},
+  modalCloseBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  modalCloseBtnText: {fontSize: 14, color: '#6B7280', fontWeight: '700'},
+  modalFieldLabel: {
+    fontSize: 11, fontWeight: '800', color: '#6B7280',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: -4,
+  },
+  filePicker: {
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderStyle: 'dashed',
+    borderRadius: radius.md, overflow: 'hidden',
+  },
+  filePickerEmpty: {
+    padding: spacing.lg, alignItems: 'center', gap: 6,
+    backgroundColor: '#F9FAFB',
+  },
+  filePickerEmptyIcon: {fontSize: 28},
+  filePickerEmptyText: {fontSize: 14, fontWeight: '700', color: '#374151'},
+  filePickerEmptyHint: {fontSize: 12, color: '#9CA3AF'},
+  filePickerSelected: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, backgroundColor: '#F0FDF4',
+  },
+  filePickerSelectedIcon: {fontSize: 22},
+  filePickerSelectedName: {flex: 1, fontSize: 13, fontWeight: '600', color: '#111827'},
+  filePickerChange: {fontSize: 12, fontWeight: '800', color: '#1C2E45'},
+  modalInput: {
+    backgroundColor: '#F3F4F6', borderRadius: radius.md,
+    paddingHorizontal: spacing.lg, minHeight: 48,
+    fontSize: 15, color: '#111827', fontWeight: '500',
+  },
+  modalError: {
+    fontSize: 13, fontWeight: '700', color: '#DC2626',
+    backgroundColor: '#FEF2F2', borderRadius: radius.sm,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  modalActions: {flexDirection: 'row', gap: spacing.md, marginTop: 4},
+  modalCancelBtn: {
+    flex: 1, minHeight: 50, justifyContent: 'center', alignItems: 'center',
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+  },
+  modalCancelBtnText: {fontSize: 15, fontWeight: '700', color: '#374151'},
+  modalUploadBtn: {
+    flex: 2, minHeight: 50, justifyContent: 'center', alignItems: 'center',
+    borderRadius: radius.md, backgroundColor: '#1C2E45',
+  },
+  modalUploadBtnText: {fontSize: 15, fontWeight: '900', color: '#DFA622'},
+
+  // ── Document rows ─────────────────────────────────────────────────────────
 
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtn: {

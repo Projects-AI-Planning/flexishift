@@ -584,24 +584,39 @@ function DriverApp(): React.JSX.Element {
 
   // Restore persisted session on first mount
   useEffect(() => {
-    AsyncStorage.getItem(SESSION_KEY)
-      .then(raw => {
-        if (raw) {
-          try {
-            const saved = JSON.parse(raw) as DriverSession;
-            if (isSessionValid(saved)) {
-              setSession(saved);
-              setShowSplash(false);
-            } else {
-              AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
-            }
-          } catch {
-            AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
-          }
+    const restoreSession = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+
+        const saved = JSON.parse(raw) as DriverSession;
+        if (!saved?.accessToken || !saved?.refreshToken) return;
+
+        if (isSessionValid(saved)) {
+          // Access token still valid — resume immediately
+          setSession(saved);
+          setShowSplash(false);
+          return;
         }
-      })
-      .catch(() => {})
-      .finally(() => setInitializing(false));
+
+        // Access token expired — silently refresh using the stored refresh token
+        setApiAccessToken(null); // clear expired token so it isn't sent in the request
+        const refreshed = await driverApi.auth.refreshToken(saved.refreshToken);
+        const newSession: DriverSession = {
+          ...saved,
+          accessToken: refreshed.accessToken,
+          ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+        };
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+        setSession(newSession);
+        setShowSplash(false);
+      } catch {
+        // Refresh token also expired or network error — clear storage and show login
+        await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+      }
+    };
+
+    restoreSession().finally(() => setInitializing(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -959,10 +974,10 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      await driverApi.compliance.submitVehicleChecklist({jobId, checklist});
+      await driverApi.compliance.submitVehicleChecklist({jobId, checklistData: checklist});
       await driverApi.compliance.signDriverHandover({
         jobId,
-        signature: 'driver_signed',
+        signatureData: 'driver_signed',
       });
       // Start live tracking
       try {

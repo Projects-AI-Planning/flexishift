@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "cd android && gradlew --stop & cd .. && react-native run-android",
+    "android": "android-build.bat",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",

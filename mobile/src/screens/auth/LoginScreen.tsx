@@ -6,6 +6,9 @@ import {
   Pressable,
   StyleSheet,
   SafeAreaView,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import {colors, radius, shadow, spacing} from '../../theme';
 
@@ -30,8 +33,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.background}>
-        <View style={styles.glowTop} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.background}>
+            <View style={styles.glowTop} />
         <View style={styles.glowBottom} />
         <View style={styles.topBar}>
           <Pressable onPress={onBackToSplash} style={styles.backBtn}>
@@ -114,8 +124,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           <Text style={styles.bottomCopy}>
             © 2024 FreightFlow Systems. All rights reserved.
           </Text>
-        </View>
-      </View>
+          </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -125,8 +137,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  background: {
+  flex: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  background: {
+    flexGrow: 1,
     backgroundColor: '#F4F7FB',
     overflow: 'hidden',
   },
@@ -322,7 +340,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   bottomBar: {
-    marginTop: 'auto',
+    marginTop: spacing.xl,
     paddingVertical: spacing.xl,
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.92)',
