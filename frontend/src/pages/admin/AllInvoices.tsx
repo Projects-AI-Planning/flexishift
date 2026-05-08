@@ -241,7 +241,7 @@ const AllInvoicesPage: React.FC = () => {
                 <span className="material-symbols-outlined text-5xl text-amber-200">receipt_long</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Job Reference</p>
                   <p className="text-sm font-bold text-primary">{preview.jobRef}</p>

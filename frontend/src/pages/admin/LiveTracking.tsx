@@ -188,8 +188,8 @@ export default function LiveTrackingPage() {
         </div>
       )}
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-white">
+      <div className="flex flex-1 flex-col overflow-hidden xl:grid xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="flex h-[220px] flex-shrink-0 flex-col border-b border-slate-200 bg-white xl:h-auto xl:flex-1 xl:min-h-0 xl:border-b-0 xl:border-r">
           <div className="border-b border-slate-200 px-5 py-4">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Tracked Deliveries</p>
             <p className="mt-1 text-sm text-slate-500">Select a job to focus the map and details.</p>
@@ -288,7 +288,7 @@ export default function LiveTrackingPage() {
           </div>
         </aside>
 
-        <section className="relative min-h-0 overflow-hidden bg-slate-100">
+        <section className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
           <div className="absolute inset-x-0 top-0 z-[450] flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
               <span className="rounded-full bg-slate-100 px-3 py-1.5">

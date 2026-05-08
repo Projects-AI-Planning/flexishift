@@ -581,7 +581,7 @@ const HaulierJobsPage: React.FC = () => {
                         <Label text="Goods Type" required />
                         <input className={inputCls} placeholder="e.g. Palletised Goods, Machinery" value={form.goodsType} onChange={set('goodsType')} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label text="Weight (kg)" required />
                           <input className={inputCls} type="number" min="1" placeholder="e.g. 1200" value={form.weightKg} onChange={set('weightKg')} />
@@ -593,7 +593,7 @@ const HaulierJobsPage: React.FC = () => {
                           </select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label text="Job Date" required />
                           <input className={inputCls} type="date" min={today} value={form.jobDate} onChange={set('jobDate')} />
