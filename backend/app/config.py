@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     FCM_SERVER_KEY: str = ""
     FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
-    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081"
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://freightflex.vercel.app"
 
     CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
