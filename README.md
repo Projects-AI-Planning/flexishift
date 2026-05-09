@@ -1,5 +1,6 @@
 # FreightFlex – Project Documentation 
 
+
 Digital freight-brokerage platform connecting Hauliers with verified Drivers and Transport Firms.
 
 ## Project Structure
