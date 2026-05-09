@@ -1,10 +1,27 @@
 import React from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {colors, radius, spacing, shadow} from '../../theme';
 
-const TermsAndConditionsScreen: React.FC = () => {
+interface TermsAndConditionsScreenProps {
+  onBack?: () => void;
+}
+
+const TermsAndConditionsScreen: React.FC<TermsAndConditionsScreenProps> = ({onBack}) => {
   return (
     <SafeAreaView style={styles.container}>
+      {onBack ? (
+        <Pressable onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backArrow}>←</Text>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      ) : null}
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
@@ -51,6 +68,16 @@ const TermsAndConditionsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.bg},
+  backBtn: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  backArrow: {color: colors.navy, fontSize: 20, fontWeight: '900'},
+  backText: {color: colors.navy, fontSize: 15, fontWeight: '800'},
   content: {padding: spacing.xl, paddingBottom: 48},
   title: {color: colors.navy, fontSize: 32, fontWeight: '900'},
   subtitle: {

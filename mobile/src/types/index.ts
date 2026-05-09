@@ -30,7 +30,9 @@ export type DrawerRouteKey =
   | 'profile.preferences'
   | 'support.faq'
   | 'support.contact'
-  | 'legal.terms';
+  | 'legal.terms'
+  | 'legal.privacy'
+  | 'profile.settings';
 
 export interface ApiResponse<T> {
   code: number;

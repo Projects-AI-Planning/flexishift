@@ -114,9 +114,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Need help? </Text>
-          <Pressable>
-            <Text style={styles.footerLink}>Contact Support</Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Pressable onPress={() => setAuthMode('register')}>
+            <Text style={styles.footerLink}>Create Account</Text>
           </Pressable>
         </View>
 
@@ -337,7 +337,6 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 15,
     fontWeight: '900',
-    textDecorationLine: 'underline',
   },
   bottomBar: {
     marginTop: spacing.xl,

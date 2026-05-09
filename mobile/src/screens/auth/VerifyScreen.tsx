@@ -1,7 +1,10 @@
 import React, {useRef, useState} from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -61,6 +64,13 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
         <Text style={styles.backText}>← Back</Text>
       </Pressable>
 
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
       <View style={styles.content}>
         {/* Icon */}
         <View style={styles.iconCircle}>
@@ -125,33 +135,23 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
           </Pressable>
         </View>
 
-        {/* Support */}
-        <View style={styles.supportRow}>
-          <View style={styles.supportDivider} />
-          <View style={styles.supportContent}>
-            <View style={styles.supportAvatar}>
-              <Text style={styles.supportAvatarText}>💬</Text>
-            </View>
-            <View>
-              <Text style={styles.supportTitle}>Support is online</Text>
-              <Text style={styles.supportSubtitle}>Contact FreightFlex Support</Text>
-            </View>
-          </View>
-        </View>
       </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  flex: {flex: 1},
+  scrollContent: {paddingBottom: 40},
   backBtn: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
   },
   backText: {color: colors.navy, fontSize: 16, fontWeight: '800'},
   content: {
-    flex: 1, paddingHorizontal: spacing.xl,
     backgroundColor: '#fff',
     marginHorizontal: spacing.xl, marginTop: spacing.sm,
     borderRadius: radius.xl, padding: spacing.xxl,
@@ -208,21 +208,10 @@ const styles = StyleSheet.create({
   verifyBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
 
   // Resend
-  resendRow: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24},
+  resendRow: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center'},
   resendLabel: {color: colors.inkSoft, fontSize: 14},
   resendLink: {color: colors.accent, fontSize: 14, fontWeight: '800'},
 
-  // Support
-  supportRow: {marginTop: 'auto'},
-  supportDivider: {height: 1, backgroundColor: colors.border, marginBottom: 16},
-  supportContent: {flexDirection: 'row', alignItems: 'center', gap: 12},
-  supportAvatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.neutralSoft, justifyContent: 'center', alignItems: 'center',
-  },
-  supportAvatarText: {fontSize: 18},
-  supportTitle: {color: colors.ink, fontSize: 14, fontWeight: '800'},
-  supportSubtitle: {color: colors.inkSoft, fontSize: 12, marginTop: 2},
 });
 
 export default VerifyScreen;

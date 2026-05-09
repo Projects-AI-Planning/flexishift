@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -42,9 +44,11 @@ import LiveTrackingScreen from './screens/tracking/LiveTrackingScreen';
 import IncidentReportScreen from './screens/tracking/IncidentReportScreen';
 import NotificationsScreen from './screens/notifications/NotificationsScreen';
 import TermsAndConditionsScreen from './screens/legal/TermsAndConditionsScreen';
+import PrivacyPolicyScreen from './screens/legal/PrivacyPolicyScreen';
 import InvoicesScreen from './screens/invoices/InvoicesScreen';
 import PasswordScreen from './screens/profile/PasswordScreen';
 import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
+import SettingsScreen from './screens/profile/SettingsScreen';
 import SupportScreen from './screens/support/SupportScreen';
 import BookingAcceptanceScreen from './screens/bookings/BookingAcceptanceScreen';
 import {bottomTabs} from './navigation/driverNavigation';
@@ -80,7 +84,7 @@ interface QuoteFormState {
   quoteAmount: string;
 }
 
-type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset';
+type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset' | 'terms' | 'privacy';
 type SetupStep = 'profile' | 'documents' | null;
 
 const palette = {
@@ -333,8 +337,13 @@ function DriverApp(): React.JSX.Element {
       driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1})
         .then(d => setUpcomingJobs((d.jobs as Array<Record<string, unknown>>) ?? []))
         .catch(() => {}),
+      session?.userId
+        ? driverApi.ratings.getSummary(session.userId)
+            .then(d => setRatings(cast<RatingSummary>(d)))
+            .catch(() => {})
+        : Promise.resolve(),
     ]);
-  }, []);
+  }, [session?.userId]);
 
   const loadJobs = useCallback(async () => {
     const [availableData, upcomingData, historyData, docsData] = await Promise.all([
@@ -639,6 +648,23 @@ function DriverApp(): React.JSX.Element {
       setSelectedJobDetails(null);
     }
   }, [selectedJob]);
+
+  useEffect(() => {
+    if (!session) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (activeRoute === 'home' && activeTab === 'home') {
+        Alert.alert('Exit App', 'Are you sure you want to exit FreightFlex?', [
+          {text: 'Cancel', style: 'cancel'},
+          {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
+        ]);
+        return true;
+      }
+      setActiveRoute('home');
+      setActiveTab('home');
+      return true;
+    });
+    return () => sub.remove();
+  }, [session, activeRoute, activeTab]);
 
   // ─── Action helpers ───────────────────────────────────────────────────────────
 
@@ -1136,21 +1162,22 @@ function DriverApp(): React.JSX.Element {
   // ─── Availability handlers ─────────────────────────────────────────────────────
 
   const handleAvailabilitySave = async () => {
-    const payload = {
-      availableDays: availabilityForm.availableDays,
-      timeSlots: availabilityForm.availableDays.map(day => ({
-        day,
-        endTime: availabilityForm.endTime,
-        startTime: availabilityForm.startTime,
-      })),
-      timezone: availabilityForm.timezone,
+    const dayIndex: Record<string, number> = {
+      monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
+      friday: 4, saturday: 5, sunday: 6,
     };
+    const startTime = availabilityForm.startTime || '08:00';
+    const endTime   = availabilityForm.endTime   || '18:00';
     await runAction(async () => {
-      if (availability?.availabilityId) {
-        await driverApi.availability.update(payload);
-      } else {
-        await driverApi.availability.set(payload);
-      }
+      await Promise.all(
+        availabilityForm.availableDays.map(day =>
+          driverApi.availability.set({
+            day_of_week: dayIndex[day] ?? 0,
+            start_time:  startTime,
+            end_time:    endTime,
+          }),
+        ),
+      );
       setSuccessBanner('Availability saved.');
       await loadDrawerRoute('availability.set');
     });
@@ -1501,6 +1528,7 @@ function DriverApp(): React.JSX.Element {
           dashboard={dashboard}
           driverName={session?.name}
           earnings={earnings}
+          averageRating={Number(ratings?.averageRating ?? dashboard?.rating ?? 0)}
           upcomingJobs={upcomingJobs}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -1798,6 +1826,12 @@ function DriverApp(): React.JSX.Element {
           onChange={patch => setProfileForm(c => ({...c, ...patch}))}
           onSave={handleProfileSave}
           onLogout={handleLogout}
+          onSettings={() => navigate('profile', 'profile.settings')}
+          onAddVehicle={async (vehicleType, vehicleRegistration) => {
+            setProfileForm(c => ({...c, vehicleType, vehicleRegistration}));
+            await driverApi.profile.update({vehicleType, vehicleRegistration});
+            await loadProfile();
+          }}
           loading={actionLoading}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -1973,6 +2007,7 @@ function DriverApp(): React.JSX.Element {
             passwordForm={passwordForm}
             onChange={patch => setPasswordForm(c => ({...c, ...patch}))}
             onSave={handlePasswordChange}
+            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
           />
         );
@@ -1982,7 +2017,40 @@ function DriverApp(): React.JSX.Element {
             notificationPrefs={notificationPrefs}
             onToggle={updateNotificationPreference}
             onSave={handleNotificationPreferencesSave}
+            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
+          />
+        );
+      case 'profile.settings':
+        return (
+          <SettingsScreen
+            onChangePassword={() => navigate('profile', 'profile.password')}
+            onNotificationPreferences={() => navigate('profile', 'profile.preferences')}
+            onAvailability={() => navigate('profile', 'availability.set')}
+            onTerms={() => navigate('profile', 'legal.terms')}
+            onPrivacy={() => navigate('profile', 'legal.privacy')}
+            onDeactivate={() => {
+              Alert.alert(
+                'Deactivate Account',
+                'Are you sure you want to deactivate your account? You can reactivate by logging in again.',
+                [
+                  {text: 'Cancel', style: 'cancel'},
+                  {
+                    text: 'Deactivate',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await driverApi.profile.update({isActive: false} as any);
+                        handleLogout();
+                      } catch {
+                        setErrorBanner('Failed to deactivate account. Please try again.');
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+            onBack={() => navigate('profile', 'profile.edit')}
           />
         );
       case 'availability.set':
@@ -1994,6 +2062,7 @@ function DriverApp(): React.JSX.Element {
             onChangeForm={patch => setAvailabilityForm(c => ({...c, ...patch}))}
             onSave={handleAvailabilitySave}
             onToggleAvailability={handleAvailabilityToggle}
+            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
           />
         );
@@ -2011,7 +2080,9 @@ function DriverApp(): React.JSX.Element {
           />
         );
       case 'legal.terms':
-        return <TermsAndConditionsScreen />;
+        return <TermsAndConditionsScreen onBack={() => navigate('profile', 'profile.settings')} />;
+      case 'legal.privacy':
+        return <PrivacyPolicyScreen onBack={() => navigate('profile', 'profile.settings')} />;
       default:
         return <EmptyState title="Open the drawer to navigate." />;
     }
@@ -2074,7 +2145,13 @@ function DriverApp(): React.JSX.Element {
             authLoading={authLoading}
             authError={authError}
             setAuthMode={setAuthMode}
+            onViewTerms={() => setAuthMode('terms')}
+            onViewPrivacy={() => setAuthMode('privacy')}
           />
+        ) : authMode === 'terms' ? (
+          <TermsAndConditionsScreen onBack={() => setAuthMode('register')} />
+        ) : authMode === 'privacy' ? (
+          <PrivacyPolicyScreen onBack={() => setAuthMode('register')} />
         ) : authMode === 'verify' ? (
           <VerifyScreen
             verifyForm={verifyForm}
@@ -2102,17 +2179,6 @@ function DriverApp(): React.JSX.Element {
             onResend={() => handleForgotPassword(forgotEmail)}
           />
         )}
-        {authMode === 'verify' ? (
-          <View style={styles.authSwitchRow}>
-            <Pressable onPress={() => setAuthMode('login')} style={styles.authSwitchPill}>
-              <Text style={styles.authSwitchPillText}>Sign In</Text>
-            </Pressable>
-            <Text style={styles.authSwitchDivider}>·</Text>
-            <Pressable onPress={() => setAuthMode('register')} style={styles.authSwitchPill}>
-              <Text style={styles.authSwitchPillText}>Create Account</Text>
-            </Pressable>
-          </View>
-        ) : null}
       </SafeAreaView>
     );
   }
@@ -2172,6 +2238,22 @@ function DriverApp(): React.JSX.Element {
 
       {/* Header */}
       <View style={styles.header}>
+        <Pressable
+          onPress={() => {
+            if (activeRoute === 'home' && activeTab === 'home') {
+              Alert.alert('Exit App', 'Are you sure you want to exit FreightFlex?', [
+                {text: 'Cancel', style: 'cancel'},
+                {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
+              ]);
+            } else {
+              setActiveRoute('home');
+              setActiveTab('home');
+            }
+          }}
+          style={styles.headerBack}
+          hitSlop={8}>
+          <Text style={styles.headerBackText}>←</Text>
+        </Pressable>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>
             {activeRoute.startsWith('compliance.')
@@ -2425,6 +2507,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  headerBack: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 4,
+    width: 36,
+  },
+  headerBackText: {
+    color: palette.card,
+    fontSize: 22,
+    fontWeight: '700',
+  },
   headerRefresh: {
     backgroundColor: palette.accent,
     borderRadius: 12,
@@ -2433,7 +2526,7 @@ const styles = StyleSheet.create({
   },
   headerRefreshText: {color: palette.nav, fontSize: 12, fontWeight: '900'},
   headerSubtitle: {color: '#C4CDD6', fontSize: 12, marginTop: 2},
-  headerTextWrap: {flex: 1, paddingHorizontal: 14},
+  headerTextWrap: {flex: 1, paddingRight: 8},
   headerTitle: {color: palette.card, fontSize: 18, fontWeight: '900'},
   input: {
     backgroundColor: '#FAF8F3',

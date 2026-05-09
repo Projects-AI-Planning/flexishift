@@ -35,6 +35,8 @@ interface ProfileScreenProps {
   onChange: (patch: Partial<ProfileForm>) => void;
   onSave: () => void;
   onLogout: () => void;
+  onSettings: () => void;
+  onAddVehicle: (vehicleType: string, vehicleRegistration: string) => void;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -158,11 +160,42 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onChange,
   onSave,
   onLogout,
+  onSettings,
+  onAddVehicle,
   loading,
   refreshing,
   onRefresh,
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  // ── Vehicle modal state ──────────────────────────────────────────────────
+  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
+  const [vehicleType, setVehicleType] = useState('');
+  const [vehicleReg, setVehicleReg] = useState('');
+  const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [vehicleError, setVehicleError] = useState<string | null>(null);
+
+  const openVehicleModal = () => {
+    setVehicleType(profileForm.vehicleType ?? '');
+    setVehicleReg(profileForm.vehicleRegistration ?? '');
+    setVehicleError(null);
+    setVehicleModalVisible(true);
+  };
+
+  const handleVehicleSave = async () => {
+    if (!vehicleType.trim()) { setVehicleError('Vehicle type is required.'); return; }
+    if (!vehicleReg.trim()) { setVehicleError('Vehicle registration is required.'); return; }
+    setVehicleSaving(true);
+    setVehicleError(null);
+    try {
+      await onAddVehicle(vehicleType.trim(), vehicleReg.trim());
+      setVehicleModalVisible(false);
+    } catch (err) {
+      setVehicleError(err instanceof Error ? err.message : 'Failed to save vehicle.');
+    } finally {
+      setVehicleSaving(false);
+    }
+  };
 
   // ── Upload modal state ───────────────────────────────────────────────────
   type ModalDoc = {key: string; backendKey: string; label: string; icon: string};
@@ -550,7 +583,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           placeholder="e.g. TX-LOG-8892"
         />
 
-        <Pressable style={styles.addVehicleBtn}>
+        <Pressable style={styles.addVehicleBtn} onPress={openVehicleModal}>
           <Text style={styles.addVehicleBtnText}>＋  Add New Vehicle</Text>
         </Pressable>
       </View>
@@ -619,7 +652,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* ── Settings + Log Out ────────────────────────────────────────────── */}
       <View style={styles.bottomRow}>
-        <Pressable style={styles.settingsBtn}>
+        <Pressable style={styles.settingsBtn} onPress={onSettings}>
           <Text style={styles.settingsBtnIcon}>⚙</Text>
           <Text style={styles.settingsBtnText}>Settings</Text>
         </Pressable>
@@ -697,6 +730,76 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 {modalUploading
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <Text style={styles.modalUploadBtnText}>Upload</Text>}
+              </Pressable>
+            </View>
+
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Vehicle Modal ─────────────────────────────────────────────────────── */}
+      <Modal
+        visible={vehicleModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setVehicleModalVisible(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => !vehicleSaving && setVehicleModalVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderIcon}>🚛</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.modalTitle}>Vehicle Details</Text>
+                <Text style={styles.modalSubtitle}>Enter your vehicle information</Text>
+              </View>
+              <Pressable
+                onPress={() => setVehicleModalVisible(false)}
+                style={styles.modalCloseBtn}
+                disabled={vehicleSaving}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalFieldLabel}>VEHICLE TYPE</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. FLATBED, VAN, HGV, TRAILER"
+              placeholderTextColor="#9CA3AF"
+              value={vehicleType}
+              onChangeText={v => { setVehicleType(v); setVehicleError(null); }}
+              autoCapitalize="characters"
+              editable={!vehicleSaving}
+            />
+
+            <Text style={styles.modalFieldLabel}>REGISTRATION NUMBER</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. TX-LOG-8892"
+              placeholderTextColor="#9CA3AF"
+              value={vehicleReg}
+              onChangeText={v => { setVehicleReg(v); setVehicleError(null); }}
+              autoCapitalize="characters"
+              editable={!vehicleSaving}
+            />
+
+            {vehicleError ? (
+              <Text style={styles.modalError}>{vehicleError}</Text>
+            ) : null}
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setVehicleModalVisible(false)}
+                style={styles.modalCancelBtn}
+                disabled={vehicleSaving}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleVehicleSave}
+                style={styles.modalUploadBtn}
+                disabled={vehicleSaving}>
+                {vehicleSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalUploadBtnText}>Save Vehicle</Text>}
               </Pressable>
             </View>
 
