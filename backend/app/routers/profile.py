@@ -53,6 +53,24 @@ def _check_profile_complete(user: User) -> None:
             user.profile_complete = True
 
 
+def _presigned_photo_url(raw_url: str | None) -> str | None:
+    if not raw_url:
+        return None
+    try:
+        prefix = (
+            f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
+            f".blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/"
+        )
+        if raw_url.startswith(prefix):
+            key = raw_url[len(prefix):]
+            return s3.generate_presigned_download(
+                settings.AZURE_CONTAINER_DOCS, key, expires=86400
+            )
+        return raw_url
+    except Exception:
+        return raw_url
+
+
 def _user_data(user: User) -> dict:
     profile = user.profile
     return {
@@ -70,7 +88,7 @@ def _user_data(user: User) -> dict:
         "locationLng": user.location_lng,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "profile": {
-            "photoUrl": profile.photo_url if profile else None,
+            "photoUrl": _presigned_photo_url(profile.photo_url if profile else None),
             "licenceNumber": profile.licence_number if profile else None,
             "vehicleType": profile.vehicle_type if profile else None,
             "vehicleRegistration": profile.vehicle_registration if profile else None,
@@ -155,11 +173,13 @@ async def upload_photo_direct(
     }.get(file.content_type or "", (file.filename or "").split(".")[-1] or "jpg")
     key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
     contents = await file.read()
-    photo_url = s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
-    _apply_updates(current_user, {"photo_url": photo_url}, db)
+    s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
+    raw_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    _apply_updates(current_user, {"photo_url": raw_url}, db)
+    presigned_url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, key, expires=86400)
     return ok(
         data={
-            "photoUrl": photo_url,
+            "photoUrl": presigned_url,
             "key": key,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         },

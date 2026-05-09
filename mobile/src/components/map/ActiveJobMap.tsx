@@ -1,67 +1,177 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
-  Image,
+  Linking,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import {colors, radius} from '../../theme';
 
-const MAPS_API_KEY = 'AIzaSyClv3tblk7FFbySthbSNiPurlhpKHUS-2g';
+interface Coords {
+  lat: number;
+  lon: number;
+}
 
 interface ActiveJobMapProps {
   pickupLocation: string;
   dropLocation: string;
 }
 
+async function geocode(address: string): Promise<Coords | null> {
+  if (!address || address.trim() === '' || address === '[object Object]') {
+    return null;
+  }
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/search` +
+      `?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    const res = await fetch(url, {
+      headers: {'User-Agent': 'FreightFlexDriverApp/1.0'},
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return {lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon)};
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function openNativeMaps(pickup: string, drop: string) {
+  const query = encodeURIComponent(`${pickup} to ${drop}`);
+  Linking.openURL(`https://maps.google.com/maps?q=${query}`).catch(() =>
+    Linking.openURL(`geo:0,0?q=${query}`),
+  );
+}
+
 const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   pickupLocation,
   dropLocation,
 }) => {
+  const mapRef = useRef<MapView>(null);
+  const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
+  const [dropCoords, setDropCoords] = useState<Coords | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [noCoords, setNoCoords] = useState(false);
 
-  const pickup = encodeURIComponent(pickupLocation);
-  const drop = encodeURIComponent(dropLocation);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setNoCoords(false);
+    setPickupCoords(null);
+    setDropCoords(null);
 
-  const mapUrl =
-    'https://maps.googleapis.com/maps/api/staticmap' +
-    '?size=640x320&scale=2' +
-    '&style=feature:poi|visibility:off' +
-    '&style=feature:transit|visibility:off' +
-    `&markers=color:0xDFA622%7Clabel:P%7C${pickup}` +
-    `&markers=color:0x18794E%7Clabel:D%7C${drop}` +
-    `&path=color:0x102235CC%7Cweight:4%7C${pickup}%7C${drop}` +
-    `&key=${MAPS_API_KEY}`;
+    const resolve = async () => {
+      const [pc, dc] = await Promise.all([
+        geocode(pickupLocation),
+        geocode(dropLocation),
+      ]);
+      if (cancelled) {return;}
+      if (!pc || !dc) {
+        setNoCoords(true);
+        setLoading(false);
+        return;
+      }
+      setPickupCoords(pc);
+      setDropCoords(dc);
+      setLoading(false);
+    };
 
-  if (error) {
+    resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [pickupLocation, dropLocation]);
+
+  useEffect(() => {
+    if (pickupCoords && dropCoords && mapRef.current) {
+      mapRef.current.fitToCoordinates(
+        [
+          {latitude: pickupCoords.lat, longitude: pickupCoords.lon},
+          {latitude: dropCoords.lat, longitude: dropCoords.lon},
+        ],
+        {edgePadding: {top: 24, right: 24, bottom: 24, left: 24}, animated: false},
+      );
+    }
+  }, [pickupCoords, dropCoords]);
+
+  if (noCoords) {
     return (
-      <View style={styles.placeholder}>
+      <Pressable
+        style={styles.placeholder}
+        onPress={() => openNativeMaps(pickupLocation, dropLocation)}>
         <Text style={styles.placeholderIcon}>🗺️</Text>
-        <Text style={styles.placeholderText}>Map unavailable</Text>
-      </View>
+        <Text style={styles.placeholderTitle}>
+          {pickupLocation || 'Pickup'} → {dropLocation || 'Drop-off'}
+        </Text>
+        <Text style={styles.openMapsLink}>Open in Maps ›</Text>
+      </Pressable>
     );
   }
 
   return (
-    <View style={styles.wrapper}>
-      {loading && (
+    <Pressable
+      style={styles.wrapper}
+      onPress={() => openNativeMaps(pickupLocation, dropLocation)}>
+      {loading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={colors.navy} size="small" />
+          <Text style={styles.loadingText}>Loading map…</Text>
         </View>
+      ) : (
+        <>
+          <MapView
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
+            style={styles.map}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            toolbarEnabled={false}
+            initialRegion={
+              pickupCoords
+                ? {
+                    latitude: pickupCoords.lat,
+                    longitude: pickupCoords.lon,
+                    latitudeDelta: 0.5,
+                    longitudeDelta: 0.5,
+                  }
+                : undefined
+            }>
+            {pickupCoords && (
+              <Marker
+                coordinate={{
+                  latitude: pickupCoords.lat,
+                  longitude: pickupCoords.lon,
+                }}
+                title="Pickup"
+                description={pickupLocation}
+                pinColor="red"
+              />
+            )}
+            {dropCoords && (
+              <Marker
+                coordinate={{
+                  latitude: dropCoords.lat,
+                  longitude: dropCoords.lon,
+                }}
+                title="Drop-off"
+                description={dropLocation}
+                pinColor="green"
+              />
+            )}
+          </MapView>
+          <View style={styles.tapOverlay} pointerEvents="none">
+            <Text style={styles.tapLabel}>Tap to open in Maps</Text>
+          </View>
+        </>
       )}
-      <Image
-        source={{uri: mapUrl}}
-        style={[styles.map, loading && styles.hidden]}
-        resizeMode="cover"
-        onLoad={() => setLoading(false)}
-        onError={() => {
-          setLoading(false);
-          setError(true);
-        }}
-      />
-    </View>
+    </Pressable>
   );
 };
 
@@ -74,31 +184,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F1FA',
   },
   map: {
-    height: '100%',
-    width: '100%',
-  },
-  hidden: {
-    opacity: 0,
+    flex: 1,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    fontWeight: '600',
   },
   placeholder: {
     alignItems: 'center',
     backgroundColor: '#E8F1FA',
     borderRadius: radius.lg,
-    gap: 6,
     height: 160,
     justifyContent: 'center',
     marginBottom: 12,
+    paddingHorizontal: 16,
+    gap: 6,
   },
   placeholderIcon: {fontSize: 28},
-  placeholderText: {
-    color: colors.inkSoft,
+  placeholderTitle: {
+    color: colors.navy,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  openMapsLink: {
+    color: colors.navy,
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+    marginTop: 2,
+  },
+  tapOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingVertical: 5,
+    alignItems: 'center',
+  },
+  tapLabel: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
 

@@ -167,6 +167,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onRefresh,
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
 
   // ── Vehicle modal state ──────────────────────────────────────────────────
   const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
@@ -281,7 +282,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const isVerified = Boolean(profile?.isVerified);
   const rating = Number(profile?.avgRating ?? 4.8);
   const completedJobs = Number(profile?.completedJobs ?? 0);
-  const photoUrl = profile?.profile?.photoUrl ?? profile?.profilePhoto ?? '';
+  const photoUrl = localPhotoUrl ?? profile?.profile?.photoUrl ?? profile?.profilePhoto ?? '';
   const effectiveDocuments = localDocuments.length ? localDocuments : documents;
   const effectiveVerification = localVerificationStatus ?? verificationStatus;
   const documentStatuses = effectiveVerification?.documentStatuses ?? {};
@@ -397,11 +398,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       const asset = result.assets[0];
       if (!asset.uri) return;
       setPhotoUploading(true);
+      // Optimistic preview from local file immediately
+      setLocalPhotoUrl(asset.uri);
       const formData = new FormData();
       formData.append('file', {uri: asset.uri, name: asset.fileName ?? 'profile.jpg', type: asset.type ?? 'image/jpeg'} as any);
-      await driverApi.profile.uploadPhotoDirect(formData);
+      const uploadRes = await driverApi.profile.uploadPhotoDirect(formData) as any;
+      const returnedUrl = uploadRes?.photoUrl;
+      if (returnedUrl) {
+        setLocalPhotoUrl(returnedUrl);
+      }
       onRefresh();
     } catch (err) {
+      setLocalPhotoUrl(null);
       Alert.alert('Photo upload failed', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setPhotoUploading(false);

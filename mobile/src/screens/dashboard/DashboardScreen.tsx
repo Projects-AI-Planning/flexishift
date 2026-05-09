@@ -175,8 +175,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {activeJob ? (
           <>
             <ActiveJobMap
-              pickupLocation={String(activeJob.pickupLocation ?? '')}
-              dropLocation={String(activeJob.dropLocation ?? '')}
+              pickupLocation={
+                typeof activeJob.pickupLocation === 'object'
+                  ? String((activeJob.pickupLocation as any)?.address ?? (activeJob.pickupLocation as any)?.city ?? '')
+                  : String(activeJob.pickupLocation ?? '')
+              }
+              dropLocation={
+                typeof activeJob.dropLocation === 'object'
+                  ? String((activeJob.dropLocation as any)?.address ?? (activeJob.dropLocation as any)?.city ?? '')
+                  : String(activeJob.dropLocation ?? '')
+              }
             />
             <View style={styles.routeRow}>
               <View style={styles.routePoint}>
