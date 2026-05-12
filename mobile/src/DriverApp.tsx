@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -13,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {setApiAccessToken} from './api/client';
+import {setApiAccessToken, setApiSessionRefresher} from './api/client';
 import {driverApi} from './api/driverApi';
 import SplashScreen from './screens/SplashScreen';
 import LoginScreen from './screens/auth/LoginScreen';
@@ -34,7 +35,6 @@ import ScannerInterfaceScreen from './screens/compliance/ScannerInterfaceScreen'
 import HandoverScreen from './screens/compliance/HandoverScreen';
 import DeliveryScreen from './screens/compliance/DeliveryScreen';
 import DocumentVerificationScreen from './screens/profile/DocumentVerificationScreen';
-import DocumentUploadStepScreen from './screens/profile/DocumentUploadStepScreen';
 import AvailabilityScreen from './screens/profile/AvailabilityScreen';
 import EarningsHistoryScreen from './screens/earnings/EarningsHistoryScreen';
 import InvoiceDetailScreen from './screens/invoices/InvoiceDetailScreen';
@@ -90,7 +90,7 @@ type SetupStep = 'profile' | 'documents' | null;
 const palette = {
   accent: '#DFA622',
   accentSoft: '#FFF3D5',
-  bg: '#F4F1E8',
+  bg: '#FFFFFF',
   border: '#E4DED0',
   card: '#FFFFFF',
   danger: '#A53A32',
@@ -156,6 +156,19 @@ function isSessionValid(sess: DriverSession | null): boolean {
 
 const cast = <T,>(value: unknown) => value as T;
 
+function normalizeNotificationItem(item: Record<string, unknown>): NotificationSummary {
+  return {
+    notificationId: String(item.notificationId ?? item.id ?? ''),
+    createdAt: item.createdAt ? String(item.createdAt) : undefined,
+    data: (item.data as Record<string, unknown> | undefined) ?? undefined,
+    isRead: Boolean(item.isRead ?? item.readAt ?? item.read ?? false),
+    readAt: item.readAt ? String(item.readAt) : undefined,
+    message: String(item.message ?? item.body ?? item.description ?? ''),
+    title: String(item.title ?? 'Notification'),
+    type: String(item.type ?? 'system'),
+  };
+}
+
 function toAddress(value: unknown): string {
   if (!value) {
     return '';
@@ -171,6 +184,76 @@ function toAddress(value: unknown): string {
 
 function formatLabel(value: string) {
   return value.replace(/[_.]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function normalizeComplianceStep(
+  compliance: Record<string, unknown> | null | undefined,
+  activeJob: DashboardOverview['activeJob'] | null | undefined,
+): 'tracking.active' | 'compliance.handover' | 'compliance.loadCode' {
+  const currentStep = String(
+    compliance?.currentStep ?? activeJob?.currentComplianceStep ?? '',
+  ).toLowerCase();
+  if (currentStep === 'tracking.active') {
+    return 'tracking.active';
+  }
+  if (currentStep === 'compliance.handover') {
+    return 'compliance.handover';
+  }
+  if (currentStep === 'compliance.loadcode') {
+    return 'compliance.loadCode';
+  }
+
+  const complianceJobStatus = String(
+    compliance?.job_status ?? compliance?.jobStatus ?? activeJob?.status ?? '',
+  ).toLowerCase();
+
+  if (
+    compliance?.step1_handover_completed === true ||
+    complianceJobStatus === 'in_transit' ||
+    complianceJobStatus === 'delivery_submitted' ||
+    complianceJobStatus === 'completed'
+  ) {
+    return 'tracking.active';
+  }
+
+  if (compliance?.load_code_verified === true) {
+    return 'compliance.handover';
+  }
+
+  return 'compliance.loadCode';
+}
+
+function normalizeTrackingEta(payload: Record<string, unknown> | null | undefined) {
+  if (!payload) {
+    return null;
+  }
+  return {
+    ...payload,
+    estimatedArrival:
+      payload.estimatedArrival ??
+      payload.eta ??
+      payload.original_eta ??
+      payload.originalEta ??
+      null,
+    distanceRemaining:
+      payload.distanceRemaining ??
+      payload.remaining_distance_km ??
+      payload.remainingDistanceKm ??
+      null,
+    estimatedDuration:
+      payload.estimatedDuration ??
+      payload.remaining_duration_min ??
+      payload.remainingDurationMin ??
+      null,
+    currentLocation:
+      payload.currentLocation ??
+      (payload.current_lat != null && payload.current_lng != null
+        ? {
+            latitude: payload.current_lat,
+            longitude: payload.current_lng,
+          }
+        : null),
+  };
 }
 
 function EmptyState({title}: {title: string}) {
@@ -200,6 +283,7 @@ function DriverApp(): React.JSX.Element {
   // Navigation
   const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
   const [activeRoute, setActiveRoute] = useState<DrawerRouteKey>('home');
+  const navHistoryRef = useRef<Array<{tab: DriverTabKey; route: DrawerRouteKey}>>([]);
 
   // Auth
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -255,6 +339,9 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: '',
     vehicleType: '',
     vehicleRegistration: '',
+    companyName: '',
+    companyAddress: '',
+    coverageArea: '',
   });
   const [passwordForm, setPasswordForm] = useState(defaultPasswordForm);
   const [notificationPrefs, setNotificationPrefs] = useState(
@@ -283,6 +370,7 @@ function DriverApp(): React.JSX.Element {
 
   // Notifications & other
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [earnings, setEarnings] = useState<EarningsResponse | null>(null);
   const [payments, setPayments] = useState<Array<Record<string, unknown>>>([]);
   const [invoices, setInvoices] = useState<Array<Record<string, unknown>>>([]);
@@ -295,6 +383,11 @@ function DriverApp(): React.JSX.Element {
     string,
     unknown
   > | null>(null);
+  const [trackingLiveLocation, setTrackingLiveLocation] = useState<{
+    lastUpdatedAt?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null>(null);
   const [complianceStatus, setComplianceStatus] = useState<Record<
     string,
     unknown
@@ -323,6 +416,55 @@ function DriverApp(): React.JSX.Element {
 
   // ─── Data loaders ────────────────────────────────────────────────────────────
 
+  const refreshSession = useCallback(async (): Promise<DriverSession | null> => {
+    if (!session?.refreshToken) {
+      return null;
+    }
+    try {
+      setApiAccessToken(null);
+      const refreshed = await driverApi.auth.refreshToken(session.refreshToken);
+      const nextSession: DriverSession = {
+        ...session,
+        accessToken: refreshed.accessToken,
+        ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+      };
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      setSession(nextSession);
+      return nextSession;
+    } catch {
+      return null;
+    }
+  }, [session]);
+
+  const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
+    if (!session?.accessToken) {
+      return false;
+    }
+    if (isSessionValid(session)) {
+      return true;
+    }
+    return (await refreshSession()) !== null;
+  }, [refreshSession, session]);
+
+  const loadNotifications = useCallback(async () => {
+    const [listResult, unreadResult] = await Promise.allSettled([
+      driverApi.notifications.list({limit: 30, page: 1}),
+      driverApi.notifications.getUnreadCount(),
+    ]);
+    if (listResult.status === 'fulfilled') {
+      const items = ((listResult.value.notifications ?? []) as Array<Record<string, unknown>>) || [];
+      setNotifications(items.map(normalizeNotificationItem));
+    }
+    if (unreadResult.status === 'fulfilled') {
+      const unread = unreadResult.value as Record<string, unknown>;
+      setNotificationUnreadCount(Number(unread.unreadCount ?? 0));
+    } else if (listResult.status === 'fulfilled') {
+      const unread = ((listResult.value.notifications ?? []) as Array<Record<string, unknown>>)
+        .filter(item => !Boolean(item.isRead ?? item.readAt ?? item.read ?? false)).length;
+      setNotificationUnreadCount(unread);
+    }
+  }, []);
+
   const loadHome = useCallback(async () => {
     await Promise.allSettled([
       driverApi.dashboard.getOverview()
@@ -331,9 +473,7 @@ function DriverApp(): React.JSX.Element {
       driverApi.dashboard.getEarnings({period: 'monthly'})
         .then(d => setEarnings(cast<EarningsResponse>(d)))
         .catch(() => {}),
-      driverApi.notifications.list({limit: 5, page: 1})
-        .then(d => setNotifications(((d.notifications ?? []) as NotificationSummary[]) || []))
-        .catch(() => {}),
+      loadNotifications().catch(() => {}),
       driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1})
         .then(d => setUpcomingJobs((d.jobs as Array<Record<string, unknown>>) ?? []))
         .catch(() => {}),
@@ -369,38 +509,99 @@ function DriverApp(): React.JSX.Element {
       cast<DashboardOverview>(await driverApi.dashboard.getOverview());
     setDashboard(overview);
     if (overview.activeJob?.jobId) {
-      const [eta, compliance] = await Promise.all([
+      const [etaResult, complianceResult, liveResult] = await Promise.allSettled([
         driverApi.tracking.getEta(overview.activeJob.jobId),
         driverApi.compliance.getFullStatus(overview.activeJob.jobId),
+        driverApi.tracking.getLive(overview.activeJob.jobId),
       ]);
-      setTrackingEta(eta);
-      setComplianceStatus(compliance);
+
+      const eta =
+        etaResult.status === 'fulfilled'
+          ? normalizeTrackingEta(cast<Record<string, unknown>>(etaResult.value))
+          : null;
+      const compliance =
+        complianceResult.status === 'fulfilled'
+          ? cast<Record<string, unknown>>(complianceResult.value)
+          : null;
+      const live =
+        liveResult.status === 'fulfilled'
+          ? cast<Record<string, unknown>>(liveResult.value)
+          : null;
+
+      setTrackingEta(
+        eta ?? {
+          estimatedArrival: overview.activeJob.originalEta ?? overview.activeJob.eta ?? null,
+          distanceRemaining:
+            (overview.activeJob as any)?.distanceRemaining ??
+            overview.activeJob.distanceKm ??
+            (overview.activeJob as any)?.distance ??
+            null,
+          estimatedDuration:
+            (overview.activeJob as any)?.estimatedDuration ??
+            overview.activeJob.durationMin ??
+            (overview.activeJob as any)?.timeLeft ??
+            null,
+        },
+      );
+      setTrackingLiveLocation(
+        live?.currentLocation
+          ? {
+              latitude: Number((live.currentLocation as any).latitude),
+              longitude: Number((live.currentLocation as any).longitude),
+              lastUpdatedAt: String((live.currentLocation as any).lastUpdatedAt ?? live.lastUpdatedAt ?? ''),
+            }
+          : overview.activeJob.currentLocation
+          ? {
+              latitude: Number(overview.activeJob.currentLocation.latitude ?? 0),
+              longitude: Number(overview.activeJob.currentLocation.longitude ?? 0),
+              lastUpdatedAt: String(overview.activeJob.currentLocation.lastUpdatedAt ?? ''),
+            }
+          : null,
+      );
+      setComplianceStatus(
+        compliance
+          ? {
+              ...compliance,
+              currentStep: normalizeComplianceStep(compliance, overview.activeJob),
+            }
+          : {
+              currentStep: normalizeComplianceStep(null, overview.activeJob),
+            },
+      );
     } else {
       setTrackingEta(null);
+      setTrackingLiveLocation(null);
       setComplianceStatus(null);
     }
   }, [dashboard]);
 
   const loadProfile = useCallback(async () => {
-    const [profileData, ratingData] = await Promise.all([
+    const [profileResult, ratingResult] = await Promise.allSettled([
       driverApi.profile.getMe(),
       session?.userId
         ? driverApi.ratings.getSummary(session.userId)
         : Promise.resolve(null),
     ]);
-    const nextProfile = cast<ProfileResponse>(profileData);
+    if (profileResult.status !== 'fulfilled') {
+      throw profileResult.reason instanceof Error
+        ? profileResult.reason
+        : new Error('Failed to load profile.');
+    }
+    const nextProfile = cast<ProfileResponse>(profileResult.value);
+    const nextProfileData = nextProfile.profile ?? null;
     setProfile(nextProfile);
     setProfileForm({
       name: String(nextProfile.name ?? ''),
       phone: String(nextProfile.phone ?? ''),
-      licenceNumber: String((nextProfile as any).profile?.licenceNumber ?? ''),
-      vehicleType: String((nextProfile as any).profile?.vehicleType ?? ''),
-      vehicleRegistration: String(
-        (nextProfile as any).profile?.vehicleRegistration ?? '',
-      ),
+      licenceNumber: String(nextProfileData?.licenceNumber ?? ''),
+      vehicleType: String(nextProfileData?.vehicleType ?? ''),
+      vehicleRegistration: String(nextProfileData?.vehicleRegistration ?? ''),
+      companyName: String(nextProfileData?.companyName ?? ''),
+      companyAddress: String(nextProfileData?.companyAddress ?? ''),
+      coverageArea: String(nextProfileData?.coverageArea ?? ''),
     });
-    setRatings(ratingData ? cast<RatingSummary>(ratingData) : null);
-  }, [session?.userId]);
+    setRatings(ratingResult.status === 'fulfilled' && ratingResult.value ? cast<RatingSummary>(ratingResult.value) : null);
+  }, [loadNotifications, session?.userId]);
 
   const loadMyQuotes = useCallback(async () => {
     const quotesData = await driverApi.quotes.listMine();
@@ -425,15 +626,42 @@ function DriverApp(): React.JSX.Element {
           const avail = cast<AvailabilityResponse>(
             await driverApi.availability.getMine(),
           );
+          const dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+          const slots = Array.isArray(avail.slots) ? avail.slots : [];
+          const blocks = Array.isArray(avail.blocks) ? avail.blocks : [];
+          const firstSlot = slots[0] ?? avail.timeSlots?.[0] ?? {};
+          const derivedDays = slots
+            .map(slot => {
+              const rawDay = Number(
+                (slot as {day_of_week?: unknown; dayOfWeek?: unknown}).day_of_week ??
+                  (slot as {day_of_week?: unknown; dayOfWeek?: unknown}).dayOfWeek,
+              );
+              return dayKeys[rawDay];
+            })
+            .filter((day): day is string => Boolean(day));
           setAvailability(avail);
           setAvailabilityForm({
             availableDays: avail.availableDays?.length
               ? avail.availableDays
-              : ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
-            endTime: String(avail.timeSlots?.[0]?.endTime ?? '18:00'),
-            isAvailable: avail.isAvailable ?? true,
-            reason: String(avail.reason ?? ''),
-            startTime: String(avail.timeSlots?.[0]?.startTime ?? '08:00'),
+              : derivedDays.length
+                ? derivedDays
+                : ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
+            endTime: String(
+              (firstSlot as {end_time?: unknown; endTime?: unknown}).end_time ??
+                (firstSlot as {end_time?: unknown; endTime?: unknown}).endTime ??
+                '18:00',
+            ),
+            isAvailable: avail.isAvailable ?? blocks.length === 0,
+            reason: String(
+              avail.reason ??
+                (blocks[0] as {reason?: unknown})?.reason ??
+                '',
+            ),
+            startTime: String(
+              (firstSlot as {start_time?: unknown; startTime?: unknown}).start_time ??
+                (firstSlot as {start_time?: unknown; startTime?: unknown}).startTime ??
+                '08:00',
+            ),
             timezone: avail.timezone ?? 'Asia/Kolkata',
           });
           break;
@@ -460,10 +688,7 @@ function DriverApp(): React.JSX.Element {
         case 'invoices.detail':
           break;
         case 'notifications.all': {
-          const nd = await driverApi.notifications.list({limit: 30, page: 1});
-          setNotifications(
-            ((nd.notifications ?? []) as NotificationSummary[]) || [],
-          );
+          await loadNotifications();
           break;
         }
         case 'ratings.received':
@@ -527,6 +752,7 @@ function DriverApp(): React.JSX.Element {
       dashboard?.activeJob?.jobId,
       loadMyQuotes,
       loadProfile,
+      loadNotifications,
       session?.userId,
     ],
   );
@@ -589,6 +815,31 @@ function DriverApp(): React.JSX.Element {
 
   useEffect(() => {
     setApiAccessToken(session?.accessToken ?? null);
+    setApiSessionRefresher(async () => {
+      if (!session?.refreshToken) {
+        return null;
+      }
+      try {
+        setApiAccessToken(null);
+        const refreshed = await driverApi.auth.refreshToken(session.refreshToken);
+        const nextSession: DriverSession = {
+          ...session,
+          accessToken: refreshed.accessToken,
+          ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+        };
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+        setSession(nextSession);
+        return {
+          accessToken: nextSession.accessToken,
+          refreshToken: nextSession.refreshToken,
+        };
+      } catch {
+        return null;
+      }
+    });
+    return () => {
+      setApiSessionRefresher(null);
+    };
   }, [session]);
 
   // Restore persisted session on first mount
@@ -636,6 +887,90 @@ function DriverApp(): React.JSX.Element {
   }, [refreshActiveView, session]);
 
   useEffect(() => {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (cancelled) {
+        return;
+      }
+      socket = new WebSocket(driverApi.notifications.websocketUrl(session.accessToken));
+      socket.onopen = () => {
+        socket?.send('ping');
+      };
+      socket.onmessage = event => {
+        try {
+          const payload = JSON.parse(String(event.data ?? '{}')) as Record<string, unknown>;
+          if (payload.event !== 'notification') {
+            return;
+          }
+          const nextItem = normalizeNotificationItem({
+            notificationId: payload.id ?? '',
+            type: payload.type,
+            title: payload.title,
+            message: payload.body,
+            data: payload.data,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          if (!nextItem.notificationId) {
+            return;
+          }
+          setNotifications(current => {
+            if (current.some(item => item.notificationId === nextItem.notificationId)) {
+              return current;
+            }
+            return [nextItem, ...current];
+          });
+          setNotificationUnreadCount(count => count + 1);
+          if (activeRoute === 'notifications.all') {
+            loadNotifications().catch(() => undefined);
+          }
+        } catch {
+          /* ignore malformed events */
+        }
+      };
+      socket.onerror = () => {
+        socket?.close();
+      };
+      socket.onclose = () => {
+        if (cancelled) {
+          return;
+        }
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      socket?.close();
+    };
+  }, [activeRoute, loadNotifications, session?.accessToken]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      activeRoute !== 'tracking.active'
+    ) {
+      return;
+    }
+    const interval = setInterval(() => {
+      refreshActiveView().catch(() => undefined);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeRoute, refreshActiveView, session]);
+
+  useEffect(() => {
     if (selectedJob?.jobId) {
       driverApi.jobs
         .getDetails(String(selectedJob.jobId))
@@ -649,22 +984,56 @@ function DriverApp(): React.JSX.Element {
     }
   }, [selectedJob]);
 
-  useEffect(() => {
-    if (!session) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (activeRoute === 'home' && activeTab === 'home') {
-        Alert.alert('Exit App', 'Are you sure you want to exit FreightFlex?', [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
-        ]);
-        return true;
+  const goBackOneStep = useCallback(() => {
+    if (quoteStatusData) {
+      setQuoteStatusData(null);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      return true;
+    }
+
+    if (selectedJob) {
+      const previous = navHistoryRef.current.pop();
+      setSelectedJob(null);
+      setSelectedJobDetails(null);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      if (previous) {
+        setActiveTab(previous.tab);
+        setActiveRoute(previous.route);
       }
+      return true;
+    }
+
+    const previous = navHistoryRef.current.pop();
+    if (previous) {
+      setActiveTab(previous.tab);
+      setActiveRoute(previous.route);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      return true;
+    }
+
+    if (activeRoute === 'home' && activeTab === 'home') {
+      Alert.alert('Exit App', 'Are you sure you want to exit FreightFlex?', [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
+      ]);
+    } else {
       setActiveRoute('home');
       setActiveTab('home');
-      return true;
-    });
+      setSuccessBanner(null);
+      setErrorBanner(null);
+    }
+
+    return true;
+  }, [activeRoute, activeTab, quoteStatusData, selectedJob]);
+
+  useEffect(() => {
+    if (!session) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBackOneStep);
     return () => sub.remove();
-  }, [session, activeRoute, activeTab]);
+  }, [session, goBackOneStep]);
 
   // ─── Action helpers ───────────────────────────────────────────────────────────
 
@@ -682,10 +1051,17 @@ function DriverApp(): React.JSX.Element {
   };
 
   const navigate = (tab: DriverTabKey, route: DrawerRouteKey) => {
+    if (activeTab !== tab || activeRoute !== route) {
+      navHistoryRef.current.push({tab: activeTab, route: activeRoute});
+    }
     setActiveTab(tab);
     setActiveRoute(route);
     setSuccessBanner(null);
     setErrorBanner(null);
+    if (tab !== 'jobs' || route !== 'jobs.available') {
+      setSelectedJob(null);
+      setSelectedJobDetails(null);
+    }
   };
 
   // ─── Auth handlers ────────────────────────────────────────────────────────────
@@ -703,6 +1079,7 @@ function DriverApp(): React.JSX.Element {
         setSetupStep('profile');
       } else {
         setSetupStep(null);
+        navHistoryRef.current = [];
         setActiveTab('home');
         setActiveRoute('home');
       }
@@ -751,13 +1128,6 @@ function DriverApp(): React.JSX.Element {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const finishSetup = () => {
-    setSetupStep(null);
-    setErrorBanner(null);
-    setActiveTab('home');
-    setActiveRoute('home');
   };
 
   const handleRegister = async () => {
@@ -861,9 +1231,12 @@ function DriverApp(): React.JSX.Element {
       /* ignore */
     } finally {
       AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+      navHistoryRef.current = [];
       setSession(null);
       setApiAccessToken(null);
       setSetupStep(null);
+      setNotifications([]);
+      setNotificationUnreadCount(0);
       setAuthMode('login');
       setSuccessBanner(null);
       setErrorBanner(null);
@@ -885,7 +1258,7 @@ function DriverApp(): React.JSX.Element {
       );
       setSelectedJob(null);
       setSelectedJobDetails(null);
-      setActiveRoute('jobs.myQuotes');
+      navigate('jobs', 'jobs.myQuotes');
       await loadMyQuotes();
     });
   };
@@ -903,8 +1276,13 @@ function DriverApp(): React.JSX.Element {
   const resolveComplianceRoute = async (jobId: string): Promise<'compliance.loadCode' | 'compliance.handover' | 'tracking.active'> => {
     try {
       const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
-      if (compliance?.step1_handover_completed) return 'tracking.active';
-      if (compliance?.load_code_verified) return 'compliance.handover';
+      const route = normalizeComplianceStep(compliance, {
+        jobId,
+        jobReference: String(compliance?.job_ref ?? compliance?.jobReference ?? ''),
+      } as DashboardOverview['activeJob']);
+      if (route === 'tracking.active' || route === 'compliance.handover' || route === 'compliance.loadCode') {
+        return route;
+      }
     } catch {
       /* fall through */
     }
@@ -1033,7 +1411,39 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      await driverApi.compliance.submitDeliveryProof({jobId, ...proofData});
+      const photoItems = Array.isArray(photos) ? photos : [];
+      const deliveryPhotoUrl =
+        String(
+          photoItems.find((item: any) => item?.type === 'delivery')?.uri ??
+            photoItems[0]?.uri ??
+            '',
+        ) || undefined;
+      const recipientSignatureUrl =
+        typeof proofData?.recipientSignature === 'string'
+          ? proofData.recipientSignature
+          : JSON.stringify(proofData?.recipientSignature ?? []);
+      const payload = {
+        jobId,
+        deliveryPhotoUrl,
+        recipientSignatureUrl,
+        recipientName: proofData?.receiverName ?? proofData?.recipientName ?? '',
+        deliveryNotes: proofData?.notes ?? proofData?.deliveryNotes ?? '',
+      };
+
+      try {
+        await driverApi.compliance.submitDeliveryProof(payload);
+      } catch (err) {
+        const message = err instanceof Error ? err.message.toLowerCase() : '';
+        if (message.includes('not authenticated') || message.includes('unauthorized')) {
+          const refreshed = await ensureAuthenticated();
+          if (!refreshed) {
+            throw err;
+          }
+          await driverApi.compliance.submitDeliveryProof(payload);
+        } else {
+          throw err;
+        }
+      }
       setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
       setPaymentReleasedData({
         jobReference: dashboard?.activeJob?.jobReference ?? jobId,
@@ -1183,19 +1593,13 @@ function DriverApp(): React.JSX.Element {
     });
   };
 
-  const handleAvailabilityToggle = async () => {
-    await runAction(async () => {
-      await driverApi.availability.toggle({
-        isAvailable: availabilityForm.isAvailable,
-        reason: availabilityForm.reason,
-      });
-      setSuccessBanner(
-        availabilityForm.isAvailable
-          ? 'Marked as available.'
-          : 'Marked as unavailable.',
-      );
-      await loadDrawerRoute('availability.toggle');
-    });
+  const handleAvailabilityToggle = () => {
+    const nextIsAvailable = !availabilityForm.isAvailable;
+    setAvailabilityForm(c => ({
+      ...c,
+      isAvailable: nextIsAvailable,
+      reason: nextIsAvailable ? '' : c.reason,
+    }));
   };
 
   // ─── Ratings ──────────────────────────────────────────────────────────────────
@@ -1218,11 +1622,64 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       await driverApi.notifications.markAllRead();
       setSuccessBanner('All marked as read.');
-      await loadDrawerRoute('notifications.all');
+      setNotifications(current =>
+        current.map(item => ({...item, isRead: true, readAt: item.readAt ?? new Date().toISOString()})),
+      );
+      setNotificationUnreadCount(0);
+      await loadNotifications();
+    });
+  };
+
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    if (!notificationId) {
+      return;
+    }
+    await runAction(async () => {
+      await driverApi.notifications.markRead(notificationId);
+      setNotifications(current =>
+        current.map(item =>
+          item.notificationId === notificationId
+            ? {...item, isRead: true, readAt: item.readAt ?? new Date().toISOString()}
+            : item,
+        ),
+      );
+      setNotificationUnreadCount(count => Math.max(0, count - 1));
+      await loadNotifications();
     });
   };
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+  const openNotificationDestination = (notification: NotificationSummary) => {
+    const type = String(notification.type ?? '').toUpperCase();
+    const data = notification.data ?? {};
+    const hasJobId = Boolean(data.job_id ?? data.jobId);
+
+    if (type.includes('QUOTE') || type.includes('JOB_BOOKED')) {
+      navigate('jobs', 'jobs.myQuotes');
+      return;
+    }
+
+    if (type.includes('PAYMENT_RELEASED')) {
+      navigate('profile', 'earnings.history');
+      return;
+    }
+
+    if (type.includes('COMPLIANCE') || type.includes('TRACKING') || hasJobId) {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+
+    navigate('profile', 'notifications.all');
+  };
+
+  const handleOpenNotification = async (notification: NotificationSummary) => {
+    const id = String(notification.notificationId ?? '');
+    if (id) {
+      await handleMarkNotificationRead(id);
+    }
+    openNotificationDestination(notification);
+  };
 
   const toggleAvailabilityDay = (day: string) => {
     setAvailabilityForm(c => {
@@ -1268,20 +1725,16 @@ function DriverApp(): React.JSX.Element {
   };
 
   const onSelectDrawerRoute = (route: DrawerRouteKey) => {
-    setActiveRoute(route);
     setSuccessBanner(null);
     setErrorBanner(null);
     if (route === 'home') {
-      setActiveTab('home');
+      navigate('home', 'home');
     } else if (route.startsWith('jobs.')) {
-      setActiveTab('jobs');
-    } else if (
-      route.startsWith('tracking.') ||
-      route.startsWith('compliance.')
-    ) {
-      setActiveTab('tracking');
+      navigate('jobs', route);
+    } else if (route.startsWith('tracking.') || route.startsWith('compliance.')) {
+      navigate('tracking', route);
     } else if (route.startsWith('profile.')) {
-      setActiveTab('profile');
+      navigate('profile', route);
     }
   };
 
@@ -1320,16 +1773,11 @@ function DriverApp(): React.JSX.Element {
     // Check compliance progress so the driver resumes from the correct step
     try {
       const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
-      if (compliance?.step1_handover_completed) {
-        // Handover done — driver is on their way
-        navigate('tracking', 'tracking.active');
-      } else if (compliance?.load_code_verified) {
-        // Load code done — resume at handover
-        navigate('tracking', 'compliance.handover');
-      } else {
-        // Nothing verified yet — start at load code
-        navigate('tracking', 'compliance.loadCode');
-      }
+      const route = normalizeComplianceStep(
+        compliance,
+        {jobId, jobReference: String(compliance?.job_ref ?? compliance?.jobReference ?? '')} as DashboardOverview['activeJob'],
+      );
+      navigate('tracking', route);
     } catch {
       navigate('tracking', 'compliance.loadCode');
     }
@@ -1537,6 +1985,7 @@ function DriverApp(): React.JSX.Element {
             setRefreshing(false);
           }}
           onViewJob={(job: any) => {
+            navHistoryRef.current.push({tab: activeTab, route: activeRoute});
             setSelectedJob(job);
             setActiveTab('jobs');
             setActiveRoute('jobs.available');
@@ -1564,7 +2013,6 @@ function DriverApp(): React.JSX.Element {
           }
           onVerify={handleVerifyLoadCode}
           onOpenScanner={() => navigate('tracking', 'compliance.scanner')}
-          onBack={goBackFromLoadCode}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -1577,7 +2025,6 @@ function DriverApp(): React.JSX.Element {
           jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
           jobReference={dashboard?.activeJob?.jobReference ?? ''}
           onSubmit={handleSubmitHandover}
-          onBack={goBackFromHandover}
           loading={actionLoading}
           error={errorBanner}
           haulierSigned={handoverStatus?.haulierSigned ?? false}
@@ -1592,7 +2039,6 @@ function DriverApp(): React.JSX.Element {
           jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
           jobReference={dashboard?.activeJob?.jobReference ?? ''}
           onSubmit={handleSubmitDelivery}
-          onBack={goBackFromDelivery}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -1619,6 +2065,7 @@ function DriverApp(): React.JSX.Element {
         <LiveTrackingScreen
           activeJob={dashboard?.activeJob}
           trackingEta={trackingEta}
+          trackingLiveLocation={trackingLiveLocation}
           complianceStatus={complianceStatus}
           onUpdateLocation={handleUpdateLocation}
           onStopTracking={handleStopTracking}
@@ -1744,11 +2191,11 @@ function DriverApp(): React.JSX.Element {
             }}
             onFindJobs={() => {
               setQuoteStatusData(null);
-              setActiveRoute('jobs.available');
+              navigate('jobs', 'jobs.available');
             }}
             onDismiss={() => {
               setQuoteStatusData(null);
-              setActiveRoute('jobs.myQuotes');
+              navigate('jobs', 'jobs.myQuotes');
             }}
           />
         );
@@ -1784,6 +2231,7 @@ function DriverApp(): React.JSX.Element {
             }}
             onDone={() => {
               setPaymentReleasedData(null);
+              navHistoryRef.current = [];
               navigate('home', 'home');
             }}
           />
@@ -1803,7 +2251,18 @@ function DriverApp(): React.JSX.Element {
             setSelectedJob(job);
             setSelectedJobDetails(job);
           }}
-          onGoToDocuments={() => navigate('profile', 'documents.upload')}
+          onGoToDocuments={async () => {
+            await Promise.all([
+              loadProfile(),
+              driverApi.documents.getStatus().then(status => {
+                setVerificationStatus(cast<Record<string, unknown>>(status));
+              }).catch(() => undefined),
+              driverApi.documents.list().then(d => {
+                setDocuments(mapDocumentItems(d as Record<string, unknown>));
+              }).catch(() => undefined),
+            ]);
+            navigate('profile', 'documents.upload');
+          }}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
@@ -1815,7 +2274,7 @@ function DriverApp(): React.JSX.Element {
     }
 
     // ── PROFILE TAB ────────────────────────────────────────────────────────────
-    if (activeTab === 'profile' && activeRoute === 'profile.edit') {
+    if (activeTab === 'profile' && (activeRoute === 'profile.edit' || activeRoute === 'documents.upload')) {
       return (
         <ProfileScreen
           profile={profile}
@@ -1823,6 +2282,7 @@ function DriverApp(): React.JSX.Element {
           profileForm={profileForm}
           documents={documents}
           verificationStatus={verificationStatus}
+          focusDocuments={activeRoute === 'documents.upload'}
           onChange={patch => setProfileForm(c => ({...c, ...patch}))}
           onSave={handleProfileSave}
           onLogout={handleLogout}
@@ -1871,19 +2331,37 @@ function DriverApp(): React.JSX.Element {
         );
       case 'documents.upload':
         return (
-          <DocumentVerificationScreen
+          <ProfileScreen
+            profile={profile}
+            session={session}
+            profileForm={profileForm}
             documents={documents}
             verificationStatus={verificationStatus}
+            focusDocuments
+            onChange={patch => setProfileForm(c => ({...c, ...patch}))}
+            onSave={handleProfileSave}
+            onLogout={handleLogout}
+            onSettings={() => navigate('profile', 'profile.settings')}
+            onAddVehicle={async (vehicleType, vehicleRegistration) => {
+              setProfileForm(c => ({...c, vehicleType, vehicleRegistration}));
+              await driverApi.profile.update({vehicleType, vehicleRegistration});
+              await loadProfile();
+            }}
+            loading={actionLoading}
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
-              await loadDrawerRoute('documents.upload');
+              await Promise.all([
+                loadProfile(),
+                driverApi.documents.getStatus().then(status => {
+                  setVerificationStatus(cast<Record<string, unknown>>(status));
+                }).catch(() => undefined),
+                driverApi.documents.list().then(d => {
+                  setDocuments(mapDocumentItems(d as Record<string, unknown>));
+                }).catch(() => undefined),
+              ]);
               setRefreshing(false);
             }}
-            onUpload={handleDocumentUpload}
-            uploadLoading={actionLoading}
-            uploadError={errorBanner}
-            startInUploadMode
           />
         );
       case 'earnings.history':
@@ -1962,7 +2440,16 @@ function DriverApp(): React.JSX.Element {
         return (
           <NotificationsScreen
             notifications={notifications}
+            unreadCount={notificationUnreadCount}
+            refreshing={refreshing}
             onMarkAllRead={handleMarkAllNotificationsRead}
+            onMarkRead={handleMarkNotificationRead}
+            onOpenNotification={handleOpenNotification}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadNotifications();
+              setRefreshing(false);
+            }}
           />
         );
       case 'ratings.received':
@@ -2007,7 +2494,6 @@ function DriverApp(): React.JSX.Element {
             passwordForm={passwordForm}
             onChange={patch => setPasswordForm(c => ({...c, ...patch}))}
             onSave={handlePasswordChange}
-            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
           />
         );
@@ -2017,7 +2503,6 @@ function DriverApp(): React.JSX.Element {
             notificationPrefs={notificationPrefs}
             onToggle={updateNotificationPreference}
             onSave={handleNotificationPreferencesSave}
-            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
           />
         );
@@ -2050,7 +2535,6 @@ function DriverApp(): React.JSX.Element {
                 ],
               );
             }}
-            onBack={() => navigate('profile', 'profile.edit')}
           />
         );
       case 'availability.set':
@@ -2062,7 +2546,6 @@ function DriverApp(): React.JSX.Element {
             onChangeForm={patch => setAvailabilityForm(c => ({...c, ...patch}))}
             onSave={handleAvailabilitySave}
             onToggleAvailability={handleAvailabilityToggle}
-            onBack={() => navigate('profile', 'profile.settings')}
             loading={actionLoading}
           />
         );
@@ -2080,9 +2563,9 @@ function DriverApp(): React.JSX.Element {
           />
         );
       case 'legal.terms':
-        return <TermsAndConditionsScreen onBack={() => navigate('profile', 'profile.settings')} />;
+        return <TermsAndConditionsScreen />;
       case 'legal.privacy':
-        return <PrivacyPolicyScreen onBack={() => navigate('profile', 'profile.settings')} />;
+        return <PrivacyPolicyScreen />;
       default:
         return <EmptyState title="Open the drawer to navigate." />;
     }
@@ -2092,7 +2575,7 @@ function DriverApp(): React.JSX.Element {
 
   // Show blank nav-colour screen while restoring session from storage
   if (initializing) {
-    return <SafeAreaView style={{flex: 1, backgroundColor: palette.nav}} />;
+    return <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}} />;
   }
 
   if (showSplash) {
@@ -2121,8 +2604,8 @@ function DriverApp(): React.JSX.Element {
     return (
       <SafeAreaView style={styles.authShell}>
         <StatusBar
-          barStyle={authMode === 'login' ? 'light-content' : 'dark-content'}
-          backgroundColor={authMode === 'login' ? palette.nav : '#F4F7FB'}
+          barStyle="dark-content"
+          backgroundColor="#FFFFFF"
         />
         {authMode === 'login' ? (
           <LoginScreen
@@ -2187,12 +2670,11 @@ function DriverApp(): React.JSX.Element {
 
   if (session && setupStep === 'profile') {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#F4F7FB'}}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
+      <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <ProfileSetupScreen
           email={session.email}
           onComplete={handleProfileSetup}
-          onSkip={finishSetup}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -2202,14 +2684,39 @@ function DriverApp(): React.JSX.Element {
 
   if (session && setupStep === 'documents') {
     return (
-      <SafeAreaView style={{flex: 1, backgroundColor: '#F4F7FB'}}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F4F7FB" />
-        <DocumentUploadStepScreen
+      <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <ProfileScreen
+          profile={profile}
+          session={session}
+          profileForm={profileForm}
           documents={documents}
-          onUpload={handleDocumentUpload}
-          uploadLoading={actionLoading}
-          uploadError={errorBanner}
-          onSkip={finishSetup}
+          verificationStatus={verificationStatus}
+          focusDocuments
+          onChange={patch => setProfileForm(c => ({...c, ...patch}))}
+          onSave={handleProfileSave}
+          onLogout={handleLogout}
+          onSettings={() => navigate('profile', 'profile.settings')}
+          onAddVehicle={async (vehicleType, vehicleRegistration) => {
+            setProfileForm(c => ({...c, vehicleType, vehicleRegistration}));
+            await driverApi.profile.update({vehicleType, vehicleRegistration});
+            await loadProfile();
+          }}
+          loading={actionLoading}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await Promise.all([
+              loadProfile(),
+              driverApi.documents.getStatus().then(status => {
+                setVerificationStatus(cast<Record<string, unknown>>(status));
+              }).catch(() => undefined),
+              driverApi.documents.list().then(d => {
+                setDocuments(mapDocumentItems(d as Record<string, unknown>));
+              }).catch(() => undefined),
+            ]);
+            setRefreshing(false);
+          }}
         />
       </SafeAreaView>
     );
@@ -2226,6 +2733,18 @@ function DriverApp(): React.JSX.Element {
     activeRoute === 'jobs.upcoming' ||
     activeRoute === 'jobs.history' ||
     activeRoute === 'jobs.booking' ||
+    activeRoute === 'profile.settings' ||
+    activeRoute === 'profile.password' ||
+    activeRoute === 'profile.preferences' ||
+    activeRoute === 'availability.set' ||
+    activeRoute === 'legal.terms' ||
+    activeRoute === 'legal.privacy' ||
+    activeRoute === 'tracking.active' ||
+    activeRoute === 'tracking.incident' ||
+    activeRoute === 'compliance.loadCode' ||
+    activeRoute === 'compliance.scanner' ||
+    activeRoute === 'compliance.handover' ||
+    activeRoute === 'compliance.delivery' ||
     (activeRoute as string) === 'payments.released' ||
     activeRoute === 'home' ||
     !!quoteStatusData ||
@@ -2234,30 +2753,26 @@ function DriverApp(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={palette.nav} />
+      <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => {
-            if (activeRoute === 'home' && activeTab === 'home') {
-              Alert.alert('Exit App', 'Are you sure you want to exit FreightFlex?', [
-                {text: 'Cancel', style: 'cancel'},
-                {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
-              ]);
-            } else {
-              setActiveRoute('home');
-              setActiveTab('home');
-            }
-          }}
-          style={styles.headerBack}
-          hitSlop={8}>
-          <Text style={styles.headerBackText}>←</Text>
-        </Pressable>
+        {activeRoute !== 'home' ? (
+          <Pressable
+            onPress={goBackOneStep}
+            style={styles.headerBack}
+            hitSlop={8}>
+            <Text style={styles.headerBackText}>←</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerBackSpacer} />
+        )}
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>
             {activeRoute.startsWith('compliance.')
               ? 'Compliance'
+              : activeRoute === 'notifications.all'
+              ? 'Notifications'
               : activeRoute === 'tracking.incident'
               ? 'Incident Report'
               : bottomTabs.find(t => t.key === activeTab)?.label ?? 'Driver'}
@@ -2267,9 +2782,19 @@ function DriverApp(): React.JSX.Element {
           </Text>
         </View>
         <Pressable
-          onPress={() => refreshActiveView().catch(() => undefined)}
-          style={styles.headerRefresh}>
-          <Text style={styles.headerRefreshText}>↻</Text>
+          onPress={() => navigate('profile', 'notifications.all')}
+          style={styles.headerBell}>
+          <Image
+            source={require('./assets/screens/notification-bell.png')}
+            style={styles.headerBellImage}
+          />
+          {notificationUnreadCount > 0 ? (
+            <View style={styles.headerBellBadge}>
+              <Text style={styles.headerBellBadgeText}>
+                {notificationUnreadCount > 99 ? '99+' : String(notificationUnreadCount)}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
@@ -2308,7 +2833,7 @@ function DriverApp(): React.JSX.Element {
               <Pressable
                 key={route}
                 onPress={() => {
-                  setActiveRoute(route);
+                  navigate('jobs', route);
                   if (route !== 'jobs.available') {
                     loadDrawerRoute(route).catch(() => undefined);
                   }
@@ -2350,19 +2875,16 @@ function DriverApp(): React.JSX.Element {
           <Pressable
             key={tab.key}
             onPress={() => {
-              setActiveTab(tab.key);
-              setSelectedJob(null);
-              setSelectedJobDetails(null);
               if (tab.key === 'home') {
-                setActiveRoute('home');
+                navigate('home', 'home');
               } else if (tab.key === 'jobs') {
-                setActiveRoute('jobs.upcoming');
+                navigate('jobs', 'jobs.upcoming');
                 loadJobs().catch(() => undefined);
               } else if (tab.key === 'tracking') {
-                setActiveRoute('tracking.active');
+                navigate('tracking', 'tracking.active');
                 loadTracking().catch(() => undefined);
               } else if (tab.key === 'profile') {
-                setActiveRoute('profile.edit');
+                navigate('profile', 'profile.edit');
                 loadProfile().catch(() => undefined);
                 driverApi.documents.getStatus().then(status => {
                   setVerificationStatus(cast<Record<string, unknown>>(status));
@@ -2405,7 +2927,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 24,
   },
-  authShell: {backgroundColor: palette.nav, flex: 1, justifyContent: 'center'},
+  authShell: {backgroundColor: palette.bg, flex: 1, justifyContent: 'center'},
   authSwitchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2450,7 +2972,7 @@ const styles = StyleSheet.create({
   },
   bannerText: {color: palette.ink, fontSize: 13, fontWeight: '700'},
   bottomTabBar: {
-    backgroundColor: palette.nav,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     height: 70,
     paddingBottom: 10,
@@ -2460,16 +2982,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: -4},
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 20,
+    shadowOffset: {width: 0, height: -2},
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
   },
   bottomTabButton: {alignItems: 'center', flex: 1, justifyContent: 'center'},
   bottomTabIcon: {fontSize: 20},
   bottomTabLabel: {
-    color: '#8A94A0',
+    color: '#334155',
     fontSize: 10,
     fontWeight: '800',
     marginTop: 4,
@@ -2502,7 +3026,9 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: palette.nav,
+    backgroundColor: palette.card,
+    borderBottomColor: palette.border,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -2513,21 +3039,47 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     width: 36,
   },
+  headerBackSpacer: {
+    width: 36,
+  },
   headerBackText: {
-    color: palette.card,
+    color: palette.nav,
     fontSize: 22,
     fontWeight: '700',
   },
-  headerRefresh: {
-    backgroundColor: palette.accent,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  headerBell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    minHeight: 24,
+    minWidth: 24,
+    position: 'relative',
   },
-  headerRefreshText: {color: palette.nav, fontSize: 12, fontWeight: '900'},
-  headerSubtitle: {color: '#C4CDD6', fontSize: 12, marginTop: 2},
+  headerBellImage: {
+    height: 20,
+    tintColor: '#667085',
+    width: 20,
+  },
+  headerBellBadge: {
+    alignItems: 'center',
+    backgroundColor: palette.danger,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    right: -6,
+    top: -6,
+  },
+  headerBellBadgeText: {
+    color: palette.card,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  headerSubtitle: {color: palette.inkSoft, fontSize: 12, marginTop: 2},
   headerTextWrap: {flex: 1, paddingRight: 8},
-  headerTitle: {color: palette.card, fontSize: 18, fontWeight: '900'},
+  headerTitle: {color: palette.nav, fontSize: 18, fontWeight: '900'},
   input: {
     backgroundColor: '#FAF8F3',
     borderColor: palette.border,

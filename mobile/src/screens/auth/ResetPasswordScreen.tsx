@@ -87,7 +87,6 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
             <Text style={styles.iconText}>🔒</Text>
           </View>
 
-          <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>
             Enter the 6-digit code sent to{' '}
             <Text style={styles.emailHighlight}>{email}</Text>
@@ -181,7 +180,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
   backBtn: {
     paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
   },

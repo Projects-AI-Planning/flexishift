@@ -37,7 +37,6 @@ const RatingsListScreen: React.FC<RatingsListScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Rate Haulier</Text>
         <Text style={styles.orderText}>Order #TR-9422</Text>
       </View>
 

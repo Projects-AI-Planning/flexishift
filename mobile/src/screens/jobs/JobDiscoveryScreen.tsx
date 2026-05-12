@@ -123,9 +123,9 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
               <Text style={styles.applyBtnText}>Apply Now</Text>
             </Pressable>
           ) : (
-            <View style={[styles.applyBtn, styles.applyBtnLocked]}>
+            <Pressable onPress={onGoToDocuments} style={[styles.applyBtn, styles.applyBtnLocked]}>
               <Text style={styles.applyBtnLockedText}>🔒  Pending Approval</Text>
-            </View>
+            </Pressable>
           )}
           <Pressable onPress={() => onSelectJob(item)} style={styles.detailsBtn}>
             <Text style={styles.detailsBtnText}>Details</Text>
@@ -138,7 +138,6 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Available Jobs</Text>
         <View style={styles.searchBar}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
@@ -165,6 +164,9 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
               Admin is reviewing your documents. You can browse jobs now — Apply will unlock once approved.
             </Text>
           </View>
+          <Pressable onPress={onGoToDocuments} style={styles.docBannerBtn}>
+            <Text style={styles.docBannerBtnText}>View</Text>
+          </Pressable>
         </View>
       )}
 

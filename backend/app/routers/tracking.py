@@ -100,22 +100,24 @@ def get_live_location(
         .order_by(TrackingPoint.recorded_at.desc())
         .first()
     )
-    if not last:
-        raise HTTPException(status_code=404, detail="No tracking data yet")
+    current_lat = float(last.lat) if last else float(job.pickup_lat)
+    current_lng = float(last.lng) if last else float(job.pickup_lng)
+    last_updated = last.recorded_at.isoformat() if last else (job.updated_at.isoformat() if job.updated_at else None)
+    tracking_id = last.id if last else None
 
     supplier = db.get(User, job.selected_supplier_id) if job.selected_supplier_id else None
     return ok(
         data={
-            "trackingId": last.id,
+            "trackingId": tracking_id,
             "jobId": job_id,
             "jobReference": job.job_ref,
             "driver": _driver_snippet(supplier),
             "currentLocation": {
-                "latitude": float(last.lat),
-                "longitude": float(last.lng),
+                "latitude": current_lat,
+                "longitude": current_lng,
             },
             "status": "active",
-            "lastUpdatedAt": last.recorded_at.isoformat() if last.recorded_at else None,
+            "lastUpdatedAt": last_updated,
         },
         message="Live location fetched successfully.",
     )
@@ -192,6 +194,8 @@ async def flat_job_eta(
         .order_by(TrackingPoint.recorded_at.desc())
         .first()
     )
+    origin_lat = float(last.lat) if last else float(job.pickup_lat)
+    origin_lng = float(last.lng) if last else float(job.pickup_lng)
 
     return ok(
         data={
@@ -203,9 +207,9 @@ async def flat_job_eta(
                 "longitude": float(job.drop_lng) if job.drop_lng else None,
             },
             "currentLocation": {
-                "latitude": float(last.lat) if last else None,
-                "longitude": float(last.lng) if last else None,
-            } if last else None,
+                "latitude": origin_lat,
+                "longitude": origin_lng,
+            },
             "originalETA": job.original_eta.isoformat() if job.original_eta else None,
             "lastCalculatedAt": datetime.now(timezone.utc).isoformat(),
             **eta_data,

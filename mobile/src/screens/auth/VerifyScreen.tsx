@@ -78,7 +78,6 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
           <View style={styles.iconDot} />
         </View>
 
-        <Text style={styles.title}>Verify Email</Text>
         <Text style={styles.subtitle}>
           {'We\'ve sent a 6-digit code to your email '}
           <Text style={styles.emailHighlight}>{verifyForm.email}</Text>
@@ -143,7 +142,7 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   flex: {flex: 1},
   scrollContent: {paddingBottom: 40},
   backBtn: {

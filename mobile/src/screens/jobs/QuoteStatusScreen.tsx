@@ -224,7 +224,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   content: {padding: spacing.xl, paddingBottom: 48, alignItems: 'stretch'},
 
   // Icon

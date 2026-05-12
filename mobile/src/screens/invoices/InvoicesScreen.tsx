@@ -24,7 +24,6 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Invoices</Text>
           <Text style={styles.subtitle}>
             Track every completed trip invoice
           </Text>

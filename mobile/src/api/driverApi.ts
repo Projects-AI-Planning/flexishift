@@ -34,6 +34,7 @@ export const driverApi = {
     logout: (refreshToken: string) =>
       request<null>('/auth/logout', {
         method: 'POST',
+        skipAuthRefresh: true,
         body: jsonBody({refreshToken}),
       }),
     refreshToken: (refreshToken: string) =>
@@ -41,6 +42,7 @@ export const driverApi = {
         '/auth/refresh-token',
         {
           method: 'POST',
+          skipAuthRefresh: true,
           body: jsonBody({refreshToken}),
         },
       ),
@@ -316,6 +318,8 @@ export const driverApi = {
   tracking: {
     getEta: (jobId: string) =>
       request<Record<string, unknown>>(`/tracking/eta/${jobId}`),
+    getLive: (jobId: string) =>
+      request<Record<string, unknown>>(`/tracking/live/${jobId}`),
     start: (jobId: string, payload: Record<string, unknown>) =>
       request<Record<string, unknown>>(`/tracking/start/${jobId}`, {
         method: 'POST',

@@ -1,13 +1,15 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
+  GestureResponderEvent,
+  PanResponder,
+  PanResponderGestureState,
   Pressable,
   SafeAreaView,
-  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import Card from '../../components/common/Card';
 import {colors, radius, shadow, spacing} from '../../theme';
@@ -16,45 +18,111 @@ interface DeliveryScreenProps {
   jobId: string;
   jobReference: string;
   onSubmit: (proofData: any, photos: any[]) => Promise<void>;
-  onBack?: () => void;
   loading: boolean;
   error: string | null;
 }
 
+type Point = {x: number; y: number};
+type Stroke = Point[];
+
+function dist(a: Point, b: Point) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function lineStyle(a: Point, b: Point) {
+  const width = Math.max(dist(a, b), 1);
+  const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+  return {
+    position: 'absolute' as const,
+    left: a.x,
+    top: a.y,
+    width,
+    height: 3,
+    backgroundColor: colors.navy,
+    borderRadius: 999,
+    transform: [{translateX: -width / 2}, {translateY: -1.5}, {rotate: `${angle}deg`}],
+  };
+}
+
 const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
-  jobId,
+  jobId: _jobId,
   jobReference,
   onSubmit,
-  onBack,
   loading,
   error,
 }) => {
   const [notes, setNotes] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [photos, setPhotos] = useState<Record<string, any>>({});
+  const [signatureStrokes, setSignatureStrokes] = useState<Stroke[]>([]);
+  const [currentStroke, setCurrentStroke] = useState<Stroke>([]);
 
   const handlePickPhoto = (type: string) => {
-    Alert.alert('Capture Proof', `Capture ${type}`, [
-      {
-        text: 'Capture',
-        onPress: () => {
-          setPhotos(prev => ({...prev, [type]: {uri: 'mock-uri', type}}));
-        },
-      },
-      {text: 'Cancel', style: 'cancel'},
-    ]);
+    setPhotos(prev => ({...prev, [type]: {uri: 'mock-uri', type}}));
   };
 
-  const isComplete = receiverName.length > 2 && Object.keys(photos).length >= 2;
+  const clearSignature = () => {
+    setSignatureStrokes([]);
+    setCurrentStroke([]);
+  };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt: GestureResponderEvent) => {
+          const {locationX, locationY} = evt.nativeEvent;
+          const point = {x: locationX, y: locationY};
+          setCurrentStroke([point]);
+        },
+        onPanResponderMove: (evt: GestureResponderEvent, _gesture: PanResponderGestureState) => {
+          const {locationX, locationY} = evt.nativeEvent;
+          const point = {x: locationX, y: locationY};
+          setCurrentStroke(prev => {
+            const last = prev[prev.length - 1];
+            if (last && dist(last, point) < 2) {
+              return prev;
+            }
+            return [...prev, point];
+          });
+        },
+        onPanResponderRelease: () => {
+          setCurrentStroke(prev => {
+            if (!prev.length) {
+              return prev;
+            }
+            setSignatureStrokes(strokes => [...strokes, prev]);
+            return [];
+          });
+        },
+        onPanResponderTerminate: () => {
+          setCurrentStroke(prev => {
+            if (!prev.length) {
+              return prev;
+            }
+            setSignatureStrokes(strokes => [...strokes, prev]);
+            return [];
+          });
+        },
+      }),
+    [],
+  );
+
+  const signaturePoints = [...signatureStrokes, ...(currentStroke.length ? [currentStroke] : [])];
+  const signatureSegments = signaturePoints.flatMap(stroke =>
+    stroke.slice(1).map((point, idx) => lineStyle(stroke[idx], point)),
+  );
+
+  const isComplete =
+    receiverName.length > 2 &&
+    Object.keys(photos).length >= 2 &&
+    signatureSegments.length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
-          <Pressable onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backText}>{'\u2190'} Tracking</Text>
-          </Pressable>
-          <Text style={styles.title}>Step 3: Delivery Report</Text>
           <Text style={styles.brand}>LOGIFLOW</Text>
         </View>
 
@@ -77,35 +145,41 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
           <Text style={styles.stepLabelCurrent}>Delivery</Text>
         </View>
 
-        <Text style={styles.headerTitle}>Confirm Delivery</Text>
         <View style={styles.refPill}>
           <Text style={styles.refText}># {jobReference}</Text>
         </View>
 
         <Card title="Upload Delivery Photo" variant="default">
-          <Pressable
-            onPress={() => handlePickPhoto('delivery')}
-            style={styles.photoBoxLarge}>
-            <Text style={styles.photoLargeIcon}>
-              {photos.delivery ? '\u2713' : '\uD83D\uDCF7'}
-            </Text>
+          <Pressable onPress={() => handlePickPhoto('delivery')} style={styles.photoBoxLarge}>
+            <Text style={styles.photoLargeIcon}>{photos.delivery ? '\u2713' : '\uD83D\uDCF7'}</Text>
             <Text style={styles.photoLargeTitle}>Upload Delivery Photo</Text>
-            <Text style={styles.photoLargeSubtitle}>
-              Proof of cargo placement at site
-            </Text>
+            <Text style={styles.photoLargeSubtitle}>Proof of cargo placement at site</Text>
           </Pressable>
         </Card>
 
         <Card title="Recipient Signature" variant="default">
           <View style={styles.signatureHeader}>
             <Text style={styles.signatureTitle}>RECIPIENT SIGNATURE</Text>
-            <Pressable onPress={() => Alert.alert('Signature capture', 'Signature pad is not connected yet.')}>
-              <Text style={[styles.clearText, {color: '#B42318'}]}>Clear</Text>
+            <Pressable onPress={clearSignature} disabled={!signaturePoints.length}>
+              <Text style={[styles.clearText, !signaturePoints.length && styles.clearTextDisabled]}>
+                Clear
+              </Text>
             </Pressable>
           </View>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureHint}>Sign here...</Text>
+          <View style={styles.signatureBox} {...panResponder.panHandlers}>
+            {signatureSegments.length ? (
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                {signatureSegments.map((segment, idx) => (
+                  <View key={`${idx}`} style={segment} />
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.signatureHint}>Sign here</Text>
+            )}
           </View>
+          <Text style={styles.signatureHintSub}>
+            Draw the recipient signature with your finger.
+          </Text>
         </Card>
 
         <Card title="Recipient Name" variant="default">
@@ -141,12 +215,18 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Pressable
-          onPress={() => onSubmit({receiverName, notes}, Object.values(photos))}
+          onPress={() =>
+            onSubmit(
+              {
+                receiverName,
+                notes,
+                recipientSignature: signaturePoints,
+              },
+              Object.values(photos),
+            )
+          }
           disabled={loading || !isComplete}
-          style={[
-            styles.primaryButton,
-            (loading || !isComplete) && styles.disabledButton,
-          ]}>
+          style={[styles.primaryButton, (loading || !isComplete) && styles.disabledButton]}>
           <Text style={styles.primaryButtonText}>
             {'\u2713'} {loading ? 'Submitting...' : 'Complete Job & Submit Report'}
           </Text>
@@ -157,47 +237,11 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FB',
-  },
-  content: {
-    padding: spacing.xl,
-    paddingBottom: 120,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  backText: {
-    fontSize: 28,
-    color: colors.navy,
-    fontWeight: '900',
-  },
-  title: {
-    flex: 1,
-    color: colors.navy,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  brand: {
-    color: colors.navy,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
+  container: {flex: 1, backgroundColor: '#F5F7FB'},
+  content: {padding: spacing.xl, paddingBottom: 120},
+  topBar: {flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl},
+  brand: {color: colors.navy, fontSize: 28, fontWeight: '900'},
+  stepper: {flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs},
   stepNodeDone: {
     width: 60,
     height: 60,
@@ -206,21 +250,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepNodeDoneText: {
-    color: colors.card,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  stepLineDone: {
-    flex: 1,
-    height: 3,
-    backgroundColor: '#1D2D44',
-  },
-  stepLineCurrent: {
-    flex: 1,
-    height: 3,
-    backgroundColor: colors.accent,
-  },
+  stepNodeDoneText: {color: colors.card, fontSize: 24, fontWeight: '900'},
+  stepLineDone: {flex: 1, height: 3, backgroundColor: '#1D2D44'},
+  stepLineCurrent: {flex: 1, height: 3, backgroundColor: colors.accent},
   stepNodeCurrent: {
     width: 60,
     height: 60,
@@ -229,37 +261,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepNodeCurrentText: {
-    color: colors.card,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  stepLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xl,
-  },
-  stepLabel: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#364152',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  stepLabelCurrent: {
-    flex: 1,
-    textAlign: 'center',
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  headerTitle: {
-    color: colors.navy,
-    fontSize: 38,
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginBottom: spacing.md,
-  },
+  stepNodeCurrentText: {color: colors.card, fontSize: 24, fontWeight: '900'},
+  stepLabels: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl},
+  stepLabel: {flex: 1, textAlign: 'center', color: '#364152', fontSize: 16, fontWeight: '700'},
+  stepLabelCurrent: {flex: 1, textAlign: 'center', color: colors.navy, fontSize: 16, fontWeight: '800'},
   refPill: {
     alignSelf: 'flex-start',
     backgroundColor: '#E8EBF0',
@@ -268,12 +273,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginBottom: spacing.lg,
   },
-  refText: {
-    color: '#1F2937',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+  refText: {color: '#1F2937', fontSize: 18, fontWeight: '800', letterSpacing: 1},
   photoBoxLarge: {
     borderWidth: 3,
     borderColor: '#CAD0DA',
@@ -298,18 +298,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     lineHeight: 120,
   },
-  photoLargeTitle: {
-    color: '#1F2937',
-    fontSize: 30,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  photoLargeSubtitle: {
-    color: '#4B5563',
-    fontSize: 18,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
+  photoLargeTitle: {color: '#1F2937', fontSize: 30, fontWeight: '900', textAlign: 'center'},
+  photoLargeSubtitle: {color: '#4B5563', fontSize: 18, textAlign: 'center', marginTop: spacing.sm},
   signatureHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -322,10 +312,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
   },
-  clearText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  clearText: {fontSize: 16, fontWeight: '700', color: '#B42318'},
+  clearTextDisabled: {opacity: 0.35},
   signatureBox: {
     borderWidth: 1,
     borderColor: '#CAD1DB',
@@ -334,11 +322,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FBFCFE',
+    overflow: 'hidden',
   },
-  signatureHint: {
-    color: '#D1D5DB',
-    fontSize: 26,
-  },
+  signatureHint: {color: '#94A3B8', fontSize: 26, fontWeight: '700'},
+  signatureHintSub: {marginTop: spacing.sm, color: colors.inkSoft, fontSize: 13},
   input: {
     backgroundColor: '#F8FAFD',
     borderRadius: 18,
@@ -369,16 +356,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  nextStepTitle: {
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  nextStepText: {
-    color: colors.inkSoft,
-    fontSize: 12,
-    lineHeight: 18,
-  },
+  nextStepTitle: {color: colors.navy, fontSize: 16, fontWeight: '900'},
+  nextStepText: {color: colors.inkSoft, fontSize: 12, lineHeight: 18},
   errorText: {
     color: colors.danger,
     fontSize: 14,
@@ -399,14 +378,8 @@ const styles = StyleSheet.create({
     shadowRadius: shadow.radius,
     elevation: 5,
   },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  primaryButtonText: {
-    color: colors.card,
-    fontSize: 24,
-    fontWeight: '900',
-  },
+  disabledButton: {opacity: 0.5},
+  primaryButtonText: {color: colors.card, fontSize: 24, fontWeight: '900'},
 });
 
 export default DeliveryScreen;

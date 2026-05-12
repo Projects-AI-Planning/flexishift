@@ -2,9 +2,18 @@ import {API_BASE_URL, WS_BASE_URL} from '../config/env';
 import type {ApiResponse} from '../types';
 
 let accessToken: string | null = null;
+let refreshSessionHandler:
+  | (() => Promise<{accessToken: string; refreshToken?: string} | null>)
+  | null = null;
 
 export const setApiAccessToken = (token: string | null) => {
   accessToken = token;
+};
+
+export const setApiSessionRefresher = (
+  handler: (() => Promise<{accessToken: string; refreshToken?: string} | null>) | null,
+) => {
+  refreshSessionHandler = handler;
 };
 
 type HttpMethod = 'DELETE' | 'GET' | 'POST' | 'PUT';
@@ -15,6 +24,7 @@ interface RequestOptions {
   isFormData?: boolean;
   method?: HttpMethod;
   params?: Record<string, string | number | boolean | undefined>;
+  skipAuthRefresh?: boolean;
 }
 
 const withQuery = (path: string, params?: RequestOptions['params']) => {
@@ -94,18 +104,46 @@ export async function request<T>(
 
   let response: Response;
   let payload: ApiResponse<T> | null = null;
+  let retryAttempted = false;
 
-  try {
-    response = await fetch(url, {body: options.body, headers, method});
-  } catch (err) {
-    logError(id, err);
-    throw err;
-  }
+  const execute = async () => {
+    try {
+      return await fetch(url, {body: options.body, headers, method});
+    } catch (err) {
+      logError(id, err);
+      throw err;
+    }
+  };
 
-  try {
-    payload = (await response.json()) as ApiResponse<T> | null;
-  } catch {
-    payload = null;
+  while (true) {
+    response = await execute();
+
+    try {
+      payload = (await response.json()) as ApiResponse<T> | null;
+    } catch {
+      payload = null;
+    }
+
+    const authFailed =
+      !options.skipAuthRefresh &&
+      !retryAttempted &&
+      (response.status === 401 || response.status === 403) &&
+      /not authenticated|unauthorized|invalid or expired token/.test(
+        String(payload?.message ?? '').toLowerCase(),
+      ) &&
+      refreshSessionHandler;
+
+    if (authFailed) {
+      const refreshed = await refreshSessionHandler!();
+      if (refreshed?.accessToken) {
+        accessToken = refreshed.accessToken;
+        headers.Authorization = `Bearer ${refreshed.accessToken}`;
+        retryAttempted = true;
+        continue;
+      }
+    }
+
+    break;
   }
 
   logResponse(id, response.status, response.ok && !!payload?.status, payload);

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from uuid import uuid4
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from app.services import s3
 from app.config import settings
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
+LOCAL_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "static" / "uploads"
 
 _USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id"}
 _PROFILE_FIELDS = {
@@ -56,6 +58,8 @@ def _check_profile_complete(user: User) -> None:
 def _presigned_photo_url(raw_url: str | None) -> str | None:
     if not raw_url:
         return None
+    if raw_url.startswith("http://10.0.2.2:8000/uploads/") or raw_url.startswith("http://localhost:8000/uploads/"):
+        return raw_url
     try:
         prefix = (
             f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
@@ -69,6 +73,17 @@ def _presigned_photo_url(raw_url: str | None) -> str | None:
         return raw_url
     except Exception:
         return raw_url
+
+
+def _local_photo_url(key: str) -> str:
+    return f"http://10.0.2.2:8000/uploads/{key}"
+
+
+def _save_local_photo(key: str, contents: bytes) -> str:
+    file_path = LOCAL_UPLOAD_DIR / key
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_bytes(contents)
+    return _local_photo_url(key)
 
 
 def _user_data(user: User) -> dict:
@@ -173,13 +188,17 @@ async def upload_photo_direct(
     }.get(file.content_type or "", (file.filename or "").split(".")[-1] or "jpg")
     key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
     contents = await file.read()
-    s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
-    raw_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+        s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
+        raw_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        photo_url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, key, expires=86400)
+    else:
+        photo_url = _save_local_photo(key, contents)
+        raw_url = photo_url
     _apply_updates(current_user, {"photo_url": raw_url}, db)
-    presigned_url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, key, expires=86400)
     return ok(
         data={
-            "photoUrl": presigned_url,
+            "photoUrl": photo_url,
             "key": key,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         },

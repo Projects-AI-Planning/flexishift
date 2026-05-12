@@ -1,7 +1,7 @@
 export const colors = {
   accent: '#1C6DB8',
   accentSoft: '#D9ECFF',
-  bg: '#F7F9FC',
+  bg: '#FFFFFF',
   border: '#E3E8F0',
   card: '#FFFFFF',
   danger: '#B42318',

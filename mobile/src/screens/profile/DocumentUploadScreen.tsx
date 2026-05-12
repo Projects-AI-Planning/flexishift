@@ -123,7 +123,6 @@ const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({
           <Pressable onPress={onCancel} style={styles.backBtn}>
             <Text style={styles.backBtnText}>{'\u2190'} Cancel</Text>
           </Pressable>
-          <Text style={styles.title}>Upload Document</Text>
           <Text style={styles.subtitle}>
             Please provide clear photos of your documents for faster
             verification.

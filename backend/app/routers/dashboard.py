@@ -162,12 +162,30 @@ def driver_overview(
 
     active_job_data = None
     if active_job:
+        last_point = (
+            db.query(TrackingPoint)
+            .filter(TrackingPoint.job_id == active_job.id)
+            .order_by(TrackingPoint.recorded_at.desc())
+            .first()
+        )
         active_job_data = {
             "jobId": active_job.id,
             "jobReference": active_job.job_ref,
             "status": active_job.status.value.lower(),
             "pickupLocation": active_job.pickup_address,
             "dropLocation": active_job.drop_address,
+            "pickupLat": float(active_job.pickup_lat) if active_job.pickup_lat else None,
+            "pickupLng": float(active_job.pickup_lng) if active_job.pickup_lng else None,
+            "dropLat": float(active_job.drop_lat) if active_job.drop_lat else None,
+            "dropLng": float(active_job.drop_lng) if active_job.drop_lng else None,
+            "distanceKm": float(active_job.distance_km) if active_job.distance_km is not None else None,
+            "durationMin": int(active_job.duration_min) if active_job.duration_min is not None else None,
+            "originalEta": active_job.original_eta.isoformat() if active_job.original_eta else None,
+            "currentLocation": {
+                "latitude": float(last_point.lat),
+                "longitude": float(last_point.lng),
+                "lastUpdatedAt": last_point.recorded_at.isoformat() if last_point.recorded_at else None,
+            } if last_point else None,
             "complianceStep": "delivery_report",
         }
 

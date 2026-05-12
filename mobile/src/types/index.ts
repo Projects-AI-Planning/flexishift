@@ -59,10 +59,22 @@ export interface DashboardOverview {
   activeJob?: {
     currentComplianceStep?: string;
     dropLocation?: string;
+    dropLat?: number;
+    dropLng?: number;
+    distanceKm?: number;
+    durationMin?: number;
     eta?: string;
+    originalEta?: string;
     jobId: string;
     jobReference: string;
     pickupLocation?: string;
+    pickupLat?: number;
+    pickupLng?: number;
+    currentLocation?: {
+      lastUpdatedAt?: string;
+      latitude?: number;
+      longitude?: number;
+    } | null;
     quickActions?: string[];
     status?: string;
   } | null;
@@ -105,10 +117,25 @@ export interface ProfileResponse {
   createdAt?: string;
   currency?: string;
   email: string;
+  avgRating?: number;
+  completedJobs?: number;
   isProfileComplete?: boolean;
   isVerified?: boolean;
   name: string;
   phone?: string;
+  profileComplete?: boolean;
+  profilePhoto?: string;
+  profile?: {
+    photoUrl?: string;
+    licenceNumber?: string;
+    vehicleType?: string;
+    vehicleRegistration?: string;
+    companyName?: string;
+    companyAddress?: string;
+    coverageArea?: string;
+    equipmentDetails?: Array<Record<string, unknown>>;
+    driverAssignments?: Array<Record<string, unknown>>;
+  } | null;
   profileData?: Record<string, unknown>;
   rating?: number;
   role: string;
@@ -121,8 +148,10 @@ export interface ProfileResponse {
 export interface AvailabilityResponse {
   availabilityId?: string;
   availableDays?: string[];
+  blocks?: Array<Record<string, unknown>>;
   isAvailable?: boolean;
   reason?: string;
+  slots?: Array<Record<string, unknown>>;
   timeSlots?: Array<Record<string, unknown>>;
   timezone?: string;
   updatedAt?: string;
@@ -142,6 +171,7 @@ export interface NotificationSummary {
   createdAt?: string;
   data?: Record<string, unknown>;
   isRead?: boolean;
+  readAt?: string;
   message: string;
   notificationId: string;
   title: string;

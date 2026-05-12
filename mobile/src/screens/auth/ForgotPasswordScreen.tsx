@@ -47,7 +47,6 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
           <Text style={styles.iconText}>🔑</Text>
         </View>
 
-        <Text style={styles.title}>Forgot Password</Text>
         <Text style={styles.subtitle}>
           Enter the email address linked to your account. We'll send a 6-digit reset code.
         </Text>
@@ -96,7 +95,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
   backBtn: {
     paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
   },

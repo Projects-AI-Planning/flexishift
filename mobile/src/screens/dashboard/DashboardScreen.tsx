@@ -185,6 +185,24 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   ? String((activeJob.dropLocation as any)?.address ?? (activeJob.dropLocation as any)?.city ?? '')
                   : String(activeJob.dropLocation ?? '')
               }
+              pickupCoords={
+                activeJob.pickupLat != null && activeJob.pickupLng != null
+                  ? {latitude: Number(activeJob.pickupLat), longitude: Number(activeJob.pickupLng)}
+                  : null
+              }
+              dropCoords={
+                activeJob.dropLat != null && activeJob.dropLng != null
+                  ? {latitude: Number(activeJob.dropLat), longitude: Number(activeJob.dropLng)}
+                  : null
+              }
+              currentCoords={
+                activeJob.currentLocation?.latitude != null && activeJob.currentLocation?.longitude != null
+                  ? {
+                      latitude: Number(activeJob.currentLocation.latitude),
+                      longitude: Number(activeJob.currentLocation.longitude),
+                    }
+                  : null
+              }
             />
             <View style={styles.routeRow}>
               <View style={styles.routePoint}>
@@ -209,8 +227,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </View>
             <Pressable
               onPress={() => onViewJob(activeJob)}
-              style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>View Details</Text>
+              style={styles.activeViewButton}>
+              <Text style={styles.activeViewButtonText}>View Details</Text>
             </Pressable>
           </>
         ) : (
@@ -295,7 +313,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
   },
   content: {
     padding: spacing.xl,
@@ -479,11 +497,32 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   viewButton: {
-    backgroundColor: colors.navy,
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  activeViewButton: {
+    backgroundColor: '#1066B1',
+    borderColor: '#0E5A9D',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0E5A9D',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  activeViewButtonText: {
+    color: colors.card,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   viewButtonText: {
     color: colors.card,

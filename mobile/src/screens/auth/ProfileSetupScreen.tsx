@@ -181,7 +181,6 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
           <Text style={styles.stepLabel}>STEP 2 OF 4</Text>
         </View>
 
-        <Text style={styles.title}>Professional Identity</Text>
         <Text style={styles.subtitle}>
           Complete your driver profile to start
         </Text>
@@ -278,10 +277,10 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
               </Pressable>
             ))}
           </View>
-          {fieldErrors.vehicleType ? (
-            <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
-          ) : null}
-        </View>
+        {fieldErrors.vehicleType ? (
+          <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
+        ) : null}
+      </View>
 
         {/* Info box */}
         <View style={styles.infoBox}>
@@ -321,7 +320,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   content: {
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.xxl,

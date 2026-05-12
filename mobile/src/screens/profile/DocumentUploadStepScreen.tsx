@@ -290,7 +290,6 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
           <View style={styles.menuBtn}>
             <Text style={styles.menuIcon}>☰</Text>
           </View>
-          <Text style={styles.headerTitle}>Document Upload</Text>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarIcon}>👤</Text>
           </View>
@@ -475,7 +474,7 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {

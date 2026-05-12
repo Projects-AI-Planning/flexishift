@@ -127,7 +127,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
         {/* Hero */}
         <View style={styles.hero}>
-          <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
             Start managing your logistics pipeline today.
           </Text>
@@ -310,7 +309,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // Back button
   backBtn: {

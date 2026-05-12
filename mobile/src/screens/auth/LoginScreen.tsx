@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   background: {
     flexGrow: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   glowTop: {

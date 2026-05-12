@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -18,6 +19,9 @@ interface Coords {
 interface ActiveJobMapProps {
   pickupLocation: string;
   dropLocation: string;
+  pickupCoords?: {latitude: number; longitude: number} | null;
+  dropCoords?: {latitude: number; longitude: number} | null;
+  currentCoords?: {latitude: number; longitude: number} | null;
 }
 
 async function geocode(address: string): Promise<Coords | null> {
@@ -48,18 +52,63 @@ function openNativeMaps(pickup: string, drop: string) {
   );
 }
 
+function openGoogleDirections(
+  pickup: string,
+  drop: string,
+  pickupCoords?: {latitude: number; longitude: number} | null,
+  dropCoords?: {latitude: number; longitude: number} | null,
+  currentCoords?: {latitude: number; longitude: number} | null,
+) {
+  if (currentCoords && dropCoords) {
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&origin=${currentCoords.latitude},${currentCoords.longitude}` +
+      `&destination=${dropCoords.latitude},${dropCoords.longitude}` +
+      `&travelmode=driving`;
+    Linking.openURL(url).catch(() => openNativeMaps(pickup, drop));
+    return;
+  }
+
+  if (pickupCoords && dropCoords) {
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&origin=${pickupCoords.latitude},${pickupCoords.longitude}` +
+      `&destination=${dropCoords.latitude},${dropCoords.longitude}` +
+      `&travelmode=driving`;
+    Linking.openURL(url).catch(() => openNativeMaps(pickup, drop));
+    return;
+  }
+
+  openNativeMaps(pickup, drop);
+}
+
 const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   pickupLocation,
   dropLocation,
+  pickupCoords: pickupCoordsProp = null,
+  dropCoords: dropCoordsProp = null,
+  currentCoords = null,
 }) => {
   const mapRef = useRef<MapView>(null);
   const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
   const [dropCoords, setDropCoords] = useState<Coords | null>(null);
   const [loading, setLoading] = useState(true);
   const [noCoords, setNoCoords] = useState(false);
+  const useNativeMap = !(Platform.OS === 'android' && __DEV__);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (pickupCoordsProp && dropCoordsProp) {
+      setPickupCoords({lat: pickupCoordsProp.latitude, lon: pickupCoordsProp.longitude});
+      setDropCoords({lat: dropCoordsProp.latitude, lon: dropCoordsProp.longitude});
+      setLoading(false);
+      setNoCoords(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setLoading(true);
     setNoCoords(false);
     setPickupCoords(null);
@@ -85,25 +134,33 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [pickupLocation, dropLocation]);
+  }, [pickupLocation, dropLocation, pickupCoordsProp, dropCoordsProp]);
 
   useEffect(() => {
-    if (pickupCoords && dropCoords && mapRef.current) {
+    if (mapRef.current && ((pickupCoords && dropCoords) || (currentCoords && dropCoords))) {
+      const coords = pickupCoords && dropCoords
+        ? [
+            {latitude: pickupCoords.lat, longitude: pickupCoords.lon},
+            {latitude: dropCoords.lat, longitude: dropCoords.lon},
+          ]
+        : [
+            {latitude: currentCoords!.latitude, longitude: currentCoords!.longitude},
+            {latitude: dropCoords!.lat, longitude: dropCoords!.lon},
+          ];
       mapRef.current.fitToCoordinates(
-        [
-          {latitude: pickupCoords.lat, longitude: pickupCoords.lon},
-          {latitude: dropCoords.lat, longitude: dropCoords.lon},
-        ],
+        coords,
         {edgePadding: {top: 24, right: 24, bottom: 24, left: 24}, animated: false},
       );
     }
-  }, [pickupCoords, dropCoords]);
+  }, [pickupCoords, dropCoords, currentCoords]);
 
   if (noCoords) {
     return (
       <Pressable
         style={styles.placeholder}
-        onPress={() => openNativeMaps(pickupLocation, dropLocation)}>
+        onPress={() =>
+          openGoogleDirections(pickupLocation, dropLocation, pickupCoordsProp, dropCoordsProp, currentCoords)
+        }>
         <Text style={styles.placeholderIcon}>🗺️</Text>
         <Text style={styles.placeholderTitle}>
           {pickupLocation || 'Pickup'} → {dropLocation || 'Drop-off'}
@@ -113,10 +170,31 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     );
   }
 
+  if (!useNativeMap) {
+    return (
+      <Pressable
+        style={styles.placeholder}
+        onPress={() =>
+          openGoogleDirections(pickupLocation, dropLocation, pickupCoordsProp, dropCoordsProp, currentCoords)
+        }>
+        <Text style={styles.placeholderIcon}>🗺️</Text>
+        <Text style={styles.placeholderTitle}>
+          {pickupLocation || 'Pickup'} → {dropLocation || 'Drop-off'}
+        </Text>
+        <Text style={styles.placeholderBody}>
+          Live map preview is disabled on the Android emulator.
+        </Text>
+        <Text style={styles.openMapsLink}>Open in Maps ›</Text>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       style={styles.wrapper}
-      onPress={() => openNativeMaps(pickupLocation, dropLocation)}>
+      onPress={() =>
+        openGoogleDirections(pickupLocation, dropLocation, pickupCoordsProp, dropCoordsProp, currentCoords)
+      }>
       {loading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={colors.navy} size="small" />
@@ -163,6 +241,16 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
                 title="Drop-off"
                 description={dropLocation}
                 pinColor="green"
+              />
+            )}
+            {currentCoords && (
+              <Marker
+                coordinate={{
+                  latitude: currentCoords.latitude,
+                  longitude: currentCoords.longitude,
+                }}
+                title="Live Location"
+                description="Current truck location"
               />
             )}
           </MapView>
@@ -212,6 +300,12 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 13,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  placeholderBody: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   openMapsLink: {

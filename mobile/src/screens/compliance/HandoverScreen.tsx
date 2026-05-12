@@ -14,7 +14,6 @@ interface HandoverScreenProps {
   jobId: string;
   jobReference: string;
   onSubmit: (checklist: any, photos: any[]) => Promise<void>;
-  onBack?: () => void;
   loading: boolean;
   error: string | null;
   vehicleUnit?: string;
@@ -58,7 +57,6 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   jobId: _jobId,
   jobReference: _jobReference,
   onSubmit,
-  onBack,
   loading,
   error,
   vehicleUnit = 'VOL-882',
@@ -106,14 +104,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
 
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-            <Text style={styles.backArrow}>←</Text>
-          </Pressable>
-
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Step 2: Handover</Text>
-            <Text style={styles.headerTitle}>Check</Text>
-          </View>
+          <View style={styles.headerCenter} />
 
           <Pressable onPress={handleRaiseIssue} style={styles.raiseBtn}>
             <Text style={styles.raiseIcon}>⚠</Text>

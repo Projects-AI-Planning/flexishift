@@ -276,7 +276,6 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
           <View style={styles.menuBtn}>
             <Text style={styles.menuIcon}>☰</Text>
           </View>
-          <Text style={styles.headerTitle}>Document Verification</Text>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarIcon}>👤</Text>
           </View>
@@ -450,7 +449,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {

@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,9 @@ interface ProfileForm {
   licenceNumber: string;
   vehicleType: string;
   vehicleRegistration: string;
+  companyName?: string;
+  companyAddress?: string;
+  coverageArea?: string;
 }
 
 interface ProfileScreenProps {
@@ -32,6 +35,7 @@ interface ProfileScreenProps {
   profileForm: ProfileForm;
   documents?: any[];
   verificationStatus?: any;
+  focusDocuments?: boolean;
   onChange: (patch: Partial<ProfileForm>) => void;
   onSave: () => void;
   onLogout: () => void;
@@ -157,6 +161,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   profileForm,
   documents = [],
   verificationStatus,
+  focusDocuments = false,
   onChange,
   onSave,
   onLogout,
@@ -168,6 +173,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const documentsSectionY = useRef<number | null>(null);
 
   // ── Vehicle modal state ──────────────────────────────────────────────────
   const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
@@ -279,6 +286,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const name = profile?.name ?? session?.name ?? 'Driver';
   const email = profile?.email ?? session?.email ?? '';
   const role = profile?.role ?? session?.role ?? 'Senior Logistics Partner';
+  const roleKey = String(role ?? '').toUpperCase();
+  const isHaulier = roleKey === 'HAULIER' || roleKey === 'FIRM';
   const isVerified = Boolean(profile?.isVerified);
   const rating = Number(profile?.avgRating ?? 4.8);
   const completedJobs = Number(profile?.completedJobs ?? 0);
@@ -324,6 +333,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       Boolean(profileForm.licenceNumber),
       Boolean(profileForm.vehicleType),
       Boolean(profileForm.vehicleRegistration),
+      !isHaulier || Boolean(profileForm.companyName),
+      !isHaulier || Boolean(profileForm.companyAddress),
       Boolean(photoUrl),
       DRIVER_DOCUMENTS.some(doc => {
         const status = docStatus[doc.key];
@@ -348,10 +359,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     profile?.profileComplete,
     profileForm.licenceNumber,
     profileForm.phone,
+    profileForm.companyAddress,
+    profileForm.companyName,
     profileForm.vehicleRegistration,
     profileForm.vehicleType,
     session?.email,
     session?.name,
+    isHaulier,
   ]);
 
   const initials = useMemo(() => {
@@ -391,6 +405,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setLocalVerificationStatus(verificationStatus);
   }, [verificationStatus]);
 
+  useEffect(() => {
+    if (!focusDocuments || documentsSectionY.current == null) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({animated: true, y: Math.max(documentsSectionY.current ?? 0, 0)});
+    });
+  }, [focusDocuments]);
+
   const uploadPhoto = async () => {
     try {
       const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 1});
@@ -407,7 +430,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       if (returnedUrl) {
         setLocalPhotoUrl(returnedUrl);
       }
-      onRefresh();
+      await Promise.resolve(onRefresh());
     } catch (err) {
       setLocalPhotoUrl(null);
       Alert.alert('Photo upload failed', err instanceof Error ? err.message : 'Please try again.');
@@ -439,26 +462,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
 
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <View style={styles.topBarAvatar}>
-            {photoUrl
-              ? <Image source={{uri: photoUrl}} style={styles.topBarAvatarImg} />
-              : <Text style={styles.topBarAvatarText}>{initials}</Text>}
-          </View>
-          <Text style={styles.topBarBrand}>Logistics Core</Text>
-        </View>
-        <View style={styles.bellWrap}>
-          <Text style={styles.bellIcon}>🔔</Text>
-        </View>
-      </View>
-
       {/* ── Cover + Avatar ────────────────────────────────────────────────── */}
       <View style={styles.coverWrap}>
         <Image
@@ -591,13 +601,52 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           placeholder="e.g. TX-LOG-8892"
         />
 
+        {isHaulier ? (
+          <View style={{gap: spacing.md, marginTop: spacing.md}}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderIcon}>🏢</Text>
+              <Text style={styles.sectionHeaderText}>HAULIER DETAILS</Text>
+            </View>
+            <InfoField
+              label="COMPANY NAME"
+              value={profileForm.companyName ?? ''}
+              onChange={v => onChange({companyName: v})}
+              placeholder="Enter your company name"
+            />
+            <InfoField
+              label="COMPANY ADDRESS"
+              value={profileForm.companyAddress ?? ''}
+              onChange={v => onChange({companyAddress: v})}
+              placeholder="Enter company address"
+            />
+            <InfoField
+              label="COVERAGE AREA"
+              value={profileForm.coverageArea ?? ''}
+              onChange={v => onChange({coverageArea: v})}
+              placeholder="Cities, states, or regions you cover"
+            />
+          </View>
+        ) : null}
+
         <Pressable style={styles.addVehicleBtn} onPress={openVehicleModal}>
           <Text style={styles.addVehicleBtnText}>＋  Add New Vehicle</Text>
         </Pressable>
       </View>
 
       {/* ── Documents & Verification ──────────────────────────────────────── */}
-      <View style={styles.section}>
+      <View
+        style={styles.section}
+        onLayout={event => {
+          documentsSectionY.current = event.nativeEvent.layout.y;
+          if (focusDocuments) {
+            requestAnimationFrame(() => {
+              scrollRef.current?.scrollTo({
+                animated: true,
+                y: Math.max(event.nativeEvent.layout.y - 12, 0),
+              });
+            });
+          }
+        }}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderIcon}>📂</Text>
           <Text style={styles.sectionHeaderText}>DOCUMENTS & VERIFICATION</Text>
@@ -825,26 +874,6 @@ const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F9FAFB'},
   content: {paddingBottom: 48},
 
-  // ── Top bar ──────────────────────────────────────────────────────────────
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingVertical: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  topBarLeft: {flexDirection: 'row', alignItems: 'center', gap: 10},
-  topBarAvatar: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: colors.navy,
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
-  },
-  topBarAvatarImg: {width: 34, height: 34, borderRadius: 17},
-  topBarAvatarText: {color: '#fff', fontSize: 14, fontWeight: '900'},
-  topBarBrand: {fontSize: 16, fontWeight: '900', color: '#111827'},
-  bellWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  bellIcon: {fontSize: 16},
-
   // ── Cover + Avatar ────────────────────────────────────────────────────────
   coverWrap: {alignItems: 'center', marginBottom: 56},
   coverBg: {
@@ -1055,7 +1084,7 @@ const styles = StyleSheet.create({
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtn: {
     marginHorizontal: spacing.lg, marginBottom: spacing.md,
-    backgroundColor: '#111827', borderRadius: radius.lg, minHeight: 56,
+    backgroundColor: '#1066B1', borderRadius: radius.lg, minHeight: 56,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
   },
   saveBtnDisabled: {opacity: 0.5},

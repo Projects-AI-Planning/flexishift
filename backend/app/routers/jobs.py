@@ -12,6 +12,7 @@ from app.schemas.jobs import JobCreateRequest, JobUpdateRequest
 from app.schemas.quotes import QuoteCreateRequest, QuoteOut
 from app.services import jobs as jobs_svc, quotes as quotes_svc
 from app.services import suppliers as sup_svc
+from app.services.notifications import create_notification
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -273,13 +274,24 @@ async def select_quote(
 
 
 @router.patch("/{job_id}/quotes/{quote_id}/reject")
-def reject_quote(
+async def reject_quote(
     job_id: str,
     quote_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     quote = quotes_svc.reject_quote(db, job_id, quote_id, current_user)
+    job = db.get(Job, job_id)
+    if job and quote.supplier_id:
+        await create_notification(
+            db,
+            quote.supplier_id,
+            "QUOTE_REJECTED",
+            "Quote Rejected",
+            f"Your quote for job {job.job_ref} was rejected.",
+            {"job_id": job_id, "job_ref": job.job_ref, "quote_id": quote_id},
+        )
+        db.commit()
     return ok(data=_quote_dict(quote), message="Quote rejected")
 
 
