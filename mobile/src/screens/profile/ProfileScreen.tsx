@@ -67,7 +67,7 @@ function Stars({rating}: {rating: number}) {
 const starStyles = StyleSheet.create({
   row: {flexDirection: 'row', gap: 2},
   star: {fontSize: 16},
-  starFilled: {color: '#D97706'},
+  starFilled: {color: '#1066B1'},
   starEmpty: {color: '#D1D5DB'},
 });
 
@@ -524,7 +524,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>COMPLETION</Text>
           <Text style={styles.statValue}>{completionRate}%</Text>
-          <ProgressBar value={completionRate} color="#D97706" />
+          <ProgressBar value={completionRate} color="#1066B1" />
         </View>
       </View>
 
@@ -921,10 +921,10 @@ const styles = StyleSheet.create({
   ratingRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
   ratingValue: {fontSize: 32, fontWeight: '900', color: '#111827'},
   trophyCircle: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7',
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF2FB',
     justifyContent: 'center', alignItems: 'center',
   },
-  trophyIcon: {fontSize: 22},
+  trophyIcon: {fontSize: 22, color: '#1066B1'},
 
   // ── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {

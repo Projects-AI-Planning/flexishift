@@ -17,7 +17,7 @@ export const bottomTabs: Array<{
 }> = [
   {key: 'home', label: 'Home', icon: '\u2302'},
   {key: 'jobs', label: 'Jobs', icon: '\uD83D\uDCE6'},
-  {key: 'tracking', label: 'Tracking', icon: '\uD83D\uDCCD'},
+  {key: 'tracking', label: 'Route', icon: '\uD83D\uDE9A'},
   {key: 'profile', label: 'Profile', icon: '\uD83D\uDC64'},
 ];
 

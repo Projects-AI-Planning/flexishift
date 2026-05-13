@@ -1812,7 +1812,6 @@ function DriverApp(): React.JSX.Element {
       <View key={id} style={[styles.listCard, styles.upcomingCard]}>
         <View style={styles.cardTopRow}>
           <View style={{flex: 1}}>
-            <Text style={styles.cardEyebrow}>{status.replace(/_/g, ' ').toUpperCase()}</Text>
             <Text style={styles.listTitle}>
               {String(item.jobReference ?? item.jobRef ?? 'Upcoming Job')}
             </Text>
@@ -1928,9 +1927,10 @@ function DriverApp(): React.JSX.Element {
         item.invoiceId ??
         Math.random(),
     );
+    const isHistoryView = activeRoute === 'jobs.history';
     return (
       <View key={id} style={styles.listCard}>
-        <Text style={styles.cardEyebrow}>
+        <Text style={[styles.cardEyebrow, isHistoryView && styles.historyCardEyebrow]}>
           {String(item.status ?? item.jobReference ?? 'Job')}
         </Text>
         <Text style={styles.listTitle}>
@@ -1947,7 +1947,7 @@ function DriverApp(): React.JSX.Element {
             : String(item.createdAt ?? item.jobDate ?? '')}
         </Text>
         {item.agreedAmount || item.amount || item.totalAmount ? (
-          <Text style={styles.amountText}>
+          <Text style={[styles.amountText, isHistoryView && styles.historyAmountText]}>
             Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
           </Text>
         ) : null}
@@ -2857,7 +2857,7 @@ function DriverApp(): React.JSX.Element {
 
       {/* Content */}
       {isFullScreen ? (
-        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 84}]}>
+        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 108}]}>
           {renderCurrentView()}
         </View>
       ) : (
@@ -2894,8 +2894,18 @@ function DriverApp(): React.JSX.Element {
                 }).catch(() => undefined);
               }
             }}
-            style={styles.bottomTabButton}>
-            <Text style={styles.bottomTabIcon}>{tab.icon}</Text>
+            style={({pressed}) => [
+              styles.bottomTabButton,
+              activeTab === tab.key ? styles.bottomTabButtonActive : null,
+              pressed ? styles.bottomTabButtonPressed : null,
+            ]}>
+            <Text
+              style={[
+                styles.bottomTabIcon,
+                activeTab === tab.key ? styles.bottomTabIconActive : null,
+              ]}>
+              {tab.icon}
+            </Text>
             <Text
               style={[
                 styles.bottomTabLabel,
@@ -2918,6 +2928,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginTop: 8,
+  },
+  historyAmountText: {
+    color: '#1066B1',
   },
   authCard: {
     backgroundColor: palette.card,
@@ -2974,32 +2987,49 @@ const styles = StyleSheet.create({
   bottomTabBar: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
-    height: 70,
-    paddingBottom: 10,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    height: 82,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 12,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: -2},
+    borderTopColor: '#E1E3E4',
+    shadowColor: '#0B1320',
+    shadowOffset: {width: 0, height: -4},
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 6,
   },
-  bottomTabButton: {alignItems: 'center', flex: 1, justifyContent: 'center'},
-  bottomTabIcon: {fontSize: 20},
+  bottomTabButton: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginHorizontal: 2,
+  },
+  bottomTabButtonActive: {
+    backgroundColor: '#F1F5F9',
+  },
+  bottomTabButtonPressed: {
+    opacity: 0.95,
+    transform: [{scale: 0.96}],
+  },
+  bottomTabIcon: {color: '#111827', fontSize: 22},
+  bottomTabIconActive: {color: '#111827'},
   bottomTabLabel: {
-    color: '#334155',
+    color: '#374151',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 0.8,
     marginTop: 4,
     textTransform: 'uppercase',
   },
-  bottomTabLabelActive: {color: palette.accent},
+  bottomTabLabelActive: {color: '#111827'},
   brandOverline: {
     color: palette.accent,
     fontSize: 12,
@@ -3014,6 +3044,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 6,
     textTransform: 'uppercase',
+  },
+  historyCardEyebrow: {
+    color: '#1066B1',
   },
   content: {gap: 16, padding: 18, paddingBottom: 100},
   contentContainer: {flex: 1, paddingBottom: 80},
@@ -3107,7 +3140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
-  jobsSubTabActive: {backgroundColor: palette.nav},
+  jobsSubTabActive: {backgroundColor: '#1066B1'},
   jobsSubTabText: {
     fontSize: 11,
     fontWeight: '800',
@@ -3115,7 +3148,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  jobsSubTabTextActive: {color: palette.accent},
+  jobsSubTabTextActive: {color: '#FFFFFF'},
   linkRow: {alignItems: 'center', marginTop: 12},
   linkText: {color: palette.accent, fontSize: 13, fontWeight: '800'},
   listCard: {
@@ -3140,8 +3173,8 @@ const styles = StyleSheet.create({
   listMeta: {color: palette.inkSoft, fontSize: 13, lineHeight: 18},
   listMetaSub: {color: palette.inkSoft, fontSize: 12, marginTop: 2},
   upcomingBadge: {
-    color: palette.nav,
-    backgroundColor: palette.accent,
+    color: '#FFFFFF',
+    backgroundColor: '#1066B1',
     borderRadius: 999,
     fontSize: 10,
     fontWeight: '900',
@@ -3150,15 +3183,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   upcomingBadgePaid: {
-    backgroundColor: '#18794E',
+    backgroundColor: '#1066B1',
     color: '#FFFFFF',
   },
   awaitingPaymentBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: '#FFF8EC',
-    borderColor: '#F6CC7A',
+    backgroundColor: '#EAF3FD',
+    borderColor: '#1066B1',
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
@@ -3167,16 +3200,17 @@ const styles = StyleSheet.create({
   awaitingPaymentIcon: {
     fontSize: 18,
     marginTop: 1,
+    color: '#1066B1',
   },
   awaitingPaymentTitle: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#92400E',
+    color: '#1066B1',
     marginBottom: 3,
   },
   awaitingPaymentBody: {
     fontSize: 12,
-    color: '#92400E',
+    color: '#1F4B79',
     lineHeight: 17,
   },
   detailValueSuccess: {
@@ -3192,7 +3226,7 @@ const styles = StyleSheet.create({
   },
   listActionPrimary: {
     alignItems: 'center',
-    backgroundColor: palette.nav,
+    backgroundColor: '#1066B1',
     borderRadius: 12,
     flex: 1,
     justifyContent: 'center',
@@ -3201,15 +3235,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   listActionPrimaryText: {
-    color: palette.accent,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   listActionSecondary: {
     alignItems: 'center',
-    backgroundColor: '#EEF5FB',
-    borderColor: '#D6E5F1',
+    backgroundColor: '#1066B1',
+    borderColor: '#1066B1',
     borderRadius: 12,
     borderWidth: 1,
     flex: 1,
@@ -3219,7 +3253,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   listActionSecondaryText: {
-    color: palette.ink,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
