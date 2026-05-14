@@ -37,7 +37,7 @@ const StatCard = ({
           <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${accent === 'slate' ? 'text-white/60' : 'text-slate-400'}`}>
             {label}
           </p>
-          <h3 className={`mt-2 text-3xl font-black tracking-tight ${accent === 'slate' ? 'text-white' : 'text-primary'}`}>
+          <h3 className={`mt-2 text-2xl sm:text-3xl font-black tracking-tight ${accent === 'slate' ? 'text-white' : 'text-primary'}`}>
             {value}
           </h3>
           <p className={`mt-2 text-xs ${accent === 'slate' ? 'text-white/55' : 'text-slate-500'}`}>{note}</p>
@@ -88,12 +88,12 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] md:px-8">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-4 py-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:px-6 md:px-8 sm:py-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.18),transparent_35%)]" />
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400">Admin Dashboard</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight md:text-5xl">Operational overview for FreightFlex</h1>
+            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-4xl md:text-5xl">Operational overview for FreightFlex</h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
               A clean snapshot of platform activity based entirely on the backend stats payload. No placeholder records, no invented entries.
             </p>
@@ -114,7 +114,7 @@ const AdminDashboard = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Users"
           value={stats.totalUsers.toLocaleString()}
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
       </section>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-primary">Platform Health</h2>
@@ -207,7 +207,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg font-black text-primary">Quick Summary</h2>
           <p className="text-sm text-slate-500">Same entries, cleaner presentation.</p>
 
