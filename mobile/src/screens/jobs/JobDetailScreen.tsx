@@ -101,7 +101,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
-        <Text style={styles.fieldLabel}>Quote Amount (INR)</Text>
+        <Text style={styles.fieldLabel}>Quote Amount</Text>
         <TextInput
           style={styles.input}
           value={amount}

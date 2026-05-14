@@ -49,7 +49,6 @@ const InvoiceDetailScreen: React.FC<InvoiceDetailScreenProps> = ({
         </Pressable>
 
         <View style={styles.hero}>
-          <Text style={styles.title}>Invoice Details</Text>
           <Text style={styles.subtitle}>
             View and download the generated invoice PDF.
           </Text>

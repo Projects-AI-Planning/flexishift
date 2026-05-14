@@ -12,7 +12,6 @@ const SupportScreen: React.FC<SupportScreenProps> = ({mode}) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Help and Support</Text>
           <Text style={styles.subtitle}>
             {mode === 'faq'
               ? 'Common questions and workflow guidance'

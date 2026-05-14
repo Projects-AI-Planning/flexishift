@@ -17,6 +17,8 @@ interface RegisterScreenProps {
   authLoading: boolean;
   authError: string | null;
   setAuthMode: (mode: any) => void;
+  onViewTerms: () => void;
+  onViewPrivacy: () => void;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,6 +63,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
   authLoading,
   authError,
   setAuthMode,
+  onViewTerms,
+  onViewPrivacy,
 }) => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -123,7 +127,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
         {/* Hero */}
         <View style={styles.hero}>
-          <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
             Start managing your logistics pipeline today.
           </Text>
@@ -161,7 +164,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Email Address */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.email ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>✉</Text>
+              <Text style={styles.fieldIcon}>📧</Text>
               <TextInput
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -266,9 +269,13 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </Pressable>
             <Text style={styles.termsText}>
               {'I agree to the '}
-              <Text style={styles.termsLink}>Terms of Service</Text>
+              <Text style={styles.termsLink} onPress={onViewTerms}>
+                Terms of Service
+              </Text>
               {' and '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
+              <Text style={styles.termsLink} onPress={onViewPrivacy}>
+                Privacy Policy
+              </Text>
               {'.'}
             </Text>
           </View>
@@ -302,7 +309,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // Back button
   backBtn: {

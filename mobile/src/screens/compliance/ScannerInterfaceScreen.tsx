@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable, SafeAreaView, StyleSheet, Text, View} from 'react-native';
+import {SafeAreaView, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, shadow} from '../../theme';
 
 interface ScannerInterfaceScreenProps {
@@ -12,11 +12,6 @@ const ScannerInterfaceScreen: React.FC<ScannerInterfaceScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Pressable onPress={onClose} style={styles.backBtn}>
-          <Text style={styles.backText}>{'\u2190'} Back</Text>
-        </Pressable>
-
-        <Text style={styles.title}>Scanner Interface</Text>
         <Text style={styles.subtitle}>
           Point the camera at the pickup code or enter it manually on the
           previous screen.
@@ -45,8 +40,6 @@ const ScannerInterfaceScreen: React.FC<ScannerInterfaceScreenProps> = ({
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.bg},
   content: {flex: 1, padding: spacing.xl},
-  backBtn: {alignSelf: 'flex-start', marginBottom: spacing.lg},
-  backText: {color: colors.navy, fontSize: 15, fontWeight: '800'},
   title: {color: colors.navy, fontSize: 32, fontWeight: '900'},
   subtitle: {color: colors.inkSoft, fontSize: 15, lineHeight: 22, marginTop: 6},
   scannerFrame: {

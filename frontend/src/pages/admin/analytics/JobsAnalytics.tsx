@@ -25,7 +25,7 @@ const statusTone = (status: string) => {
   if (normalized === 'disputed') return 'bg-orange-100 text-orange-700';
   if (normalized === 'cancelled') return 'bg-rose-100 text-rose-700';
   if (normalized === 'payment_secured' || normalized === 'booked') return 'bg-violet-100 text-violet-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-[#44474C]';
 };
 
 export default function JobsAnalyticsPage() {
@@ -145,7 +145,7 @@ export default function JobsAnalyticsPage() {
             </div>
           </div>
 
-          <div className={`mt-5 overflow-hidden rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
+          <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
@@ -168,10 +168,10 @@ export default function JobsAnalyticsPage() {
                         <p className="text-xs text-slate-500">{job.goodsType ?? 'Goods data unavailable'}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <p className="text-xs font-medium text-slate-600">{pickup ?? 'Pickup unavailable'}</p>
+                        <p className="text-xs font-medium text-[#44474C]">{pickup ?? 'Pickup unavailable'}</p>
                         <p className="text-xs text-slate-400">→ {drop ?? 'Drop unavailable'}</p>
                       </td>
-                      <td className="px-4 py-4 font-mono font-bold text-slate-900">{fmtMoney(job.agreedAmount)}</td>
+                      <td className="px-4 py-4 font-mono font-bold text-[#041627]">{fmtMoney(job.agreedAmount)}</td>
                       <td className="px-4 py-4">
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${tone}`}>
                           {job.status.replace(/_/g, ' ')}
@@ -204,7 +204,7 @@ export default function JobsAnalyticsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
           {chartSeries.length > 0 ? chartSeries.map((item) => {
             const height = Math.max(8, (item.value / chartMax) * 220);
             return (

@@ -45,11 +45,11 @@ const AllInvoicesPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">All Invoices</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">All Invoices</h2>
           <p className="text-on-surface-variant font-medium">Generated invoices for completed and in-progress jobs.</p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -66,7 +66,7 @@ const AllInvoicesPage: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative flex-1 w-full min-w-[160px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
           <input
             type="text"
@@ -88,9 +88,9 @@ const AllInvoicesPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Invoice / Job</th>
@@ -105,7 +105,7 @@ const AllInvoicesPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {data?.items.map((inv: AdminInvoice) => {
-                const pStyle = paymentStatusStyle[inv.paymentStatus.toLowerCase()] ?? { bg: 'bg-slate-100', text: 'text-slate-600' };
+                const pStyle = paymentStatusStyle[inv.paymentStatus.toLowerCase()] ?? { bg: 'bg-slate-100', text: 'text-[#44474C]' };
                 const jColor = jobStatusStyle[inv.jobStatus] ?? 'text-slate-500';
                 return (
                   <tr key={inv.jobId} className="hover:bg-slate-50/50 transition-colors">
@@ -132,7 +132,7 @@ const AllInvoicesPage: React.FC = () => {
                     </td>
                     {/* Route */}
                     <td className="px-6 py-4 max-w-[160px]">
-                      <p className="text-xs font-bold text-slate-600 truncate">{inv.pickupLocation || '—'}</p>
+                      <p className="text-xs font-bold text-[#44474C] truncate">{inv.pickupLocation || '—'}</p>
                       <p className="text-[10px] text-slate-300 my-0.5">▼</p>
                       <p className="text-xs text-slate-500 truncate">{inv.dropLocation || '—'}</p>
                     </td>
@@ -241,7 +241,7 @@ const AllInvoicesPage: React.FC = () => {
                 <span className="material-symbols-outlined text-5xl text-amber-200">receipt_long</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Job Reference</p>
                   <p className="text-sm font-bold text-primary">{preview.jobRef}</p>
@@ -250,7 +250,7 @@ const AllInvoicesPage: React.FC = () => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment Status</p>
                   <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full inline-block ${
                     paymentStatusStyle[preview.paymentStatus.toLowerCase()]?.bg ?? 'bg-slate-100'
-                  } ${paymentStatusStyle[preview.paymentStatus.toLowerCase()]?.text ?? 'text-slate-600'}`}>
+                  } ${paymentStatusStyle[preview.paymentStatus.toLowerCase()]?.text ?? 'text-[#44474C]'}`}>
                     {preview.paymentStatus}
                   </span>
                 </div>

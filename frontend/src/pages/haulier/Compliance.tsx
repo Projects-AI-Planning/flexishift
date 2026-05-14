@@ -65,7 +65,7 @@ type DeliveryStatus = {
 type Point = { x: number; y: number };
 
 const badge = (ok: boolean) =>
-  ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600';
+  ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-[#44474C]';
 
 const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleString('en-IN') : 'N/A';
@@ -155,7 +155,7 @@ function SignatureCanvas({
           </div>
           <button
             onClick={onCancel}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#44474C]"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -195,7 +195,7 @@ function SignatureCanvas({
           <button
             onClick={clear}
             disabled={loading}
-            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50"
+            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50"
           >
             Clear
           </button>
@@ -335,7 +335,7 @@ export default function HaulierCompliancePage() {
   const jobs = section === 'active' ? activeJobs : pendingJobs;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Signature modal */}
       {showSignModal && (
         <SignatureCanvas
@@ -345,10 +345,10 @@ export default function HaulierCompliancePage() {
         />
       )}
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Documents & Compliance</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Compliance</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-primary">Compliance</h1>
           <p className="text-on-surface-variant font-medium">Backend-backed compliance timeline for your haulier jobs.</p>
         </div>
         <button
@@ -369,13 +369,13 @@ export default function HaulierCompliancePage() {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => setSection('active')}
-          className={`rounded-2xl px-4 py-3 text-sm font-black transition-all ${section === 'active' ? 'bg-primary text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
+          className={`rounded-2xl px-4 py-3 text-sm font-black transition-all ${section === 'active' ? 'bg-primary text-white' : 'bg-white text-[#44474C] border border-slate-200'}`}
         >
           Active Compliance
         </button>
         <button
           onClick={() => setSection('pending')}
-          className={`rounded-2xl px-4 py-3 text-sm font-black transition-all ${section === 'pending' ? 'bg-primary text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
+          className={`rounded-2xl px-4 py-3 text-sm font-black transition-all ${section === 'pending' ? 'bg-primary text-white' : 'bg-white text-[#44474C] border border-slate-200'}`}
         >
           Pending Approval
         </button>
@@ -389,7 +389,7 @@ export default function HaulierCompliancePage() {
               <h2 className="text-lg font-black text-primary">Jobs</h2>
               <p className="text-xs text-slate-500">{section === 'active' ? 'Active compliance jobs' : 'Jobs awaiting approval'}</p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
               {jobs.length}
             </span>
           </div>
@@ -408,13 +408,13 @@ export default function HaulierCompliancePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Job Ref</p>
-                      <p className="mt-1 font-black text-slate-900">{job.jobReference}</p>
+                      <p className="mt-1 font-black text-[#041627]">{job.jobReference}</p>
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${badge(job.status === 'completed' || job.status === 'delivery_submitted' || job.status === 'in_transit')}`}>
                       {job.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-slate-600">
+                  <p className="mt-3 text-sm text-[#44474C]">
                     {job.pickupLocation ?? 'Pickup N/A'} → {job.dropLocation ?? 'Drop N/A'}
                   </p>
                   <div className="mt-3 text-xs text-slate-500">
@@ -432,7 +432,7 @@ export default function HaulierCompliancePage() {
 
         {/* ── Detail panel ── */}
         <section className="space-y-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Selected Job</p>
@@ -446,16 +446,16 @@ export default function HaulierCompliancePage() {
               <div className="grid grid-cols-2 gap-3 text-sm lg:w-[360px]">
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Current Status</p>
-                  <p className="mt-1 font-black text-slate-900">{selectedJob?.status?.replace('_', ' ') ?? 'N/A'}</p>
+                  <p className="mt-1 font-black text-[#041627]">{selectedJob?.status?.replace('_', ' ') ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Step 3</p>
-                  <p className="mt-1 font-black text-slate-900">{step3Done ? 'Approved' : 'Pending'}</p>
+                  <p className="mt-1 font-black text-[#041627]">{step3Done ? 'Approved' : 'Pending'}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
               <div className={`rounded-2xl p-4 ${stepTone(loadCodeDone)}`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">1. Load Code</p>
                 <p className="mt-1 text-sm font-bold">{loadCodeDone ? 'Verified' : 'Waiting'}</p>
@@ -547,21 +547,21 @@ export default function HaulierCompliancePage() {
 
               <div className="mt-5 space-y-3 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-black text-slate-900">Load code verification</p>
-                  <p className="mt-1 text-slate-600">
+                  <p className="font-black text-[#041627]">Load code verification</p>
+                  <p className="mt-1 text-[#44474C]">
                     {loadCodeDone ? `Verified at ${formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}` : 'Not verified yet'}
                   </p>
                 </div>
 
                 {/* Handover signatures detail */}
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-black text-slate-900">Vehicle handover</p>
-                  <p className="mt-1 text-slate-600">
+                  <p className="font-black text-[#041627]">Vehicle handover</p>
+                  <p className="mt-1 text-[#44474C]">
                     {step1Done
                       ? `Completed at ${formatDate(detail.handover?.step1CompletedAt ?? detail.full?.step1_completed_at)}`
                       : 'Waiting for handover completion'}
                   </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${driverSigned ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       {driverSigned ? '✓' : '○'} Driver signed
                       {driverSigned && <span className="ml-1 opacity-70">{formatDate(detail.handover?.driverSignedAt)}</span>}
@@ -575,14 +575,14 @@ export default function HaulierCompliancePage() {
                 </div>
 
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-black text-slate-900">Delivery submission</p>
-                  <p className="mt-1 text-slate-600">
+                  <p className="font-black text-[#041627]">Delivery submission</p>
+                  <p className="mt-1 text-[#44474C]">
                     {step2Done ? `Submitted at ${formatDate(detail.delivery?.submittedAt ?? detail.full?.step2_completed_at)}` : 'Waiting for delivery proof'}
                   </p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-black text-slate-900">Final approval</p>
-                  <p className="mt-1 text-slate-600">
+                  <p className="font-black text-[#041627]">Final approval</p>
+                  <p className="mt-1 text-[#44474C]">
                     {step3Done ? `Approved at ${formatDate(detail.full?.step3_approved_at)}` : 'Pending approval'}
                   </p>
                 </div>
@@ -611,7 +611,7 @@ export default function HaulierCompliancePage() {
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Approval Notes</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-700">
+                  <p className="mt-1 text-sm font-semibold text-[#44474C]">
                     {detail.delivery?.notes ?? 'No delivery notes saved'}
                   </p>
                 </div>
@@ -622,7 +622,7 @@ export default function HaulierCompliancePage() {
                   <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Loading compliance details...</div>
                 ) : detail.photos.length ? detail.photos.map((photo, index) => (
                   <div key={`${photo.url ?? 'photo'}-${index}`} className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm font-black text-slate-900">Photo {index + 1}</p>
+                    <p className="text-sm font-black text-[#041627]">Photo {index + 1}</p>
                     <p className="mt-1 break-all text-xs text-slate-500">{photo.url ?? 'No URL'}</p>
                     <p className="mt-2 text-xs text-slate-500">{photo.note ?? 'No note'}</p>
                   </div>

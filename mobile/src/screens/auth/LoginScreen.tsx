@@ -6,6 +6,9 @@ import {
   Pressable,
   StyleSheet,
   SafeAreaView,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import {colors, radius, shadow, spacing} from '../../theme';
 
@@ -30,8 +33,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.background}>
-        <View style={styles.glowTop} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.background}>
+            <View style={styles.glowTop} />
         <View style={styles.glowBottom} />
         <View style={styles.topBar}>
           <Pressable onPress={onBackToSplash} style={styles.backBtn}>
@@ -104,18 +114,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Need help? </Text>
-          <Pressable>
-            <Text style={styles.footerLink}>Contact Support</Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Pressable onPress={() => setAuthMode('register')}>
+            <Text style={styles.footerLink}>Create Account</Text>
           </Pressable>
         </View>
 
         <View style={styles.bottomBar}>
           <Text style={styles.bottomCopy}>
-            © 2024 FreightFlow Systems. All rights reserved.
+            © 2026 FreightFlow Systems. All rights reserved.
           </Text>
-        </View>
-      </View>
+          </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -125,9 +137,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  background: {
+  flex: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  background: {
+    flexGrow: 1,
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   glowTop: {
@@ -319,10 +337,9 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 15,
     fontWeight: '900',
-    textDecorationLine: 'underline',
   },
   bottomBar: {
-    marginTop: 'auto',
+    marginTop: spacing.xl,
     paddingVertical: spacing.xl,
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.92)',

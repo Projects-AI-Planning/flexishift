@@ -101,7 +101,7 @@ const badgeClass = (status: string) => {
   if (['open', 'booked', 'payment_secured'].includes(key)) return 'bg-emerald-100 text-emerald-700';
   if (['completed'].includes(key)) return 'bg-blue-100 text-blue-700';
   if (['disputed', 'cancelled'].includes(key)) return 'bg-red-100 text-red-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-[#44474C]';
 };
 
 const HaulierLoadsPage: React.FC = () => {
@@ -244,7 +244,7 @@ const HaulierLoadsPage: React.FC = () => {
             className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${
               activeSection === section.key
                 ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                : 'bg-white text-slate-700 border border-slate-200 hover:border-primary/40 hover:text-primary'
+                : 'bg-white text-[#44474C] border border-slate-200 hover:border-primary/40 hover:text-primary'
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">{section.icon}</span>
@@ -284,7 +284,7 @@ const HaulierLoadsPage: React.FC = () => {
         )}
         <button
           onClick={applyFilters}
-          className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-900 transition-colors hover:bg-amber-400"
+          className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-[#041627] transition-colors hover:bg-amber-400"
         >
           Apply Filters
         </button>
@@ -306,17 +306,17 @@ const HaulierLoadsPage: React.FC = () => {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
-          <p className="mt-2 text-2xl font-black text-slate-900">{summary.openLoads ?? summary.jobsWithBids ?? summary.awardedLoads ?? 0}</p>
+          <p className="mt-2 text-2xl font-black text-[#041627]">{summary.openLoads ?? summary.jobsWithBids ?? summary.awardedLoads ?? 0}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Secondary</p>
-          <p className="mt-2 text-2xl font-black text-slate-900">
+          <p className="mt-2 text-2xl font-black text-[#041627]">
             {summary.withMatches ?? summary.activeQuotes ?? summary.inTransit ?? 0}
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Average</p>
-          <p className="mt-2 text-2xl font-black text-slate-900">
+          <p className="mt-2 text-2xl font-black text-[#041627]">
             {summary.avgMatchesPerLoad ?? summary.selectedLoads ?? summary.completed ?? 0}
           </p>
         </div>
@@ -328,7 +328,7 @@ const HaulierLoadsPage: React.FC = () => {
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="text-lg font-black text-slate-900">No records found</p>
+          <p className="text-lg font-black text-[#041627]">No records found</p>
           <p className="mt-2 text-sm text-slate-500">Try a different filter or switch to another load section.</p>
         </div>
       ) : activeSection === 'matching' ? (
@@ -338,7 +338,7 @@ const HaulierLoadsPage: React.FC = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Open load</p>
-                  <h3 className="mt-1 text-xl font-black text-slate-900">{load.jobReference}</h3>
+                  <h3 className="mt-1 text-xl font-black text-[#041627]">{load.jobReference}</h3>
                   <p className="mt-1 text-sm text-slate-500">{load.pickupLocation} to {load.dropLocation}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${badgeClass(load.status)}`}>
@@ -346,22 +346,22 @@ const HaulierLoadsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Goods</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.goodsType ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.goodsType ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vehicle</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.vehicleType ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.vehicleType ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Job date</p>
-                  <p className="mt-1 font-bold text-slate-900">{prettyDate(load.jobDate)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{prettyDate(load.jobDate)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Matches</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.matchCount}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.matchCount}</p>
                 </div>
               </div>
 
@@ -372,7 +372,7 @@ const HaulierLoadsPage: React.FC = () => {
                     <div key={match.supplierId} className="rounded-2xl border border-slate-200 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-black text-slate-900">{match.name ?? 'Unnamed supplier'}</p>
+                          <p className="font-black text-[#041627]">{match.name ?? 'Unnamed supplier'}</p>
                           <p className="text-sm text-slate-500">{match.vehicleType ?? 'Vehicle N/A'} {match.vehicleRegistration ? `- ${match.vehicleRegistration}` : ''}</p>
                         </div>
                         <p className="text-xs font-black text-amber-600">{match.distanceKm?.toFixed(1) ?? '0.0'} km</p>
@@ -396,12 +396,12 @@ const HaulierLoadsPage: React.FC = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Bid board</p>
-                  <h3 className="mt-1 text-xl font-black text-slate-900">{load.jobReference}</h3>
+                  <h3 className="mt-1 text-xl font-black text-[#041627]">{load.jobReference}</h3>
                   <p className="mt-1 text-sm text-slate-500">{load.pickupLocation} to {load.dropLocation}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${badgeClass(load.status)}`}>{load.status}</span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
                     {load.quoteCount} quotes
                   </span>
                 </div>
@@ -410,19 +410,19 @@ const HaulierLoadsPage: React.FC = () => {
               <div className="mt-4 grid gap-3 md:grid-cols-4 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Goods</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.goodsType ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.goodsType ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vehicle</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.vehicleType ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.vehicleType ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Lowest active quote</p>
-                  <p className="mt-1 font-bold text-slate-900">{money(load.lowestQuote ?? null)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{money(load.lowestQuote ?? null)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Selected</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.selectedQuote ? load.selectedQuote.supplierName : 'Not selected'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.selectedQuote ? load.selectedQuote.supplierName : 'Not selected'}</p>
                 </div>
               </div>
 
@@ -431,7 +431,7 @@ const HaulierLoadsPage: React.FC = () => {
                   <div key={quote.quoteId} className="rounded-2xl border border-slate-200 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-black text-slate-900">{quote.supplierName ?? 'Supplier'}</p>
+                        <p className="font-black text-[#041627]">{quote.supplierName ?? 'Supplier'}</p>
                         <p className="text-sm text-slate-500">{quote.supplierPhone ?? 'No phone'}</p>
                       </div>
                       <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${badgeClass(quote.status)}`}>
@@ -455,7 +455,7 @@ const HaulierLoadsPage: React.FC = () => {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Awarded load</p>
-                  <h3 className="mt-1 text-xl font-black text-slate-900">{load.jobReference}</h3>
+                  <h3 className="mt-1 text-xl font-black text-[#041627]">{load.jobReference}</h3>
                   <p className="mt-1 text-sm text-slate-500">{load.pickupLocation} to {load.dropLocation}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -469,26 +469,26 @@ const HaulierLoadsPage: React.FC = () => {
               <div className="mt-4 grid gap-3 md:grid-cols-4 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Supplier</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.selectedSupplier?.name ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.selectedSupplier?.name ?? 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Amount</p>
-                  <p className="mt-1 font-bold text-slate-900">{money(load.agreedAmount ?? null)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{money(load.agreedAmount ?? null)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Stage</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.currentStage ?? load.status}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.currentStage ?? load.status}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Quotes</p>
-                  <p className="mt-1 font-bold text-slate-900">{load.quoteCount ?? 0}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{load.quoteCount ?? 0}</p>
                 </div>
               </div>
 
-              <div className="mt-4 text-sm text-slate-600">
-                <p><span className="font-black text-slate-900">Vehicle:</span> {load.selectedSupplier?.vehicleType ?? 'N/A'} {load.selectedSupplier?.vehicleNumber ? `- ${load.selectedSupplier.vehicleNumber}` : ''}</p>
-                <p className="mt-1"><span className="font-black text-slate-900">Contact:</span> {load.selectedSupplier?.phone ?? 'N/A'}</p>
-                <p className="mt-1"><span className="font-black text-slate-900">Job date:</span> {prettyDate(load.jobDate)}</p>
+              <div className="mt-4 text-sm text-[#44474C]">
+                <p><span className="font-black text-[#041627]">Vehicle:</span> {load.selectedSupplier?.vehicleType ?? 'N/A'} {load.selectedSupplier?.vehicleNumber ? `- ${load.selectedSupplier.vehicleNumber}` : ''}</p>
+                <p className="mt-1"><span className="font-black text-[#041627]">Contact:</span> {load.selectedSupplier?.phone ?? 'N/A'}</p>
+                <p className="mt-1"><span className="font-black text-[#041627]">Job date:</span> {prettyDate(load.jobDate)}</p>
               </div>
             </article>
           ))}

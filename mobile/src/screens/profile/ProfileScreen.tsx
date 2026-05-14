@@ -1,8 +1,11 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,6 +26,9 @@ interface ProfileForm {
   licenceNumber: string;
   vehicleType: string;
   vehicleRegistration: string;
+  companyName?: string;
+  companyAddress?: string;
+  coverageArea?: string;
 }
 
 interface ProfileScreenProps {
@@ -31,9 +37,12 @@ interface ProfileScreenProps {
   profileForm: ProfileForm;
   documents?: any[];
   verificationStatus?: any;
+  focusDocuments?: boolean;
   onChange: (patch: Partial<ProfileForm>) => void;
   onSave: () => void;
   onLogout: () => void;
+  onSettings: () => void;
+  onAddVehicle: (vehicleType: string, vehicleRegistration: string) => void;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -60,7 +69,7 @@ function Stars({rating}: {rating: number}) {
 const starStyles = StyleSheet.create({
   row: {flexDirection: 'row', gap: 2},
   star: {fontSize: 16},
-  starFilled: {color: '#D97706'},
+  starFilled: {color: '#1066B1'},
   starEmpty: {color: '#D1D5DB'},
 });
 
@@ -154,24 +163,141 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   profileForm,
   documents = [],
   verificationStatus,
+  focusDocuments = false,
   onChange,
   onSave,
   onLogout,
+  onSettings,
+  onAddVehicle,
   loading,
   refreshing,
   onRefresh,
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const documentsSectionY = useRef<number | null>(null);
+
+  // ── Vehicle modal state ──────────────────────────────────────────────────
+  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
+  const [vehicleType, setVehicleType] = useState('');
+  const [vehicleReg, setVehicleReg] = useState('');
+  const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [vehicleError, setVehicleError] = useState<string | null>(null);
+
+  const openVehicleModal = () => {
+    setVehicleType(profileForm.vehicleType ?? '');
+    setVehicleReg(profileForm.vehicleRegistration ?? '');
+    setVehicleError(null);
+    setVehicleModalVisible(true);
+  };
+
+  const handleVehicleSave = async () => {
+    if (!vehicleType.trim()) { setVehicleError('Vehicle type is required.'); return; }
+    if (!vehicleReg.trim()) { setVehicleError('Vehicle registration is required.'); return; }
+    setVehicleSaving(true);
+    setVehicleError(null);
+    try {
+      await onAddVehicle(vehicleType.trim(), vehicleReg.trim());
+      setVehicleModalVisible(false);
+    } catch (err) {
+      setVehicleError(err instanceof Error ? err.message : 'Failed to save vehicle.');
+    } finally {
+      setVehicleSaving(false);
+    }
+  };
+
+  // ── Upload modal state ───────────────────────────────────────────────────
+  type ModalDoc = {key: string; backendKey: string; label: string; icon: string};
+  const [activeModal, setActiveModal] = useState<ModalDoc | null>(null);
+  const [modalFile, setModalFile] = useState<any>(null);
+  const [modalExpiry, setModalExpiry] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalUploading, setModalUploading] = useState(false);
+  const [modalPickerDate, setModalPickerDate] = useState(new Date(Date.now() + 86400000));
+  const [modalShowPicker, setModalShowPicker] = useState(false);
+
+  const openModal = (doc: ModalDoc) => {
+    setActiveModal(doc);
+    setModalFile(null);
+    setModalExpiry('');
+    setModalError(null);
+    setModalPickerDate(new Date(Date.now() + 86400000));
+    setModalShowPicker(false);
+  };
+
+  const closeModal = () => {
+    if (modalUploading) return;
+    setActiveModal(null);
+    setModalFile(null);
+    setModalExpiry('');
+    setModalError(null);
+    setModalShowPicker(false);
+  };
+
+  const onModalDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setModalShowPicker(false);
+    }
+    if (!selected) return;
+    setModalPickerDate(selected);
+    const dd = String(selected.getDate()).padStart(2, '0');
+    const mm = String(selected.getMonth() + 1).padStart(2, '0');
+    const yyyy = selected.getFullYear();
+    setModalExpiry(`${dd}-${mm}-${yyyy}`);
+    setModalError(null);
+  };
+
+  const pickDocFile = async () => {
+    const result = await launchImageLibrary({mediaType: 'mixed', quality: 0.9, selectionLimit: 1});
+    if (result.didCancel || result.errorCode || !result.assets?.length) return;
+    setModalFile(result.assets[0]);
+    setModalError(null);
+  };
+
+  const handleModalUpload = async () => {
+    if (!activeModal) return;
+    if (!modalFile?.uri) { setModalError('Please select a document file'); return; }
+    if (!modalExpiry) { setModalError('Please select an expiry date'); return; }
+    setModalUploading(true);
+    setModalError(null);
+    try {
+      const formData = new FormData();
+      formData.append('documentType', activeModal.backendKey);
+      formData.append('expiryDate', modalExpiry);
+      formData.append('file', {
+        uri: modalFile.uri,
+        name: modalFile.fileName ?? 'document.jpg',
+        type: modalFile.type ?? 'image/jpeg',
+      } as any);
+      await driverApi.documents.upload(formData);
+      // Refresh local doc state after successful upload
+      const [docs, status] = await Promise.all([
+        driverApi.documents.list(),
+        driverApi.documents.getStatus(),
+      ]);
+      setLocalDocuments(((docs as any).items ?? []) as any[]);
+      setLocalVerificationStatus(status);
+      closeModal();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      setModalUploading(false);
+    }
+  };
+
   const [localDocuments, setLocalDocuments] = useState<any[]>(documents);
   const [localVerificationStatus, setLocalVerificationStatus] = useState<any>(verificationStatus);
 
   const name = profile?.name ?? session?.name ?? 'Driver';
   const email = profile?.email ?? session?.email ?? '';
   const role = profile?.role ?? session?.role ?? 'Senior Logistics Partner';
+  const roleKey = String(role ?? '').toUpperCase();
+  const isHaulier = roleKey === 'HAULIER' || roleKey === 'FIRM';
   const isVerified = Boolean(profile?.isVerified);
   const rating = Number(profile?.avgRating ?? 4.8);
   const completedJobs = Number(profile?.completedJobs ?? 0);
-  const photoUrl = profile?.profile?.photoUrl ?? profile?.profilePhoto ?? '';
+  const photoUrl = localPhotoUrl ?? profile?.profile?.photoUrl ?? profile?.profilePhoto ?? '';
   const effectiveDocuments = localDocuments.length ? localDocuments : documents;
   const effectiveVerification = localVerificationStatus ?? verificationStatus;
   const documentStatuses = effectiveVerification?.documentStatuses ?? {};
@@ -213,6 +339,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       Boolean(profileForm.licenceNumber),
       Boolean(profileForm.vehicleType),
       Boolean(profileForm.vehicleRegistration),
+      !isHaulier || Boolean(profileForm.companyName),
+      !isHaulier || Boolean(profileForm.companyAddress),
       Boolean(photoUrl),
       DRIVER_DOCUMENTS.some(doc => {
         const status = docStatus[doc.key];
@@ -237,10 +365,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     profile?.profileComplete,
     profileForm.licenceNumber,
     profileForm.phone,
+    profileForm.companyAddress,
+    profileForm.companyName,
     profileForm.vehicleRegistration,
     profileForm.vehicleType,
     session?.email,
     session?.name,
+    isHaulier,
   ]);
 
   const initials = useMemo(() => {
@@ -280,6 +411,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setLocalVerificationStatus(verificationStatus);
   }, [verificationStatus]);
 
+  useEffect(() => {
+    if (!focusDocuments || documentsSectionY.current == null) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({animated: true, y: Math.max(documentsSectionY.current ?? 0, 0)});
+    });
+  }, [focusDocuments]);
+
   const uploadPhoto = async () => {
     try {
       const result = await launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 1});
@@ -287,11 +427,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       const asset = result.assets[0];
       if (!asset.uri) return;
       setPhotoUploading(true);
+      // Optimistic preview from local file immediately
+      setLocalPhotoUrl(asset.uri);
       const formData = new FormData();
       formData.append('file', {uri: asset.uri, name: asset.fileName ?? 'profile.jpg', type: asset.type ?? 'image/jpeg'} as any);
-      await driverApi.profile.uploadPhotoDirect(formData);
-      onRefresh();
+      const uploadRes = await driverApi.profile.uploadPhotoDirect(formData) as any;
+      const returnedUrl = uploadRes?.photoUrl;
+      if (returnedUrl) {
+        setLocalPhotoUrl(returnedUrl);
+      }
+      await Promise.resolve(onRefresh());
     } catch (err) {
+      setLocalPhotoUrl(null);
       Alert.alert('Photo upload failed', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setPhotoUploading(false);
@@ -321,29 +468,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
 
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <View style={styles.topBarAvatar}>
-            {photoUrl
-              ? <Image source={{uri: photoUrl}} style={styles.topBarAvatarImg} />
-              : <Text style={styles.topBarAvatarText}>{initials}</Text>}
-          </View>
-          <Text style={styles.topBarBrand}>Logistics Core</Text>
-        </View>
-        <View style={styles.bellWrap}>
-          <Text style={styles.bellIcon}>🔔</Text>
-        </View>
-      </View>
-
       {/* ── Cover + Avatar ────────────────────────────────────────────────── */}
       <View style={styles.coverWrap}>
-        <View style={styles.coverBg} />
+        <Image
+          source={require('../../assets/screens/Freightflex.png')}
+          style={styles.coverBg}
+        />
         <View style={styles.avatarArea}>
           <Pressable onPress={uploadPhoto} style={styles.avatarCircle}>
             {photoUrl
@@ -393,7 +530,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>COMPLETION</Text>
           <Text style={styles.statValue}>{completionRate}%</Text>
-          <ProgressBar value={completionRate} color="#D97706" />
+          <ProgressBar value={completionRate} color="#1066B1" />
         </View>
       </View>
 
@@ -470,13 +607,50 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           placeholder="e.g. TX-LOG-8892"
         />
 
-        <Pressable style={styles.addVehicleBtn}>
+        {isHaulier ? (
+          <View style={{gap: spacing.md, marginTop: spacing.md}}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderIcon}>🏢</Text>
+              <Text style={styles.sectionHeaderText}>HAULIER DETAILS</Text>
+            </View>
+            <InfoField
+              label="COMPANY NAME"
+              value={profileForm.companyName ?? ''}
+              onChange={v => onChange({companyName: v})}
+              placeholder="Enter your company name"
+            />
+            <InfoField
+              label="COMPANY ADDRESS"
+              value={profileForm.companyAddress ?? ''}
+              onChange={v => onChange({companyAddress: v})}
+              placeholder="Enter company address"
+            />
+            <InfoField
+              label="COVERAGE AREA"
+              value={profileForm.coverageArea ?? ''}
+              onChange={v => onChange({coverageArea: v})}
+              placeholder="Cities, states, or regions you cover"
+            />
+          </View>
+        ) : null}
+
+        <Pressable style={styles.addVehicleBtn} onPress={openVehicleModal}>
           <Text style={styles.addVehicleBtnText}>＋  Add New Vehicle</Text>
         </Pressable>
       </View>
 
       {/* ── Documents & Verification ──────────────────────────────────────── */}
-      <View style={styles.section}>
+      <View
+        style={styles.section}
+        onLayout={event => {
+          const y = event.nativeEvent.layout.y;
+          documentsSectionY.current = y;
+          if (focusDocuments) {
+            requestAnimationFrame(() => {
+              scrollRef.current?.scrollTo({animated: true, y: Math.max(y - 12, 0)});
+            });
+          }
+        }}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderIcon}>📂</Text>
           <Text style={styles.sectionHeaderText}>DOCUMENTS & VERIFICATION</Text>
@@ -497,16 +671,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {DRIVER_DOCUMENTS.map((doc, i, arr) => {
           const status = docStatus[doc.key];
           const c = docColor(status);
+          const tappable = status === 'not_uploaded' || status === 'rejected';
           return (
-            <View key={doc.key} style={[styles.docRow, i < arr.length - 1 && styles.docRowBorder]}>
+            <Pressable
+              key={doc.key}
+              onPress={() => openModal(doc)}
+              style={({pressed}) => [
+                styles.docRow,
+                i < arr.length - 1 && styles.docRowBorder,
+                pressed && styles.docRowPressed,
+              ]}>
               <Text style={styles.docIcon}>{doc.icon}</Text>
               <Text style={styles.docLabel}>{doc.label}</Text>
-              <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
-                <Text style={[styles.docBadgeText, {color: c.text}]}>
-                  {docLabel(status)}
-                </Text>
+              <View style={styles.docRowRight}>
+                <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
+                  <Text style={[styles.docBadgeText, {color: c.text}]}>
+                    {docLabel(status)}
+                  </Text>
+                </View>
+                {tappable && (
+                  <Text style={styles.docRowChevron}>›</Text>
+                )}
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -526,7 +713,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* ── Settings + Log Out ────────────────────────────────────────────── */}
       <View style={styles.bottomRow}>
-        <Pressable style={styles.settingsBtn}>
+        <Pressable style={styles.settingsBtn} onPress={onSettings}>
           <Text style={styles.settingsBtnIcon}>⚙</Text>
           <Text style={styles.settingsBtnText}>Settings</Text>
         </Pressable>
@@ -535,6 +722,158 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.logoutBtnText}>Log Out</Text>
         </Pressable>
       </View>
+
+      {/* ── Document Upload Modal ─────────────────────────────────────────── */}
+      <Modal
+        visible={!!activeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModal}>
+        <Pressable style={styles.modalBackdrop} onPress={closeModal}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderIcon}>{activeModal?.icon}</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.modalTitle}>Upload Document</Text>
+                <Text style={styles.modalSubtitle}>{activeModal?.label}</Text>
+              </View>
+              <Pressable onPress={closeModal} style={styles.modalCloseBtn} disabled={modalUploading}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* File picker */}
+            <Text style={styles.modalFieldLabel}>DOCUMENT FILE</Text>
+            <Pressable onPress={pickDocFile} style={styles.filePicker} disabled={modalUploading}>
+              {modalFile ? (
+                <View style={styles.filePickerSelected}>
+                  <Text style={styles.filePickerSelectedIcon}>📄</Text>
+                  <Text style={styles.filePickerSelectedName} numberOfLines={1}>
+                    {modalFile.fileName ?? 'Selected file'}
+                  </Text>
+                  <Text style={styles.filePickerChange}>Change</Text>
+                </View>
+              ) : (
+                <View style={styles.filePickerEmpty}>
+                  <Text style={styles.filePickerEmptyIcon}>⬆</Text>
+                  <Text style={styles.filePickerEmptyText}>Tap to select file</Text>
+                  <Text style={styles.filePickerEmptyHint}>JPG, PNG or PDF</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Expiry date */}
+            <Text style={styles.modalFieldLabel}>EXPIRY DATE</Text>
+            <Pressable
+              onPress={() => !modalUploading && setModalShowPicker(true)}
+              style={[styles.modalInput, styles.modalDatePressable]}>
+              <Text style={modalExpiry ? styles.modalDateValue : styles.modalDatePlaceholder}>
+                {modalExpiry || 'DD-MM-YYYY'}
+              </Text>
+              <Text style={styles.modalDateIcon}>📅</Text>
+            </Pressable>
+            {modalShowPicker && (
+              <DateTimePicker
+                value={modalPickerDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date(Date.now() + 86400000)}
+                onChange={onModalDateChange}
+              />
+            )}
+
+            {/* Error */}
+            {modalError ? (
+              <Text style={styles.modalError}>{modalError}</Text>
+            ) : null}
+
+            {/* Actions */}
+            <View style={styles.modalActions}>
+              <Pressable onPress={closeModal} style={styles.modalCancelBtn} disabled={modalUploading}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleModalUpload} style={styles.modalUploadBtn} disabled={modalUploading}>
+                {modalUploading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalUploadBtnText}>Upload</Text>}
+              </Pressable>
+            </View>
+
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Vehicle Modal ─────────────────────────────────────────────────────── */}
+      <Modal
+        visible={vehicleModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setVehicleModalVisible(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => !vehicleSaving && setVehicleModalVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderIcon}>🚛</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.modalTitle}>Vehicle Details</Text>
+                <Text style={styles.modalSubtitle}>Enter your vehicle information</Text>
+              </View>
+              <Pressable
+                onPress={() => setVehicleModalVisible(false)}
+                style={styles.modalCloseBtn}
+                disabled={vehicleSaving}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalFieldLabel}>VEHICLE TYPE</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. FLATBED, VAN, HGV, TRAILER"
+              placeholderTextColor="#9CA3AF"
+              value={vehicleType}
+              onChangeText={v => { setVehicleType(v); setVehicleError(null); }}
+              autoCapitalize="characters"
+              editable={!vehicleSaving}
+            />
+
+            <Text style={styles.modalFieldLabel}>REGISTRATION NUMBER</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. TX-LOG-8892"
+              placeholderTextColor="#9CA3AF"
+              value={vehicleReg}
+              onChangeText={v => { setVehicleReg(v); setVehicleError(null); }}
+              autoCapitalize="characters"
+              editable={!vehicleSaving}
+            />
+
+            {vehicleError ? (
+              <Text style={styles.modalError}>{vehicleError}</Text>
+            ) : null}
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setVehicleModalVisible(false)}
+                style={styles.modalCancelBtn}
+                disabled={vehicleSaving}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleVehicleSave}
+                style={styles.modalUploadBtn}
+                disabled={vehicleSaving}>
+                {vehicleSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalUploadBtnText}>Save Vehicle</Text>}
+              </Pressable>
+            </View>
+
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </ScrollView>
   );
@@ -546,31 +885,11 @@ const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F9FAFB'},
   content: {paddingBottom: 48},
 
-  // ── Top bar ──────────────────────────────────────────────────────────────
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingVertical: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  topBarLeft: {flexDirection: 'row', alignItems: 'center', gap: 10},
-  topBarAvatar: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: colors.navy,
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
-  },
-  topBarAvatarImg: {width: 34, height: 34, borderRadius: 17},
-  topBarAvatarText: {color: '#fff', fontSize: 14, fontWeight: '900'},
-  topBarBrand: {fontSize: 16, fontWeight: '900', color: '#111827'},
-  bellWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  bellIcon: {fontSize: 16},
-
   // ── Cover + Avatar ────────────────────────────────────────────────────────
   coverWrap: {alignItems: 'center', marginBottom: 56},
   coverBg: {
     width: '100%', height: 170,
-    backgroundColor: '#1C2E45',
+    resizeMode: 'cover',
   },
   avatarArea: {
     position: 'absolute', bottom: -52,
@@ -613,10 +932,10 @@ const styles = StyleSheet.create({
   ratingRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
   ratingValue: {fontSize: 32, fontWeight: '900', color: '#111827'},
   trophyCircle: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7',
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF2FB',
     justifyContent: 'center', alignItems: 'center',
   },
-  trophyIcon: {fontSize: 22},
+  trophyIcon: {fontSize: 22, color: '#1066B1'},
 
   // ── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {
@@ -695,18 +1014,94 @@ const styles = StyleSheet.create({
   // ── Document rows ─────────────────────────────────────────────────────────
   docRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 12, borderRadius: radius.md,
   },
   docRowBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  docRowPressed: {backgroundColor: '#F8FAFC'},
+  docRowRight: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  docRowChevron: {fontSize: 20, color: '#9CA3AF', fontWeight: '300'},
   docIcon: {fontSize: 20, width: 28, textAlign: 'center'},
   docLabel: {flex: 1, fontSize: 14, fontWeight: '600', color: '#111827'},
   docBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
   docBadgeText: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
 
+  // ── Upload modal ──────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.lg, paddingBottom: 36, gap: spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4,
+  },
+  modalHeaderIcon: {fontSize: 28},
+  modalTitle: {fontSize: 18, fontWeight: '900', color: '#111827'},
+  modalSubtitle: {fontSize: 13, color: '#6B7280', fontWeight: '500', marginTop: 2},
+  modalCloseBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  modalCloseBtnText: {fontSize: 14, color: '#6B7280', fontWeight: '700'},
+  modalFieldLabel: {
+    fontSize: 11, fontWeight: '800', color: '#6B7280',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: -4,
+  },
+  filePicker: {
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderStyle: 'dashed',
+    borderRadius: radius.md, overflow: 'hidden',
+  },
+  filePickerEmpty: {
+    padding: spacing.lg, alignItems: 'center', gap: 6,
+    backgroundColor: '#F9FAFB',
+  },
+  filePickerEmptyIcon: {fontSize: 28},
+  filePickerEmptyText: {fontSize: 14, fontWeight: '700', color: '#374151'},
+  filePickerEmptyHint: {fontSize: 12, color: '#9CA3AF'},
+  filePickerSelected: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, backgroundColor: '#F0FDF4',
+  },
+  filePickerSelectedIcon: {fontSize: 22},
+  filePickerSelectedName: {flex: 1, fontSize: 13, fontWeight: '600', color: '#111827'},
+  filePickerChange: {fontSize: 12, fontWeight: '800', color: '#1C2E45'},
+  modalInput: {
+    backgroundColor: '#F3F4F6', borderRadius: radius.md,
+    paddingHorizontal: spacing.lg, minHeight: 48,
+    fontSize: 15, color: '#111827', fontWeight: '500',
+  },
+  modalDatePressable: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  modalDateValue: {fontSize: 15, color: '#111827', fontWeight: '500'},
+  modalDatePlaceholder: {fontSize: 15, color: '#9CA3AF', fontWeight: '500'},
+  modalDateIcon: {fontSize: 18},
+  modalError: {
+    fontSize: 13, fontWeight: '700', color: '#DC2626',
+    backgroundColor: '#FEF2F2', borderRadius: radius.sm,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  modalActions: {flexDirection: 'row', gap: spacing.md, marginTop: 4},
+  modalCancelBtn: {
+    flex: 1, minHeight: 50, justifyContent: 'center', alignItems: 'center',
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+  },
+  modalCancelBtnText: {fontSize: 15, fontWeight: '700', color: '#374151'},
+  modalUploadBtn: {
+    flex: 2, minHeight: 50, justifyContent: 'center', alignItems: 'center',
+    borderRadius: radius.md, backgroundColor: '#1066B1',
+  },
+  modalUploadBtnText: {fontSize: 15, fontWeight: '900', color: '#FFFFFF'},
+
+  // ── Document rows ─────────────────────────────────────────────────────────
+
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtn: {
     marginHorizontal: spacing.lg, marginBottom: spacing.md,
-    backgroundColor: '#111827', borderRadius: radius.lg, minHeight: 56,
+    backgroundColor: '#1066B1', borderRadius: radius.lg, minHeight: 56,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
   },
   saveBtnDisabled: {opacity: 0.5},

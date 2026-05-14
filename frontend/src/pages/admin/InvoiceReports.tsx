@@ -56,7 +56,7 @@ export default function InvoiceReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Invoice Reports</h1>
+          <h1 className="text-2xl font-bold text-[#041627]">Invoice Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">Revenue & financial summary by period</p>
         </div>
         <div className="flex items-center gap-3">
@@ -122,7 +122,7 @@ export default function InvoiceReportsPage() {
       {!loading && data && (
         <>
           <div>
-            <h2 className="text-base font-semibold text-gray-700 mb-3">Period Summary</h2>
+            <h2 className="text-base font-semibold text-[#44474C] mb-3">Period Summary</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <KpiCard
                 label="Total Transaction Value"
@@ -157,7 +157,7 @@ export default function InvoiceReportsPage() {
 
           {/* All-time stats */}
           <div>
-            <h2 className="text-base font-semibold text-gray-700 mb-3">All-Time Totals</h2>
+            <h2 className="text-base font-semibold text-[#44474C] mb-3">All-Time Totals</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <KpiCard
                 label="All-Time Platform Revenue"
@@ -177,10 +177,11 @@ export default function InvoiceReportsPage() {
           </div>
 
           {/* Revenue breakdown table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-semibold text-gray-800">Breakdown — {periodLabel}</h2>
+              <h2 className="text-base font-semibold text-[#041627]">Breakdown — {periodLabel}</h2>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
@@ -196,16 +197,17 @@ export default function InvoiceReportsPage() {
                   { label: 'Net Platform Revenue', value: fmt(data.netRevenue), highlight: true },
                 ].map((row) => (
                   <tr key={row.label} className={row.highlight ? 'bg-emerald-50' : 'hover:bg-gray-50'}>
-                    <td className={`px-6 py-4 ${row.highlight ? 'font-semibold text-emerald-800' : 'text-gray-700'}`}>
+                    <td className={`px-6 py-4 ${row.highlight ? 'font-semibold text-emerald-800' : 'text-[#44474C]'}`}>
                       {row.label}
                     </td>
-                    <td className={`px-6 py-4 text-right font-mono ${row.highlight ? 'font-bold text-emerald-700' : 'text-gray-900'}`}>
+                    <td className={`px-6 py-4 text-right font-mono ${row.highlight ? 'font-bold text-emerald-700' : 'text-[#041627]'}`}>
                       {row.value}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

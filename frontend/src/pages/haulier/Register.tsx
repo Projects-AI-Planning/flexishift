@@ -43,7 +43,8 @@ const Register: React.FC = () => {
         password: form.password,
         role: 'HAULIER',
       });
-      navigate(`/verify-email?email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
+      const email = form.email.trim().toLowerCase();
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message || err.response?.data?.detail;
@@ -58,7 +59,7 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface w-full py-10">
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-lg">
+      <div className="bg-white p-5 sm:p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-lg">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-navy p-3 rounded-full mb-4">
             <Truck className="text-amber" size={32} />

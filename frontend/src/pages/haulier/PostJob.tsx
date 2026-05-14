@@ -66,7 +66,7 @@ const EMPTY: FormState = {
 const inputCls =
   'w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm ' +
   'focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ' +
-  'placeholder:text-slate-400 text-slate-800';
+  'placeholder:text-slate-400 text-[#041627]';
 
 const Label: React.FC<{ text: string; required?: boolean; hint?: string }> = ({ text, required, hint }) => (
   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
@@ -170,17 +170,17 @@ const PostJobPage: React.FC = () => {
         jobDate:       form.jobDate,
         timeSlot:      form.timeSlot,
       }) as {
-        jobId?: string; jobRef?: string; loadCode?: string;
+        jobId?: string; jobReference?: string; loadCode?: string;
         distanceKm?: number; durationMin?: number;
-        pickupAddress?: string; dropAddress?: string;
+        pickupLocation?: string; dropLocation?: string;
       };
       setCreated({
-        jobRef:      res?.jobRef ?? 'N/A',
+        jobRef:      res?.jobReference ?? 'N/A',
         loadCode:    res?.loadCode,
         distanceKm:  res?.distanceKm,
         durationMin: res?.durationMin,
-        pickup:      res?.pickupAddress ?? form.pickupAddress,
-        drop:        res?.dropAddress   ?? form.dropAddress,
+        pickup:      res?.pickupLocation ?? form.pickupAddress,
+        drop:        res?.dropLocation   ?? form.dropAddress,
         jobId:       res?.jobId,
       });
     } catch (e: unknown) {
@@ -197,7 +197,7 @@ const PostJobPage: React.FC = () => {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 overflow-hidden">
           {/* green banner */}
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-8 py-10 text-center">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 sm:px-8 py-10 text-center">
             <div className="w-20 h-20 rounded-full bg-white/20 ring-4 ring-white/30 flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
             </div>
@@ -208,9 +208,9 @@ const PostJobPage: React.FC = () => {
           </div>
 
           {/* details */}
-          <div className="px-8 py-8 space-y-6">
+          <div className="px-4 sm:px-8 py-8 space-y-6">
             {/* ref + load code */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Job Reference</p>
                 <p className="text-xl font-black text-primary font-mono">{created.jobRef}</p>
@@ -259,11 +259,11 @@ const PostJobPage: React.FC = () => {
                 <div className="space-y-4 flex-1 min-w-0">
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pickup</p>
-                    <p className="text-sm font-bold text-slate-700">{created.pickup}</p>
+                    <p className="text-sm font-bold text-[#44474C]">{created.pickup}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Drop-off</p>
-                    <p className="text-sm font-bold text-slate-700">{created.drop}</p>
+                    <p className="text-sm font-bold text-[#44474C]">{created.drop}</p>
                   </div>
                 </div>
               </div>
@@ -283,7 +283,7 @@ const PostJobPage: React.FC = () => {
               </button>
               <button
                 onClick={() => { setCreated(null); setForm(EMPTY); setStep(1); setError(''); }}
-                className="flex-1 bg-amber-500 text-slate-900 py-3 rounded-xl font-black text-sm hover:bg-amber-400 transition-colors"
+                className="flex-1 bg-amber-500 text-[#041627] py-3 rounded-xl font-black text-sm hover:bg-amber-400 transition-colors"
               >
                 Post Another Job
               </button>
@@ -296,18 +296,18 @@ const PostJobPage: React.FC = () => {
 
   /* ── FORM ── */
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-2 space-y-6 sm:px-6">
 
       {/* page title */}
       <div>
-        <h2 className="text-3xl font-black text-primary tracking-tight">Post a New Job</h2>
+        <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl lg:text-3xl">Post a New Job</h2>
         <p className="text-slate-500 font-medium mt-1">
           Fill in your shipment details and receive quotes from our driver network.
         </p>
       </div>
 
       {/* step bar */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-8 py-6">
+      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-4 sm:px-8 py-6">
         <StepBar current={step} />
       </div>
 
@@ -317,26 +317,26 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 1: Route ── */}
         {step === 1 && (
           <div>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-sm">route</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Route Details</h3>
+                  <h3 className="text-lg font-black text-[#041627]">Route Details</h3>
                   <p className="text-xs text-slate-500 font-medium">Enter pickup and drop-off addresses. We'll calculate the route automatically.</p>
                 </div>
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-8">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-8">
               {/* Pickup */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-white text-xs">my_location</span>
                   </span>
-                  <h4 className="font-black text-slate-700">Pickup Location</h4>
+                  <h4 className="font-black text-[#44474C]">Pickup Location</h4>
                 </div>
                 <div>
                   <Label text="Pickup Address" required />
@@ -366,7 +366,7 @@ const PostJobPage: React.FC = () => {
                   <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-white text-xs">flag</span>
                   </span>
-                  <h4 className="font-black text-slate-700">Drop-off Location</h4>
+                  <h4 className="font-black text-[#44474C]">Drop-off Location</h4>
                 </div>
                 <div>
                   <Label text="Drop-off Address" required />
@@ -395,19 +395,19 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 2: Cargo & Schedule ── */}
         {step === 2 && (
           <div>
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-slate-900 text-sm">inventory_2</span>
+                  <span className="material-symbols-outlined text-[#041627] text-sm">inventory_2</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Cargo & Schedule</h3>
+                  <h3 className="text-lg font-black text-[#041627]">Cargo & Schedule</h3>
                   <p className="text-xs text-slate-500 font-medium">Describe what needs to be shipped and when.</p>
                 </div>
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-7">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-7">
               {/* Goods type */}
               <div className="relative">
                 <Label text="Goods Type" required />
@@ -437,7 +437,7 @@ const PostJobPage: React.FC = () => {
               </div>
 
               {/* Weight + Vehicle */}
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <Label text="Total Weight" required hint="(kg)" />
                   <input
@@ -475,7 +475,7 @@ const PostJobPage: React.FC = () => {
               {/* Time slot */}
               <div>
                 <Label text="Collection Time Slot" required />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {TIME_SLOTS.map(t => (
                     <button
                       key={t.value}
@@ -491,7 +491,7 @@ const PostJobPage: React.FC = () => {
                         {t.icon}
                       </span>
                       <div>
-                        <p className={`font-black text-sm ${form.timeSlot === t.value ? 'text-primary' : 'text-slate-700'}`}>{t.label}</p>
+                        <p className={`font-black text-sm ${form.timeSlot === t.value ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
                         <p className="text-[10px] text-slate-400 font-medium">{t.sub}</p>
                       </div>
                       {form.timeSlot === t.value && (
@@ -520,19 +520,19 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 3: Review ── */}
         {step === 3 && (
           <div>
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-sm">fact_check</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Review & Confirm</h3>
+                  <h3 className="text-lg font-black text-[#041627]">Review & Confirm</h3>
                   <p className="text-xs text-slate-500 font-medium">Check all details before posting to the network.</p>
                 </div>
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-6">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
               {/* Route */}
               <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
                 <div className="flex items-start gap-4">
@@ -544,11 +544,11 @@ const PostJobPage: React.FC = () => {
                   <div className="space-y-3 flex-1 min-w-0">
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pickup</p>
-                      <p className="text-sm font-bold text-slate-700 leading-snug">{form.pickupAddress}</p>
+                      <p className="text-sm font-bold text-[#44474C] leading-snug">{form.pickupAddress}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Drop-off</p>
-                      <p className="text-sm font-bold text-slate-700 leading-snug">{form.dropAddress}</p>
+                      <p className="text-sm font-bold text-[#44474C] leading-snug">{form.dropAddress}</p>
                     </div>
                   </div>
                   <button onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline shrink-0">Edit</button>
@@ -557,7 +557,7 @@ const PostJobPage: React.FC = () => {
 
               {/* Cargo */}
               <ReviewSection title="Cargo" icon="inventory_2" iconBg="bg-amber-50" iconColor="text-amber-500">
-                <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
                   <ReviewRow label="Goods Type" value={form.goodsType} />
                   <ReviewRow label="Weight" value={`${form.weightKg} kg`} />
                   <ReviewRow label="Vehicle" value={VEHICLE_TYPES.find(v => v.value === form.vehicleType)?.label ?? form.vehicleType} />
@@ -567,7 +567,7 @@ const PostJobPage: React.FC = () => {
                 {form.specialInstructions && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Special Instructions</p>
-                    <p className="text-sm text-slate-700">{form.specialInstructions}</p>
+                    <p className="text-sm text-[#44474C]">{form.specialInstructions}</p>
                   </div>
                 )}
                 <div className="mt-3 flex justify-end">
@@ -588,17 +588,17 @@ const PostJobPage: React.FC = () => {
 
         {/* Error banner */}
         {error && (
-          <div className="mx-8 mb-0 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-4">
+          <div className="mx-4 sm:mx-8 mb-0 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-4">
             <span className="material-symbols-outlined text-red-500 shrink-0 text-base mt-0.5">error</span>
             <p className="text-sm text-red-700 font-semibold">{error}</p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="px-8 py-6 border-t border-slate-100 flex justify-between items-center gap-4">
+        <div className="px-4 sm:px-8 py-6 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center sm:gap-4">
           <button
             onClick={step === 1 ? () => navigate('/haulier') : back}
-            className="px-6 py-3 rounded-xl text-sm font-black text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+            className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-black text-[#44474C] bg-slate-100 hover:bg-slate-200 transition-colors"
           >
             {step === 1 ? 'Cancel' : '← Back'}
           </button>
@@ -606,7 +606,7 @@ const PostJobPage: React.FC = () => {
           {step < 3 ? (
             <button
               onClick={next}
-              className="px-8 py-3 rounded-xl text-sm font-black text-white bg-primary hover:opacity-90 transition-colors shadow-lg shadow-primary/20 flex items-center gap-2"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-white bg-primary hover:opacity-90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
             >
               Continue
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -615,7 +615,7 @@ const PostJobPage: React.FC = () => {
             <button
               onClick={submit}
               disabled={submitting}
-              className="px-8 py-3 rounded-xl text-sm font-black text-slate-900 bg-amber-500 hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center gap-2 min-w-[150px] justify-center"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-[#041627] bg-amber-500 hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]"
             >
               {submitting
                 ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Posting…</>
@@ -638,7 +638,7 @@ const ReviewSection: React.FC<{
   <div className="border border-slate-200 rounded-xl overflow-hidden">
     <div className={`flex items-center gap-2 px-5 py-3 ${iconBg} border-b border-slate-200`}>
       <span className={`material-symbols-outlined text-base ${iconColor}`}>{icon}</span>
-      <p className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</p>
+      <p className="text-xs font-black text-[#44474C] uppercase tracking-widest">{title}</p>
     </div>
     <div className="p-5">{children}</div>
   </div>
@@ -647,7 +647,7 @@ const ReviewSection: React.FC<{
 const ReviewRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-    <p className="text-sm font-bold text-slate-700 mt-0.5">{value || '—'}</p>
+    <p className="text-sm font-bold text-[#44474C] mt-0.5">{value || '—'}</p>
   </div>
 );
 

@@ -219,7 +219,7 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          <div className={`mt-5 overflow-hidden rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
+          <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
@@ -246,7 +246,7 @@ export default function NotificationsPage() {
                       <span
                         className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
                           notification.isRead
-                            ? 'bg-slate-100 text-slate-600'
+                            ? 'bg-slate-100 text-[#44474C]'
                             : 'bg-emerald-100 text-emerald-700'
                         }`}
                       >

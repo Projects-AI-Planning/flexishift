@@ -24,7 +24,6 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Invoices</Text>
           <Text style={styles.subtitle}>
             Track every completed trip invoice
           </Text>
@@ -125,7 +124,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: spacing.sm,
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.lg,
     minHeight: 48,
     justifyContent: 'center',

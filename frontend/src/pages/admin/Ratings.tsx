@@ -36,7 +36,7 @@ const roleTone = (role?: string | null) => {
     case 'firm':
       return 'bg-purple-100 text-purple-700';
     default:
-      return 'bg-slate-100 text-slate-600';
+      return 'bg-slate-100 text-[#44474C]';
   }
 };
 
@@ -136,10 +136,10 @@ const RatingsPage: React.FC = () => {
   const average = data?.totalRatings ? totalStars / data.totalRatings : 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">
             {moderationMode ? 'Ratings Moderation' : 'Ratings and Reviews'}
           </h2>
           <p className="text-on-surface-variant font-medium">
@@ -157,7 +157,7 @@ const RatingsPage: React.FC = () => {
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative flex-1 w-full min-w-[160px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
           <input
             type="text"
@@ -223,7 +223,7 @@ const RatingsPage: React.FC = () => {
                   const percent = Math.round((row.count / total) * 100);
                   return (
                     <div key={row.star} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm font-bold text-slate-700">
+                      <div className="flex items-center justify-between text-sm font-bold text-[#44474C]">
                         <span>{row.star} star</span>
                         <span>{row.count}</span>
                       </div>
@@ -270,7 +270,7 @@ const RatingsPage: React.FC = () => {
                           {renderStars(rating.starRating)}
                           <span className="text-sm font-black text-primary">{rating.starRating}.0</span>
                         </div>
-                        <p className="mt-3 text-sm leading-6 text-slate-700">
+                        <p className="mt-3 text-sm leading-6 text-[#44474C]">
                           {rating.review || 'No written review provided.'}
                         </p>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -283,7 +283,7 @@ const RatingsPage: React.FC = () => {
                             </span>
                           )}
                           {rating.tags?.map((tag) => (
-                            <span key={tag} className="text-[10px] font-black uppercase tracking-widest rounded-full bg-slate-100 text-slate-600 px-2 py-1">
+                            <span key={tag} className="text-[10px] font-black uppercase tracking-widest rounded-full bg-slate-100 text-[#44474C] px-2 py-1">
                               {tag}
                             </span>
                           ))}

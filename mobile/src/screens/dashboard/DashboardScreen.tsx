@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import ActiveJobMap from '../../components/map/ActiveJobMap';
 import {colors, radius, shadow, spacing} from '../../theme';
 
 const DAILY_TARGET = 550;
@@ -16,12 +17,40 @@ interface DashboardScreenProps {
   dashboard: any;
   driverName?: string;
   earnings: any;
+  averageRating?: number;
   upcomingJobs?: any[];
   refreshing: boolean;
   onRefresh: () => void;
   onViewJob: (job: any) => void;
   onQuickAction: (action: string) => void;
 }
+
+const StarRating: React.FC<{rating: number}> = ({rating}) => (
+  <View style={starStyles.row}>
+    {[1, 2, 3, 4, 5].map(i => {
+      const filled = rating >= i;
+      const half = !filled && rating >= i - 0.5;
+      return (
+        <Text
+          key={i}
+          style={[starStyles.star, filled || half ? starStyles.filled : starStyles.empty]}>
+          {half ? '⯨' : '★'}
+        </Text>
+      );
+    })}
+    <Text style={starStyles.label}>
+      {rating > 0 ? rating.toFixed(1) : 'No rating'}
+    </Text>
+  </View>
+);
+
+const starStyles = StyleSheet.create({
+  row: {alignItems: 'center', flexDirection: 'row', gap: 2},
+  star: {fontSize: 13},
+  filled: {color: '#DFA622'},
+  empty: {color: '#C9D0DB'},
+  label: {color: '#92620A', fontSize: 12, fontWeight: '800', marginLeft: 4},
+});
 
 function formatScheduleDate(dateStr: any): {dayLabel: string; dayNum: string; timeLabel: string} {
   if (!dateStr) return {dayLabel: 'TBD', dayNum: '--', timeLabel: ''};
@@ -47,6 +76,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   dashboard,
   driverName,
   earnings,
+  averageRating = 0,
   upcomingJobs = [],
   refreshing,
   onRefresh,
@@ -56,10 +86,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const activeJob = dashboard?.activeJob;
   const totalEarnings = Number(earnings?.summary?.totalEarnings ?? 0);
   const totalJobs = earnings?.summary?.totalJobs ?? 0;
-  const onTimeRate = dashboard?.performance?.onTimeRate ?? '98';
-  const rating = dashboard?.performance?.rating ?? '4.8';
+  const onTimeRate = dashboard?.performance?.onTimeRate ?? '0';
   const firstName = (driverName ?? 'Driver').split(' ')[0];
   const progressPct = Math.min((totalEarnings / DAILY_TARGET) * 100, 100);
+  const rating = Number(dashboard?.rating ?? averageRating ?? 0);
 
   return (
     <ScrollView
@@ -75,7 +105,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <View style={styles.greenDot} />
         <Text style={styles.statusText}>Ready for Loads</Text>
         <View style={styles.ratingBadge}>
-          <Text style={styles.ratingText}>★ {String(rating)}</Text>
+          <StarRating rating={rating} />
         </View>
       </View>
 
@@ -93,7 +123,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </Pressable>
 
       {/* Today's Earnings */}
-      <Card title="Today's Earnings" rightLabel="+12%" variant="accent">
+      <Card title="Today's Earnings" variant="accent">
         <View style={styles.earningsRow}>
           <Text style={styles.earningsValue}>${totalEarnings.toFixed(2)}</Text>
           <View style={styles.goalPill}>
@@ -112,7 +142,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <View style={styles.metricGrid}>
         <View style={styles.metricItem}>
           <Card title="Weekly Loads" subtitle="Last 7 days">
-            <Text style={styles.metricValue}>{String(totalJobs || 24)}</Text>
+            <Text style={styles.metricValue}>{String(totalJobs ?? 0)}</Text>
           </Card>
         </View>
         <View style={styles.metricItem}>
@@ -144,22 +174,43 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         variant={activeJob ? 'default' : 'accent'}>
         {activeJob ? (
           <>
-            <View style={styles.mapMock}>
-              <View style={styles.mapLine} />
-              <View style={[styles.mapStop, styles.mapStart]} />
-              <View style={[styles.mapStop, styles.mapTruck]} />
-              <View style={[styles.mapStop, styles.mapEnd]} />
-              <Text style={styles.mapOverlay}>
-                {String(activeJob.distanceRemaining ?? '84 miles remaining')}
-              </Text>
-            </View>
+            <ActiveJobMap
+              pickupLocation={
+                typeof activeJob.pickupLocation === 'object'
+                  ? String((activeJob.pickupLocation as any)?.address ?? (activeJob.pickupLocation as any)?.city ?? '')
+                  : String(activeJob.pickupLocation ?? '')
+              }
+              dropLocation={
+                typeof activeJob.dropLocation === 'object'
+                  ? String((activeJob.dropLocation as any)?.address ?? (activeJob.dropLocation as any)?.city ?? '')
+                  : String(activeJob.dropLocation ?? '')
+              }
+              pickupCoords={
+                activeJob.pickupLat != null && activeJob.pickupLng != null
+                  ? {latitude: Number(activeJob.pickupLat), longitude: Number(activeJob.pickupLng)}
+                  : null
+              }
+              dropCoords={
+                activeJob.dropLat != null && activeJob.dropLng != null
+                  ? {latitude: Number(activeJob.dropLat), longitude: Number(activeJob.dropLng)}
+                  : null
+              }
+              currentCoords={
+                activeJob.currentLocation?.latitude != null && activeJob.currentLocation?.longitude != null
+                  ? {
+                      latitude: Number(activeJob.currentLocation.latitude),
+                      longitude: Number(activeJob.currentLocation.longitude),
+                    }
+                  : null
+              }
+            />
             <View style={styles.routeRow}>
               <View style={styles.routePoint}>
                 <View style={[styles.routeDot, styles.routeDotStart]} />
                 <View>
                   <Text style={styles.routeLabel}>PICKUP</Text>
                   <Text style={styles.routeValue}>
-                    {String(activeJob.pickupLocation ?? 'Elizabeth, NJ')}
+                    {String(activeJob.pickupLocation ?? '—')}
                   </Text>
                 </View>
               </View>
@@ -169,15 +220,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <View>
                   <Text style={styles.routeLabel}>DROP-OFF</Text>
                   <Text style={styles.routeValue}>
-                    {String(activeJob.dropLocation ?? 'Newark, NJ')}
+                    {String(activeJob.dropLocation ?? '—')}
                   </Text>
                 </View>
               </View>
             </View>
             <Pressable
               onPress={() => onViewJob(activeJob)}
-              style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>View Details</Text>
+              style={styles.activeViewButton}>
+              <Text style={styles.activeViewButtonText}>View Details</Text>
             </Pressable>
           </>
         ) : (
@@ -254,7 +305,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         })
       )}
 
-      <View style={styles.bottomSpacer} />
 
     </ScrollView>
   );
@@ -263,11 +313,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
   },
   content: {
     padding: spacing.xl,
-    paddingBottom: 160,
+    paddingBottom: spacing.xl,
     flexGrow: 1,
   },
   greeting: {
@@ -300,11 +350,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
-  },
-  ratingText: {
-    color: '#92620A',
-    fontSize: 13,
-    fontWeight: '800',
   },
   searchBanner: {
     backgroundColor: '#8BC0EE',
@@ -399,7 +444,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   jobPill: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -408,54 +453,6 @@ const styles = StyleSheet.create({
     color: colors.card,
     fontSize: 12,
     fontWeight: '900',
-  },
-  mapMock: {
-    height: 140,
-    borderRadius: radius.lg,
-    backgroundColor: '#DDECE0',
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  mapLine: {
-    position: 'absolute',
-    left: '10%',
-    right: '10%',
-    top: '50%',
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-  },
-  mapStop: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
-  },
-  mapStart: {
-    left: '10%',
-    top: '47%',
-  },
-  mapTruck: {
-    left: '48%',
-    top: '47%',
-    backgroundColor: colors.navy,
-  },
-  mapEnd: {
-    right: '10%',
-    top: '47%',
-    backgroundColor: colors.success,
-  },
-  mapOverlay: {
-    position: 'absolute',
-    left: spacing.lg,
-    bottom: spacing.md,
-    color: colors.card,
-    fontSize: 14,
-    fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowRadius: 4,
   },
   routeRow: {
     flexDirection: 'row',
@@ -500,11 +497,32 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   viewButton: {
-    backgroundColor: colors.navy,
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  activeViewButton: {
+    backgroundColor: '#1066B1',
+    borderColor: '#0E5A9D',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0E5A9D',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  activeViewButtonText: {
+    color: colors.card,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   viewButtonText: {
     color: colors.card,
@@ -573,9 +591,6 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     fontSize: 28,
     marginLeft: spacing.sm,
-  },
-  bottomSpacer: {
-    height: 70,
   },
 });
 

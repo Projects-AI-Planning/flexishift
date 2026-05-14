@@ -225,7 +225,7 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Quotation</p>
-                    <p className="mt-1 text-base font-black text-slate-900 truncate">{jobRef}</p>
+                    <p className="mt-1 text-base font-black text-[#041627] truncate">{jobRef}</p>
                     <p className="text-xs text-slate-400">Quote {quoteRef}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${
@@ -244,7 +244,7 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl bg-slate-50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier</p>
-                    <p className="mt-1 font-black text-slate-900">{supplierName}</p>
+                    <p className="mt-1 font-black text-[#041627]">{supplierName}</p>
                     <p className="text-sm text-slate-500">{supplierPhone ?? 'No phone on file'}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 p-3">
@@ -259,20 +259,20 @@ const QuotesPanel: React.FC<{ jobId: string; jobStatus?: string; onAccepted: () 
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pickup</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{job.pickupLocation ?? 'N/A'}</p>
+                    <p className="mt-1 text-sm font-bold text-[#041627]">{job.pickupLocation ?? 'N/A'}</p>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drop</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{job.dropLocation ?? 'N/A'}</p>
+                    <p className="mt-1 text-sm font-bold text-[#041627]">{job.dropLocation ?? 'N/A'}</p>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{job.goodsType ?? 'N/A'}</p>
+                    <p className="mt-1 text-sm font-bold text-[#041627]">{job.goodsType ?? 'N/A'}</p>
                     {job.weightKg != null && <p className="text-xs text-slate-500">{job.weightKg} kg</p>}
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schedule</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{job.jobDate ?? 'N/A'}</p>
+                    <p className="mt-1 text-sm font-bold text-[#041627]">{job.jobDate ?? 'N/A'}</p>
                     {job.timeSlot && <p className="text-xs text-slate-500">{job.timeSlot.replace(/_/g, ' ')}</p>}
                   </div>
                 </div>
@@ -409,7 +409,7 @@ const HaulierJobsPage: React.FC = () => {
         </div>
         <button
           onClick={openModal}
-          className="inline-flex items-center gap-2 bg-amber-500 text-slate-900 px-5 py-2.5 rounded-xl text-sm font-black hover:bg-amber-400 transition-colors shadow-md"
+          className="inline-flex items-center gap-2 bg-amber-500 text-[#041627] px-5 py-2.5 rounded-xl text-sm font-black hover:bg-amber-400 transition-colors shadow-md"
         >
           <span className="material-symbols-outlined text-sm">add_circle</span>
           Post New Job
@@ -424,11 +424,11 @@ const HaulierJobsPage: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
               <span className="material-symbols-outlined text-2xl text-slate-400">local_shipping</span>
             </div>
-            <p className="font-black text-slate-600">No shipments yet</p>
+            <p className="font-black text-[#44474C]">No shipments yet</p>
             <p className="text-sm text-slate-400">Post your first job to get quotes from drivers.</p>
             <button
               onClick={openModal}
-              className="mt-1 bg-amber-500 text-slate-900 px-4 py-2 rounded-lg text-sm font-black hover:bg-amber-400 transition-colors"
+              className="mt-1 bg-amber-500 text-[#041627] px-4 py-2 rounded-lg text-sm font-black hover:bg-amber-400 transition-colors"
             >
               Post New Job
             </button>
@@ -463,16 +463,16 @@ const HaulierJobsPage: React.FC = () => {
                       {/* Ref */}
                       <div className="hidden sm:block w-32 shrink-0">
                         <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-0.5">Ref</p>
-                        <p className="text-sm font-mono text-slate-600">#{ref}</p>
+                        <p className="text-sm font-mono text-[#44474C]">#{ref}</p>
                       </div>
                       {/* Goods */}
                       <div className="hidden md:block w-32 shrink-0">
                         <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-0.5">Goods</p>
-                        <p className="text-sm text-slate-600">{j.goodsType ?? '—'}</p>
+                        <p className="text-sm text-[#44474C]">{j.goodsType ?? '—'}</p>
                       </div>
                       {/* Status */}
                       <div className="shrink-0">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${STATUS_COLORS[statusKey] ?? 'bg-slate-100 text-slate-600'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${STATUS_COLORS[statusKey] ?? 'bg-slate-100 text-[#44474C]'}`}>
                           {(j.status ?? '').replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -581,7 +581,7 @@ const HaulierJobsPage: React.FC = () => {
                         <Label text="Goods Type" required />
                         <input className={inputCls} placeholder="e.g. Palletised Goods, Machinery" value={form.goodsType} onChange={set('goodsType')} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label text="Weight (kg)" required />
                           <input className={inputCls} type="number" min="1" placeholder="e.g. 1200" value={form.weightKg} onChange={set('weightKg')} />
@@ -593,7 +593,7 @@ const HaulierJobsPage: React.FC = () => {
                           </select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label text="Job Date" required />
                           <input className={inputCls} type="date" min={today} value={form.jobDate} onChange={set('jobDate')} />
@@ -624,7 +624,7 @@ const HaulierJobsPage: React.FC = () => {
                 <>
                   <button
                     onClick={() => { setFormError(''); step === 1 ? closeModal() : setStep(1); }}
-                    className="px-5 py-3 text-sm font-black text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                    className="px-5 py-3 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
                   >
                     {step === 1 ? 'Cancel' : 'Back'}
                   </button>
@@ -636,7 +636,7 @@ const HaulierJobsPage: React.FC = () => {
                     <button
                       onClick={() => void submit()}
                       disabled={submitting}
-                      className="px-6 py-3 text-sm font-black text-slate-900 bg-amber-500 rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-amber-500/20 min-w-[120px] justify-center"
+                      className="px-6 py-3 text-sm font-black text-[#041627] bg-amber-500 rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-amber-500/20 min-w-[120px] justify-center"
                     >
                       {submitting
                         ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Posting…</>
@@ -661,14 +661,14 @@ const SectionHead: React.FC<{ icon: string; iconBg: string; iconColor: string; t
     <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
       <span className={`material-symbols-outlined text-sm ${iconColor}`}>{icon}</span>
     </div>
-    <p className="font-black text-slate-700 text-sm">{title}</p>
+    <p className="font-black text-[#44474C] text-sm">{title}</p>
   </div>
 );
 
 const Row: React.FC<{ label: string; value: React.ReactNode; small?: boolean }> = ({ label, value, small }) => (
   <div className="flex justify-between items-start gap-3">
     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">{label}</span>
-    <span className={`${small ? 'text-xs' : 'text-sm'} font-bold text-slate-700 text-right`}>{value}</span>
+    <span className={`${small ? 'text-xs' : 'text-sm'} font-bold text-[#44474C] text-right`}>{value}</span>
   </div>
 );
 

@@ -113,7 +113,7 @@ export default function HaulierProfilePage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-amber-500 text-2xl font-black text-slate-900">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-amber-500 text-2xl font-black text-[#041627]">
               {profile?.name?.charAt(0) || 'H'}
             </div>
             <div>
@@ -136,7 +136,7 @@ export default function HaulierProfilePage() {
                   const file = e.target.files?.[0];
                   if (file) void uploadPhoto(file);
                 }}
-                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-widest file:text-white"
+                className="block w-full text-sm text-[#44474C] file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-widest file:text-white"
               />
             </label>
             <p className="text-xs text-slate-500">

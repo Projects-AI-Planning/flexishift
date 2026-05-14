@@ -14,7 +14,7 @@ interface MyQuotesScreenProps {
   quotes: any[];
   refreshing: boolean;
   onRefresh: () => void;
-  onProceedToCompliance: (jobId: string) => void;
+  onProceedToCompliance: (jobId: string, jobReference?: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
 }
@@ -45,10 +45,13 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
 
   const renderItem = ({item}: {item: any}) => {
     const statusUpper = (item.status ?? '').toUpperCase();
-    const isAccepted  = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED';
+    const isAccepted  = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
     const isPending   = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
     const isDeclined  = statusUpper === 'DECLINED' || statusUpper === 'WITHDRAWN';
     const jobId       = String(item.jobId ?? '');
+    // API nests route info under item.job
+    const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
+    const dropLocation   = item.dropLocation   ?? item.job?.dropLocation   ?? null;
 
     return (
       <View style={[styles.card, isAccepted && styles.cardAccepted]}>
@@ -80,13 +83,13 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
         </View>
 
         {/* Route */}
-        {(item.pickupLocation || item.dropLocation) ? (
+        {(pickupLocation || dropLocation) ? (
           <View style={styles.routeRow}>
             <View style={[styles.dot, styles.dotGreen]} />
-            <Text style={styles.routeText} numberOfLines={1}>{item.pickupLocation ?? '—'}</Text>
+            <Text style={styles.routeText} numberOfLines={1}>{pickupLocation ?? '—'}</Text>
             <Text style={styles.routeArrow}>→</Text>
             <View style={[styles.dot, styles.dotAmber]} />
-            <Text style={styles.routeText} numberOfLines={1}>{item.dropLocation ?? '—'}</Text>
+            <Text style={styles.routeText} numberOfLines={1}>{dropLocation ?? '—'}</Text>
           </View>
         ) : null}
 
@@ -129,7 +132,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
               </Pressable>
             )}
             <Pressable
-              onPress={() => onProceedToCompliance(jobId)}
+              onPress={() => onProceedToCompliance(jobId, item.jobReference ?? item.jobRef ?? undefined)}
               style={styles.complianceBtn}>
               <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>
             </Pressable>
@@ -335,7 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   complianceBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.lg,
     minHeight: 52,
     justifyContent: 'center',
@@ -347,7 +350,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   complianceBtnText: {
-    color: colors.accent,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
   },

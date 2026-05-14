@@ -52,9 +52,9 @@ const RefundsPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Refunds</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Refunds</h2>
           <p className="text-on-surface-variant font-medium">Payment refund history and refund processing.</p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -84,9 +84,9 @@ const RefundsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
@@ -240,7 +240,7 @@ const RefundsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => { setRefundTarget(null); setForm(EMPTY_FORM); setFormError(''); }}
-                  className="px-5 py-2 text-sm font-black text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200"
+                  className="px-5 py-2 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200"
                 >Cancel</button>
                 <button
                   type="submit"

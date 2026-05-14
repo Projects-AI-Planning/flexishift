@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet, ScrollView, SafeAreaView, Switch, Pressable} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, Switch, Pressable} from 'react-native';
 import Card from '../../components/common/Card';
 import {colors, spacing} from '../../theme';
 
@@ -33,31 +33,24 @@ const NotificationPreferencesScreen: React.FC<NotificationPreferencesScreenProps
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Notification Preferences</Text>
-          <Text style={styles.subtitle}>Choose how you want to be informed</Text>
-        </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Notification Preferences</Text>
+        <Text style={styles.subtitle}>Choose how you want to be informed</Text>
+      </View>
 
-        {renderGroup('pushNotifications', 'Push Notifications')}
-        {renderGroup('smsNotifications', 'SMS Notifications')}
+      {renderGroup('pushNotifications', 'Push Notifications')}
+      {renderGroup('smsNotifications', 'SMS Notifications')}
 
-        <Pressable onPress={onSave} style={styles.saveButton}>
-          <Text style={styles.saveButtonText}>
-            {loading ? 'Saving...' : 'Save Preferences'}
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+      <Pressable onPress={onSave} style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Preferences'}</Text>
+      </Pressable>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
+  container: {flex: 1, backgroundColor: colors.bg},
   content: {
     padding: spacing.xl,
     paddingBottom: 120,
@@ -67,8 +60,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.navy,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
+    marginBottom: 4,
   },
   subtitle: {
     color: colors.inkSoft,

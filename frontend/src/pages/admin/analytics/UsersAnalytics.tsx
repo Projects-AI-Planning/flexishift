@@ -143,7 +143,7 @@ export default function UsersAnalyticsPage() {
             </div>
           </div>
 
-          <div className={`mt-5 overflow-hidden rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
+          <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
@@ -161,7 +161,7 @@ export default function UsersAnalyticsPage() {
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#44474C]">
                         {user.role}
                       </span>
                     </td>
@@ -207,7 +207,7 @@ export default function UsersAnalyticsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
           {chartSeries.length > 0 ? chartSeries.map((item) => {
             const height = Math.max(8, (item.value / chartMax) * 220);
             return (

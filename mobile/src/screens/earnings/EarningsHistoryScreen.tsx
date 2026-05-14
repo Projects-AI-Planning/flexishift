@@ -73,7 +73,6 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Earnings History</Text>
         <View style={styles.totalBox}>
           <Text style={styles.totalLabel}>All Time Total</Text>
           <Text style={styles.totalValue}>Rs {totalEarnings.toLocaleString()}</Text>

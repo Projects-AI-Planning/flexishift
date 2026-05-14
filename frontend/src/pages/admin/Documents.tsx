@@ -48,7 +48,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ docId, onClose, onSubmitted }
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <p className="text-sm text-slate-600 font-medium">
+          <p className="text-sm text-[#44474C] font-medium">
             The driver will see this reason in their app. Please be clear and specific so they know exactly what to fix before resubmitting.
           </p>
           <div>
@@ -60,7 +60,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ docId, onClose, onSubmitted }
               onChange={(e) => { setReason(e.target.value); setError(''); }}
               rows={4}
               placeholder="e.g. Document is blurry and unreadable. Please upload a clearer photo with all details visible."
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 placeholder-slate-300 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 resize-none"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-[#041627] placeholder-slate-300 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 resize-none"
             />
             {error && <p className="text-xs text-red-600 font-bold mt-1">{error}</p>}
           </div>
@@ -68,7 +68,7 @@ const RejectModal: React.FC<RejectModalProps> = ({ docId, onClose, onSubmitted }
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-100 transition-all"
+            className="flex-1 px-4 py-2.5 border border-slate-200 text-[#44474C] font-bold rounded-xl text-sm hover:bg-slate-100 transition-all"
           >
             Cancel
           </button>
@@ -110,7 +110,7 @@ const DocumentsPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {rejectDocId && (
         <RejectModal
           docId={rejectDocId}
@@ -119,12 +119,12 @@ const DocumentsPage: React.FC = () => {
         />
       )}
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Compliance & Verifications</h2>
+          <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl lg:text-3xl">Compliance & Verifications</h2>
           <p className="text-on-surface-variant font-medium">Review and approve supplier credentials to maintain platform safety.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">error</span>
             {data?.totalPending || 0} Pending Reviews
@@ -135,7 +135,7 @@ const DocumentsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Guidelines & Stats */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-primary text-white p-6 rounded-xl shadow-lg border border-slate-700/30">
+          <div className="bg-primary text-white p-4 rounded-xl shadow-lg border border-slate-700/30 sm:p-6">
             <div className="flex items-center gap-3 mb-6">
               <span className="material-symbols-outlined text-amber-500">verified_user</span>
               <h3 className="text-xl font-bold">Verification Protocol</h3>
@@ -160,8 +160,8 @@ const DocumentsPage: React.FC = () => {
         {/* Right: Pending Review List */}
         <div className={`lg:col-span-8 space-y-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
           {(data?.pendingVerifications as ExtendedVerificationRequest[])?.map((request) => (
-            <div key={request.supplierId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden">
-              <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+            <div key={request.supplierId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto">
+              <div className="px-4 py-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sm:px-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full border-2 border-amber-500 overflow-hidden bg-slate-100 flex items-center justify-center font-bold text-primary">
                     {request.name.charAt(0)}
@@ -172,7 +172,7 @@ const DocumentsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="px-4 py-4 space-y-4 sm:px-6">
                 {(request.documents as ExtendedDocument[]).map((doc) => (
                   <div key={doc.documentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors gap-4">
                     <div className="flex items-center gap-4">

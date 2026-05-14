@@ -16,14 +16,18 @@ def _generate_otp() -> str:
     return str(random.randint(100000, 999999))
 
 # ---------------------------------------------------------------------------
-# Refresh-token store — Redis when available, in-memory dict as fallback.
-# The in-memory store is process-local and does not survive restarts; it is
-# only intended for development without a Redis instance.
+# OTP & token constants — defined at module level before any function uses them
 # ---------------------------------------------------------------------------
-_memory_store: dict[str, str] = {}  # token → user_id
-_otp_store: dict[str, str] = {}    # phone → otp (in-memory fallback)
+OTP_TTL = 600  # 10 minutes
 
 REFRESH_PREFIX = "refresh:"
+PHONE_OTP_PREFIX = "phone_otp:"
+EMAIL_OTP_PREFIX = "email_otp:"
+
+# In-memory fallback stores (used when Redis is unavailable)
+_memory_store: dict[str, str] = {}   # refresh token → user_id
+_otp_store: dict[str, str] = {}      # phone → otp
+_email_otp_store: dict[str, str] = {}  # email → otp
 
 
 def _store_refresh(r, user_id: str, token: str) -> None:
@@ -82,7 +86,8 @@ async def register(db: Session, full_name: str, email: str, phone: str, password
     _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
     if r is not None:
         r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
-    await send_verification_email(email, full_name, otp)
+    email_sent = await send_verification_email(email, full_name, otp)
+    user.email_sent = email_sent  # transient flag consumed by router
     return user
 
 
@@ -113,7 +118,7 @@ def login(db: Session, r, email: str, password: str) -> dict:
     if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if user.status == UserStatus.INACTIVE:
-        raise HTTPException(status_code=403, detail="Email not verified")
+        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox (and spam folder) for the verification code.")
     if user.status == UserStatus.SUSPENDED:
         raise HTTPException(status_code=403, detail="Account suspended")
 
@@ -149,10 +154,10 @@ def logout(r, refresh_token: str) -> None:
     _revoke_refresh(r, refresh_token)
 
 
-async def resend_verification(db: Session, email: str, r=None) -> None:
+async def resend_verification(db: Session, email: str, r=None) -> bool:
     user = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
     if not user or user.verified:
-        return  # silent — don't reveal state
+        return False  # silent — don't reveal state
     otp = _generate_otp()
     ev = EmailVerification(
         user_id=user.id,
@@ -164,13 +169,13 @@ async def resend_verification(db: Session, email: str, r=None) -> None:
     _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
     if r is not None:
         r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
-    await send_verification_email(email, user.full_name, otp)
+    return await send_verification_email(email, user.full_name, otp)
 
 
-async def forgot_password(db: Session, email: str) -> None:
+async def forgot_password(db: Session, email: str) -> bool:
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        return  # silent — don't reveal existence
+        return False  # silent — don't reveal existence
 
     otp = _generate_otp()
     pr = PasswordReset(
@@ -180,15 +185,7 @@ async def forgot_password(db: Session, email: str) -> None:
     )
     db.add(pr)
     db.commit()
-    await send_password_reset_email(email, user.full_name, otp)
-
-
-OTP_TTL = 600  # 10 minutes
-PHONE_OTP_PREFIX = "phone_otp:"
-
-
-EMAIL_OTP_PREFIX = "email_otp:"
-_email_otp_store: dict[str, str] = {}  # email → otp (in-memory fallback)
+    return await send_password_reset_email(email, user.full_name, otp)
 
 
 def get_email_otp(r, email: str) -> str:

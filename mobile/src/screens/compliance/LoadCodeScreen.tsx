@@ -17,7 +17,6 @@ interface LoadCodeScreenProps {
   jobReference: string;
   onVerify: (code: string) => Promise<void>;
   onOpenScanner: () => void;
-  onBack?: () => void;
   loading: boolean;
   error: string | null;
 }
@@ -27,7 +26,6 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
   jobReference,
   onVerify,
   onOpenScanner,
-  onBack,
   loading,
   error,
 }) => {
@@ -39,13 +37,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}>
         <View style={styles.topRow}>
-          {onBack ? (
-            <Pressable onPress={onBack} style={styles.backBtn}>
-              <Text style={styles.backText}>{'\u2190'} Back</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.backBtnSpacer} />
-          )}
+          <View style={styles.backBtnSpacer} />
           <Text style={styles.stepTitle}>Step 1 of 3</Text>
         </View>
         <Text style={styles.mainTitle}>Load Code Confirmation</Text>
@@ -184,7 +176,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',

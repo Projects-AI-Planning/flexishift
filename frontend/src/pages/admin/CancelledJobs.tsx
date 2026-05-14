@@ -11,9 +11,9 @@ const CancelledJobsPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Cancelled Jobs</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Cancelled Jobs</h2>
           <p className="text-on-surface-variant font-medium">Jobs that were cancelled before completion.</p>
         </div>
         <div className="flex gap-3">
@@ -43,9 +43,9 @@ const CancelledJobsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
@@ -76,7 +76,7 @@ const CancelledJobsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-[180px]">
-                      <p className="text-xs font-bold text-slate-600 truncate">{pickup || 'N/A'}</p>
+                      <p className="text-xs font-bold text-[#44474C] truncate">{pickup || 'N/A'}</p>
                       <p className="text-[10px] text-slate-300 my-0.5">▼</p>
                       <p className="text-xs text-slate-500 truncate">{drop || 'N/A'}</p>
                     </td>
@@ -105,7 +105,7 @@ const CancelledJobsPage: React.FC = () => {
                         <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full w-fit block ${
                           job.paymentStatus === 'refunded' ? 'bg-green-100 text-green-700' :
                           job.paymentStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
-                          'bg-slate-100 text-slate-600'
+                          'bg-slate-100 text-[#44474C]'
                         }`}>
                           {job.paymentStatus}
                         </span>

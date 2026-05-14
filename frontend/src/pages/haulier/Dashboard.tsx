@@ -63,14 +63,14 @@ const DashboardSignModal: React.FC<{
         <div className="mb-4 flex items-start justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Step 2 · Handover</p>
-            <h2 className="text-xl font-black text-slate-900">Haulier Signature</h2>
+            <h2 className="text-xl font-black text-[#041627]">Haulier Signature</h2>
             <p className="text-sm text-slate-500">Job: <span className="font-bold">{job.jobReference}</span></p>
           </div>
           <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <p className="mb-3 text-sm text-slate-600">Draw your signature to confirm dispatch officer vehicle release.</p>
+        <p className="mb-3 text-sm text-[#44474C]">Draw your signature to confirm dispatch officer vehicle release.</p>
         <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
           <canvas ref={canvasRef} width={560} height={200} className="w-full cursor-crosshair touch-none"
             onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
@@ -81,7 +81,7 @@ const DashboardSignModal: React.FC<{
         <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE</p>
         {error && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
         <div className="mt-5 flex gap-3">
-          <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
+          <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
           <button onClick={() => void submit()} disabled={loading || !hasStrokes} className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40">
             {loading ? 'Submitting…' : 'Confirm Signature'}
           </button>
@@ -158,7 +158,7 @@ const formatCurrency = (value: number) => `£${value.toLocaleString('en-GB')}`;
 const toneForStatus = (status: string) => {
   const normalized = status.toLowerCase();
   if (normalized.includes('in_transit')) return 'bg-emerald-100 text-emerald-800';
-  if (normalized.includes('completed')) return 'bg-slate-100 text-slate-700';
+  if (normalized.includes('completed')) return 'bg-slate-100 text-[#44474C]';
   if (normalized.includes('booked')) return 'bg-blue-100 text-blue-800';
   return 'bg-amber-100 text-amber-800';
 };
@@ -347,14 +347,14 @@ const HaulierOverview: React.FC = () => {
 
   if (loading || !dashboardData) {
     return (
-      <div className="space-y-6">
-        <div className="h-20 animate-pulse rounded-3xl bg-slate-100" />
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-36 animate-pulse rounded-3xl bg-slate-100" />
+            <div key={index} className="h-28 sm:h-36 animate-pulse rounded-2xl bg-slate-100" />
           ))}
         </div>
-        <div className="h-[520px] animate-pulse rounded-3xl bg-slate-100" />
+        <div className="h-[300px] sm:h-[420px] animate-pulse rounded-2xl bg-slate-100" />
       </div>
     );
   }
@@ -362,7 +362,7 @@ const HaulierOverview: React.FC = () => {
   const liveCount = deliveries.filter((delivery) => Boolean(delivery.currentLocation)).length;
 
   return (
-    <div className="relative space-y-8 overflow-hidden">
+    <div className="relative w-full space-y-4 sm:space-y-6 lg:space-y-8 min-w-0 overflow-x-hidden">
       {/* Signature modal */}
       {sigModalJob && (
         <DashboardSignModal
@@ -377,73 +377,62 @@ const HaulierOverview: React.FC = () => {
         />
       )}
 
-      <div className="pointer-events-none absolute -top-24 right-[-90px] h-64 w-64 rounded-full bg-amber-400/15 blur-3xl" />
-      <div className="pointer-events-none absolute left-[-120px] top-40 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-
       {/* ── Vehicle Handover Sign ───────────────────────────────────────────── */}
       {handoverRows.length > 0 && (
-        <section className="overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
-          <div className="flex items-center gap-4 border-b border-amber-100 bg-amber-50 px-6 py-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-white shadow">
-              <span className="material-symbols-outlined">draw</span>
+        <section className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
+          <div className="flex flex-wrap items-center gap-3 border-b border-amber-100 bg-amber-50 px-4 py-3 sm:px-6 sm:py-4">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
+              <span className="material-symbols-outlined text-sm">draw</span>
             </span>
-            <div className="flex-1">
-              <h2 className="font-black text-amber-900 text-lg">Vehicle Handover Signatures</h2>
-              <p className="text-sm text-amber-700">Sign each active job to authorise the vehicle release.</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-black text-amber-900 text-base sm:text-lg">Vehicle Handover Signatures</h2>
+              <p className="text-xs sm:text-sm text-amber-700">Sign each active job to authorise vehicle release.</p>
             </div>
             {handoverRows.filter((r) => !r.haulierSigned).length > 0 && (
-              <span className="rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-white">
-                {handoverRows.filter((r) => !r.haulierSigned).length} need your sign
+              <span className="rounded-full bg-amber-400 px-2.5 py-1 text-xs font-black text-white shrink-0">
+                {handoverRows.filter((r) => !r.haulierSigned).length} pending
               </span>
             )}
           </div>
-
           <div className="divide-y divide-slate-100">
             {handoverRows.map((row) => (
-              <div key={row.jobId} className={`flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center ${!row.haulierSigned ? 'bg-amber-50/30' : ''}`}>
-                {/* Job info */}
+              <div key={row.jobId} className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6 ${!row.haulierSigned ? 'bg-amber-50/30' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-black text-slate-950">{row.jobReference}</p>
+                    <p className="font-black text-[#041627] text-sm">{row.jobReference}</p>
                     {row.driverSigned && !row.haulierSigned && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">Driver signed — awaiting you</span>
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">Driver signed</span>
                     )}
                     {row.haulierSigned && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">Both signed ✓</span>
                     )}
-                    {!row.driverSigned && !row.haulierSigned && !row.loading && (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Awaiting driver checklist</span>
-                    )}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500 truncate">{row.route}</p>
-                  <div className="mt-2 flex gap-4 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500 truncate">{row.route}</p>
+                  <div className="mt-1.5 flex gap-3 text-xs">
                     <span className={`flex items-center gap-1 font-semibold ${row.driverSigned ? 'text-emerald-600' : 'text-slate-400'}`}>
                       <span className="material-symbols-outlined text-sm">{row.driverSigned ? 'check_circle' : 'radio_button_unchecked'}</span>
-                      Driver signature
+                      Driver
                     </span>
                     <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-amber-500'}`}>
                       <span className="material-symbols-outlined text-sm">{row.haulierSigned ? 'check_circle' : 'pending'}</span>
-                      Your signature
+                      You
                     </span>
                   </div>
                 </div>
-
-                {/* Action */}
                 <div className="shrink-0">
                   {row.loading ? (
                     <span className="text-xs text-slate-400">Loading…</span>
                   ) : row.haulierSigned ? (
-                    <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700">
-                      <span className="material-symbols-outlined text-base">verified</span>
-                      Signed
-                      {row.haulierSignedAt && <span className="font-normal text-emerald-500 text-xs">{new Date(row.haulierSignedAt).toLocaleDateString('en-GB')}</span>}
+                    <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+                      <span className="material-symbols-outlined text-sm">verified</span>
+                      Signed {row.haulierSignedAt && <span className="font-normal text-emerald-500">{new Date(row.haulierSignedAt).toLocaleDateString('en-GB')}</span>}
                     </div>
                   ) : (
                     <button
                       onClick={() => setSigModalJob({ jobId: row.jobId, jobReference: row.jobReference })}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-md shadow-amber-300/50 transition hover:bg-amber-600 active:scale-95"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-amber-600 active:scale-95"
                     >
-                      <span className="material-symbols-outlined text-base">draw</span>
+                      <span className="material-symbols-outlined text-sm">draw</span>
                       Sign Now
                     </button>
                   )}
@@ -454,34 +443,29 @@ const HaulierOverview: React.FC = () => {
         </section>
       )}
 
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-7 shadow-[0_18px_50px_rgba(15,23,42,0.18)] md:px-8">
-        <div className="absolute inset-0 opacity-25" style={{
-          backgroundImage:
-            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.35) 1px, transparent 0)',
+      {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-4 py-5 sm:px-6 sm:py-7 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.35) 1px, transparent 0)',
           backgroundSize: '18px 18px',
         }} />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300">Haulier Dashboard</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-white md:text-5xl">
-              Fleet Overview
-            </h1>
-            <p className="mt-3 max-w-xl text-sm font-medium text-slate-300 md:text-base">
-              Real-time status of your logistics operations.
-            </p>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Fleet Overview</h1>
+            <p className="mt-1 text-xs sm:text-sm font-medium text-slate-300">Real-time status of your logistics operations.</p>
           </div>
-
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => navigate('/haulier/post-job')}
-              className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2.5 text-xs sm:text-sm font-black text-[#041627] transition hover:bg-amber-300"
             >
               <span className="material-symbols-outlined text-sm">add_circle</span>
               Post New Job
             </button>
             <button
               onClick={refresh}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 text-xs sm:text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
             >
               <span className="material-symbols-outlined text-sm">refresh</span>
               Refresh
@@ -490,106 +474,86 @@ const HaulierOverview: React.FC = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-        <article className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
-          <div className="mb-5 flex items-start justify-between">
-            <div className="rounded-2xl bg-blue-50 p-3 text-primary">
-              <span className="material-symbols-outlined">payments</span>
+      {/* ── Stat Cards ──────────────────────────────────────────────────────── */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-3 flex items-start justify-between">
+            <div className="rounded-xl bg-blue-50 p-2 text-primary">
+              <span className="material-symbols-outlined text-lg sm:text-xl">payments</span>
             </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-              +12.5%
-            </span>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">+12.5%</span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Total Spend</p>
-          <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {formatCurrency(stats.totalSpend)}
-          </h3>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total Spend</p>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627] truncate">{formatCurrency(stats.totalSpend)}</h3>
         </article>
 
-        <article className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
-          <div className="mb-5 flex items-start justify-between">
-            <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
-              <span className="material-symbols-outlined">package_2</span>
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-3">
+            <div className="rounded-xl bg-amber-50 p-2 text-amber-600 w-fit">
+              <span className="material-symbols-outlined text-lg sm:text-xl">package_2</span>
             </div>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Active Shipments</p>
-          <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {String(stats.activeShipments).padStart(2, '0')}
-          </h3>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Active Jobs</p>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{String(stats.activeShipments).padStart(2, '0')}</h3>
           {stats.bookedAwaitingPayment > 0 && (
-            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-amber-600">
-              {stats.bookedAwaitingPayment} awaiting payment
-            </p>
+            <p className="mt-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">{stats.bookedAwaitingPayment} need payment</p>
           )}
         </article>
 
-        <article className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
-          <div className="mb-5 flex items-start justify-between">
-            <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-              <span className="material-symbols-outlined">request_quote</span>
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-3">
+            <div className="rounded-xl bg-slate-100 p-2 text-[#44474C] w-fit">
+              <span className="material-symbols-outlined text-lg sm:text-xl">request_quote</span>
             </div>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Pending Quotes</p>
-          <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {String(stats.pendingQuotes).padStart(2, '0')}
-          </h3>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Pending Quotes</p>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{String(stats.pendingQuotes).padStart(2, '0')}</h3>
         </article>
 
-        <article className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
-          <div className="mb-5 flex items-start justify-between">
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-500">
-              <span className="material-symbols-outlined">speed</span>
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+          <div className="mb-3 flex items-start justify-between">
+            <div className="rounded-xl bg-blue-50 p-2 text-blue-500">
+              <span className="material-symbols-outlined text-lg sm:text-xl">speed</span>
             </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
-              Optimal
-            </span>
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">Optimal</span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Fleet Utilization</p>
-          <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {stats.fleetUtilization}%
-          </h3>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Fleet Use</p>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{stats.fleetUtilization}%</h3>
         </article>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 xl:grid-cols-3">
-        <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.06)] xl:col-span-2">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <span className="rounded-2xl bg-amber-50 p-2 text-amber-500">
-                <span className="material-symbols-outlined text-xl">map</span>
+      {/* ── Map + Quick Actions ──────────────────────────────────────────────── */}
+      <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3">
+        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <span className="rounded-xl bg-amber-50 p-1.5 text-amber-500 shrink-0">
+                <span className="material-symbols-outlined text-lg">map</span>
               </span>
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-slate-950">Live Fleet Tracking</h3>
-                <p className="text-sm text-slate-500">Realistic live map powered by active delivery coordinates.</p>
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627] truncate">Live Fleet Tracking</h3>
+                <p className="hidden sm:block text-xs text-slate-500">Live map powered by active delivery coordinates.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              {liveCount} Trucks Live
+            <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {liveCount} Live
             </div>
           </div>
 
-          <div className="relative h-[540px] bg-slate-100">
+          <div className="relative h-[240px] sm:h-[360px] lg:h-[460px] xl:h-[500px] bg-slate-100">
             {mapError ? (
-              <div className="absolute inset-0 flex items-center justify-center px-6">
-                <div className="rounded-[1.75rem] border border-rose-200 bg-rose-50 px-8 py-7 text-center text-rose-700 shadow-[0_16px_50px_rgba(15,23,42,0.08)]">
-                  <p className="text-lg font-black">{mapError}</p>
-                  <button
-                    onClick={() => void loadMap()}
-                    className="mt-4 rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white"
-                  >
-                    Retry
-                  </button>
+              <div className="absolute inset-0 flex items-center justify-center px-4">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-5 text-center text-rose-700">
+                  <p className="font-black">{mapError}</p>
+                  <button onClick={() => void loadMap()} className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white">Retry</button>
                 </div>
               </div>
             ) : mapLoading && !mapData ? (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="rounded-[1.75rem] border border-slate-200 bg-white/80 px-8 py-7 text-center shadow-[0_16px_50px_rgba(15,23,42,0.12)] backdrop-blur">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white">
-                    <span className="material-symbols-outlined text-3xl">location_on</span>
-                  </div>
-                  <p className="text-lg font-black text-slate-950">Map loading...</p>
-                  <p className="mt-1 text-sm text-slate-500">Fetching live delivery coordinates from the backend.</p>
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-5 text-center backdrop-blur">
+                  <span className="material-symbols-outlined text-3xl text-slate-400 block mb-2">location_on</span>
+                  <p className="font-black text-[#041627] text-sm">Loading map…</p>
                 </div>
               </div>
             ) : (
@@ -599,108 +563,74 @@ const HaulierOverview: React.FC = () => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <FlyToDelivery delivery={selectedDelivery} />
-
                 {selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null && (
                   <Marker position={[selectedDelivery.pickupLat, selectedDelivery.pickupLng]} icon={pickupIcon}>
-                    <Popup>
-                      <div className="min-w-[180px] text-sm">
-                        <p className="font-black text-slate-950">Pickup</p>
-                        <p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p>
-                      </div>
-                    </Popup>
+                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Pickup</p><p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p></div></Popup>
                   </Marker>
                 )}
-
                 {selectedDelivery?.currentLocation && (
                   <Marker position={[selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude]} icon={truckIcon}>
                     <Popup>
-                      <div className="min-w-[200px] text-sm">
-                        <p className="font-black text-slate-950">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p>
+                      <div className="min-w-[180px] text-sm">
+                        <p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p>
                         <p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-IN') : 'No ping'}
-                        </p>
+                        <p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-IN') : 'No ping'}</p>
                       </div>
                     </Popup>
                   </Marker>
                 )}
-
                 {selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null && (
                   <Marker position={[selectedDelivery.dropLat, selectedDelivery.dropLng]} icon={destinationIcon}>
-                    <Popup>
-                      <div className="min-w-[180px] text-sm">
-                        <p className="font-black text-slate-950">Destination</p>
-                        <p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p>
-                      </div>
-                    </Popup>
+                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Destination</p><p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p></div></Popup>
                   </Marker>
                 )}
-
                 {routePoints.length >= 2 && (
                   <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
                 )}
               </MapContainer>
             )}
-
-            <div className="absolute bottom-5 left-5 z-[450] rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Map Legend</p>
-              <div className="mt-2 space-y-2 text-xs font-medium text-slate-600">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
-                  <span>Vehicle</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  <span>Pickup</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  <span>Destination</span>
-                </div>
+            <div className="absolute bottom-3 left-3 z-[450] rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur">
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">Legend</p>
+              <div className="space-y-1 text-xs font-medium text-[#44474C]">
+                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" /><span>Vehicle</span></div>
+                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" /><span>Pickup</span></div>
+                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" /><span>Dest.</span></div>
               </div>
             </div>
           </div>
         </article>
 
-        <aside className="flex flex-col gap-6">
-          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-8 text-white shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
+        <aside className="flex flex-col gap-4 sm:gap-5">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-5 sm:p-6 text-white shadow-lg">
             <div className="relative z-10">
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300">Quick Action</p>
-              <h3 className="mt-3 text-3xl font-black tracking-tight">Need a fast quote?</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                Post a new job to our network and get responses in under 15 minutes.
-              </p>
+              <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight">Need a fast quote?</h3>
+              <p className="mt-2 text-xs sm:text-sm leading-5 text-slate-300">Post a new job and get responses in under 15 minutes.</p>
               <button
                 onClick={() => navigate('/haulier/post-job')}
-                className="mt-6 w-full rounded-2xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+                className="mt-4 w-full rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-black text-[#041627] transition hover:bg-amber-300"
               >
                 Post New Job
               </button>
             </div>
-            <span className="material-symbols-outlined absolute -bottom-8 -right-8 text-[160px] text-white/5">
-              conversion_path
-            </span>
+            <span className="material-symbols-outlined absolute -bottom-6 -right-6 text-[120px] text-white/5">conversion_path</span>
           </div>
 
-          <div className="flex-1 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-400">Critical Alerts</h3>
-            <div className="mt-6 space-y-4">
-              <div className="flex gap-4 rounded-2xl border border-rose-100 bg-rose-50 p-4">
-                <span className="material-symbols-outlined text-rose-600">warning</span>
+          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Critical Alerts</h3>
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-3 rounded-xl border border-rose-100 bg-rose-50 p-3">
+                <span className="material-symbols-outlined text-rose-600 text-base shrink-0">warning</span>
                 <div>
-                  <p className="text-sm font-black text-slate-950">TRK-119 Delay</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                    Severe traffic on M25. ETA impacted by +45m.
-                  </p>
+                  <p className="text-sm font-black text-[#041627]">TRK-119 Delay</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">Severe traffic on M25. ETA +45m.</p>
                 </div>
               </div>
-              <div className="flex gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <span className="material-symbols-outlined text-slate-700">info</span>
+              <div className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <span className="material-symbols-outlined text-[#44474C] text-base shrink-0">info</span>
                 <div>
-                  <p className="text-sm font-black text-slate-950">Maintenance Due</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                    FLT-09 requires oil service in 250mi.
-                  </p>
+                  <p className="text-sm font-black text-[#041627]">Maintenance Due</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">FLT-09 needs oil service in 250mi.</p>
                 </div>
               </div>
             </div>
@@ -708,42 +638,43 @@ const HaulierOverview: React.FC = () => {
         </aside>
       </section>
 
+      {/* ── Payment Pending Banner ───────────────────────────────────────────── */}
       {activeJobs.some((j) => j.paymentRequired) && (
-        <section className="overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 px-6 py-5">
-          <div className="flex items-start gap-4">
-            <span className="material-symbols-outlined mt-0.5 text-amber-600">lock_open</span>
-            <div className="flex-1">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <span className="material-symbols-outlined text-amber-600 shrink-0">lock_open</span>
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-black text-amber-900">
-                {activeJobs.filter((j) => j.paymentRequired).length} booked job{activeJobs.filter((j) => j.paymentRequired).length > 1 ? 's' : ''} awaiting payment
+                {activeJobs.filter((j) => j.paymentRequired).length} job{activeJobs.filter((j) => j.paymentRequired).length > 1 ? 's' : ''} awaiting payment
               </p>
-              <p className="mt-1 text-xs text-amber-700">
-                Payment must be secured before the driver can start the trip and enter the load code.
-              </p>
+              <p className="mt-0.5 text-xs text-amber-700">Payment must be secured before the driver can start.</p>
             </div>
             <button
               onClick={() => navigate('/haulier/jobs/booked')}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-amber-400"
+              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-[#041627] transition hover:bg-amber-400 sm:self-auto shrink-0"
             >
-              View Booked Jobs
+              View Booked
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           </div>
         </section>
       )}
 
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+      {/* ── Active Shipments ─────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">
           <div>
-            <h3 className="text-xl font-black tracking-tight text-slate-950">Active Shipments</h3>
+            <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627]">Active Shipments</h3>
             <p className="text-xs text-slate-400 mt-0.5">Booked, in-transit, and payment-secured jobs</p>
           </div>
-          <button onClick={refresh} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950">
+          <button onClick={refresh} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-50 hover:text-[#041627]">
             <span className="material-symbols-outlined">refresh</span>
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[700px] border-collapse text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
@@ -764,20 +695,20 @@ const HaulierOverview: React.FC = () => {
               ) : activeJobs.map((job) => (
                 <tr key={job.id} className={`transition hover:bg-slate-50/70 ${handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? 'bg-amber-50/60' : job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
                   <td className="px-6 py-5">
-                    <p className="font-black text-slate-950 text-sm">{job.id}</p>
+                    <p className="font-black text-[#041627] text-sm">{job.id}</p>
                     {job.distanceKm != null && (
                       <p className="text-[10px] text-slate-400">{job.distanceKm} km</p>
                     )}
                   </td>
-                  <td className="px-6 py-5 max-w-[240px]">
-                    <p className="text-sm font-bold text-slate-900 truncate">{job.route.split(' → ')[0]}</p>
+                  <td className="px-6 py-5 max-w-[200px]">
+                    <p className="text-sm font-bold text-[#041627] truncate">{job.route.split(' → ')[0]}</p>
                     <p className="text-[10px] text-slate-300">▼</p>
                     <p className="text-sm text-slate-500 truncate">{job.route.split(' → ')[1]}</p>
                   </td>
                   <td className="px-6 py-5">
-                    <p className="text-sm font-bold text-slate-900">{job.type}</p>
+                    <p className="text-sm font-bold text-[#041627]">{job.type}</p>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[8px] font-black text-slate-700">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[8px] font-black text-[#44474C]">
                         {job.driver.charAt(0)}
                       </div>
                       <span className="text-xs text-slate-500">{job.driver}</span>
@@ -792,7 +723,7 @@ const HaulierOverview: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-5">
-                    <span className="text-sm font-bold text-slate-900">{job.eta}</span>
+                    <span className="text-sm font-bold text-[#041627]">{job.eta}</span>
                     {job.delay && <div className="text-[10px] font-bold text-rose-600">{job.delay}</div>}
                   </td>
                   <td className="px-6 py-5 text-right">
@@ -815,7 +746,7 @@ const HaulierOverview: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => navigate('/haulier/tracking')}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-primary/40 hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">location_on</span>
                         Track
@@ -828,11 +759,66 @@ const HaulierOverview: React.FC = () => {
           </table>
         </div>
 
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {activeJobs.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-slate-400">No active shipments. Post a job to get started.</p>
+          ) : activeJobs.map((job) => (
+            <div key={job.id} className={`px-4 py-4 space-y-3 ${job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-black text-sm text-[#041627]">{job.id}</p>
+                  {job.distanceKm != null && <p className="text-[10px] text-slate-400">{job.distanceKm} km</p>}
+                </div>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${job.statusColor}`}>
+                  {job.status}
+                </span>
+              </div>
+              <div className="text-sm text-slate-600 space-y-0.5">
+                <p className="font-bold text-[#041627] truncate">{job.route.split(' → ')[0]}</p>
+                <p className="text-slate-400 text-xs">▼</p>
+                <p className="truncate">{job.route.split(' → ')[1]}</p>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-[#44474C]">{job.type}</p>
+                  <p className="text-xs text-slate-400">{job.driver}</p>
+                </div>
+                {job.paymentRequired ? (
+                  <button
+                    onClick={() => navigate(`/haulier/payments/create?jobId=${job.jobId}`)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white"
+                  >
+                    <span className="material-symbols-outlined text-sm">lock</span>
+                    Pay
+                  </button>
+                ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
+                  <button
+                    onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
+                    className="inline-flex items-center gap-1 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800"
+                  >
+                    <span className="material-symbols-outlined text-sm">draw</span>
+                    Sign
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/haulier/tracking')}
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#44474C]"
+                  >
+                    <span className="material-symbols-outlined text-sm">location_on</span>
+                    Track
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 flex items-center justify-between">
           <p className="text-xs text-slate-400">Showing {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''}</p>
           <button
             onClick={() => navigate('/haulier/jobs/booked')}
-            className="inline-flex items-center gap-2 text-sm font-black text-primary transition hover:text-slate-950"
+            className="inline-flex items-center gap-2 text-sm font-black text-primary transition hover:text-[#041627]"
           >
             View All Jobs
             <span className="material-symbols-outlined text-sm">arrow_forward</span>

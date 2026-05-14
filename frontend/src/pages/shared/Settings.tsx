@@ -49,7 +49,7 @@ const SettingsPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden">
-        <div className="p-8 border-b border-slate-50 flex items-center gap-6">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-slate-50 flex items-center gap-6">
           <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg">
             {user?.name?.[0].toUpperCase()}
           </div>
@@ -59,7 +59,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
         
-        <div className="p-8 space-y-12">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-12">
           {/* Personal Info */}
           <section>
             <h4 className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest mb-6">
@@ -167,7 +167,7 @@ const SettingsPage: React.FC = () => {
           </section>
         </div>
         
-        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
           <button className="bg-primary text-white px-10 py-4 rounded-xl font-black text-sm shadow-xl hover:opacity-90 transition-all active:scale-95">
             Save All Changes
           </button>

@@ -45,7 +45,6 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
             <Pressable onPress={onCancel} style={styles.backBtn}>
               <Text style={styles.backText}>{'\u2190'}</Text>
             </Pressable>
-            <Text style={styles.title}>Rate Haulier</Text>
             <Text style={styles.orderText}>Order #TR-9422</Text>
           </View>
 

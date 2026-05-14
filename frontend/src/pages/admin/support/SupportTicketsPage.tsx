@@ -37,7 +37,7 @@ const priorityTone = (priority: string) => {
   if (value === 'URGENT') return 'bg-rose-100 text-rose-700';
   if (value === 'HIGH') return 'bg-orange-100 text-orange-700';
   if (value === 'MEDIUM') return 'bg-amber-100 text-amber-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-[#44474C]';
 };
 
 const statusTone = (status: string) => {
@@ -45,7 +45,7 @@ const statusTone = (status: string) => {
   if (value === 'OPEN') return 'bg-blue-100 text-blue-700';
   if (value === 'IN_PROGRESS') return 'bg-amber-100 text-amber-700';
   if (value === 'RESOLVED') return 'bg-emerald-100 text-emerald-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-[#44474C]';
 };
 
 const titleCase = (value: string) => value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (match) => match.toUpperCase());
@@ -288,7 +288,7 @@ const SupportTicketsPage = ({ view }: { view: ViewMode }) => {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider">
                   <span className={`rounded-full px-2.5 py-1 ${statusTone(ticket.status)}`}>{titleCase(ticket.status)}</span>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{titleCase(ticket.category)}</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[#44474C]">{titleCase(ticket.category)}</span>
                 </div>
               </button>
             ))}
@@ -323,7 +323,7 @@ const SupportTicketsPage = ({ view }: { view: ViewMode }) => {
                   </span>
                 </div>
                 <h3 className="mt-4 text-2xl font-black text-primary">{selectedTicket.subject}</h3>
-                <p className="mt-2 text-sm text-slate-600">{selectedTicket.description}</p>
+                <p className="mt-2 text-sm text-[#44474C]">{selectedTicket.description}</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -343,7 +343,7 @@ const SupportTicketsPage = ({ view }: { view: ViewMode }) => {
 
               <div className="rounded-2xl border border-slate-100 bg-white p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Resolution Notes</p>
-                <p className="mt-2 text-sm text-slate-600">{selectedTicket.resolutionNotes || 'No resolution notes yet.'}</p>
+                <p className="mt-2 text-sm text-[#44474C]">{selectedTicket.resolutionNotes || 'No resolution notes yet.'}</p>
                 {selectedTicket.resolvedAt && (
                   <p className="mt-2 text-xs text-slate-500">
                     Resolved {new Date(selectedTicket.resolvedAt).toLocaleString()}

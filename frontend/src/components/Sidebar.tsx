@@ -101,7 +101,7 @@ const NavItem: React.FC<NavItemProps> = ({
       className={({ isActive }) =>
         `flex items-center ${isCollapsed && !isMobile ? 'justify-center' : 'gap-3'} px-4 py-3 mx-2 rounded-lg transition-all duration-200 font-bold text-sm ${
           isActive
-            ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/10'
+            ? 'bg-amber-500 text-[#041627] shadow-lg shadow-amber-500/10'
             : 'text-slate-400 hover:text-white hover:bg-slate-800'
         }`
       }
@@ -292,6 +292,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/support/contact', label: 'Contact' },
       ],
     },
+    { to: '/haulier/notifications', icon: 'notifications', label: 'Notifications' },
     { to: '/haulier/tracking', icon: 'distance', label: 'Live Tracking' },
   ];
 
@@ -335,7 +336,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
           <div className="flex items-center justify-between gap-3">
             <div className={`flex items-center ${isCollapsed ? 'lg:justify-center lg:w-full' : 'gap-3 min-w-0'}`}>
               <div className="w-10 h-10 bg-amber-500 rounded flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-slate-900 font-bold">local_shipping</span>
+                <span className="material-symbols-outlined text-[#041627] font-bold">local_shipping</span>
               </div>
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0">

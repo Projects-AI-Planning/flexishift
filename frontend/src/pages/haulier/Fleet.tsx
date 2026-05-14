@@ -243,15 +243,15 @@ const FleetPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Fleet & Personnel</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Fleet & Personnel</h2>
           <p className="text-on-surface-variant font-medium">
             Manage your vehicles, drivers, and equipment inventory.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button className="rounded-lg border border-outline-variant bg-white px-4 py-2 text-sm font-bold text-primary shadow-sm transition-colors hover:bg-slate-50">
             <span className="material-symbols-outlined text-sm">download</span>
             Export Fleet
@@ -286,7 +286,7 @@ const FleetPage: React.FC = () => {
 
       {activeTab === 'equipment' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Equipment</p>
               <p className="text-3xl font-black text-primary">{equipmentLoading ? '...' : equipmentStats.total}</p>
@@ -303,7 +303,7 @@ const FleetPage: React.FC = () => {
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             <div className="xl:col-span-8">
-              <div className={`overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)] ${equipmentLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+              <div className={`overflow-x-auto rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)] ${equipmentLoading ? 'opacity-60 pointer-events-none' : ''}`}>
                 <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-primary">Equipment Inventory</h3>
@@ -319,7 +319,7 @@ const FleetPage: React.FC = () => {
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left min-w-[720px]">
                     <thead className="bg-slate-50">
                       <tr>
                         {['Name', 'Category', 'Serial', 'Status', 'Vehicle', 'Service Date', 'Actions'].map((header) => (
@@ -340,7 +340,7 @@ const FleetPage: React.FC = () => {
                       {!equipmentError && equipment.length === 0 && (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center">
-                            <p className="font-black text-slate-600">No equipment added yet</p>
+                            <p className="font-black text-[#44474C]">No equipment added yet</p>
                             <p className="text-sm text-slate-400 mt-1">Use the form on the right to create your first item.</p>
                           </td>
                         </tr>
@@ -348,10 +348,10 @@ const FleetPage: React.FC = () => {
                       {equipment.map((item) => (
                         <tr key={item.equipmentId} className="text-sm transition-colors hover:bg-slate-50/50">
                           <td className="px-6 py-4 font-bold text-primary">{item.name}</td>
-                          <td className="px-6 py-4 font-medium text-slate-600">{item.category}</td>
+                          <td className="px-6 py-4 font-medium text-[#44474C]">{item.category}</td>
                           <td className="px-6 py-4 font-mono text-slate-500">{item.serialNumber || '—'}</td>
                           <td className="px-6 py-4">
-                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${EQUIPMENT_STATUS_STYLES[item.status] || 'bg-slate-100 text-slate-600'}`}>
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${EQUIPMENT_STATUS_STYLES[item.status] || 'bg-slate-100 text-[#44474C]'}`}>
                               {item.status.replace(/_/g, ' ')}
                             </span>
                           </td>
@@ -406,7 +406,7 @@ const FleetPage: React.FC = () => {
                       className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
                     >
                       {EQUIPMENT_CATEGORIES.map((category) => (
-                        <option key={category} value={category} className="text-slate-900">{category}</option>
+                        <option key={category} value={category} className="text-[#041627]">{category}</option>
                       ))}
                     </select>
                   </div>
@@ -427,7 +427,7 @@ const FleetPage: React.FC = () => {
                       className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
                     >
                       {['AVAILABLE', 'IN_USE', 'NEEDS_SERVICE', 'OUT_OF_SERVICE'].map((status) => (
-                        <option key={status} value={status} className="text-slate-900">
+                        <option key={status} value={status} className="text-[#041627]">
                           {status.replace(/_/g, ' ')}
                         </option>
                       ))}
@@ -464,7 +464,7 @@ const FleetPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-900 hover:bg-amber-400 transition-colors disabled:opacity-50"
+                    className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-[#041627] hover:bg-amber-400 transition-colors disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : editingId ? 'Update Equipment' : 'Create Equipment'}
                   </button>
@@ -485,9 +485,9 @@ const FleetPage: React.FC = () => {
       )}
 
       {activeTab === 'vehicles' ? (
-        <div className="overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
+        <div className="overflow-x-auto rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[640px]">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Registration</th>
@@ -508,7 +508,7 @@ const FleetPage: React.FC = () => {
                         <span className="font-black uppercase tracking-tight text-primary">{v.plate}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-600">{v.type}</td>
+                    <td className="px-6 py-4 font-bold text-[#44474C]">{v.type}</td>
                     <td className="px-6 py-4">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${v.statusColor}`}>{v.status}</span>
                     </td>
@@ -525,9 +525,9 @@ const FleetPage: React.FC = () => {
           </div>
         </div>
       ) : activeTab === 'drivers' ? (
-        <div className="overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
+        <div className="overflow-x-auto rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[640px]">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Driver Details</th>
@@ -548,7 +548,7 @@ const FleetPage: React.FC = () => {
                         <span className="font-black text-primary">{d.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-600">{d.license}</td>
+                    <td className="px-6 py-4 font-bold text-[#44474C]">{d.license}</td>
                     <td className="px-6 py-4">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${d.statusColor}`}>{d.status}</span>
                     </td>

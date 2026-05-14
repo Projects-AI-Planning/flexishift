@@ -22,7 +22,7 @@ const ProcessedVerificationsPage: React.FC = () => {
       case 'driver': return 'bg-blue-100 text-blue-700';
       case 'haulier': return 'bg-amber-100 text-amber-700';
       case 'firm': return 'bg-purple-100 text-purple-700';
-      default: return 'bg-slate-100 text-slate-600';
+      default: return 'bg-slate-100 text-[#44474C]';
     }
   };
 
@@ -45,9 +45,9 @@ const ProcessedVerificationsPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Processed Verifications</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Processed Verifications</h2>
           <p className="text-on-surface-variant font-medium">Documents that have been approved or rejected by admins.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -63,7 +63,7 @@ const ProcessedVerificationsPage: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex gap-2 flex-wrap w-full md:w-auto">
           <select
             value={params.role}

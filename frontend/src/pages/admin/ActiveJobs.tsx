@@ -21,9 +21,9 @@ const ActiveJobsPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Active Jobs</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Active Jobs</h2>
           <p className="text-on-surface-variant font-medium">Jobs currently in transit or with secured payment awaiting dispatch.</p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -95,7 +95,7 @@ const ActiveJobsPage: React.FC = () => {
                 </div>
 
                 {/* Parties */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Haulier</p>
                     <p className="text-sm font-bold text-primary truncate">{job.haulier?.name || '—'}</p>

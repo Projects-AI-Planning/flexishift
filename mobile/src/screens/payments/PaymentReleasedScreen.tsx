@@ -43,7 +43,6 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
         <Pressable onPress={onDone} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </Pressable>
-        <Text style={styles.topTitle}>Payment Release</Text>
         <View style={{width: 60}} />
       </View>
 
@@ -145,7 +144,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F4F7FB'},
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.xl, paddingVertical: 14,

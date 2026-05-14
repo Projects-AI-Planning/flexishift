@@ -23,8 +23,9 @@ interface BookingAcceptanceScreenProps {
 function addressStr(v: unknown): string {
   if (!v) {return '';}
   if (typeof v === 'string') {return v;}
-  if (typeof v === 'object' && v !== null && 'address' in v) {
-    return String((v as {address?: string}).address ?? '');
+  if (typeof v === 'object' && v !== null) {
+    const o = v as Record<string, unknown>;
+    return String(o.address ?? o.city ?? o.name ?? o.label ?? '');
   }
   return '';
 }
@@ -52,9 +53,25 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
     );
   }
 
-  const pickup = addressStr(booking.pickupLocation);
-  const drop = addressStr(booking.dropLocation);
-  const escrow = Number(booking.escrowAmount ?? 0);
+  const b = booking as BookingDetail & Record<string, unknown>;
+  const job = (b.job ?? {}) as Record<string, unknown>;
+  const pickup =
+    addressStr(b.pickupLocation) ||
+    addressStr(job.pickupLocation) ||
+    String(job.pickup ?? b.pickup ?? '');
+  const drop =
+    addressStr(b.dropLocation) ||
+    addressStr(job.dropLocation) ||
+    String(job.drop ?? b.drop ?? '');
+  const escrow = Number(
+    b.escrowAmount ??
+    b.agreedAmount ??
+    b.quoteAmount ??
+    b.amount ??
+    job.escrowAmount ??
+    job.agreedAmount ??
+    0,
+  );
   const currency = booking.currency ?? 'Rs';
   const isAlreadyAccepted =
     accepted ||
@@ -146,21 +163,6 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
           ))}
         </Card>
 
-        {/* Instructions */}
-        <View style={styles.instructionsCard}>
-          <Text style={styles.instructionsTitle}>Next Steps</Text>
-          {[
-            '1. Accept this booking to confirm your participation.',
-            '2. Arrive at the pickup location on time.',
-            '3. Enter the 6-digit Load Code provided by the warehouse.',
-            '4. Complete the vehicle handover check with photos.',
-            '5. Start your trip — live tracking will begin.',
-            '6. Upload delivery proof at drop-off to release payment.',
-          ].map(step => (
-            <Text key={step} style={styles.instructionStep}>{step}</Text>
-          ))}
-        </View>
-
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
@@ -205,7 +207,7 @@ const styles = StyleSheet.create({
   emptyIcon: {fontSize: 52},
   emptyTitle: {color: colors.navy, fontSize: 20, fontWeight: '900'},
   backBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.md,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -289,16 +291,6 @@ const styles = StyleSheet.create({
   },
   detailLabel: {color: colors.inkSoft, fontSize: 13, fontWeight: '700'},
   detailValue: {color: colors.ink, fontSize: 14, fontWeight: '800'},
-  instructionsCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: spacing.sm,
-  },
-  instructionsTitle: {color: '#92400E', fontSize: 14, fontWeight: '900', marginBottom: 4},
-  instructionStep: {color: '#78350F', fontSize: 13, lineHeight: 20},
   errorBox: {
     backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
@@ -321,7 +313,7 @@ const styles = StyleSheet.create({
   acceptedStateSub: {color: '#166534', fontSize: 13, textAlign: 'center', lineHeight: 18},
   acceptedStateHint: {color: colors.inkSoft, fontSize: 12, textAlign: 'center', lineHeight: 18},
   proceedBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.lg,
     paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.md,
@@ -334,7 +326,7 @@ const styles = StyleSheet.create({
   },
   proceedBtnText: {color: colors.accent, fontSize: 16, fontWeight: '900'},
   acceptBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.xl,
     minHeight: 64,
     justifyContent: 'center',

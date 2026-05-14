@@ -74,7 +74,6 @@ const IncidentReportScreen: React.FC<IncidentReportScreenProps> = ({
         </Pressable>
 
         <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Report Incident</Text>
           <View style={styles.refPill}>
             <Text style={styles.refText}>{jobReference}</Text>
           </View>
@@ -163,7 +162,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   backBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.lg,
     paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.md,

@@ -28,7 +28,7 @@ const levelTone = (level: string) => {
   const normalized = level.toLowerCase();
   if (normalized === 'error') return 'bg-rose-100 text-rose-700';
   if (normalized === 'warn') return 'bg-amber-100 text-amber-700';
-  if (normalized === 'debug') return 'bg-slate-100 text-slate-600';
+  if (normalized === 'debug') return 'bg-slate-100 text-[#44474C]';
   return 'bg-emerald-100 text-emerald-700';
 };
 
@@ -128,7 +128,7 @@ export default function SystemLogsPage() {
           </div>
         </div>
 
-        <div className={`mt-5 overflow-hidden rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
+        <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left">
               <tr>
@@ -146,7 +146,7 @@ export default function SystemLogsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-4">
-                    <p className="max-w-[760px] text-sm text-slate-700">{log.message}</p>
+                    <p className="max-w-[760px] text-sm text-[#44474C]">{log.message}</p>
                   </td>
                   <td className="px-4 py-4 text-slate-500">
                     {new Date(log.timestamp).toLocaleString()}

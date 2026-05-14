@@ -88,7 +88,6 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
           <Pressable style={styles.menuBtn} hitSlop={8}>
             <Text style={styles.menuIcon}>☰</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>Document Verification</Text>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarIcon}>👤</Text>
           </View>
@@ -244,7 +243,7 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {

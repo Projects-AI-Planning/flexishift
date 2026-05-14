@@ -1,13 +1,14 @@
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import React, {useState} from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
@@ -91,6 +92,9 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
   const [view, setView] = useState<ViewMode>('list');
   const [activeDocId, setActiveDocId] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [pickerDate, setPickerDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [dateError, setDateError] = useState('');
   const [selectedFile, setSelectedFile] = useState<any>(null);
 
   // Merge required docs with uploaded state
@@ -109,8 +113,30 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
   const openUpload = (docId: string) => {
     setActiveDocId(docId);
     setExpiryDate('');
+    setPickerDate(new Date());
+    setDateError('');
     setSelectedFile(null);
     setView('upload');
+  };
+
+  const onDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowPicker(false);
+    }
+    if (!selected) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (selected <= today) {
+      setDateError('Expiry date must be in the future.');
+      setExpiryDate('');
+      return;
+    }
+    setDateError('');
+    setPickerDate(selected);
+    const yyyy = selected.getFullYear();
+    const mm = String(selected.getMonth() + 1).padStart(2, '0');
+    const dd = String(selected.getDate()).padStart(2, '0');
+    setExpiryDate(`${dd}-${mm}-${yyyy}`);
   };
 
   const pickImage = async (source: 'camera' | 'gallery') => {
@@ -148,7 +174,7 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
   };
 
   const activeDoc = REQUIRED_DOCS.find(d => d.id === activeDocId);
-  const canSubmit = !uploadLoading && !!activeDocId && !!expiryDate && !!selectedFile;
+  const canSubmit = !uploadLoading && !!activeDocId && !!expiryDate && !dateError && !!selectedFile;
 
   // ── Upload Form View ────────────────────────────────────────────────────────
 
@@ -184,14 +210,26 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
           {/* Expiry date */}
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>EXPIRY DATE</Text>
-            <TextInput
-              style={styles.dateInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#94A3B8"
-              value={expiryDate}
-              onChangeText={setExpiryDate}
-              keyboardType="numeric"
-            />
+            <Pressable
+              onPress={() => setShowPicker(true)}
+              style={[styles.dateInput, styles.datePressable]}>
+              <Text style={expiryDate ? styles.dateValueText : styles.datePlaceholderText}>
+                {expiryDate || 'Tap to select date'}
+              </Text>
+              <Text style={styles.calendarIcon}>📅</Text>
+            </Pressable>
+            {dateError ? (
+              <Text style={styles.dateErrorText}>{dateError}</Text>
+            ) : null}
+            {showPicker && (
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date(Date.now() + 86400000)}
+                onChange={onDateChange}
+              />
+            )}
           </View>
 
           {/* File picker */}
@@ -252,7 +290,6 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
           <View style={styles.menuBtn}>
             <Text style={styles.menuIcon}>☰</Text>
           </View>
-          <Text style={styles.headerTitle}>Document Upload</Text>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarIcon}>👤</Text>
           </View>
@@ -437,7 +474,7 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#F4F7FB'},
+  safe: {flex: 1, backgroundColor: '#FFFFFF'},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {
@@ -627,6 +664,19 @@ const styles = StyleSheet.create({
     fontSize: 15, color: colors.navy,
     borderWidth: 1, borderColor: '#E2E8F0',
   },
+  datePressable: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  dateValueText: {
+    color: colors.navy, fontSize: 15, fontWeight: '700',
+  },
+  datePlaceholderText: {
+    color: '#94A3B8', fontSize: 15,
+  },
+  calendarIcon: {fontSize: 20},
+  dateErrorText: {
+    color: '#B91C1C', fontSize: 12, fontWeight: '700', marginTop: 4,
+  },
   filePicker: {
     height: 150, backgroundColor: '#F8FAFC', borderRadius: radius.md,
     borderWidth: 1.5, borderColor: '#CBD5E1', borderStyle: 'dashed',
@@ -647,7 +697,7 @@ const styles = StyleSheet.create({
   errorText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
 
   submitUploadBtn: {
-    backgroundColor: colors.navy, borderRadius: radius.lg,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
     minHeight: 56, justifyContent: 'center', alignItems: 'center',
     marginTop: spacing.sm,
   },

@@ -1,16 +1,15 @@
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   Pressable,
-  SafeAreaView,
+  ScrollView,
+  StyleSheet,
   Switch,
+  Text,
   TextInput,
+  View,
 } from 'react-native';
 import Card from '../../components/common/Card';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
 
 interface AvailabilityScreenProps {
   availabilityForm: {
@@ -29,19 +28,19 @@ interface AvailabilityScreenProps {
 }
 
 const dayCards = [
-  {key: 'monday', short: 'MON', num: '23'},
-  {key: 'tuesday', short: 'TUE', num: '24'},
-  {key: 'wednesday', short: 'WED', num: '25'},
-  {key: 'thursday', short: 'THU', num: '26'},
-  {key: 'friday', short: 'FRI', num: '27'},
-  {key: 'saturday', short: 'SAT', num: '28'},
-  {key: 'sunday', short: 'SUN', num: '29'},
+  {key: 'monday', short: 'MON'},
+  {key: 'tuesday', short: 'TUE'},
+  {key: 'wednesday', short: 'WED'},
+  {key: 'thursday', short: 'THU'},
+  {key: 'friday', short: 'FRI'},
+  {key: 'saturday', short: 'SAT'},
+  {key: 'sunday', short: 'SUN'},
 ];
 
 const shiftCards = [
-  {key: 'morning', icon: '\u2600', title: 'Morning Shift', time: '06:00 - 14:00'},
-  {key: 'afternoon', icon: '\u26C5', title: 'Afternoon Shift', time: '14:00 - 22:00'},
-  {key: 'night', icon: '\u263D', title: 'Night Shift', time: '22:00 - 06:00'},
+  {key: 'morning', title: 'Morning', startTime: '06:00', endTime: '14:00', display: '06:00 - 14:00'},
+  {key: 'afternoon', title: 'Afternoon', startTime: '14:00', endTime: '22:00', display: '14:00 - 22:00'},
+  {key: 'night', title: 'Night', startTime: '22:00', endTime: '06:00', display: '22:00 - 06:00'},
 ];
 
 const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
@@ -53,303 +52,209 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
   loading,
 }) => {
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topBar}>
-          <Text style={styles.backText}>{'\u2190'}</Text>
-          <Text style={styles.title}>Availability</Text>
-          <Pressable onPress={onSave}>
-            <Text style={styles.saveText}>{loading ? 'Saving...' : 'Save'}</Text>
-          </Pressable>
-        </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Availability</Text>
+        <Text style={styles.subtitle}>Manage when you want to receive dispatches</Text>
+      </View>
 
-        <Card title="Current Status" variant="default">
-          <View style={styles.statusRow}>
-            <View>
-              <Text style={styles.statusLabel}>CURRENT STATUS</Text>
-              <Text style={styles.statusValue}>
-                {availabilityForm.isAvailable
-                  ? 'Available for dispatch'
-                  : 'Currently unavailable'}
-              </Text>
-            </View>
-            <Switch
-              value={availabilityForm.isAvailable}
-              onValueChange={onToggleAvailability}
-              trackColor={{false: '#CBD5E1', true: colors.accent}}
-              thumbColor={colors.card}
-            />
+      <Card title="Current Status" variant="default">
+        <View style={styles.statusRow}>
+          <View style={styles.statusLeft}>
+            <Text style={styles.statusLabel}>STATUS</Text>
+            <Text style={styles.statusValue}>
+              {availabilityForm.isAvailable ? 'Available for dispatch' : 'Currently unavailable'}
+            </Text>
           </View>
-        </Card>
-
-        <View style={styles.weekRow}>
-          <Text style={styles.sectionTitle}>This Week</Text>
-          <Text style={styles.sectionMuted}>October 2023</Text>
+          <Switch
+            value={availabilityForm.isAvailable}
+            onValueChange={onToggleAvailability}
+            trackColor={{false: '#CBD5E1', true: colors.accent}}
+            thumbColor={colors.card}
+          />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysRow}>
-          {dayCards.map(day => {
-            const active = availabilityForm.availableDays.includes(day.key);
-            return (
-              <Pressable
-                key={day.key}
-                onPress={() => onToggleDay(day.key)}
-                style={[styles.dayCard, active && styles.dayCardActive]}>
-                <Text style={[styles.dayShort, active && styles.dayTextActive]}>{day.short}</Text>
-                <Text style={[styles.dayNum, active && styles.dayTextActive]}>{day.num}</Text>
-                {active ? <View style={styles.dot} /> : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+      </Card>
 
-        <Text style={styles.sectionTitle}>Available Shifts</Text>
-        {shiftCards.map(shift => {
-          const active = shift.key === 'afternoon';
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>Working Days</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysRow}>
+        {dayCards.map(day => {
+          const active = availabilityForm.availableDays.includes(day.key);
           return (
-            <Card key={shift.key} title={shift.title} variant="default">
-              <View style={[styles.shiftRow, active && styles.shiftRowActive]}>
-                <View style={styles.shiftIconBox}>
-                  <Text style={styles.shiftIcon}>{shift.icon}</Text>
-                </View>
-                <View style={styles.shiftCopy}>
-                  <Text style={styles.shiftTitle}>{shift.title}</Text>
-                  <Text style={styles.shiftTime}>{shift.time}</Text>
-                </View>
-                <View style={[styles.radio, active && styles.radioActive]}>
-                  {active ? <View style={styles.radioInner} /> : null}
-                </View>
-              </View>
-            </Card>
+            <Pressable
+              key={day.key}
+              onPress={() => onToggleDay(day.key)}
+              style={[styles.dayCard, active && styles.dayCardActive]}>
+              <Text style={[styles.dayShort, active && styles.dayTextActive]}>{day.short}</Text>
+              {active ? <View style={styles.dot} /> : null}
+            </Pressable>
           );
         })}
-
-        <View style={styles.customHours}>
-          <Text style={styles.customHoursText}>{'\u002B'} Set Custom Hours</Text>
-        </View>
-
-        <Card title="Pro Tip" variant="dark">
-          <Text style={styles.proTipText}>
-            Consistent availability increases your dispatch priority by up to 25% for high-value freight.
-          </Text>
-        </Card>
-
-        <Card title="Adjust Hours" variant="default">
-          <TextInput
-            style={styles.input}
-            placeholder="Start time"
-            placeholderTextColor="#98A2B3"
-            value={availabilityForm.startTime}
-            onChangeText={startTime => onChangeForm({startTime})}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="End time"
-            placeholderTextColor="#98A2B3"
-            value={availabilityForm.endTime}
-            onChangeText={endTime => onChangeForm({endTime})}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Timezone"
-            placeholderTextColor="#98A2B3"
-            value={availabilityForm.timezone}
-            onChangeText={timezone => onChangeForm({timezone})}
-          />
-          {!availabilityForm.isAvailable ? (
-            <TextInput
-              style={styles.input}
-              placeholder="Reason"
-              placeholderTextColor="#98A2B3"
-              value={availabilityForm.reason}
-              onChangeText={reason => onChangeForm({reason})}
-            />
-          ) : null}
-        </Card>
-
-        <Pressable onPress={onSave} style={styles.saveButton}>
-          <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Schedule'}</Text>
-        </Pressable>
       </ScrollView>
-    </SafeAreaView>
+
+      <Text style={styles.sectionTitle}>Available Shifts</Text>
+      <View style={styles.shiftList}>
+        {shiftCards.map(shift => {
+          const active = availabilityForm.startTime === shift.startTime;
+          return (
+            <Pressable
+              key={shift.key}
+              onPress={() => onChangeForm({startTime: shift.startTime, endTime: shift.endTime})}
+              style={({pressed}) => [
+                styles.shiftCard,
+                active && styles.shiftCardActive,
+                pressed && styles.shiftCardPressed,
+              ]}>
+              <View style={[styles.shiftCopy]}>
+                <Text style={[styles.shiftTitle, active && styles.shiftTitleActive]}>{shift.title}</Text>
+                <Text style={styles.shiftTime}>{shift.display}</Text>
+              </View>
+              <View style={[styles.radio, active && styles.radioActive]}>
+                {active ? <View style={styles.radioInner} /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Card title="Adjust Hours" variant="default">
+        <TextInput
+          style={styles.input}
+          placeholder="Start time (e.g. 08:00)"
+          placeholderTextColor="#98A2B3"
+          value={availabilityForm.startTime}
+          onChangeText={startTime => onChangeForm({startTime})}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="End time (e.g. 18:00)"
+          placeholderTextColor="#98A2B3"
+          value={availabilityForm.endTime}
+          onChangeText={endTime => onChangeForm({endTime})}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Timezone (e.g. Asia/Kolkata)"
+          placeholderTextColor="#98A2B3"
+          value={availabilityForm.timezone}
+          onChangeText={timezone => onChangeForm({timezone})}
+        />
+        {!availabilityForm.isAvailable ? (
+          <TextInput
+            style={styles.input}
+            placeholder="Reason for unavailability"
+            placeholderTextColor="#98A2B3"
+            value={availabilityForm.reason}
+            onChangeText={reason => onChangeForm({reason})}
+          />
+        ) : null}
+      </Card>
+
+      <Card title="Pro Tip" variant="dark">
+        <Text style={styles.proTipText}>
+          Consistent availability increases your dispatch priority by up to 25% for high-value freight.
+        </Text>
+      </Card>
+
+      <Pressable onPress={onSave} style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Schedule'}</Text>
+      </Pressable>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
+  container: {flex: 1, backgroundColor: colors.bg},
   content: {
     padding: spacing.xl,
     paddingBottom: 120,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  header: {
     marginBottom: spacing.xl,
   },
-  backText: {
-    color: colors.navy,
-    fontSize: 28,
-    fontWeight: '900',
-    width: 44,
-  },
   title: {
-    flex: 1,
     color: colors.navy,
     fontSize: 30,
     fontWeight: '900',
-    marginLeft: spacing.sm,
+    marginBottom: 4,
   },
-  saveText: {
-    color: colors.navy,
-    fontSize: 18,
-    fontWeight: '900',
+  subtitle: {
+    color: colors.inkSoft,
+    fontSize: 15,
+    marginTop: 4,
   },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  statusLeft: {flex: 1},
   statusLabel: {
-    color: '#4B5563',
-    fontSize: 28,
-    letterSpacing: 1,
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  statusValue: {
-    color: colors.navy,
-    fontSize: 20,
-    marginTop: spacing.xs,
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-  },
+  statusValue: {color: colors.navy, fontSize: 15, fontWeight: '700', marginTop: 4},
+  sectionRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   sectionTitle: {
     color: colors.navy,
-    fontSize: 26,
+    fontSize: 15,
     fontWeight: '900',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
-  sectionMuted: {
-    color: '#525966',
-    fontSize: 20,
-  },
-  daysRow: {
-    gap: spacing.md,
-    paddingBottom: spacing.xl,
-  },
+  daysRow: {gap: spacing.sm, paddingBottom: spacing.md},
   dayCard: {
-    width: 120,
-    height: 160,
-    borderRadius: 24,
+    width: 52,
+    height: 68,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: '#D6DCE5',
+    backgroundColor: '#F8FAFD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dayCardActive: {backgroundColor: '#1066B1', borderColor: '#1066B1'},
+  dayShort: {color: '#6B7280', fontSize: 11, fontWeight: '800'},
+  dayTextActive: {color: '#fff'},
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
+  shiftList: {gap: spacing.sm, marginBottom: spacing.sm},
+  shiftCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    backgroundColor: '#fff',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: spacing.md,
+  },
+  shiftCardActive: {borderColor: colors.accent, borderWidth: 1.5, backgroundColor: '#FFFBEB'},
+  shiftCardPressed: {backgroundColor: '#F8FAFC'},
+  shiftCopy: {flex: 1},
+  shiftTitle: {color: colors.navy, fontSize: 15, fontWeight: '800'},
+  shiftTitleActive: {color: '#9A3412'},
+  shiftTime: {color: colors.inkSoft, fontSize: 13, marginTop: 2},
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayCardActive: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navy,
-  },
-  dayShort: {
-    color: '#4B5563',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  dayNum: {
-    color: colors.navy,
-    fontSize: 28,
-    fontWeight: '900',
-    marginTop: spacing.sm,
-  },
-  dayTextActive: {
-    color: colors.card,
-  },
-  dot: {
+  radioActive: {borderColor: colors.accent},
+  radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FFA84D',
-    marginTop: spacing.md,
-  },
-  shiftRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  shiftRowActive: {
-    borderWidth: 2,
-    borderColor: colors.accent,
-    borderRadius: 20,
-    padding: spacing.md,
-  },
-  shiftIconBox: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
-    backgroundColor: '#CBE0FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shiftIcon: {
-    fontSize: 42,
-  },
-  shiftCopy: {
-    flex: 1,
-  },
-  shiftTitle: {
-    color: colors.navy,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  shiftTime: {
-    color: '#525966',
-    fontSize: 22,
-    marginTop: 4,
-  },
-  radio: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 4,
-    borderColor: '#707781',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioActive: {
-    borderColor: colors.accent,
-  },
-  radioInner: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
     backgroundColor: colors.accent,
-  },
-  customHours: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
-    borderRadius: 24,
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
-  },
-  customHoursText: {
-    color: '#4B5563',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  proTipText: {
-    color: colors.card,
-    fontSize: 20,
-    lineHeight: 30,
   },
   input: {
     borderWidth: 1,
@@ -363,22 +268,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: spacing.md,
   },
+  proTipText: {color: '#F8FAFC', fontSize: 15, lineHeight: 22},
   saveButton: {
     backgroundColor: colors.accent,
     borderRadius: 20,
-    minHeight: 76,
-    alignItems: 'center',
+    minHeight: 72,
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: spacing.lg,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 4,
   },
   saveButtonText: {
     color: colors.card,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
   },
 });

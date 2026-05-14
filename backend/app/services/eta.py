@@ -22,11 +22,11 @@ async def get_eta(db: Session, job_id: str) -> dict:
         .order_by(TrackingPoint.recorded_at.desc())
         .first()
     )
-    if not last_point:
-        raise HTTPException(status_code=404, detail="No tracking data available yet")
+    origin_lat = float(last_point.lat) if last_point else float(job.pickup_lat)
+    origin_lng = float(last_point.lng) if last_point else float(job.pickup_lng)
 
     route = await get_route_info(
-        float(last_point.lat), float(last_point.lng),
+        origin_lat, origin_lng,
         float(job.drop_lat), float(job.drop_lng),
     )
 
@@ -44,9 +44,9 @@ async def get_eta(db: Session, job_id: str) -> dict:
 
     return {
         "job_id": job_id,
-        "current_lat": float(last_point.lat),
-        "current_lng": float(last_point.lng),
-        "last_updated": last_point.recorded_at.isoformat(),
+        "current_lat": origin_lat,
+        "current_lng": origin_lng,
+        "last_updated": last_point.recorded_at.isoformat() if last_point else (job.updated_at.isoformat() if job.updated_at else None),
         "remaining_distance_km": route["distance_km"],
         "remaining_duration_min": route["duration_min"],
         "eta": eta_dt.isoformat(),

@@ -4,6 +4,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.response import ok, created
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_redis, get_current_user
 from app.models.user import User
@@ -17,6 +18,22 @@ from app.services import auth as auth_svc
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+@router.get("/email-config")
+def check_email_config():
+    """Check which email provider is configured (dev/debug only)."""
+    if settings.APP_ENV == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+    return ok(
+        data={
+            "sendgrid": bool(settings.SENDGRID_API_KEY),
+            "smtp": bool(settings.GMAIL_USER and settings.GMAIL_APP_PASSWORD),
+            "gmailUser": settings.GMAIL_USER or None,
+            "provider": "sendgrid" if settings.SENDGRID_API_KEY else ("smtp" if settings.GMAIL_USER else "none"),
+        },
+        message="Email configuration status",
+    )
 
 
 @router.get("/email-otp")
@@ -43,9 +60,20 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depen
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
     user = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r)
+    email_sent = getattr(user, "email_sent", True)
     return created(
-        data={"userId": user.id, "email": user.email, "role": user.role.value, "isVerified": user.verified},
-        message="Registration successful. Check your email to verify your account.",
+        data={
+            "userId": user.id,
+            "email": user.email,
+            "role": user.role.value,
+            "isVerified": user.verified,
+            "emailSent": email_sent,
+        },
+        message=(
+            "Registration successful. A verification code has been sent to your email."
+            if email_sent
+            else "Registration successful. Email delivery failed — use Resend OTP on the verification screen."
+        ),
     )
 
 
@@ -103,8 +131,15 @@ def logout(body: RefreshRequest, r=Depends(get_redis)):
 
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    await auth_svc.forgot_password(db, body.email)
-    return ok(data=None, message="If that email is registered you will receive a reset link.")
+    email_sent = await auth_svc.forgot_password(db, body.email)
+    return ok(
+        data={"emailSent": email_sent},
+        message=(
+            "A password reset code has been sent to your email. Check your inbox and spam folder."
+            if email_sent
+            else "If that email is registered you will receive a one-time code."
+        ),
+    )
 
 
 @router.post("/reset-password")
@@ -115,8 +150,15 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 @router.post("/resend-verification")
 async def resend_verification(body: ForgotPasswordRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
-    await auth_svc.resend_verification(db, body.email, r=r)
-    return ok(data=None, message="If that email is registered and unverified, a new link has been sent.")
+    email_sent = await auth_svc.resend_verification(db, body.email, r=r)
+    return ok(
+        data={"emailSent": email_sent},
+        message=(
+            "A new verification code has been sent. Check your inbox and spam folder."
+            if email_sent
+            else "If that email is registered and unverified, a new OTP has been sent."
+        ),
+    )
 
 
 @router.put("/change-password")

@@ -51,14 +51,14 @@ export default function EscalatedDisputesPage() {
   const totalPages = data ? Math.ceil(data.total / limit) : 1;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Escalated Disputes</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#041627]">Escalated Disputes</h1>
           <p className="text-sm text-gray-500 mt-0.5">Disputes open for more than 48 hours — require urgent attention</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {data && (
             <span className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full">
               {data.total} escalated
@@ -134,7 +134,7 @@ export default function EscalatedDisputesPage() {
                 )}
 
                 {/* Parties */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="bg-blue-50 rounded-lg px-3 py-2">
                     <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-0.5">Haulier</p>
                     <p className="font-semibold text-blue-800 truncate">{d.haulier?.name ?? '—'}</p>
@@ -175,7 +175,7 @@ export default function EscalatedDisputesPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-[#44474C]">
           <span>Page {page} of {totalPages}</span>
           <div className="flex gap-2">
             <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded-lg border disabled:opacity-40 hover:bg-gray-50">Prev</button>
@@ -187,11 +187,11 @@ export default function EscalatedDisputesPage() {
       {/* Resolution Modal */}
       {selected && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 space-y-5">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-4 sm:p-6 lg:p-8 space-y-5">
             <div className="flex items-center gap-2">
               <span className="text-2xl">🚨</span>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Resolve Escalated Dispute</h3>
+                <h3 className="text-xl font-bold text-[#041627]">Resolve Escalated Dispute</h3>
                 <p className="text-sm text-red-600 font-medium mt-0.5">
                   Open for {selected.hoursOpen ?? 0}h — {selected.jobReference}
                 </p>
@@ -199,7 +199,7 @@ export default function EscalatedDisputesPage() {
             </div>
 
             {selected.pickupLocation && (
-              <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-gray-600 space-y-1">
+              <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-[#44474C] space-y-1">
                 <div>📍 <span className="font-medium">From:</span> {selected.pickupLocation}</div>
                 <div>🏁 <span className="font-medium">To:</span> {selected.dropLocation}</div>
               </div>
@@ -216,7 +216,7 @@ export default function EscalatedDisputesPage() {
             </div>
 
             {resolution.resolution === 'partial_refund' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier (₹)</label>
                   <input type="number" value={resolution.refundAmount} onChange={(e) => setResolution((r) => ({ ...r, refundAmount: Number(e.target.value) }))}
@@ -243,7 +243,7 @@ export default function EscalatedDisputesPage() {
                 {resolving ? 'Resolving...' : 'Confirm Resolution'}
               </button>
               <button onClick={() => setSelected(null)}
-                className="px-6 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+                className="px-6 bg-gray-100 text-[#44474C] font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
             </div>

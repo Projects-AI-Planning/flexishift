@@ -10,6 +10,10 @@ from app.config import settings
 log = structlog.get_logger()
 
 
+def _normalized_gmail_app_password() -> str:
+    return settings.GMAIL_APP_PASSWORD.replace(" ", "").replace("-", "").strip()
+
+
 async def _send_via_sendgrid(to: str, subject: str, html_body: str) -> None:
     """Send email via SendGrid HTTP API — works on servers where SMTP is firewalled."""
     payload = {
@@ -37,6 +41,7 @@ async def _send_via_sendgrid(to: str, subject: str, html_body: str) -> None:
 
 def _send_smtp(to: str, subject: str, html_body: str) -> None:
     """Synchronous SMTP send — tries port 587 (STARTTLS) then 465 (SSL)."""
+    password = _normalized_gmail_app_password()
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{settings.EMAIL_FROM_NAME} <{settings.GMAIL_USER}>"
@@ -49,7 +54,7 @@ def _send_smtp(to: str, subject: str, html_body: str) -> None:
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
             smtp.ehlo()
             smtp.starttls()
-            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.login(settings.GMAIL_USER, password)
             smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
         return
     except OSError as exc:
@@ -59,7 +64,7 @@ def _send_smtp(to: str, subject: str, html_body: str) -> None:
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
             smtp.ehlo()
-            smtp.login(settings.GMAIL_USER, settings.GMAIL_APP_PASSWORD)
+            smtp.login(settings.GMAIL_USER, password)
             smtp.sendmail(settings.GMAIL_USER, to, msg.as_string())
         return
     except OSError as exc:
@@ -69,29 +74,42 @@ def _send_smtp(to: str, subject: str, html_body: str) -> None:
     raise last_err  # type: ignore[misc]
 
 
-async def send_email(to: str, subject: str, html_body: str) -> None:
+async def send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send email via SendGrid or Gmail SMTP. Returns True if sent successfully."""
     # Prefer SendGrid HTTP API (works even when SMTP ports are firewalled)
     if settings.SENDGRID_API_KEY:
         try:
             await _send_via_sendgrid(to, subject, html_body)
             log.info("email_sent_sendgrid", to=to, subject=subject)
-            return
+            return True
         except Exception as exc:
             log.error("sendgrid_send_failed", to=to, subject=subject, error=str(exc))
-            return
+            # Fall through to SMTP if it is configured.
 
-    # Fallback: Gmail SMTP (dev environments)
-    if not settings.GMAIL_USER or not settings.GMAIL_APP_PASSWORD:
+    # Fallback: Gmail SMTP
+    if not settings.GMAIL_USER or not _normalized_gmail_app_password():
         log.warning("no_email_provider_configured", to=to, subject=subject)
-        return
-    try:
-        await asyncio.to_thread(_send_smtp, to, subject, html_body)
-        log.info("email_sent_smtp", to=to, subject=subject)
-    except Exception as exc:
-        log.error("email_send_failed", to=to, subject=subject, error=str(exc))
+        return False
+
+    # Retry SMTP up to 2 times (handles transient network errors)
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            await asyncio.to_thread(_send_smtp, to, subject, html_body)
+            log.info("email_sent_smtp", to=to, subject=subject, attempt=attempt + 1)
+            return True
+        except Exception as exc:
+            last_exc = exc
+            if attempt == 0:
+                log.warning("smtp_attempt_failed_retrying", to=to, attempt=attempt + 1, error=str(exc))
+                await asyncio.sleep(3)
+            else:
+                log.error("email_send_failed_all_attempts", to=to, subject=subject, error=str(exc))
+
+    return False
 
 
-async def send_verification_email(to: str, full_name: str, otp: str) -> None:
+async def send_verification_email(to: str, full_name: str, otp: str) -> bool:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
       <div style="text-align:center;margin-bottom:24px;">
@@ -115,10 +133,10 @@ async def send_verification_email(to: str, full_name: str, otp: str) -> None:
       </div>
     </div>
     """
-    await send_email(to, "Your FreightFlex verification code", html)
+    return await send_email(to, "Your FreightFlex verification code", html)
 
 
-async def send_password_reset_email(to: str, full_name: str, otp: str) -> None:
+async def send_password_reset_email(to: str, full_name: str, otp: str) -> bool:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
       <div style="text-align:center;margin-bottom:24px;">
@@ -142,7 +160,7 @@ async def send_password_reset_email(to: str, full_name: str, otp: str) -> None:
       </div>
     </div>
     """
-    await send_email(to, "Your FreightFlex password reset code", html)
+    return await send_email(to, "Your FreightFlex password reset code", html)
 
 
 async def send_job_booked_email(to: str, full_name: str, job_ref: str) -> None:

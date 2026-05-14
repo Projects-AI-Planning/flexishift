@@ -31,14 +31,14 @@ const EscrowPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Escrow</h2>
+          <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl lg:text-3xl">Escrow</h2>
           <p className="text-on-surface-variant font-medium">Payments held in escrow pending job delivery confirmation.</p>
         </div>
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg text-sm font-bold text-blue-700 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">lock</span>
             {data?.total ?? 0} In Escrow
@@ -75,7 +75,7 @@ const EscrowPage: React.FC = () => {
       {/* Cards */}
       <div className={`space-y-4 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         {data?.items.map((p: AdminPayment) => (
-          <div key={p.paymentId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-blue-100 overflow-hidden">
+          <div key={p.paymentId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-blue-100 overflow-x-auto">
             <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Left — job/payment details */}
               <div className="flex items-start gap-4 min-w-0">
@@ -101,7 +101,7 @@ const EscrowPage: React.FC = () => {
               </div>
 
               {/* Middle — parties */}
-              <div className="grid grid-cols-2 gap-4 min-w-[240px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Haulier</p>
                   <p className="text-sm font-bold text-primary">{p.haulier?.name || '—'}</p>
@@ -124,7 +124,7 @@ const EscrowPage: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setConfirmId(null)}
-                      className="px-3 py-2 text-xs font-black text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                      className="px-3 py-2 text-xs font-black text-[#44474C] bg-slate-100 rounded-lg hover:bg-slate-200"
                     >Cancel</button>
                     <button
                       onClick={() => handleRelease(p)}

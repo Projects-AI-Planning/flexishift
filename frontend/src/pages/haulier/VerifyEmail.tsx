@@ -91,7 +91,7 @@ const VerifyEmail: React.FC = () => {
     setIsResending(true);
     try {
       await haulierService.resendOTP(email.trim().toLowerCase());
-      setSuccess('A new code has been sent to your email.');
+      setSuccess('A new code has been sent. Check your inbox and spam/junk folder.');
       setCooldown(RESEND_COOLDOWN);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
@@ -107,7 +107,7 @@ const VerifyEmail: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface w-full">
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md">
+      <div className="bg-white p-5 sm:p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-navy p-3 rounded-full mb-4">
             <Truck className="text-amber" size={32} />
@@ -117,6 +117,9 @@ const VerifyEmail: React.FC = () => {
             {email
               ? `Enter the 6-digit code sent to ${email}`
               : 'Enter your email and the 6-digit code we sent you'}
+          </p>
+          <p className="text-xs text-amber-600 font-semibold mt-2 text-center bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+            Can't find the email? Check your <strong>spam / junk folder</strong>.
           </p>
         </div>
 
