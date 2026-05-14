@@ -49,7 +49,6 @@ def get_document_upload_url(
         kind=LocalUploadKind.DOCUMENT,
         original_name=f"{doc_type.lower()}.pdf",
         content_type="application/pdf",
-        storage_key=f"documents/{current_user.id}/{doc_type}/{doc_type.lower()}.pdf",
     )
     upload_url = local_svc.local_upload_endpoint_url(request, pending.upload_token)
     file_url = local_svc.local_upload_url(request, pending.storage_key)
