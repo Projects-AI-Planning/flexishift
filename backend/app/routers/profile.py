@@ -185,8 +185,8 @@ def get_photo_upload_url(
         kind=LocalUploadKind.IMAGE,
         original_name="profile.jpg",
         content_type=content_type,
-        storage_key=key,
     )
+    key = record.storage_key
     record.public_url = _local_photo_url(request, key)
     db.commit()
     return ok(

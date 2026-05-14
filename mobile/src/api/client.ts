@@ -106,12 +106,26 @@ export async function request<T>(
   let payload: ApiResponse<T> | null = null;
   let retryAttempted = false;
 
+  const TIMEOUT_MS = 60_000;
+
   const execute = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      return await fetch(url, {body: options.body, headers, method});
+      return await fetch(url, {
+        body: options.body,
+        headers,
+        method,
+        signal: controller.signal,
+      });
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
       logError(id, err);
       throw err;
+    } finally {
+      clearTimeout(timer);
     }
   };
 
