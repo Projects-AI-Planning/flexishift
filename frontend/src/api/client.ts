@@ -36,7 +36,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error: { response?: { status?: number } }) => {
-    if (error.response?.status === 401) {
+    const onLoginPage = window.location.pathname === '/login';
+    if (error.response?.status === 401 && !onLoginPage) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
