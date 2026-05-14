@@ -224,7 +224,7 @@ export default function HaulierNotificationsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="space-y-5">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-black text-primary">Unread Breakdown</h2>
@@ -320,8 +320,8 @@ export default function HaulierNotificationsPage() {
             </div>
           </div>
 
-          <div className={`mt-5 overflow-hidden rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
-            <table className="w-full text-sm">
+          <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
                   <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Notification</th>
@@ -346,7 +346,7 @@ export default function HaulierNotificationsPage() {
                     <td className="px-4 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
-                          notification.isRead ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700'
+                          notification.isRead ? 'bg-slate-100 text-[#44474C]' : 'bg-emerald-100 text-emerald-700'
                         }`}
                       >
                         {notification.isRead ? 'Read' : 'Unread'}

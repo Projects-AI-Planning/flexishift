@@ -115,6 +115,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   const etaLabel = formatEta(etaValue);
   const distanceLabel = formatDistance(distanceValue);
   const durationLabel = formatDuration(durationValue);
+  const showLoadCodeOnly = currentStep === 'load_code';
 
   const pickupCoords =
     activeJob?.pickupLat != null && activeJob?.pickupLng != null
@@ -230,19 +231,33 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
         </Card>
 
         <View style={styles.actionsCard}>
-          <Text style={styles.actionsTitle}>Journey actions</Text>
-          <Text style={styles.actionsCopy}>Move to the next compliance step without leaving this screen.</Text>
-          <View style={styles.journeyButtonRow}>
-            <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, currentStep === 'load_code' && styles.journeyBtnActive]}>
-              <Text style={styles.journeyBtnText}>Load Code</Text>
-            </Pressable>
-            <Pressable onPress={onGoToHandover} style={[styles.journeyBtn, currentStep === 'handover' && styles.journeyBtnActive]}>
-              <Text style={styles.journeyBtnText}>Handover</Text>
-            </Pressable>
-            <Pressable onPress={onGoToDelivery} style={[styles.journeyBtn, currentStep === 'delivery' && styles.journeyBtnActive]}>
-              <Text style={styles.journeyBtnText}>Delivery</Text>
-            </Pressable>
-          </View>
+          <Text style={styles.actionsTitle}>
+            {showLoadCodeOnly ? 'Load Code Required' : 'Journey actions'}
+          </Text>
+          <Text style={styles.actionsCopy}>
+            {showLoadCodeOnly
+              ? 'Verify the load code first. Handover and delivery steps unlock after that.'
+              : 'Move to the next compliance step without leaving this screen.'}
+          </Text>
+          {showLoadCodeOnly ? (
+            <View style={styles.singleActionWrap}>
+              <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, styles.journeyBtnPrimary]}>
+                <Text style={[styles.journeyBtnText, styles.journeyBtnTextOnAccent]}>Open Load Code</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.journeyButtonRow}>
+              <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, currentStep === 'load_code' && styles.journeyBtnActive]}>
+                <Text style={styles.journeyBtnText}>Load Code</Text>
+              </Pressable>
+              <Pressable onPress={onGoToHandover} style={[styles.journeyBtn, currentStep === 'handover' && styles.journeyBtnActive]}>
+                <Text style={styles.journeyBtnText}>Handover</Text>
+              </Pressable>
+              <Pressable onPress={onGoToDelivery} style={[styles.journeyBtn, currentStep === 'delivery' && styles.journeyBtnActive]}>
+                <Text style={styles.journeyBtnText}>Delivery</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -374,6 +389,7 @@ const styles = StyleSheet.create({
   actionsTitle: {color: colors.navy, fontSize: 16, fontWeight: '900'},
   actionsCopy: {color: colors.inkSoft, fontSize: 13, marginTop: 4, marginBottom: spacing.md, lineHeight: 18},
   journeyButtonRow: {flexDirection: 'row', gap: spacing.sm},
+  singleActionWrap: {marginTop: spacing.sm},
   journeyBtn: {
     flex: 1,
     minHeight: 44,
@@ -388,6 +404,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3D5',
     borderColor: colors.accent,
   },
+  journeyBtnPrimary: {
+    flex: 0,
+    alignSelf: 'stretch',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  journeyBtnTextOnAccent: {color: colors.card},
   journeyBtnText: {color: colors.navy, fontSize: 12, fontWeight: '900'},
 });
 

@@ -166,13 +166,13 @@ export default function HaulierSupportContactPage() {
               <h2 className="text-lg font-black text-primary">Your Tickets</h2>
               <p className="text-sm text-slate-500">Recent tickets loaded from the backend.</p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
               {tickets.length} records
             </span>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
-            <table className="w-full text-sm">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="w-full min-w-[400px] text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
                   <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Subject</th>

@@ -134,25 +134,27 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [pickupLocation, dropLocation, pickupCoordsProp, dropCoordsProp]);
+  }, [
+    pickupLocation,
+    dropLocation,
+    pickupCoordsProp?.latitude,
+    pickupCoordsProp?.longitude,
+    dropCoordsProp?.latitude,
+    dropCoordsProp?.longitude,
+  ]);
 
   useEffect(() => {
-    if (mapRef.current && ((pickupCoords && dropCoords) || (currentCoords && dropCoords))) {
-      const coords = pickupCoords && dropCoords
-        ? [
-            {latitude: pickupCoords.lat, longitude: pickupCoords.lon},
-            {latitude: dropCoords.lat, longitude: dropCoords.lon},
-          ]
-        : [
-            {latitude: currentCoords!.latitude, longitude: currentCoords!.longitude},
-            {latitude: dropCoords!.lat, longitude: dropCoords!.lon},
-          ];
+    if (mapRef.current && pickupCoords && dropCoords) {
+      const coords = [
+        {latitude: pickupCoords.lat, longitude: pickupCoords.lon},
+        {latitude: dropCoords.lat, longitude: dropCoords.lon},
+      ];
       mapRef.current.fitToCoordinates(
         coords,
         {edgePadding: {top: 24, right: 24, bottom: 24, left: 24}, animated: false},
       );
     }
-  }, [pickupCoords, dropCoords, currentCoords]);
+  }, [pickupCoords, dropCoords]);
 
   if (noCoords) {
     return (

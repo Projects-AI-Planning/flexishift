@@ -85,11 +85,11 @@ export default function HaulierCostsPage() {
   const periodLabel = data?.period ?? `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Reports & Analytics</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Cost Analytics</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-primary">Cost Analytics</h1>
           <p className="text-on-surface-variant font-medium">Backend-driven spend, escrow, refunds, and per-load cost view.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -130,11 +130,11 @@ export default function HaulierCostsPage() {
       {!loading && data && (
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Current period</p>
-          <p className="mt-1 text-sm font-medium text-slate-700">Showing data for {periodLabel}</p>
+          <p className="mt-1 text-sm font-medium text-[#44474C]">Showing data for {periodLabel}</p>
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-5 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total Spend</p>
           <h3 className="mt-2 text-3xl font-black text-primary">{fmt(summary.totalSpend ?? 0)}</h3>
@@ -169,7 +169,7 @@ export default function HaulierCostsPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
             {breakdown.map((item) => {
               const height = Math.max(8, (item.value / chartMax) * 220);
               return (
@@ -219,8 +219,8 @@ export default function HaulierCostsPage() {
           </div>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
-          <table className="w-full text-sm">
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-slate-50 text-left">
               <tr>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
@@ -232,10 +232,10 @@ export default function HaulierCostsPage() {
             <tbody className="divide-y divide-slate-100">
               {items.length ? items.map((item) => (
                 <tr key={item.paymentId}>
-                  <td className="px-4 py-4 font-medium text-slate-700">{item.jobReference}</td>
-                  <td className="px-4 py-4 text-slate-600">{item.route ?? 'N/A'}</td>
-                  <td className="px-4 py-4 text-slate-600">{item.status.replace('_', ' ')}</td>
-                  <td className="px-4 py-4 text-right font-mono font-bold text-slate-900">{fmt(item.amount, item.currency)}</td>
+                  <td className="px-4 py-4 font-medium text-[#44474C]">{item.jobReference}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{item.route ?? 'N/A'}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{item.status.replace('_', ' ')}</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold text-[#041627]">{fmt(item.amount, item.currency)}</td>
                 </tr>
               )) : (
                 <tr>

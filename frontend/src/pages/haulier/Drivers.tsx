@@ -77,7 +77,7 @@ const statusTone = (status: string) => {
 };
 
 const availabilityTone = (available: boolean) => (
-  available ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+  available ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-[#44474C]'
 );
 
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -291,7 +291,7 @@ const DriversPage: React.FC = () => {
           {activeSlots.length ? activeSlots.map((slot) => (
             <span
               key={`${driver.driverId}-${slot.dayOfWeek}-${slot.startTime}`}
-              className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-600"
+              className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#44474C]"
             >
               {dayLabels[slot.dayOfWeek]} {slot.startTime.slice(0, 5)}-{slot.endTime.slice(0, 5)}
             </span>
@@ -368,7 +368,7 @@ const DriversPage: React.FC = () => {
         ].map((card) => (
           <div key={card.label} className="rounded-xl border border-slate-100 bg-white p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
             <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{card.label}</p>
-            <p className={`text-3xl font-black ${card.accent ?? 'text-slate-900'}`}>{loading ? '...' : card.value}</p>
+            <p className={`text-3xl font-black ${card.accent ?? 'text-[#041627]'}`}>{loading ? '...' : card.value}</p>
           </div>
         ))}
       </div>
@@ -415,7 +415,7 @@ const DriversPage: React.FC = () => {
         </div>
       </div>
 
-      <div className={`overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)] ${loading || busyAction ? 'opacity-60 pointer-events-none' : ''}`}>
+      <div className={`overflow-x-auto rounded-xl border border-slate-50 bg-white shadow-[0_4px_12px_rgba(26,43,60,0.05)] ${loading || busyAction ? 'opacity-60 pointer-events-none' : ''}`}>
         {error ? (
           <div className="p-6 text-sm font-semibold text-red-600">{error}</div>
         ) : activeTab === 'schedule' ? (
@@ -427,14 +427,14 @@ const DriversPage: React.FC = () => {
               </div>
               <button
                 onClick={() => void refresh()}
-                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-200"
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-black text-[#44474C] hover:bg-slate-200"
               >
                 Refresh
               </button>
             </div>
             {assignedRows.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-12 text-center">
-                <p className="font-black text-slate-600">No assigned drivers yet</p>
+                <p className="font-black text-[#44474C]">No assigned drivers yet</p>
                 <p className="text-sm text-slate-400 mt-1">Assign drivers from the All Drivers tab to build a roster.</p>
               </div>
             ) : (
@@ -445,7 +445,7 @@ const DriversPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full min-w-[720px] text-left">
               <thead className="bg-slate-50">
                 <tr>
                   {['Driver Details', 'Vehicle Type', 'Rating', 'Availability', 'Status', 'Coverage', 'Roster'].map((header) => (
@@ -473,7 +473,7 @@ const DriversPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-600">{driver.vehicleType || '—'}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-[#44474C]">{driver.vehicleType || '—'}</td>
                       <td className="px-6 py-4 text-sm font-black text-primary">{driver.avgRating.toFixed(1)} / 5</td>
                     <td className="px-6 py-4">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${availabilityTone(driver.availabilityToday)}`}>
@@ -485,12 +485,12 @@ const DriversPage: React.FC = () => {
                         {driver.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{driver.coverageArea || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-[#44474C]">{driver.coverageArea || '—'}</td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           <button
                             onClick={() => setSelectedDriver(driver)}
-                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-200"
+                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-black text-[#44474C] hover:bg-slate-200"
                           >
                             Details
                           </button>
@@ -525,7 +525,7 @@ const DriversPage: React.FC = () => {
           <button
             disabled={page === 1}
             onClick={() => setPage((current) => current - 1)}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#44474C] hover:bg-slate-50 disabled:opacity-40"
           >
             Prev
           </button>
@@ -535,7 +535,7 @@ const DriversPage: React.FC = () => {
           <button
             disabled={page >= Math.ceil(total / PER_PAGE)}
             onClick={() => setPage((current) => current + 1)}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#44474C] hover:bg-slate-50 disabled:opacity-40"
           >
             Next
           </button>

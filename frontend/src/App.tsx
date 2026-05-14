@@ -182,6 +182,7 @@ function AppRoutes() {
               <Route path="documents/insurance" element={<HaulierInsurancePage />} />
               <Route path="documents/*" element={<SettingsPage />} />
               <Route path="settings/profile" element={<HaulierProfilePage />} />
+              <Route path="notifications" element={<HaulierNotificationsPage />} />
               <Route path="settings/notifications" element={<HaulierNotificationsPage />} />
               <Route path="settings/security" element={<HaulierSecurityPage />} />
               <Route path="settings/*" element={<SettingsPage />} />

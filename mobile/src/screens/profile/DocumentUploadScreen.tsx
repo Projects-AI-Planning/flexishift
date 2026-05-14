@@ -252,8 +252,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutralSoft,
   },
   typeBtnActive: {
-    borderColor: colors.navy,
-    backgroundColor: colors.navy,
+    borderColor: '#1066B1',
+    backgroundColor: '#1066B1',
   },
   typeBtnText: {
     fontSize: 13,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   primaryButton: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: 18,
     minHeight: 60,
     justifyContent: 'center',

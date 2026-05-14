@@ -140,7 +140,7 @@ export default function HaulierPerformancePage() {
       {!loading && data && (
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Current period</p>
-          <p className="mt-1 text-sm font-medium text-slate-700">Showing data for {periodLabel}</p>
+          <p className="mt-1 text-sm font-medium text-[#44474C]">Showing data for {periodLabel}</p>
         </div>
       )}
 
@@ -179,7 +179,7 @@ export default function HaulierPerformancePage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
             {breakdown.map((item) => {
               const height = Math.max(8, (item.value / chartMax) * 220);
               return (
@@ -233,8 +233,8 @@ export default function HaulierPerformancePage() {
           </div>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
-          <table className="w-full text-sm">
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-slate-50 text-left">
               <tr>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
@@ -246,10 +246,10 @@ export default function HaulierPerformancePage() {
             <tbody className="divide-y divide-slate-100">
               {items.length ? items.map((item) => (
                 <tr key={item.jobId}>
-                  <td className="px-4 py-4 font-medium text-slate-700">{item.jobReference}</td>
-                  <td className="px-4 py-4 text-slate-600">{item.status.replace('_', ' ')}</td>
-                  <td className="px-4 py-4 text-slate-600">{item.vehicleType ?? 'N/A'}</td>
-                  <td className="px-4 py-4 text-right font-mono font-bold text-slate-900">
+                  <td className="px-4 py-4 font-medium text-[#44474C]">{item.jobReference}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{item.status.replace('_', ' ')}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{item.vehicleType ?? 'N/A'}</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold text-[#041627]">
                     {item.agreedAmount ? fmt(item.agreedAmount) : 'N/A'}
                   </td>
                 </tr>

@@ -19,6 +19,12 @@ services:
       - DB_USER=freightflex_user
       - DB_PASSWORD=freightflex_pass
       - REDIS_URL=redis://redis:6379/0
+      # ── Email — set these in your server .env to enable OTP delivery ──────────
+      - GMAIL_USER=${GMAIL_USER:-}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD:-}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-noreply@freightflex.io}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-FreightFlex}
     volumes:
       - .:/app
     depends_on:
@@ -28,7 +34,7 @@ services:
         condition: service_healthy
     networks:
       - freightflex_network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 
   # ── MySQL 8.0 ────────────────────────────────────────────────────────────────
   mysql:

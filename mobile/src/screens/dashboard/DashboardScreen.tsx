@@ -123,7 +123,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </Pressable>
 
       {/* Today's Earnings */}
-      <Card title="Today's Earnings" rightLabel="+12%" variant="accent">
+      <Card title="Today's Earnings" variant="accent">
         <View style={styles.earningsRow}>
           <Text style={styles.earningsValue}>${totalEarnings.toFixed(2)}</Text>
           <View style={styles.goalPill}>
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   jobPill: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

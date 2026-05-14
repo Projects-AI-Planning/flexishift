@@ -89,11 +89,11 @@ const UsersPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">User Management</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">User Management</h2>
           <p className="text-on-surface-variant font-medium">Manage and verify platform participants.</p>
         </div>
         <div className="flex gap-3">
@@ -113,17 +113,17 @@ const UsersPage: React.FC = () => {
 
       {/* Search & Filters */}
       <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative flex-1 w-full min-w-[160px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-          <input 
-            type="text" 
-            placeholder="Search by name, email, or ID..." 
+          <input
+            type="text"
+            placeholder="Search by name, email, or ID..."
             value={params.search}
             onChange={(e) => setParams({ ...params, search: e.target.value })}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary outline-none"
           />
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <select 
             value={params.role}
             onChange={(e) => setParams({ ...params, role: e.target.value })}
@@ -148,9 +148,9 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[640px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">User Details</th>
@@ -176,7 +176,7 @@ const UsersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500 font-medium">{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4">
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
+                    <span className="text-xs font-bold text-[#44474C] bg-slate-100 px-3 py-1 rounded-lg">
                       {user.role}
                     </span>
                   </td>
@@ -337,7 +337,7 @@ const UsersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-5 py-2 text-sm font-black text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                  className="px-5 py-2 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   Cancel
                 </button>
@@ -365,9 +365,9 @@ const UsersPage: React.FC = () => {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="p-8">
-              <div className="flex items-center gap-6 mb-8">
-                <div className="w-24 h-24 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl font-black text-primary border-2 border-slate-200">
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl sm:text-3xl font-black text-primary border-2 border-slate-200">
                   {selectedUser.name.charAt(0)}
                 </div>
                 <div>

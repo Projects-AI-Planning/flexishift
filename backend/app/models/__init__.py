@@ -1,5 +1,6 @@
 from app.models.user import User, UserProfile, EmailVerification, PasswordReset
 from app.models.document import Document
+from app.models.local_upload import LocalUpload
 from app.models.availability import AvailabilitySlot, AvailabilityBlock
 from app.models.job import Job
 from app.models.quote import Quote

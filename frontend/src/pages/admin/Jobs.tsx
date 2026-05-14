@@ -23,7 +23,7 @@ const statusBadge = (status: string) => {
   if (s === 'cancelled') return 'bg-red-100 text-red-700';
   if (s === 'disputed') return 'bg-orange-100 text-orange-700';
   if (s === 'payment_secured' || s === 'booked') return 'bg-purple-100 text-purple-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-[#44474C]';
 };
 
 const AdminJobsPage: React.FC = () => {
@@ -33,11 +33,11 @@ const AdminJobsPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">All Jobs</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">All Jobs</h2>
           <p className="text-on-surface-variant font-medium">Monitor and manage all freight jobs on the platform.</p>
         </div>
         <div className="flex gap-3">
@@ -54,7 +54,7 @@ const AdminJobsPage: React.FC = () => {
 
       {/* Search & Filters */}
       <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative flex-1 w-full min-w-[160px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
           <input
             type="text"
@@ -76,9 +76,9 @@ const AdminJobsPage: React.FC = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
@@ -102,7 +102,7 @@ const AdminJobsPage: React.FC = () => {
                       {job.goodsType && <p className="text-xs text-slate-400">{job.goodsType}</p>}
                     </td>
                     <td className="px-6 py-4 max-w-[200px]">
-                      <p className="text-xs text-slate-600 font-bold truncate">{pickup || 'N/A'}</p>
+                      <p className="text-xs text-[#44474C] font-bold truncate">{pickup || 'N/A'}</p>
                       <div className="flex items-center gap-1 my-0.5">
                         <span className="material-symbols-outlined text-[10px] text-slate-300">arrow_downward</span>
                       </div>

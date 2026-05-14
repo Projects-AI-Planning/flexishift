@@ -122,7 +122,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 
         <View style={styles.bottomBar}>
           <Text style={styles.bottomCopy}>
-            © 2024 FreightFlow Systems. All rights reserved.
+            © 2026 FreightFlow Systems. All rights reserved.
           </Text>
           </View>
           </View>

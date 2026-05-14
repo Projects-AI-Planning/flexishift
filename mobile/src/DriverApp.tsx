@@ -90,12 +90,12 @@ type SetupStep = 'profile' | 'documents' | null;
 const palette = {
   accent: '#DFA622',
   accentSoft: '#FFF3D5',
-  bg: '#FFFFFF',
+  bg: '#F8F9FA',
   border: '#E4DED0',
   card: '#FFFFFF',
   danger: '#A53A32',
-  ink: '#18232F',
-  inkSoft: '#5B6671',
+  ink: '#041627',
+  inkSoft: '#44474C',
   nav: '#102235',
   success: '#18794E',
 };
@@ -329,6 +329,7 @@ function DriverApp(): React.JSX.Element {
     null,
   );
   const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
+  const [complianceJobRef, setComplianceJobRef] = useState<string | null>(null);
   const [handoverStatus, setHandoverStatus] = useState<{haulierSigned?: boolean; haulierSignedAt?: string | null} | null>(null);
 
   // Profile
@@ -392,6 +393,7 @@ function DriverApp(): React.JSX.Element {
     string,
     unknown
   > | null>(null);
+  const TRACKING_AUTO_REFRESH_INTERVAL_MS = 45000;
 
   // Banners
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -486,11 +488,12 @@ function DriverApp(): React.JSX.Element {
   }, [session?.userId]);
 
   const loadJobs = useCallback(async () => {
-    const [availableData, upcomingData, historyData, docsData] = await Promise.all([
+    const [availableData, upcomingData, historyData, docsData, quotesData] = await Promise.all([
       driverApi.jobs.listAvailable({limit: 20, page: 1, status: 'open'}),
       driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
       driverApi.dashboard.getJobHistory({limit: 20, page: 1}),
       driverApi.documents.list().catch(() => null),
+      driverApi.quotes.listMine().catch(() => null),
     ]);
     const jobs = (availableData.items as Array<Record<string, unknown>>) ?? [];
     setAvailableJobs(jobs);
@@ -500,6 +503,9 @@ function DriverApp(): React.JSX.Element {
     setJobHistory((historyData.jobs as Array<Record<string, unknown>>) ?? []);
     if (docsData) {
       setDocuments(mapDocumentItems(docsData as Record<string, unknown>));
+    }
+    if (quotesData) {
+      setMyQuotes((quotesData.items as Array<Record<string, unknown>>) ?? []);
     }
   }, []);
 
@@ -605,7 +611,7 @@ function DriverApp(): React.JSX.Element {
 
   const loadMyQuotes = useCallback(async () => {
     const quotesData = await driverApi.quotes.listMine();
-    setMyQuotes((quotesData.quotes as Array<Record<string, unknown>>) ?? []);
+    setMyQuotes((quotesData.items as Array<Record<string, unknown>>) ?? []);
   }, []);
 
   const loadDrawerRoute = useCallback(
@@ -757,11 +763,13 @@ function DriverApp(): React.JSX.Element {
     ],
   );
 
-  const refreshActiveView = useCallback(async () => {
+  const refreshActiveView = useCallback(async (options?: {silent?: boolean}) => {
     if (!session) {
       return;
     }
-    setContentLoading(true);
+    if (!options?.silent) {
+      setContentLoading(true);
+    }
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
@@ -799,7 +807,9 @@ function DriverApp(): React.JSX.Element {
         error instanceof Error ? error.message : 'Failed to load data.',
       );
     } finally {
-      setContentLoading(false);
+      if (!options?.silent) {
+        setContentLoading(false);
+      }
     }
   }, [
     activeRoute,
@@ -887,6 +897,13 @@ function DriverApp(): React.JSX.Element {
   }, [refreshActiveView, session]);
 
   useEffect(() => {
+    if (!session || activeRoute !== 'notifications.all') {
+      return;
+    }
+    loadNotifications().catch(() => undefined);
+  }, [activeRoute, loadNotifications, session]);
+
+  useEffect(() => {
     if (!session?.accessToken) {
       return;
     }
@@ -965,8 +982,8 @@ function DriverApp(): React.JSX.Element {
       return;
     }
     const interval = setInterval(() => {
-      refreshActiveView().catch(() => undefined);
-    }, 15000);
+      refreshActiveView({silent: true}).catch(() => undefined);
+    }, TRACKING_AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [activeRoute, refreshActiveView, session]);
 
@@ -1136,10 +1153,11 @@ function DriverApp(): React.JSX.Element {
     setAuthInfo(null);
     try {
       await driverApi.auth.register(registerForm);
-      setVerifyForm({email: registerForm.email, otp: ''});
+      const normalizedEmail = registerForm.email.trim().toLowerCase();
+      setVerifyForm({email: normalizedEmail, otp: ''});
       setLoginForm(c => ({
         ...c,
-        email: registerForm.email,
+        email: normalizedEmail,
         password: registerForm.password,
       }));
       setAuthInfo('Registration succeeded. Enter the OTP to verify email.');
@@ -1186,7 +1204,7 @@ function DriverApp(): React.JSX.Element {
   };
 
   const handleForgotPassword = async (email: string) => {
-    setForgotEmail(email);
+    setForgotEmail(email.trim().toLowerCase());
     setAuthLoading(true);
     setAuthError(null);
     try {
@@ -1247,19 +1265,37 @@ function DriverApp(): React.JSX.Element {
 
   const handleQuoteSubmit = async (amount: string, notes: string) => {
     await runAction(async () => {
+      const jobForQuote = selectedJobDetails ?? selectedJob;
+      const jobId = String(jobForQuote?.jobId ?? '');
       await driverApi.quotes.submit({
         currency: 'INR',
-        jobId: String((selectedJobDetails ?? selectedJob)?.jobId ?? ''),
+        jobId,
         notes,
         quoteAmount: Number(amount),
       });
-      setSuccessBanner(
-        'Quote submitted! We will notify you when it is reviewed.',
-      );
+      // Optimistically prepend so My Bids shows the new quote instantly
+      const optimisticQuote: Record<string, unknown> = {
+        quoteId: `pending-${Date.now()}`,
+        jobId,
+        jobReference: jobForQuote?.jobReference ?? jobForQuote?.jobRef ?? `Job #${jobId.slice(-6)}`,
+        quoteAmount: Number(amount),
+        currency: 'INR',
+        notes,
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        job: {
+          jobId,
+          pickupLocation: jobForQuote?.pickupLocation ?? '',
+          dropLocation: jobForQuote?.dropLocation ?? '',
+        },
+      };
+      setMyQuotes(prev => [optimisticQuote, ...prev.filter(q => String(q.jobId) !== jobId)]);
+      setSuccessBanner('Quote submitted! We will notify you when it is reviewed.');
       setSelectedJob(null);
       setSelectedJobDetails(null);
       navigate('jobs', 'jobs.myQuotes');
-      await loadMyQuotes();
+      // Sync real data from server in background
+      loadMyQuotes().catch(() => undefined);
     });
   };
 
@@ -1289,12 +1325,16 @@ function DriverApp(): React.JSX.Element {
     return 'compliance.loadCode';
   };
 
-  const handleProceedToBooking = async (jobId: string) => {
+  const handleProceedToBooking = async (jobId: string, jobReference?: string) => {
     setComplianceJobId(jobId);
+    if (jobReference) {
+      setComplianceJobRef(jobReference);
+    }
     try {
       const bookingData = await driverApi.bookings.list({jobId, limit: 1});
       const bookings = (bookingData.bookings ??
         bookingData.items ??
+        bookingData.data ??
         []) as BookingDetail[];
       const booking = bookings[0] ?? null;
       if (booking) {
@@ -1905,12 +1945,14 @@ function DriverApp(): React.JSX.Element {
               <Text style={styles.detailKey}>Haulier</Text>
               <Text style={styles.detailValueCompact}>{String((item.haulier as {name?: string} | undefined)?.name ?? 'Assigned haulier')}</Text>
             </View>
-            <View style={styles.detailRowCompact}>
-              <Text style={styles.detailKey}>Next Step</Text>
-              <Text style={[styles.detailValueCompact, paymentSecured ? styles.detailValueSuccess : styles.detailValueWarning]}>
-                {paymentSecured ? '✓ Payment secured — tap Start Trip' : 'Haulier needs to pay on web dashboard'}
-              </Text>
-            </View>
+            {paymentSecured ? (
+              <View style={styles.detailRowCompact}>
+                <Text style={styles.detailKey}>Next Step</Text>
+                <Text style={[styles.detailValueCompact, styles.detailValueSuccess]}>
+                  ✓ Payment secured — tap Start Trip
+                </Text>
+              </View>
+            ) : null}
           </View>
         )}
       </View>
@@ -2005,12 +2047,12 @@ function DriverApp(): React.JSX.Element {
 
     // ── COMPLIANCE SCREENS (must be checked BEFORE tracking tab check) ──────────
     if (activeRoute === 'compliance.loadCode') {
+      const lcJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const lcJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? lcJobId;
       return (
         <LoadCodeScreen
-          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
-          jobReference={
-            dashboard?.activeJob?.jobReference ?? complianceJobId ?? ''
-          }
+          jobId={lcJobId}
+          jobReference={lcJobRef}
           onVerify={handleVerifyLoadCode}
           onOpenScanner={() => navigate('tracking', 'compliance.scanner')}
           loading={actionLoading}
@@ -2020,10 +2062,12 @@ function DriverApp(): React.JSX.Element {
     }
 
     if (activeRoute === 'compliance.handover') {
+      const hoJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const hoJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? hoJobId;
       return (
         <HandoverScreen
-          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
-          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          jobId={hoJobId}
+          jobReference={hoJobRef}
           onSubmit={handleSubmitHandover}
           loading={actionLoading}
           error={errorBanner}
@@ -2034,10 +2078,12 @@ function DriverApp(): React.JSX.Element {
     }
 
     if (activeRoute === 'compliance.delivery') {
+      const dlJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const dlJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? dlJobId;
       return (
         <DeliveryScreen
-          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
-          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          jobId={dlJobId}
+          jobReference={dlJobRef}
           onSubmit={handleSubmitDelivery}
           loading={actionLoading}
           error={errorBanner}
@@ -2050,7 +2096,7 @@ function DriverApp(): React.JSX.Element {
       return (
         <IncidentReportScreen
           jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
-          jobReference={dashboard?.activeJob?.jobReference ?? ''}
+          jobReference={complianceJobRef ?? dashboard?.activeJob?.jobReference ?? ''}
           onSubmit={handleIncidentReport}
           onBack={() => navigate('tracking', 'tracking.active')}
           loading={actionLoading}
@@ -2246,22 +2292,21 @@ function DriverApp(): React.JSX.Element {
       return (
         <JobDiscoveryScreen
           availableJobs={availableJobs}
+          appliedJobIds={myQuotes.map(q => String(q.jobId ?? ''))}
           docStatus={docStatus}
           onSelectJob={(job: any) => {
             setSelectedJob(job);
             setSelectedJobDetails(job);
           }}
-          onGoToDocuments={async () => {
-            await Promise.all([
-              loadProfile(),
-              driverApi.documents.getStatus().then(status => {
-                setVerificationStatus(cast<Record<string, unknown>>(status));
-              }).catch(() => undefined),
-              driverApi.documents.list().then(d => {
-                setDocuments(mapDocumentItems(d as Record<string, unknown>));
-              }).catch(() => undefined),
-            ]);
+          onGoToDocuments={() => {
             navigate('profile', 'documents.upload');
+            loadProfile().catch(() => undefined);
+            driverApi.documents.getStatus().then(status => {
+              setVerificationStatus(cast<Record<string, unknown>>(status));
+            }).catch(() => undefined);
+            driverApi.documents.list().then(d => {
+              setDocuments(mapDocumentItems(d as Record<string, unknown>));
+            }).catch(() => undefined);
           }}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -2675,6 +2720,12 @@ function DriverApp(): React.JSX.Element {
         <ProfileSetupScreen
           email={session.email}
           onComplete={handleProfileSetup}
+          onSkip={() => {
+            setSetupStep(null);
+            navHistoryRef.current = [];
+            setActiveTab('home');
+            setActiveRoute('home');
+          }}
           loading={actionLoading}
           error={errorBanner}
         />
@@ -2751,6 +2802,11 @@ function DriverApp(): React.JSX.Element {
     (activeTab === 'profile' && activeRoute === 'profile.edit') ||
     (activeTab === 'jobs' && !!selectedJob);
 
+  const renderBottomTabIcon = (tabKey: DriverTabKey) => {
+    const icon = bottomTabs.find(t => t.key === tabKey)?.icon ?? '';
+    return <Text style={styles.bottomTabIcon}>{icon}</Text>;
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
@@ -2781,21 +2837,25 @@ function DriverApp(): React.JSX.Element {
             {session.name} | {session.role}
           </Text>
         </View>
-        <Pressable
-          onPress={() => navigate('profile', 'notifications.all')}
-          style={styles.headerBell}>
-          <Image
-            source={require('./assets/screens/notification-bell.png')}
-            style={styles.headerBellImage}
-          />
-          {notificationUnreadCount > 0 ? (
-            <View style={styles.headerBellBadge}>
-              <Text style={styles.headerBellBadgeText}>
-                {notificationUnreadCount > 99 ? '99+' : String(notificationUnreadCount)}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
+        {activeRoute === 'notifications.all' ? (
+          <View style={styles.headerBellSpacer} />
+        ) : (
+          <Pressable
+            onPress={() => navigate('profile', 'notifications.all')}
+            style={styles.headerBell}>
+            <Image
+              source={require('./assets/screens/notification-bell.png')}
+              style={styles.headerBellImage}
+            />
+            {notificationUnreadCount > 0 ? (
+              <View style={styles.headerBellBadge}>
+                <Text style={styles.headerBellBadgeText}>
+                  {notificationUnreadCount > 99 ? '99+' : String(notificationUnreadCount)}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        )}
       </View>
 
       {/* Banners */}
@@ -2857,7 +2917,7 @@ function DriverApp(): React.JSX.Element {
 
       {/* Content */}
       {isFullScreen ? (
-        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 108}]}>
+        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 64}]}>
           {renderCurrentView()}
         </View>
       ) : (
@@ -2899,13 +2959,7 @@ function DriverApp(): React.JSX.Element {
               activeTab === tab.key ? styles.bottomTabButtonActive : null,
               pressed ? styles.bottomTabButtonPressed : null,
             ]}>
-            <Text
-              style={[
-                styles.bottomTabIcon,
-                activeTab === tab.key ? styles.bottomTabIconActive : null,
-              ]}>
-              {tab.icon}
-            </Text>
+            {renderBottomTabIcon(tab.key)}
             <Text
               style={[
                 styles.bottomTabLabel,
@@ -2987,28 +3041,25 @@ const styles = StyleSheet.create({
   bottomTabBar: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
-    height: 82,
+    height: 64,
     paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingVertical: 0,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    borderTopWidth: 1,
-    borderTopColor: '#E1E3E4',
-    shadowColor: '#0B1320',
-    shadowOffset: {width: 0, height: -4},
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 8,
   },
   bottomTabButton: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 12,
     marginHorizontal: 2,
   },
@@ -3019,7 +3070,7 @@ const styles = StyleSheet.create({
     opacity: 0.95,
     transform: [{scale: 0.96}],
   },
-  bottomTabIcon: {color: '#111827', fontSize: 22},
+  bottomTabIcon: {color: '#111827', fontSize: 24},
   bottomTabIconActive: {color: '#111827'},
   bottomTabLabel: {
     color: '#374151',
@@ -3048,8 +3099,8 @@ const styles = StyleSheet.create({
   historyCardEyebrow: {
     color: '#1066B1',
   },
-  content: {gap: 16, padding: 18, paddingBottom: 100},
-  contentContainer: {flex: 1, paddingBottom: 80},
+  content: {gap: 16, padding: 18, paddingBottom: 80},
+  contentContainer: {flex: 1, paddingBottom: 64},
   emptyText: {color: palette.inkSoft, fontSize: 14, lineHeight: 20},
   errorText: {
     color: palette.danger,
@@ -3073,7 +3124,7 @@ const styles = StyleSheet.create({
     width: 36,
   },
   headerBackSpacer: {
-    width: 36,
+    width: 16,
   },
   headerBackText: {
     color: palette.nav,
@@ -3084,14 +3135,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
-    minHeight: 24,
-    minWidth: 24,
+    minHeight: 28,
+    minWidth: 28,
     position: 'relative',
   },
+  headerBellSpacer: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+  },
   headerBellImage: {
-    height: 20,
+    height: 24,
     tintColor: '#667085',
-    width: 20,
+    width: 24,
   },
   headerBellBadge: {
     alignItems: 'center',

@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
 
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.models.document import Document, DocType, DocStatus
 from app.models.user import User
-from app.config import settings
 from app.services import s3
 
 

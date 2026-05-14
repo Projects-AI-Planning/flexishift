@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, borderWidth: 1, borderColor: '#CBD5E1',
     backgroundColor: '#F8FAFC',
   },
-  typeChipActive: {borderColor: colors.navy, backgroundColor: colors.navy},
+  typeChipActive: {borderColor: '#1066B1', backgroundColor: '#1066B1'},
   typeChipText: {fontSize: 13, fontWeight: '800', color: '#64748B'},
   typeChipTextActive: {color: '#fff'},
 
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   uploadErrorText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
 
   submitUploadBtn: {
-    backgroundColor: colors.navy, borderRadius: radius.lg,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
     minHeight: 56, justifyContent: 'center', alignItems: 'center',
     marginTop: spacing.sm,
   },

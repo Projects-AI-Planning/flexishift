@@ -1,6 +1,7 @@
 import {getNotificationsWebSocketUrl, request} from './client';
 
 const jsonBody = (payload: unknown) => JSON.stringify(payload);
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 export const driverApi = {
   auth: {
@@ -14,7 +15,7 @@ export const driverApi = {
         '/auth/forgot-password',
         {
           method: 'POST',
-          body: jsonBody({email}),
+          body: jsonBody({email: normalizeEmail(email)}),
         },
       ),
     login: (payload: {email: string; password: string}) =>
@@ -49,25 +50,35 @@ export const driverApi = {
     register: (payload: Record<string, unknown>) =>
       request<Record<string, unknown>>('/auth/register', {
         method: 'POST',
-        body: jsonBody({...payload, role: 'DRIVER'}),
+        body: jsonBody({
+          ...payload,
+          email: typeof payload.email === 'string' ? normalizeEmail(payload.email) : payload.email,
+          role: 'DRIVER',
+        }),
       }),
     resendVerification: (email: string) =>
       request<{email: string; otpExpiresAt?: string}>(
         '/auth/resend-verification',
         {
           method: 'POST',
-          body: jsonBody({email}),
+          body: jsonBody({email: normalizeEmail(email)}),
         },
       ),
     resetPassword: (payload: Record<string, unknown>) =>
       request<null>('/auth/reset-password', {
         method: 'POST',
-        body: jsonBody(payload),
+        body: jsonBody({
+          ...payload,
+          email: typeof payload.email === 'string' ? normalizeEmail(payload.email) : payload.email,
+        }),
       }),
     verifyEmail: (payload: Record<string, unknown>) =>
       request<Record<string, unknown>>('/auth/verify-email', {
         method: 'POST',
-        body: jsonBody(payload),
+        body: jsonBody({
+          ...payload,
+          email: typeof payload.email === 'string' ? normalizeEmail(payload.email) : payload.email,
+        }),
       }),
   },
   availability: {

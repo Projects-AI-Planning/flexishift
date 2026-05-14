@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',

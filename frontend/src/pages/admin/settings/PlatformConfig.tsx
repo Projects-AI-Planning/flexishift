@@ -163,7 +163,7 @@ export default function PlatformConfigPage() {
             {statusCards.map((card) => (
               <div key={card.label} className="rounded-2xl bg-slate-50 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-bold text-slate-700">{card.label}</span>
+                  <span className="text-sm font-bold text-[#44474C]">{card.label}</span>
                   <span className={`text-sm font-black ${card.tone}`}>{card.value}</span>
                 </div>
               </div>

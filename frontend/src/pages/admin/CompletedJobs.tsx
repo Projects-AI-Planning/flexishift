@@ -13,9 +13,9 @@ const CompletedJobsPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Completed Jobs</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Completed Jobs</h2>
           <p className="text-on-surface-variant font-medium">Successfully delivered freight jobs.</p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -49,9 +49,9 @@ const CompletedJobsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
@@ -85,7 +85,7 @@ const CompletedJobsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-[180px]">
-                      <p className="text-xs font-bold text-slate-600 truncate">{pickup || 'N/A'}</p>
+                      <p className="text-xs font-bold text-[#44474C] truncate">{pickup || 'N/A'}</p>
                       <p className="text-[10px] text-slate-300 my-0.5">▼</p>
                       <p className="text-xs text-slate-500 truncate">{drop || 'N/A'}</p>
                     </td>
@@ -98,7 +98,7 @@ const CompletedJobsPage: React.FC = () => {
                       {job.driver?.vehicleNumber && <p className="text-xs text-slate-400">{job.driver.vehicleNumber}</p>}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-slate-600 font-medium">{job.goodsType || '—'}</p>
+                      <p className="text-sm text-[#44474C] font-medium">{job.goodsType || '—'}</p>
                       {job.weightKg != null && <p className="text-xs text-slate-400">{job.weightKg} kg</p>}
                     </td>
                     <td className="px-6 py-4">

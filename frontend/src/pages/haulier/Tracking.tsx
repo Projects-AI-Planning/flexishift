@@ -420,13 +420,13 @@ export default function HaulierTrackingPage() {
                 <h3 className="text-lg font-black text-primary">Tracking History</h3>
                 <p className="text-sm text-slate-500">Ordered route points from the backend history endpoint.</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
                 {history?.totalPoints ?? 0} points
               </span>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-sm">
+            <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full min-w-[400px] text-sm">
                 <thead className="bg-slate-50 text-left">
                   <tr>
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Timestamp</th>
@@ -437,7 +437,7 @@ export default function HaulierTrackingPage() {
                 <tbody className="divide-y divide-slate-100">
                   {(history?.locationHistory ?? []).map((point, index) => (
                     <tr key={`${point.timestamp ?? index}-${index}`}>
-                      <td className="px-4 py-4 text-slate-600">{formatTime(point.timestamp)}</td>
+                      <td className="px-4 py-4 text-[#44474C]">{formatTime(point.timestamp)}</td>
                       <td className="px-4 py-4 font-black text-primary">{point.latitude}</td>
                       <td className="px-4 py-4 font-black text-primary">{point.longitude}</td>
                     </tr>

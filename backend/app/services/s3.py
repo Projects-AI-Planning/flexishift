@@ -43,7 +43,7 @@ def generate_presigned_upload(container: str, blob_name: str, content_type: str,
         content_type=content_type,
     )
     url = f"{_blob_url(container, blob_name)}?{sas_token}"
-    return {"url": url, "key": blob_name}
+    return {"url": url, "upload_url": url, "key": blob_name}
 
 
 def generate_presigned_download(container: str, blob_name: str, expires: int = 3600) -> str:

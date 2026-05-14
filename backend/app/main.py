@@ -22,6 +22,7 @@ from app.routers import (
     fleet,
     invoices,
     jobs,
+    local_storage,
     maps,
     notifications,
     payments,
@@ -151,6 +152,7 @@ app.include_router(dashboard.router, prefix=PREFIX)
 app.include_router(admin.router, prefix=PREFIX)
 app.include_router(maps.router, prefix=PREFIX)
 app.include_router(files.router, prefix=PREFIX)
+app.include_router(local_storage.router, prefix=PREFIX)
 app.include_router(fleet.router, prefix=PREFIX)
 app.include_router(system.router, prefix=PREFIX)
 app.include_router(webhooks.router, prefix=PREFIX)

@@ -31,7 +31,7 @@ const StatCard = ({
   };
 
   return (
-    <div className={`rounded-3xl border p-6 shadow-sm ${accentClasses[accent]}`}>
+    <div className={`rounded-3xl border p-4 shadow-sm sm:p-6 ${accentClasses[accent]}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${accent === 'slate' ? 'text-white/60' : 'text-slate-400'}`}>
@@ -87,13 +87,13 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] md:px-8">
+    <div className="space-y-8 p-4 sm:p-6">
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-4 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:px-6 md:px-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.18),transparent_35%)]" />
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400">Admin Dashboard</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight md:text-5xl">Operational overview for FreightFlex</h1>
+            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-4xl md:text-5xl">Operational overview for FreightFlex</h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
               A clean snapshot of platform activity based entirely on the backend stats payload. No placeholder records, no invented entries.
             </p>
@@ -101,7 +101,7 @@ const AdminDashboard = () => {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={refresh}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-100"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#041627] transition hover:bg-slate-100"
             >
               <span className="material-symbols-outlined text-sm">refresh</span>
               Refresh
@@ -114,7 +114,7 @@ const AdminDashboard = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-5 lg:grid-cols-4">
         <StatCard
           label="Total Users"
           value={stats.totalUsers.toLocaleString()}
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
       </section>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-primary">Platform Health</h2>
@@ -160,21 +160,21 @@ const AdminDashboard = () => {
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Job Completion Rate</p>
-              <p className="mt-2 text-3xl font-black text-slate-900">{derived.completionRate}%</p>
+              <p className="mt-2 text-3xl font-black text-[#041627]">{derived.completionRate}%</p>
               <div className="mt-3 h-2 rounded-full bg-slate-200">
                 <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${derived.completionRate}%` }} />
               </div>
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Open Job Ratio</p>
-              <p className="mt-2 text-3xl font-black text-slate-900">{derived.openRate}%</p>
+              <p className="mt-2 text-3xl font-black text-[#041627]">{derived.openRate}%</p>
               <div className="mt-3 h-2 rounded-full bg-slate-200">
                 <div className="h-2 rounded-full bg-amber-500" style={{ width: `${derived.openRate}%` }} />
               </div>
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Platform Revenue</p>
-              <p className="mt-2 text-3xl font-black text-slate-900">{fmtCurrency(stats.totalRevenue)}</p>
+              <p className="mt-2 text-3xl font-black text-[#041627]">{fmtCurrency(stats.totalRevenue)}</p>
               <p className="mt-2 text-xs text-slate-500">From released payments only.</p>
             </div>
           </div>
@@ -207,14 +207,14 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-lg font-black text-primary">Quick Summary</h2>
           <p className="text-sm text-slate-500">Same entries, cleaner presentation.</p>
 
           <div className="mt-6 space-y-3">
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Open Jobs</span>
+                <span className="text-sm font-bold text-[#44474C]">Open Jobs</span>
                 <span className="text-lg font-black text-amber-600">{stats.openJobs.toLocaleString()}</span>
               </div>
               <div className="mt-3 h-2 rounded-full bg-slate-200">
@@ -223,7 +223,7 @@ const AdminDashboard = () => {
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Completed Jobs</span>
+                <span className="text-sm font-bold text-[#44474C]">Completed Jobs</span>
                 <span className="text-lg font-black text-emerald-700">{stats.completedJobs.toLocaleString()}</span>
               </div>
               <div className="mt-3 h-2 rounded-full bg-slate-200">
@@ -232,15 +232,15 @@ const AdminDashboard = () => {
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Pending Documents</span>
+                <span className="text-sm font-bold text-[#44474C]">Pending Documents</span>
                 <span className="text-lg font-black text-blue-700">{stats.pendingDocuments.toLocaleString()}</span>
               </div>
               <p className="mt-2 text-xs text-slate-500">Pending review queue for admin verification.</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Total Revenue</span>
-                <span className="text-lg font-black text-slate-900">{fmtCurrency(stats.totalRevenue)}</span>
+                <span className="text-sm font-bold text-[#44474C]">Total Revenue</span>
+                <span className="text-lg font-black text-[#041627]">{fmtCurrency(stats.totalRevenue)}</span>
               </div>
               <p className="mt-2 text-xs text-slate-500">Aggregate revenue from released payments.</p>
             </div>

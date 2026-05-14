@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   eyeText: {fontSize: 18},
   fieldError: {color: colors.danger, fontSize: 12, marginTop: 4, fontWeight: '700'},
   resetBtn: {
-    backgroundColor: colors.navy, borderRadius: radius.lg,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
     minHeight: 56, justifyContent: 'center', alignItems: 'center', marginTop: 8,
   },
   resetBtnDisabled: {opacity: 0.5},

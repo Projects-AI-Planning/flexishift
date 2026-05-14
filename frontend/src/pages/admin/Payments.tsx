@@ -55,10 +55,10 @@ const PaymentsPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Payment Control</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Payment Control</h2>
           <p className="text-on-surface-variant font-medium">
             Backend-driven revenue, escrow, and release oversight.
           </p>
@@ -112,8 +112,8 @@ const PaymentsPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-6">
-        <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${(paymentsLoading || revenueLoading) ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${(paymentsLoading || revenueLoading) ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="px-4 py-4 sm:px-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-black text-primary">Recent Payments</h3>
               <p className="text-sm text-slate-500">Latest payment records returned by `/dashboard/admin/payments/list`.</p>
@@ -130,7 +130,7 @@ const PaymentsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="px-6 pt-4 flex flex-wrap items-center gap-2">
+          <div className="px-4 sm:px-6 pt-4 flex flex-wrap items-center gap-2">
             {[
               { value: '', label: 'All' },
               { value: 'PENDING', label: 'Pending' },
@@ -145,7 +145,7 @@ const PaymentsPage: React.FC = () => {
                 className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition-colors ${
                   params.status === option.value
                     ? 'bg-primary text-white border-primary'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    : 'bg-slate-50 text-[#44474C] border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 {option.label}
@@ -154,7 +154,7 @@ const PaymentsPage: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto mt-4">
-            <table className="w-full text-left">
+            <table className="w-full min-w-[720px] text-left">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment</th>
@@ -167,7 +167,7 @@ const PaymentsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paymentData?.items.map((payment: AdminPayment) => {
-                  const tone = statusTone[payment.status.toLowerCase()] ?? { bg: 'bg-slate-100', text: 'text-slate-600' };
+                  const tone = statusTone[payment.status.toLowerCase()] ?? { bg: 'bg-slate-100', text: 'text-[#44474C]' };
                   return (
                     <tr key={payment.paymentId} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">

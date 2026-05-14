@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.response import ok, created
@@ -7,8 +7,10 @@ from app.dependencies import get_current_user, require_role
 from app.models.document import Document, DocType, DocStatus
 from app.models.user import User, Role
 from app.schemas.availability import AvailabilitySlotIn, AvailabilityBlockIn
+from app.models.local_upload import LocalUploadKind
 from app.services import documents as doc_svc
 from app.services import availability as avail_svc
+from app.services import local_storage as local_svc
 
 router = APIRouter(prefix="/supplier", tags=["Supplier"])
 
@@ -31,12 +33,39 @@ def _doc_dict(d: Document) -> dict:
 
 @router.post("/documents/upload")
 def get_document_upload_url(
+    request: Request,
     doc_type: str = Query(...),
+    db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
     DocType(doc_type)
-    result = doc_svc.get_upload_url(doc_type, current_user.id)
-    return ok(data=result, message="Upload URL generated")
+    if local_svc.azure_available():
+        result = doc_svc.get_upload_url(doc_type, current_user.id)
+        return ok(data={**result, "upload_url": result["upload_url"]}, message="Upload URL generated")
+
+    pending = local_svc.create_pending_upload(
+        db,
+        user_id=current_user.id,
+        kind=LocalUploadKind.DOCUMENT,
+        original_name=f"{doc_type.lower()}.pdf",
+        content_type="application/pdf",
+        storage_key=f"documents/{current_user.id}/{doc_type}/{doc_type.lower()}.pdf",
+    )
+    upload_url = local_svc.local_upload_endpoint_url(request, pending.upload_token)
+    file_url = local_svc.local_upload_url(request, pending.storage_key)
+    pending.public_url = file_url
+    db.commit()
+    return ok(
+        data={
+            "key": pending.storage_key,
+            "url": upload_url,
+            "upload_url": upload_url,
+            "file_url": file_url,
+            "storage": "local",
+            "upload_token": pending.upload_token,
+        },
+        message="Local upload URL generated",
+    )
 
 
 @router.get("/documents/list")

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -11,6 +11,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserStatus
 from app.schemas.users import UserOut, UpdateProfileRequest
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
+from app.services import local_storage as local_svc
 from app.services import s3
 from app.config import settings
 
@@ -75,15 +77,15 @@ def _presigned_photo_url(raw_url: str | None) -> str | None:
         return raw_url
 
 
-def _local_photo_url(key: str) -> str:
-    return f"http://10.0.2.2:8000/uploads/{key}"
+def _local_photo_url(request: Request, key: str) -> str:
+    return str(request.url_for("uploads", path=key))
 
 
-def _save_local_photo(key: str, contents: bytes) -> str:
+def _save_local_photo(request: Request, key: str, contents: bytes) -> str:
     file_path = LOCAL_UPLOAD_DIR / key
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_bytes(contents)
-    return _local_photo_url(key)
+    return _local_photo_url(request, key)
 
 
 def _user_data(user: User) -> dict:
@@ -163,19 +165,46 @@ def update_profile(
 
 @router.post("/photo/upload")
 def get_photo_upload_url(
+    request: Request,
     content_type: str = Query("image/jpeg", alias="contentType"),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    key = f"photos/{current_user.id}/profile.jpg"
-    result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, content_type)
+    if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+        key = f"photos/{current_user.id}/profile.jpg"
+        result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, content_type)
+        return ok(
+            data={**result, "field": "photoUrl", "note": "After upload, call PUT /profile/update with photoUrl"},
+            message="Presigned upload URL generated",
+        )
+
+    key = f"images/{current_user.id}/profile.jpg"
+    record = local_svc.create_pending_upload(
+        db,
+        user_id=current_user.id,
+        kind=LocalUploadKind.IMAGE,
+        original_name="profile.jpg",
+        content_type=content_type,
+        storage_key=key,
+    )
+    record.public_url = _local_photo_url(request, key)
+    db.commit()
     return ok(
-        data={**result, "field": "photoUrl", "note": "After upload, call PUT /profile/update with photoUrl"},
-        message="Presigned upload URL generated",
+        data={
+            "url": local_svc.local_upload_endpoint_url(request, record.upload_token),
+            "upload_url": local_svc.local_upload_endpoint_url(request, record.upload_token),
+            "key": key,
+            "fileUrl": record.public_url,
+            "field": "photoUrl",
+            "note": "After upload, call PUT /profile/update with photoUrl",
+        },
+        message="Local upload URL generated",
     )
 
 
 @router.post("/photo/upload-direct")
 async def upload_photo_direct(
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -186,15 +215,27 @@ async def upload_photo_direct(
         "image/png": "png",
         "image/webp": "webp",
     }.get(file.content_type or "", (file.filename or "").split(".")[-1] or "jpg")
-    key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
     contents = await file.read()
     if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+        key = f"photos/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
         s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "image/jpeg")
         raw_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
         photo_url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, key, expires=86400)
     else:
-        photo_url = _save_local_photo(key, contents)
+        key = f"images/{current_user.id}/profile-{str(uuid4())[:8]}.{suffix}"
+        photo_url = _save_local_photo(request, key, contents)
         raw_url = photo_url
+        local_record = local_svc.create_pending_upload(
+            db,
+            user_id=current_user.id,
+            kind=LocalUploadKind.IMAGE,
+            original_name=file.filename or f"profile-{str(uuid4())[:8]}.{suffix}",
+            content_type=file.content_type or "image/jpeg",
+            storage_key=key,
+        )
+        local_record.public_url = photo_url
+        local_record.status = LocalUploadStatus.STORED
+        db.commit()
     _apply_updates(current_user, {"photo_url": raw_url}, db)
     return ok(
         data={
@@ -212,11 +253,20 @@ class PhotoSubmitRequest(BaseModel):
 
 @router.post("/photo/submit-upload")
 def submit_photo_upload(
+    request: Request,
     body: PhotoSubmitRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    photo_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{body.key}"
+    if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+        photo_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{body.key}"
+    else:
+        record = local_svc.get_upload_by_key(db, body.key, current_user.id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Local upload not found")
+        if record.status != LocalUploadStatus.STORED:
+            raise HTTPException(status_code=400, detail="Local upload has not been stored yet")
+        photo_url = record.public_url or _local_photo_url(request, body.key)
     _apply_updates(current_user, {"photo_url": photo_url}, db)
     return ok(
         data={

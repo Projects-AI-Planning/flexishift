@@ -1,9 +1,11 @@
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -212,12 +214,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [modalExpiry, setModalExpiry] = useState('');
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalUploading, setModalUploading] = useState(false);
+  const [modalPickerDate, setModalPickerDate] = useState(new Date(Date.now() + 86400000));
+  const [modalShowPicker, setModalShowPicker] = useState(false);
 
   const openModal = (doc: ModalDoc) => {
     setActiveModal(doc);
     setModalFile(null);
     setModalExpiry('');
     setModalError(null);
+    setModalPickerDate(new Date(Date.now() + 86400000));
+    setModalShowPicker(false);
   };
 
   const closeModal = () => {
@@ -225,6 +231,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setActiveModal(null);
     setModalFile(null);
     setModalExpiry('');
+    setModalError(null);
+    setModalShowPicker(false);
+  };
+
+  const onModalDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setModalShowPicker(false);
+    }
+    if (!selected) return;
+    setModalPickerDate(selected);
+    const dd = String(selected.getDate()).padStart(2, '0');
+    const mm = String(selected.getMonth() + 1).padStart(2, '0');
+    const yyyy = selected.getFullYear();
+    setModalExpiry(`${dd}-${mm}-${yyyy}`);
     setModalError(null);
   };
 
@@ -235,24 +255,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setModalError(null);
   };
 
-  const validateExpiry = (val: string): string | null => {
-    const match = val.trim().match(/^(\d{2})\/(\d{4})$/);
-    if (!match) return 'Enter expiry as MM/YYYY';
-    const month = parseInt(match[1], 10);
-    const year = parseInt(match[2], 10);
-    if (month < 1 || month > 12) return 'Month must be 01–12';
-    const now = new Date();
-    if (year < now.getFullYear() || (year === now.getFullYear() && month <= now.getMonth() + 1)) {
-      return 'Expiry date must be in the future';
-    }
-    return null;
-  };
-
   const handleModalUpload = async () => {
     if (!activeModal) return;
     if (!modalFile?.uri) { setModalError('Please select a document file'); return; }
-    const expiryErr = validateExpiry(modalExpiry);
-    if (expiryErr) { setModalError(expiryErr); return; }
+    if (!modalExpiry) { setModalError('Please select an expiry date'); return; }
     setModalUploading(true);
     setModalError(null);
     try {
@@ -637,13 +643,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <View
         style={styles.section}
         onLayout={event => {
-          documentsSectionY.current = event.nativeEvent.layout.y;
+          const y = event.nativeEvent.layout.y;
+          documentsSectionY.current = y;
           if (focusDocuments) {
             requestAnimationFrame(() => {
-              scrollRef.current?.scrollTo({
-                animated: true,
-                y: Math.max(event.nativeEvent.layout.y - 12, 0),
-              });
+              scrollRef.current?.scrollTo({animated: true, y: Math.max(y - 12, 0)});
             });
           }
         }}>
@@ -762,16 +766,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
             {/* Expiry date */}
             <Text style={styles.modalFieldLabel}>EXPIRY DATE</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="MM/YYYY"
-              placeholderTextColor="#9CA3AF"
-              value={modalExpiry}
-              onChangeText={v => { setModalExpiry(v); setModalError(null); }}
-              keyboardType="numeric"
-              maxLength={7}
-              editable={!modalUploading}
-            />
+            <Pressable
+              onPress={() => !modalUploading && setModalShowPicker(true)}
+              style={[styles.modalInput, styles.modalDatePressable]}>
+              <Text style={modalExpiry ? styles.modalDateValue : styles.modalDatePlaceholder}>
+                {modalExpiry || 'DD-MM-YYYY'}
+              </Text>
+              <Text style={styles.modalDateIcon}>📅</Text>
+            </Pressable>
+            {modalShowPicker && (
+              <DateTimePicker
+                value={modalPickerDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date(Date.now() + 86400000)}
+                onChange={onModalDateChange}
+              />
+            )}
 
             {/* Error */}
             {modalError ? (
@@ -1061,6 +1072,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg, minHeight: 48,
     fontSize: 15, color: '#111827', fontWeight: '500',
   },
+  modalDatePressable: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  modalDateValue: {fontSize: 15, color: '#111827', fontWeight: '500'},
+  modalDatePlaceholder: {fontSize: 15, color: '#9CA3AF', fontWeight: '500'},
+  modalDateIcon: {fontSize: 18},
   modalError: {
     fontSize: 13, fontWeight: '700', color: '#DC2626',
     backgroundColor: '#FEF2F2', borderRadius: radius.sm,
@@ -1075,9 +1092,9 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {fontSize: 15, fontWeight: '700', color: '#374151'},
   modalUploadBtn: {
     flex: 2, minHeight: 50, justifyContent: 'center', alignItems: 'center',
-    borderRadius: radius.md, backgroundColor: '#1C2E45',
+    borderRadius: radius.md, backgroundColor: '#1066B1',
   },
-  modalUploadBtnText: {fontSize: 15, fontWeight: '900', color: '#DFA622'},
+  modalUploadBtnText: {fontSize: 15, fontWeight: '900', color: '#FFFFFF'},
 
   // ── Document rows ─────────────────────────────────────────────────────────
 

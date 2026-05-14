@@ -43,6 +43,14 @@ class VerifyEmailRequest(BaseModel):
     def get_token(self) -> str:
         return self.token or self.otp or ""
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip().lower()
+        return cleaned or None
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -64,6 +72,11 @@ class RefreshRequest(BaseModel):
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
@@ -71,6 +84,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., alias="newPassword")
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
 
     @field_validator("new_password", mode="before")
     @classmethod

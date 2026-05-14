@@ -46,14 +46,14 @@ export default function ActiveDisputesPage() {
   const totalPages = data ? Math.ceil(data.total / limit) : 1;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Active Disputes</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#041627]">Active Disputes</h1>
           <p className="text-sm text-gray-500 mt-0.5">Disputes currently under admin review</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {data && (
             <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1.5 rounded-full">
               {data.total} open
@@ -83,9 +83,9 @@ export default function ActiveDisputesPage() {
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>}
 
       {/* Table */}
-      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50">
               <tr>
                 {['Job Ref', 'Dispute Reason', 'Haulier', 'Driver', 'Amount on Hold', 'Raised', 'Action'].map((h) => (
@@ -103,11 +103,11 @@ export default function ActiveDisputesPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="font-medium text-gray-800">{d.haulier?.name ?? '—'}</div>
+                    <div className="font-medium text-[#041627]">{d.haulier?.name ?? '—'}</div>
                     <div className="text-xs text-gray-400">{d.haulier?.phone ?? ''}</div>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="font-medium text-gray-800">{d.driver?.name ?? '—'}</div>
+                    <div className="font-medium text-[#041627]">{d.driver?.name ?? '—'}</div>
                     <div className="text-xs text-gray-400">{d.driver?.phone ?? ''}</div>
                   </td>
                   <td className="px-5 py-4 font-bold text-orange-600">{fmt(d.totalAmount ?? 0)}</td>
@@ -136,7 +136,7 @@ export default function ActiveDisputesPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-[#44474C]">
             <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 rounded border disabled:opacity-40">Prev</button>
@@ -149,16 +149,16 @@ export default function ActiveDisputesPage() {
       {/* Resolution Modal */}
       {selected && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 space-y-5">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-4 sm:p-6 lg:p-8 space-y-5">
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Resolve Dispute</h3>
+              <h3 className="text-xl font-bold text-[#041627]">Resolve Dispute</h3>
               <p className="text-sm text-gray-500 mt-1">
                 Job: <span className="font-semibold text-primary">{selected.jobReference}</span> &nbsp;·&nbsp; On hold: <span className="font-semibold text-orange-600">{fmt(selected.totalAmount ?? 0)}</span>
               </p>
             </div>
 
             {selected.pickupLocation && (
-              <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-gray-600 space-y-1">
+              <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-[#44474C] space-y-1">
                 <div>📍 <span className="font-medium">From:</span> {selected.pickupLocation}</div>
                 <div>🏁 <span className="font-medium">To:</span> {selected.dropLocation}</div>
               </div>
@@ -205,7 +205,7 @@ export default function ActiveDisputesPage() {
                 {resolving ? 'Resolving...' : 'Confirm Resolution'}
               </button>
               <button onClick={() => setSelected(null)}
-                className="px-6 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+                className="px-6 bg-gray-100 text-[#44474C] font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
             </div>

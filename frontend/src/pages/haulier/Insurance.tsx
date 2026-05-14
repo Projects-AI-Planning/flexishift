@@ -155,17 +155,17 @@ const InsurancePage = () => {
               <div className="mt-5 grid gap-3 md:grid-cols-2 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Uploaded At</p>
-                  <p className="mt-1 font-bold text-slate-900">{prettyDate(latest?.createdAt)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{prettyDate(latest?.createdAt)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Document ID</p>
-                  <p className="mt-1 font-bold text-slate-900 break-all">{latest?.documentId ?? 'N/A'}</p>
+                  <p className="mt-1 font-bold text-[#041627] break-all">{latest?.documentId ?? 'N/A'}</p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Current File</p>
-                <p className="mt-1 break-all text-sm text-slate-700">{latest?.fileUrl ?? 'No file uploaded yet'}</p>
+                <p className="mt-1 break-all text-sm text-[#44474C]">{latest?.fileUrl ?? 'No file uploaded yet'}</p>
                 {latest?.rejectionReason && (
                   <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
                     Rejection: {latest.rejectionReason}
@@ -187,7 +187,7 @@ const InsurancePage = () => {
                   }}
                 />
                 <span className="material-symbols-outlined text-3xl text-primary">upload_file</span>
-                <p className="mt-2 text-sm font-black text-slate-900">
+                <p className="mt-2 text-sm font-black text-[#041627]">
                   {submitting[docType.key] ? 'Uploading...' : 'Choose PDF and upload'}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">This will upload to S3 and submit the document for review.</p>
@@ -203,13 +203,13 @@ const InsurancePage = () => {
             <h2 className="text-lg font-black text-primary">Uploaded Documents</h2>
             <p className="text-sm text-slate-500">All insurance documents retrieved from the backend.</p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
             {documents.length} records
           </span>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
-          <table className="w-full text-sm">
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-slate-50 text-left">
               <tr>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Type</th>
@@ -225,10 +225,10 @@ const InsurancePage = () => {
                 </tr>
               ) : documents.length ? documents.map((doc) => (
                 <tr key={doc.documentId}>
-                  <td className="px-4 py-4 font-medium text-slate-700">{doc.docType.replace('_', ' ')}</td>
-                  <td className="px-4 py-4 text-slate-600">{doc.status}</td>
-                  <td className="px-4 py-4 text-slate-600">{prettyDate(doc.createdAt)}</td>
-                  <td className="px-4 py-4 text-slate-600 break-all">{doc.fileUrl}</td>
+                  <td className="px-4 py-4 font-medium text-[#44474C]">{doc.docType.replace('_', ' ')}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{doc.status}</td>
+                  <td className="px-4 py-4 text-[#44474C]">{prettyDate(doc.createdAt)}</td>
+                  <td className="px-4 py-4 text-[#44474C] break-all">{doc.fileUrl}</td>
                 </tr>
               )) : (
                 <tr>

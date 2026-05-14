@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   backBtn: {
-    backgroundColor: colors.navy,
+    backgroundColor: '#1066B1',
     borderRadius: radius.lg,
     paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.md,

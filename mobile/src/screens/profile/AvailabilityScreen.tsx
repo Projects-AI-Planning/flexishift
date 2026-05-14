@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  dayCardActive: {backgroundColor: colors.navy, borderColor: colors.navy},
+  dayCardActive: {backgroundColor: '#1066B1', borderColor: '#1066B1'},
   dayShort: {color: '#6B7280', fontSize: 11, fontWeight: '800'},
   dayTextActive: {color: '#fff'},
   dot: {

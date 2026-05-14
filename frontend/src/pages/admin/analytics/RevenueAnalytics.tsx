@@ -90,7 +90,7 @@ export default function RevenueAnalyticsPage() {
       {!loading && data && (
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Current period</p>
-          <p className="mt-1 text-sm font-medium text-slate-700">Showing data for {periodLabel}</p>
+          <p className="mt-1 text-sm font-medium text-[#44474C]">Showing data for {periodLabel}</p>
         </div>
       )}
 
@@ -129,7 +129,7 @@ export default function RevenueAnalyticsPage() {
             </div>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
@@ -140,10 +140,10 @@ export default function RevenueAnalyticsPage() {
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row) => (
                   <tr key={row.label} className={row.accent ? 'bg-emerald-50' : ''}>
-                    <td className={`px-4 py-4 font-medium ${row.accent ? 'text-emerald-900' : 'text-slate-700'}`}>
+                    <td className={`px-4 py-4 font-medium ${row.accent ? 'text-emerald-900' : 'text-[#44474C]'}`}>
                       {row.label}
                     </td>
-                    <td className={`px-4 py-4 text-right font-mono font-bold ${row.accent ? 'text-emerald-700' : 'text-slate-900'}`}>
+                    <td className={`px-4 py-4 text-right font-mono font-bold ${row.accent ? 'text-emerald-700' : 'text-[#041627]'}`}>
                       {row.value}
                     </td>
                   </tr>
@@ -185,7 +185,7 @@ export default function RevenueAnalyticsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
           {chartSeries.map((item) => {
             const height = Math.max(8, (item.value / chartMax) * 220);
             return (

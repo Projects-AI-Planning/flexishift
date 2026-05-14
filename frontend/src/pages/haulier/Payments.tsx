@@ -126,7 +126,7 @@ const STATUS_STYLES: Record<string, string> = {
   RELEASED: 'bg-emerald-100 text-emerald-700',
   PENDING: 'bg-amber-100 text-amber-700',
   REFUNDED: 'bg-red-100 text-red-700',
-  FAILED: 'bg-slate-100 text-slate-600',
+  FAILED: 'bg-slate-100 text-[#44474C]',
 };
 
 const Empty: React.FC<{ icon: string; title: string; sub: string }> = ({ icon, title, sub }) => (
@@ -135,7 +135,7 @@ const Empty: React.FC<{ icon: string; title: string; sub: string }> = ({ icon, t
       <span className="material-symbols-outlined text-3xl text-slate-400">{icon}</span>
     </div>
     <div>
-      <p className="font-black text-slate-600">{title}</p>
+      <p className="font-black text-[#44474C]">{title}</p>
       <p className="text-sm text-slate-400 mt-1">{sub}</p>
     </div>
   </div>
@@ -324,13 +324,13 @@ const CreatePaymentTab: React.FC = () => {
       <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.05)] overflow-hidden">
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
-            <h3 className="text-lg font-black text-slate-900">Booked Jobs — Payment Pending</h3>
+            <h3 className="text-lg font-black text-[#041627]">Booked Jobs — Payment Pending</h3>
             <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Razorpay</p>
           </div>
           <button
             onClick={() => void fetchJobs()}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
@@ -371,7 +371,7 @@ const CreatePaymentTab: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-base font-black text-slate-900">{job.jobRef}</span>
+                          <span className="font-mono text-base font-black text-[#041627]">{job.jobRef}</span>
                           {isHighlighted && (
                             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-indigo-700">
                               Selected
@@ -384,7 +384,7 @@ const CreatePaymentTab: React.FC = () => {
                         <div className="mt-2 space-y-0.5">
                           <div className="flex items-start gap-1.5">
                             <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400"></span>
-                            <p className="text-sm font-bold text-slate-700">{job.pickupAddress ?? 'Pickup N/A'}</p>
+                            <p className="text-sm font-bold text-[#44474C]">{job.pickupAddress ?? 'Pickup N/A'}</p>
                           </div>
                           <div className="ml-[5px] h-3 w-px bg-slate-200"></div>
                           <div className="flex items-start gap-1.5">
@@ -396,22 +396,22 @@ const CreatePaymentTab: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 sm:shrink-0">
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-1 text-xs">
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Goods</p>
-                          <p className="font-bold text-slate-700">{job.goodsType ?? '—'}</p>
+                          <p className="font-bold text-[#44474C]">{job.goodsType ?? '—'}</p>
                         </div>
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Vehicle</p>
-                          <p className="font-bold text-slate-700">{job.vehicleType ?? '—'}</p>
+                          <p className="font-bold text-[#44474C]">{job.vehicleType ?? '—'}</p>
                         </div>
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Date</p>
-                          <p className="font-bold text-slate-700">{fmtDate(job.jobDate)}</p>
+                          <p className="font-bold text-[#44474C]">{fmtDate(job.jobDate)}</p>
                         </div>
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Amount</p>
-                          <p className="font-bold text-slate-700">{job.agreedAmount != null ? fmtMoney(job.agreedAmount) : '—'}</p>
+                          <p className="font-bold text-[#44474C]">{job.agreedAmount != null ? fmtMoney(job.agreedAmount) : '—'}</p>
                         </div>
                       </div>
 
@@ -508,7 +508,7 @@ const EscrowTab: React.FC = () => {
         </p>
       </div>
 
-      <div className={`bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         {error ? (
           <div className="p-6 text-red-600 text-sm font-semibold">{error}</div>
         ) : items.length === 0 && !loading ? (
@@ -530,14 +530,14 @@ const EscrowTab: React.FC = () => {
                   <tr key={item.paymentId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-4 font-mono text-sm font-bold text-primary">#{item.jobRef || '—'}</td>
                     <td className="px-5 py-4 max-w-[180px]">
-                      <p className="text-xs font-bold text-slate-700 truncate">{item.pickupAddress || '—'}</p>
+                      <p className="text-xs font-bold text-[#44474C] truncate">{item.pickupAddress || '—'}</p>
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
-                    <td className="px-5 py-4 text-xs text-slate-600 font-medium">{item.goodsType || '—'}</td>
+                    <td className="px-5 py-4 text-xs text-[#44474C] font-medium">{item.goodsType || '—'}</td>
                     <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
                     <td className="px-5 py-4 text-xs text-slate-500">{fmtDate(item.escrowedAt)}</td>
                     <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
                         {item.status}
                       </span>
                     </td>
@@ -551,9 +551,9 @@ const EscrowTab: React.FC = () => {
 
       {total > PER_PAGE && (
         <div className="flex justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Prev</button>
+          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Prev</button>
           <span className="px-4 py-2 text-sm font-bold text-slate-500">Page {page} of {Math.ceil(total / PER_PAGE)}</span>
-          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Next</button>
+          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Next</button>
         </div>
       )}
     </div>
@@ -594,12 +594,12 @@ const HistoryTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total Transactions', value: total, money: false, color: 'text-primary' },
           { label: 'Released', value: totalPaid, money: true, color: 'text-emerald-600' },
           { label: 'In Escrow', value: totalEscrowed, money: true, color: 'text-indigo-600' },
-          { label: 'This Page', value: items.length, money: false, color: 'text-slate-700' },
+          { label: 'This Page', value: items.length, money: false, color: 'text-[#44474C]' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-[0_1px_4px_rgba(26,43,60,0.04)]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
@@ -616,14 +616,14 @@ const HistoryTab: React.FC = () => {
           <button
             key={status || 'ALL'}
             onClick={() => { setStatusFilter(status); setPage(1); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === status ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === status ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-[#44474C] hover:border-slate-300'}`}
           >
             {status || 'All'}
           </button>
         ))}
       </div>
 
-      <div className={`bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         {error ? (
           <div className="p-6 text-red-600 text-sm font-semibold">{error}</div>
         ) : items.length === 0 && !loading ? (
@@ -643,13 +643,13 @@ const HistoryTab: React.FC = () => {
                   <tr key={item.paymentId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-4 font-mono text-sm font-bold text-primary">#{item.jobRef || '—'}</td>
                     <td className="px-5 py-4 max-w-[180px]">
-                      <p className="text-xs font-bold text-slate-700 truncate">{item.pickupAddress || '—'}</p>
+                      <p className="text-xs font-bold text-[#44474C] truncate">{item.pickupAddress || '—'}</p>
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
                     <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
                     <td className="px-5 py-4 text-sm text-slate-500 font-mono">{item.currency}</td>
                     <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
                         {item.status}
                       </span>
                     </td>
@@ -666,9 +666,9 @@ const HistoryTab: React.FC = () => {
 
       {total > PER_PAGE && (
         <div className="flex justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Prev</button>
+          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Prev</button>
           <span className="px-4 py-2 text-sm font-bold text-slate-500">Page {page} of {Math.ceil(total / PER_PAGE)}</span>
-          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Next</button>
+          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Next</button>
         </div>
       )}
     </div>
@@ -719,7 +719,7 @@ const InvoicesTab: React.FC = () => {
         </div>
       </div>
 
-      <div className={`bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-[0_2px_8px_rgba(26,43,60,0.05)] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         {error ? (
           <div className="p-6 text-red-600 text-sm font-semibold">{error}</div>
         ) : items.length === 0 && !loading ? (
@@ -770,7 +770,7 @@ const InvoicesTab: React.FC = () => {
                             try { await haulierService.downloadInvoicePDF(invoice.jobId); await fetchData(); }
                             catch { setError('Failed to generate invoice.'); }
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-[#44474C] text-xs font-black hover:bg-slate-200 transition-colors"
                         >
                           <span className="material-symbols-outlined text-sm">refresh</span>
                           Generate
@@ -787,9 +787,9 @@ const InvoicesTab: React.FC = () => {
 
       {total > PER_PAGE && (
         <div className="flex justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Prev</button>
+          <button disabled={page === 1} onClick={() => setPage((v) => v - 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Prev</button>
           <span className="px-4 py-2 text-sm font-bold text-slate-500">Page {page} of {Math.ceil(total / PER_PAGE)}</span>
-          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50">Next</button>
+          <button disabled={page >= Math.ceil(total / PER_PAGE)} onClick={() => setPage((v) => v + 1)} className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-bold text-[#44474C] disabled:opacity-40 hover:bg-slate-50">Next</button>
         </div>
       )}
     </div>
@@ -861,7 +861,7 @@ const MethodsTab: React.FC = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
-        <h3 className="text-lg font-black text-slate-900 mb-1">Add Bank Account</h3>
+        <h3 className="text-lg font-black text-[#041627] mb-1">Add Bank Account</h3>
         <p className="text-xs text-slate-500 mb-5">
           Add a bank account to receive released payments after delivery approval.
         </p>
@@ -879,7 +879,7 @@ const MethodsTab: React.FC = () => {
                   value={form[key]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                   placeholder={placeholder}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-colors"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-[#041627] placeholder:text-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-colors"
                 />
               </div>
             ))}
@@ -902,10 +902,10 @@ const MethodsTab: React.FC = () => {
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black text-slate-900">Saved Accounts</h3>
+            <h3 className="text-lg font-black text-[#041627]">Saved Accounts</h3>
             <p className="text-xs text-slate-500 mt-0.5">{loading ? '…' : methods.length} bank account{methods.length !== 1 ? 's' : ''} linked</p>
           </div>
-          <button onClick={() => void fetchMethods()} disabled={loading} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50">
+          <button onClick={() => void fetchMethods()} disabled={loading} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50">
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
           </button>
@@ -927,7 +927,7 @@ const MethodsTab: React.FC = () => {
                     <span className="material-symbols-outlined text-lg text-indigo-600">account_balance</span>
                   </div>
                   <div>
-                    <p className="font-black text-slate-900 text-sm">**** **** {methodTail(method.methodId)}</p>
+                    <p className="font-black text-[#041627] text-sm">**** **** {methodTail(method.methodId)}</p>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
                       {(method.type || 'bank_account').replace('_', ' ')}
                     </p>
@@ -979,7 +979,7 @@ const HaulierPaymentsPage: React.FC = () => {
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
                 isActive
                   ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  : 'text-slate-500 hover:text-[#041627] hover:bg-slate-50'
               }`}
             >
               <span className="material-symbols-outlined text-base">{tab.icon}</span>

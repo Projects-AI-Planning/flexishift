@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.response import ok, created
-from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.document import Document, DocType
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.models.user import User
 from app.services import documents as doc_svc
+from app.services import local_storage as local_svc
+from app.config import settings
 
 router = APIRouter(prefix="/users/me/documents", tags=["Documents"])
 
@@ -48,12 +50,39 @@ def get_my_document(
 
 @router.get("/upload-url")
 def get_upload_url(
+    request: Request,
     doc_type: str = Query(...),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     DocType(doc_type)
-    result = doc_svc.get_upload_url(doc_type, current_user.id)
-    return ok(data=result, message="Upload URL generated")
+    if local_svc.azure_available():
+        result = doc_svc.get_upload_url(doc_type, current_user.id)
+        return ok(data={**result, "upload_url": result["upload_url"]}, message="Upload URL generated")
+
+    pending = local_svc.create_pending_upload(
+        db,
+        user_id=current_user.id,
+        kind=LocalUploadKind.DOCUMENT,
+        original_name=f"{doc_type.lower()}.pdf",
+        content_type="application/pdf",
+        storage_key=f"documents/{current_user.id}/{doc_type}/{doc_type.lower()}.pdf",
+    )
+    upload_url = local_svc.local_upload_endpoint_url(request, pending.upload_token)
+    file_url = local_svc.local_upload_url(request, pending.storage_key)
+    pending.public_url = file_url
+    db.commit()
+    return ok(
+        data={
+            "key": pending.storage_key,
+            "url": upload_url,
+            "upload_url": upload_url,
+            "file_url": file_url,
+            "storage": "local",
+            "upload_token": pending.upload_token,
+        },
+        message="Local upload URL generated",
+    )
 
 
 @router.post("", status_code=201)
@@ -70,12 +99,23 @@ def submit_document(
 
 @router.post("/submit-upload", status_code=201)
 def submit_uploaded_document(
+    request: Request,
     doc_type: str = Query(...),
     key: str = Query(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     DocType(doc_type)
-    file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    if local_svc.azure_available():
+        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    else:
+        upload = local_svc.get_upload_by_key(db, key, current_user.id)
+        if not upload:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Local upload not found")
+        if upload.status != LocalUploadStatus.STORED:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="Local upload has not been stored yet")
+        file_url = upload.public_url or local_svc.local_upload_url(request, key)
     doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")

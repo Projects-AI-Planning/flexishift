@@ -24,7 +24,10 @@ const client = axios.create({
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
+  const existingAuth = typeof config.headers?.Authorization === 'string'
+    ? config.headers.Authorization
+    : undefined;
+  if (token && !existingAuth) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

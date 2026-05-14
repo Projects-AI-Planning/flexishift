@@ -39,9 +39,9 @@ const DisputesPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Disputes Overview</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Disputes Overview</h2>
           <p className="text-on-surface-variant font-medium">Review and resolve platform delivery disputes.</p>
         </div>
       </div>
@@ -63,9 +63,9 @@ const DisputesPage: React.FC = () => {
       </div>
 
       {/* Disputes Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[640px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Job Ref</th>
@@ -107,7 +107,7 @@ const DisputesPage: React.FC = () => {
       {/* Resolution Modal */}
       {isModalOpen && selectedDispute && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 lg:p-8">
             <h3 className="text-2xl font-black text-primary mb-2">Resolve Dispute</h3>
             <p className="text-on-surface-variant font-medium mb-8">Job: {selectedDispute.jobReference} | Amount: £{selectedDispute.totalAmount}</p>
 
@@ -167,9 +167,9 @@ const DisputesPage: React.FC = () => {
               >
                 Confirm Resolution
               </button>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-8 bg-slate-100 text-primary font-black py-4 rounded-xl hover:bg-slate-200 transition-colors"
+                className="px-4 sm:px-8 bg-slate-100 text-primary font-black py-4 rounded-xl hover:bg-slate-200 transition-colors"
               >
                 Cancel
               </button>

@@ -158,4 +158,4 @@ export async function request<T>(
 }
 
 export const getNotificationsWebSocketUrl = (token: string) =>
-  `${WS_BASE_URL}/api/v1/notifications/live?token=${encodeURIComponent(token)}`;
+  `${WS_BASE_URL}/ws/notifications/live?token=${encodeURIComponent(token)}`;

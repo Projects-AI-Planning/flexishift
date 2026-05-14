@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   inputError: {borderColor: colors.danger},
   fieldError: {color: colors.danger, fontSize: 12, marginTop: 4, fontWeight: '700'},
   sendBtn: {
-    backgroundColor: colors.navy, borderRadius: radius.lg,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
     minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 20,
   },
   sendBtnDisabled: {opacity: 0.5},

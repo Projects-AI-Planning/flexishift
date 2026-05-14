@@ -115,7 +115,7 @@ export default function HaulierSupportHelpPage() {
             {data?.faqs.map((faq) => (
               <details key={faq.question} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <summary className="cursor-pointer list-none text-sm font-black text-primary">{faq.question}</summary>
-                <p className="mt-3 text-sm text-slate-600">{faq.answer}</p>
+                <p className="mt-3 text-sm text-[#44474C]">{faq.answer}</p>
               </details>
             )) ?? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
@@ -126,8 +126,8 @@ export default function HaulierSupportHelpPage() {
 
           <div className="mt-6">
             <h3 className="text-base font-black text-primary">Recent Tickets</h3>
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-sm">
+            <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full min-w-[400px] text-sm">
                 <thead className="bg-slate-50 text-left">
                   <tr>
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Subject</th>

@@ -48,11 +48,11 @@ const DriversPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Drivers</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-primary tracking-tight">Drivers</h2>
           <p className="text-on-surface-variant font-medium">Manage registered drivers on the platform.</p>
         </div>
         <div className="flex gap-3">
@@ -69,7 +69,7 @@ const DriversPage: React.FC = () => {
 
       {/* Search & Filters */}
       <div className="bg-white p-4 rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative flex-1 w-full min-w-[160px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
           <input
             type="text"
@@ -92,9 +92,9 @@ const DriversPage: React.FC = () => {
       </div>
 
       {/* Drivers Table */}
-      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[640px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver Details</th>
@@ -122,7 +122,7 @@ const DriversPage: React.FC = () => {
                   <td className="px-6 py-4 text-sm text-slate-500 font-medium">
                     {user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">
+                  <td className="px-6 py-4 text-sm text-[#44474C] font-medium">
                     {user.driverProfile?.vehicleType || 'N/A'}
                   </td>
                   <td className="px-6 py-4">
@@ -214,9 +214,9 @@ const DriversPage: React.FC = () => {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="p-8">
-              <div className="flex items-center gap-6 mb-8">
-                <div className="w-24 h-24 rounded-2xl bg-blue-100 flex items-center justify-center text-3xl font-black text-blue-700 border-2 border-blue-200">
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl bg-blue-100 flex items-center justify-center text-2xl sm:text-3xl font-black text-blue-700 border-2 border-blue-200">
                   {selectedUser.name.charAt(0)}
                 </div>
                 <div>

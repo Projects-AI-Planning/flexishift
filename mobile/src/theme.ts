@@ -1,18 +1,26 @@
 export const colors = {
   accent: '#1C6DB8',
   accentSoft: '#D9ECFF',
-  bg: '#FFFFFF',
+  bg: '#F8F9FA',
   border: '#E3E8F0',
   card: '#FFFFFF',
   danger: '#B42318',
   dangerSoft: '#FDECEC',
-  ink: '#0D1B2A',
-  inkSoft: '#5B6574',
+  ink: '#041627',
+  inkSoft: '#44474C',
   mint: '#16A34A',
   navy: '#071A2D',
   neutralSoft: '#EEF2F7',
   success: '#16A34A',
   warning: '#D08B00',
+};
+
+export const fonts = {
+  regular: 'Inter-Regular',
+  medium: 'Inter-Medium',
+  semiBold: 'Inter-SemiBold',
+  bold: 'Inter-Bold',
+  extraBold: 'Inter-ExtraBold',
 };
 
 export const spacing = {

@@ -11,6 +11,7 @@ import {colors, radius, spacing} from '../../theme';
 
 interface JobDiscoveryScreenProps {
   availableJobs: any[];
+  appliedJobIds?: string[];
   docStatus: 'approved' | 'pending' | 'none';
   onSelectJob: (job: any) => void;
   onGoToDocuments: () => void;
@@ -29,6 +30,7 @@ function addr(val: unknown): string {
 
 const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   availableJobs,
+  appliedJobIds = [],
   docStatus,
   onSelectJob,
   onGoToDocuments,
@@ -37,6 +39,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const canApply = docStatus === 'approved' || docStatus === 'none';
+  const appliedSet = new Set(appliedJobIds.filter(Boolean));
 
   const filtered = search.trim()
     ? availableJobs.filter(j => {
@@ -57,6 +60,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     const amount = item.agreedAmount ?? item.amount ?? null;
     const isUrgent = String(item.status ?? '').toLowerCase() === 'urgent' ||
       String(item.jobReference ?? '').includes('URGENT');
+    const isApplied = appliedSet.has(String(item.jobId ?? ''));
 
     return (
       <View style={[styles.jobCard, isUrgent && styles.jobCardUrgent]}>
@@ -118,7 +122,11 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         </View>
 
         <View style={styles.cardActions}>
-          {canApply ? (
+          {isApplied ? (
+            <View style={[styles.applyBtn, styles.applyBtnApplied]}>
+              <Text style={styles.applyBtnAppliedText}>✓  Already Applied</Text>
+            </View>
+          ) : canApply ? (
             <Pressable onPress={() => onSelectJob(item)} style={styles.applyBtn}>
               <Text style={styles.applyBtnText}>Apply Now</Text>
             </Pressable>
@@ -291,12 +299,14 @@ const styles = StyleSheet.create({
 
   cardActions: {flexDirection: 'row', gap: 10},
   applyBtn: {
-    flex: 1, backgroundColor: colors.navy, borderRadius: radius.md,
+    flex: 1, backgroundColor: '#1066B1', borderRadius: radius.md,
     minHeight: 48, justifyContent: 'center', alignItems: 'center',
   },
   applyBtnLocked: {backgroundColor: '#D1D9E6'},
+  applyBtnApplied: {backgroundColor: '#E8F5E9'},
   applyBtnText: {color: colors.card, fontSize: 15, fontWeight: '900'},
   applyBtnLockedText: {color: '#64748B', fontSize: 14, fontWeight: '700'},
+  applyBtnAppliedText: {color: '#2E7D32', fontSize: 14, fontWeight: '800'},
   detailsBtn: {
     borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: 20, minHeight: 48, justifyContent: 'center', alignItems: 'center',

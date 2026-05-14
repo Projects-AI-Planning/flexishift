@@ -1,11 +1,15 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[1] / ".env",
+        extra="ignore",
+    )
 
     APP_ENV: str = "development"
     APP_NAME: str = "FreightFlex API"
@@ -40,6 +44,7 @@ class Settings(BaseSettings):
 
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@freightflex.io"
+    EMAIL_FROM: str = ""
 
     GMAIL_USER: str = ""
     GMAIL_APP_PASSWORD: str = ""
@@ -55,6 +60,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def populate_database_url(self) -> "Settings":
+        if self.EMAIL_FROM and self.SENDGRID_FROM_EMAIL == "noreply@freightflex.io":
+            self.SENDGRID_FROM_EMAIL = self.EMAIL_FROM
         if not self.DATABASE_URL:
             self.DATABASE_URL = (
                 f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"

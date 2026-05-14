@@ -136,7 +136,7 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
     const yyyy = selected.getFullYear();
     const mm = String(selected.getMonth() + 1).padStart(2, '0');
     const dd = String(selected.getDate()).padStart(2, '0');
-    setExpiryDate(`${yyyy}-${mm}-${dd}`);
+    setExpiryDate(`${dd}-${mm}-${yyyy}`);
   };
 
   const pickImage = async (source: 'camera' | 'gallery') => {
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   errorText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
 
   submitUploadBtn: {
-    backgroundColor: colors.navy, borderRadius: radius.lg,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
     minHeight: 56, justifyContent: 'center', alignItems: 'center',
     marginTop: spacing.sm,
   },

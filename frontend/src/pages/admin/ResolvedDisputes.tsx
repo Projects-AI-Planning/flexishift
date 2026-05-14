@@ -23,14 +23,14 @@ export default function ResolvedDisputesPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Resolved Disputes</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#041627]">Resolved Disputes</h1>
           <p className="text-sm text-gray-500 mt-0.5">Disputes that have been resolved and closed</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {data && (
             <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full">
               {data.total} resolved
@@ -60,9 +60,9 @@ export default function ResolvedDisputesPage() {
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>}
 
       {/* Table */}
-      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50">
               <tr>
                 {['Job Ref', 'Dispute Reason', 'Haulier', 'Driver', 'Amount', 'Raised', 'Resolved', 'Resolution Time'].map((h) => (
@@ -77,19 +77,19 @@ export default function ResolvedDisputesPage() {
                   <tr key={d.disputeId} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-4 font-bold text-primary">{d.jobReference}</td>
                     <td className="px-5 py-4">
-                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
+                      <span className="bg-gray-100 text-[#44474C] text-xs font-medium px-2 py-1 rounded-full">
                         {(d.disputeReason ?? 'Unknown').replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="font-medium text-gray-800">{d.haulier?.name ?? '—'}</div>
+                      <div className="font-medium text-[#041627]">{d.haulier?.name ?? '—'}</div>
                       <div className="text-xs text-gray-400">{d.haulier?.phone ?? ''}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="font-medium text-gray-800">{d.driver?.name ?? '—'}</div>
+                      <div className="font-medium text-[#041627]">{d.driver?.name ?? '—'}</div>
                       <div className="text-xs text-gray-400">{d.driver?.phone ?? ''}</div>
                     </td>
-                    <td className="px-5 py-4 font-bold text-gray-700">{fmt(d.totalAmount ?? 0)}</td>
+                    <td className="px-5 py-4 font-bold text-[#44474C]">{fmt(d.totalAmount ?? 0)}</td>
                     <td className="px-5 py-4 text-gray-500 whitespace-nowrap">{new Date(d.createdAt).toLocaleDateString()}</td>
                     <td className="px-5 py-4 whitespace-nowrap">
                       {d.resolvedAt ? (
@@ -118,7 +118,7 @@ export default function ResolvedDisputesPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-[#44474C]">
             <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 rounded border disabled:opacity-40">Prev</button>

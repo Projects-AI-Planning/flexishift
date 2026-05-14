@@ -16,9 +16,9 @@ export const bottomTabs: Array<{
   label: string;
 }> = [
   {key: 'home', label: 'Home', icon: '\u2302'},
-  {key: 'jobs', label: 'Jobs', icon: '\uD83D\uDCE6'},
-  {key: 'tracking', label: 'Route', icon: '\uD83D\uDE9A'},
-  {key: 'profile', label: 'Profile', icon: '\uD83D\uDC64'},
+  {key: 'jobs', label: 'Jobs', icon: '\u{1F4E6}'},
+  {key: 'tracking', label: 'Route', icon: '\u{1F69A}'},
+  {key: 'profile', label: 'Profile', icon: '\u{1F464}'},
 ];
 
 export const drawerItems: DrawerNavItem[] = [
@@ -26,7 +26,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'jobs.available',
     label: 'My Jobs',
-    icon: '\uD83D\uDCE6',
+    icon: '\u{1F4E6}',
     children: [
       {key: 'jobs.available', label: 'Available Jobs'},
       {key: 'jobs.myQuotes', label: 'My Bids'},
@@ -47,7 +47,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'tracking.active',
     label: 'Live Tracking',
-    icon: '\uD83D\uDCCD',
+    icon: '\u{1F69A}',
     children: [{key: 'tracking.active', label: 'Active Trip Map'}],
   },
   {
@@ -102,7 +102,7 @@ export const drawerItems: DrawerNavItem[] = [
   {
     key: 'profile.edit',
     label: 'My Profile',
-    icon: '\uD83D\uDC64',
+    icon: '\u{1F464}',
     children: [
       {key: 'profile.edit', label: 'Edit Profile'},
       {key: 'profile.password', label: 'Change Password'},
