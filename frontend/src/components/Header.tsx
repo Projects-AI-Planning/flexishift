@@ -58,17 +58,6 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
 
   const isAdmin = user?.role === 'ADMIN';
 
-  const loadUnreadCount = async () => {
-    try {
-      const result = isAdmin
-        ? await adminService.getUnreadNotificationCount()
-        : await haulierService.getUnreadCount();
-      setUnreadCount((result as { unreadCount?: number })?.unreadCount ?? 0);
-    } catch {
-      setUnreadCount(0);
-    }
-  };
-
   const loadNotifications = async () => {
     if (isAdmin) return;
     setNotifLoading(true);
