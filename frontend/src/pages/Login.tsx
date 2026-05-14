@@ -37,10 +37,15 @@ const Login: React.FC = () => {
         throw new Error('Login response did not include an access token.');
       }
 
-      const profileResponse = await client.get('/profile/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const profile = profileResponse.data?.data;
+      let profile: Record<string, string> | null = null;
+      try {
+        const profileResponse = await client.get('/profile/me', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        profile = profileResponse.data?.data ?? null;
+      } catch {
+        // profile fetch is best-effort; proceed with data from login response
+      }
 
       login(accessToken, refreshToken, {
         userId: profile?.userId ?? authData?.userId,
