@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon, EyeIcon, EyeOffIcon} from '../../components/common/FieldIcon';
 import {colors, radius, spacing} from '../../theme';
 
 interface RegisterScreenProps {
@@ -106,12 +107,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Back button — fixed at top */}
-      <Pressable onPress={() => setAuthMode('login')} style={styles.backBtn}>
-        <Text style={styles.backArrow}>←</Text>
-        <Text style={styles.backText}>Back</Text>
-      </Pressable>
-
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -127,6 +122,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
         {/* Hero */}
         <View style={styles.hero}>
+          <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
             Start managing your logistics pipeline today.
           </Text>
@@ -148,7 +144,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Full Name */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.name ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>👤</Text>
+              <AccountIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
               <TextInput
                 autoCapitalize="words"
                 onChangeText={update('name')}
@@ -164,7 +160,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Email Address */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.email ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>📧</Text>
+              <MailIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
               <TextInput
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -181,7 +177,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Phone Number */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.phone ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>☎</Text>
+              <PhoneIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
               <TextInput
                 keyboardType="phone-pad"
                 onChangeText={update('phone')}
@@ -197,7 +193,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Password */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.password ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>🔒</Text>
+              <LockIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
               <TextInput
                 onChangeText={update('password')}
                 placeholder="Password"
@@ -207,7 +203,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 value={registerForm.password}
               />
               <Pressable hitSlop={8} onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
-                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                {showPassword ? <EyeOffIcon size={20} color="#9CA4B0" /> : <EyeIcon size={20} color="#9CA4B0" />}
               </Pressable>
             </View>
             {fieldErrors.password ? (
@@ -218,7 +214,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           {/* Confirm Password */}
           <View>
             <View style={[styles.fieldWrap, fieldErrors.confirmPassword ? styles.fieldWrapError : null]}>
-              <Text style={styles.fieldIcon}>🔐</Text>
+              <LockCheckIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
               <TextInput
                 onChangeText={handleConfirmChange}
                 placeholder="Confirm Password"
@@ -228,7 +224,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 value={confirmPassword}
               />
               <Pressable hitSlop={8} onPress={() => setShowConfirm(p => !p)} style={styles.eyeBtn}>
-                <Text style={styles.eyeIcon}>{showConfirm ? '🙈' : '👁'}</Text>
+                {showConfirm ? <EyeOffIcon size={20} color="#9CA4B0" /> : <EyeIcon size={20} color="#9CA4B0" />}
               </Pressable>
             </View>
             {fieldErrors.confirmPassword ? (
@@ -311,22 +307,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
 
-  // Back button
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  backArrow: {color: colors.navy, fontSize: 20, fontWeight: '900'},
-  backText: {color: colors.navy, fontSize: 15, fontWeight: '800'},
-
   content: {
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.md,
-    paddingBottom: 48,
+    paddingBottom: 16,
   },
 
   // Brand
@@ -393,10 +377,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   fieldWrapError: {borderColor: colors.danger},
-  fieldIcon: {fontSize: 16, marginRight: 10, textAlign: 'center', width: 24},
+  fieldIcon: {marginRight: 10},
   input: {color: colors.ink, flex: 1, fontSize: 16, paddingVertical: 0},
   eyeBtn: {paddingLeft: 8},
-  eyeIcon: {fontSize: 15, color: '#6E7685'},
   inlineError: {color: colors.danger, fontSize: 12, marginLeft: 4, marginTop: 4},
   inlineErrorTerms: {marginLeft: 34},
   matchText: {color: '#15803D', fontSize: 12, marginLeft: 4, marginTop: 4, fontWeight: '700'},
@@ -454,7 +437,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: 12,
   },
   footerText: {color: colors.inkSoft, fontSize: 15},
   footerLink: {color: colors.accent, fontSize: 15, fontWeight: '800'},

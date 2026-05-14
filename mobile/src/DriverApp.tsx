@@ -25,6 +25,7 @@ import ProfileSetupScreen from './screens/auth/ProfileSetupScreen';
 import ResetPasswordScreen from './screens/auth/ResetPasswordScreen';
 import DashboardScreen from './screens/dashboard/DashboardScreen';
 import JobDiscoveryScreen from './screens/jobs/JobDiscoveryScreen';
+import JobSearchLockedScreen from './screens/jobs/JobSearchLockedScreen';
 import JobDetailScreen from './screens/jobs/JobDetailScreen';
 import MyQuotesScreen from './screens/jobs/MyQuotesScreen';
 import QuoteStatusScreen from './screens/jobs/QuoteStatusScreen';
@@ -340,6 +341,7 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: '',
     vehicleType: '',
     vehicleRegistration: '',
+    driverAvailability: '',
     companyName: '',
     companyAddress: '',
     coverageArea: '',
@@ -602,6 +604,7 @@ function DriverApp(): React.JSX.Element {
       licenceNumber: String(nextProfileData?.licenceNumber ?? ''),
       vehicleType: String(nextProfileData?.vehicleType ?? ''),
       vehicleRegistration: String(nextProfileData?.vehicleRegistration ?? ''),
+      driverAvailability: String(nextProfileData?.driverAvailability ?? ''),
       companyName: String(nextProfileData?.companyName ?? ''),
       companyAddress: String(nextProfileData?.companyAddress ?? ''),
       coverageArea: String(nextProfileData?.coverageArea ?? ''),
@@ -1108,9 +1111,11 @@ function DriverApp(): React.JSX.Element {
   };
 
   const handleProfileSetup = async (data: {
-    licenceNumber: string;
     name: string;
+    driverAvailability: string;
+    licenceNumber: string;
     vehicleType: string;
+    vehicleRegistration: string;
     photoFile?: {uri: string; fileName: string; type: string};
   }) => {
     setActionLoading(true);
@@ -1126,9 +1131,11 @@ function DriverApp(): React.JSX.Element {
         await driverApi.profile.uploadPhotoDirect(formData);
       }
       await driverApi.profile.update({
-        licenceNumber: data.licenceNumber,
         name: data.name,
+        driverAvailability: data.driverAvailability,
+        licenceNumber: data.licenceNumber,
         vehicleType: data.vehicleType,
+        vehicleRegistration: data.vehicleRegistration,
       });
       // Pre-load any existing documents before showing step 3
       try {
@@ -2284,7 +2291,35 @@ function DriverApp(): React.JSX.Element {
         );
       }
 
-      // Job Discovery (default)
+      // Job Discovery — gate on profile complete + admin-approved documents
+      const profileComplete = profile?.profileComplete === true;
+      const documentsApproved =
+        (verificationStatus as any)?.allDocumentsApproved === true ||
+        (verificationStatus as any)?.isVerified === true;
+      const isJobSearchAllowed = profileComplete && documentsApproved;
+
+      const goToDocuments = () => {
+        navigate('profile', 'documents.upload');
+        loadProfile().catch(() => undefined);
+        driverApi.documents.getStatus().then(status => {
+          setVerificationStatus(cast<Record<string, unknown>>(status));
+        }).catch(() => undefined);
+        driverApi.documents.list().then(d => {
+          setDocuments(mapDocumentItems(d as Record<string, unknown>));
+        }).catch(() => undefined);
+      };
+
+      if (!isJobSearchAllowed) {
+        return (
+          <JobSearchLockedScreen
+            profileComplete={profileComplete}
+            documentsApproved={documentsApproved}
+            onGoToProfile={() => navigate('profile', 'profile.edit')}
+            onGoToDocuments={goToDocuments}
+          />
+        );
+      }
+
       const hasApproved = documents.some(d => String(d.status).toUpperCase() === 'APPROVED');
       const hasPending = documents.some(d => String(d.status).toUpperCase() === 'PENDING');
       const docStatus: 'approved' | 'pending' | 'none' =
@@ -2298,16 +2333,7 @@ function DriverApp(): React.JSX.Element {
             setSelectedJob(job);
             setSelectedJobDetails(job);
           }}
-          onGoToDocuments={() => {
-            navigate('profile', 'documents.upload');
-            loadProfile().catch(() => undefined);
-            driverApi.documents.getStatus().then(status => {
-              setVerificationStatus(cast<Record<string, unknown>>(status));
-            }).catch(() => undefined);
-            driverApi.documents.list().then(d => {
-              setDocuments(mapDocumentItems(d as Record<string, unknown>));
-            }).catch(() => undefined);
-          }}
+          onGoToDocuments={goToDocuments}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
@@ -2802,9 +2828,24 @@ function DriverApp(): React.JSX.Element {
     (activeTab === 'profile' && activeRoute === 'profile.edit') ||
     (activeTab === 'jobs' && !!selectedJob);
 
+  const tabIcons: Record<DriverTabKey, ReturnType<typeof require>> = {
+    home: require('./assets/icons/home.png'),
+    jobs: require('./assets/icons/jobs.png'),
+    tracking: require('./assets/icons/route.png'),
+    profile: require('./assets/icons/profile.png'),
+  };
+
   const renderBottomTabIcon = (tabKey: DriverTabKey) => {
-    const icon = bottomTabs.find(t => t.key === tabKey)?.icon ?? '';
-    return <Text style={styles.bottomTabIcon}>{icon}</Text>;
+    const isActive = activeTab === tabKey;
+    return (
+      <Image
+        source={tabIcons[tabKey]}
+        style={[
+          styles.bottomTabIcon,
+          {tintColor: isActive ? '#111827' : '#6B7280'},
+        ]}
+      />
+    );
   };
 
   return (
@@ -2930,6 +2971,11 @@ function DriverApp(): React.JSX.Element {
       )}
 
       {/* Bottom Tab Bar */}
+      {(() => {
+        const _profileComplete = profile?.profileComplete === true;
+        const _docsApproved = (verificationStatus as any)?.allDocumentsApproved === true || (verificationStatus as any)?.isVerified === true;
+        const _jobsLocked = !(_profileComplete && _docsApproved);
+        return (
       <View style={styles.bottomTabBar}>
         {bottomTabs.map(tab => (
           <Pressable
@@ -2959,7 +3005,14 @@ function DriverApp(): React.JSX.Element {
               activeTab === tab.key ? styles.bottomTabButtonActive : null,
               pressed ? styles.bottomTabButtonPressed : null,
             ]}>
-            {renderBottomTabIcon(tab.key)}
+            <View style={{position: 'relative'}}>
+              {renderBottomTabIcon(tab.key)}
+              {tab.key === 'jobs' && _jobsLocked && (
+                <View style={styles.tabLockBadge}>
+                  <Text style={styles.tabLockBadgeText}>🔒</Text>
+                </View>
+              )}
+            </View>
             <Text
               style={[
                 styles.bottomTabLabel,
@@ -2970,6 +3023,8 @@ function DriverApp(): React.JSX.Element {
           </Pressable>
         ))}
       </View>
+        );
+      })()}
     </SafeAreaView>
   );
 }
@@ -3070,8 +3125,8 @@ const styles = StyleSheet.create({
     opacity: 0.95,
     transform: [{scale: 0.96}],
   },
-  bottomTabIcon: {color: '#111827', fontSize: 24},
-  bottomTabIconActive: {color: '#111827'},
+  bottomTabIcon: {width: 24, height: 24, resizeMode: 'contain'},
+  bottomTabIconActive: {},
   bottomTabLabel: {
     color: '#374151',
     fontSize: 10,
@@ -3081,6 +3136,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   bottomTabLabelActive: {color: '#111827'},
+  tabLockBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabLockBadgeText: {fontSize: 9},
   brandOverline: {
     color: palette.accent,
     fontSize: 12,
@@ -3099,7 +3166,7 @@ const styles = StyleSheet.create({
   historyCardEyebrow: {
     color: '#1066B1',
   },
-  content: {gap: 16, padding: 18, paddingBottom: 80},
+  content: {gap: 16, padding: 18, paddingBottom: 64},
   contentContainer: {flex: 1, paddingBottom: 64},
   emptyText: {color: palette.inkSoft, fontSize: 14, lineHeight: 20},
   errorText: {

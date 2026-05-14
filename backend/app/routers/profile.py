@@ -23,6 +23,7 @@ _USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id"}
 _PROFILE_FIELDS = {
     "photo_url", "licence_number", "vehicle_type",
     "vehicle_registration", "company_name", "company_address", "coverage_area",
+    "driver_availability",
     "equipment_details",
     "driver_assignments",
 }
@@ -112,6 +113,7 @@ def _user_data(user: User) -> dict:
             "companyName": profile.company_name if profile else None,
             "companyAddress": profile.company_address if profile else None,
             "coverageArea": profile.coverage_area if profile else None,
+            "driverAvailability": profile.driver_availability if profile else None,
             "equipmentDetails": profile.equipment_details if profile else [],
             "driverAssignments": profile.driver_assignments if profile else [],
         } if profile else None,

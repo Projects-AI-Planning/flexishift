@@ -65,6 +65,7 @@ class UserProfile(Base):
     company_name:         Mapped[str] = mapped_column(String(200), nullable=True)
     company_address:      Mapped[str] = mapped_column(String(500), nullable=True)
     coverage_area:        Mapped[str] = mapped_column(String(500), nullable=True)
+    driver_availability:  Mapped[str] = mapped_column(String(50), nullable=True)
     equipment_details:    Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     driver_assignments:   Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     created_at:           Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

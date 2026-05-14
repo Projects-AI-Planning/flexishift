@@ -10,6 +10,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import {MailIcon, LockIcon} from '../../components/common/FieldIcon';
 import {colors, radius, shadow, spacing} from '../../theme';
 
 interface LoginScreenProps {
@@ -41,8 +42,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.background}>
-            <View style={styles.glowTop} />
-        <View style={styles.glowBottom} />
         <View style={styles.topBar}>
           <Pressable onPress={onBackToSplash} style={styles.backBtn}>
             <Text style={styles.backIcon}>{'\u2190'}</Text>
@@ -72,17 +71,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={email =>
-                setLoginForm((current: any) => ({...current, email}))
-              }
-              placeholder="driver.77@freightflex.com"
-              placeholderTextColor="#9AA4B2"
-              style={[styles.input, authError ? styles.inputError : null]}
-              value={loginForm.email}
-            />
+            <View style={[styles.inputWrap, authError ? styles.inputError : null]}>
+              <MailIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
+              <TextInput
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onChangeText={email =>
+                  setLoginForm((current: any) => ({...current, email}))
+                }
+                placeholder="driver.77@freightflex.com"
+                placeholderTextColor="#9AA4B2"
+                style={styles.input}
+                value={loginForm.email}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -92,16 +94,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={styles.forgotText}>Forgot Password?</Text>
               </Pressable>
             </View>
-            <TextInput
-              onChangeText={password =>
-                setLoginForm((current: any) => ({...current, password}))
-              }
-              placeholder="••••••••••"
-              placeholderTextColor="#9AA4B2"
-              secureTextEntry
-              style={[styles.input, authError ? styles.inputError : null]}
-              value={loginForm.password}
-            />
+            <View style={[styles.inputWrap, authError ? styles.inputError : null]}>
+              <LockIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
+              <TextInput
+                onChangeText={password =>
+                  setLoginForm((current: any) => ({...current, password}))
+                }
+                placeholder="••••••••••"
+                placeholderTextColor="#9AA4B2"
+                secureTextEntry
+                style={styles.input}
+                value={loginForm.password}
+              />
+            </View>
           </View>
 
           <Pressable onPress={handleLogin} style={styles.primaryButton}>
@@ -135,7 +140,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#FFFFFF',
   },
   flex: {
     flex: 1,
@@ -147,24 +152,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
-  },
-  glowTop: {
-    position: 'absolute',
-    top: -80,
-    right: -100,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(223, 166, 34, 0.18)',
-  },
-  glowBottom: {
-    position: 'absolute',
-    bottom: 80,
-    left: -90,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(16, 34, 53, 0.08)',
   },
   topBar: {
     paddingHorizontal: spacing.xl,
@@ -291,15 +278,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  input: {
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 3,
     borderColor: '#D6DCE5',
     borderRadius: 18,
     minHeight: 66,
     paddingHorizontal: spacing.lg,
+    backgroundColor: '#F8FAFD',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
     fontSize: 18,
     color: colors.ink,
-    backgroundColor: '#F8FAFD',
+    paddingVertical: 0,
   },
   inputError: {
     borderColor: colors.danger,

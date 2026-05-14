@@ -1,13 +1,17 @@
 import React, {useState} from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {colors, radius, spacing} from '../../theme';
+import {MailIcon} from '../../components/common/FieldIcon';
+import {colors, radius, shadow, spacing} from '../../theme';
 
 interface ForgotPasswordScreenProps {
   authLoading: boolean;
@@ -37,121 +41,345 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Pressable onPress={onBack} style={styles.backBtn}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.background}>
 
-      <View style={styles.content}>
-        <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>🔑</Text>
-        </View>
+            <View style={styles.topBar}>
+              <Pressable onPress={onBack} style={styles.backBtn}>
+                <Text style={styles.backIcon}>{'←'}</Text>
+              </Pressable>
+            </View>
 
-        <Text style={styles.subtitle}>
-          Enter the email address linked to your account. We'll send a 6-digit reset code.
-        </Text>
+            <View style={styles.hero}>
+              <View style={styles.logoMark}>
+                <LockKeyIcon />
+              </View>
+              <Text style={styles.brandKicker}>Account Recovery</Text>
+              <Text style={styles.brand}>Forgot Password?</Text>
+              <Text style={styles.tagline}>
+                Enter your registered email and we'll send you a one-time password to reset your account.
+              </Text>
+            </View>
 
-        {authError ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{authError}</Text>
+            {(authError || emailError) ? (
+              <View style={styles.errorBanner}>
+                <View style={styles.errorDot}>
+                  <Text style={styles.errorDotText}>!</Text>
+                </View>
+                <Text style={styles.errorText}>{authError || emailError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.formCard}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <View style={[styles.inputWrap, (authError || emailError) ? styles.inputError : null]}>
+                  <MailIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
+                  <TextInput
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    onChangeText={v => {
+                      setEmail(v);
+                      if (emailError) {setEmailError('');}
+                    }}
+                    placeholder="driver.77@freightflex.com"
+                    placeholderTextColor="#9AA4B2"
+                    style={styles.input}
+                    value={email}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleSubmit}
+                disabled={authLoading}
+                style={[styles.primaryButton, authLoading && styles.primaryButtonDisabled]}>
+                <Text style={styles.primaryButtonText}>
+                  {authLoading ? 'Sending OTP...' : 'Resend OTP'}
+                  {'  '}{'↪'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.noteRow}>
+              <View style={styles.noteDot} />
+              <Text style={styles.noteText}>
+                OTP expires in 10 minutes. Check spam if you don't see it.
+              </Text>
+            </View>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Remembered your password? </Text>
+              <Pressable onPress={onBack}>
+                <Text style={styles.footerLink}>Back to Login</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.bottomBar}>
+              <Text style={styles.bottomCopy}>
+                © 2026 FreightFlow Systems. All rights reserved.
+              </Text>
+            </View>
           </View>
-        ) : null}
-
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onChangeText={v => {
-              setEmail(v);
-              if (emailError) {setEmailError('');}
-            }}
-            placeholder="you@example.com"
-            placeholderTextColor="#9AA4B2"
-            style={[styles.input, emailError ? styles.inputError : null]}
-            value={email}
-          />
-          {emailError ? <Text style={styles.fieldError}>{emailError}</Text> : null}
-        </View>
-
-        <Pressable
-          onPress={handleSubmit}
-          disabled={authLoading}
-          style={[styles.sendBtn, authLoading && styles.sendBtnDisabled]}>
-          <Text style={styles.sendBtnText}>
-            {authLoading ? 'Sending...' : 'Send Reset Code →'}
-          </Text>
-        </Pressable>
-
-        <View style={styles.noteBox}>
-          <Text style={styles.noteIcon}>ℹ️</Text>
-          <Text style={styles.noteText}>
-            The code expires in 10 minutes. Check your spam folder if you don't see it.
-          </Text>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
+const LockKeyIcon = () => (
+  <View style={{width: 48, height: 48, alignItems: 'center', justifyContent: 'center'}}>
+    {/* Shackle arch */}
+    <View style={{
+      position: 'absolute', top: 0, left: 10, right: 10, height: 24,
+      borderTopWidth: 4, borderLeftWidth: 4, borderRightWidth: 4,
+      borderColor: '#FFFFFF', borderTopLeftRadius: 14, borderTopRightRadius: 14,
+    }} />
+    {/* Lock body */}
+    <View style={{
+      position: 'absolute', bottom: 0, left: 4, right: 4, height: 26,
+      backgroundColor: '#FFFFFF', borderRadius: 8,
+      alignItems: 'center', justifyContent: 'center',
+    }}>
+      {/* Keyhole circle */}
+      <View style={{
+        width: 10, height: 10, borderRadius: 5,
+        backgroundColor: colors.navy, marginBottom: 2,
+      }} />
+      {/* Keyhole stem */}
+      <View style={{width: 3, height: 5, backgroundColor: colors.navy, marginTop: -3}} />
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  background: {
+    flexGrow: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  topBar: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+  },
   backBtn: {
-    paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backText: {color: colors.navy, fontSize: 16, fontWeight: '800'},
-  content: {
-    flex: 1, paddingHorizontal: spacing.xl,
-    backgroundColor: '#fff',
-    marginHorizontal: spacing.xl, marginTop: spacing.sm,
-    borderRadius: radius.xl, padding: spacing.xxl,
-    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.06, shadowRadius: 16, elevation: 3,
+  backIcon: {
+    color: colors.navy,
+    fontSize: 26,
+    fontWeight: '800',
   },
-  iconCircle: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#FFF7ED', alignSelf: 'center',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+  hero: {
+    alignItems: 'center',
+    paddingTop: 48,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  iconText: {fontSize: 32},
-  title: {
-    color: colors.navy, fontSize: 26, fontWeight: '900',
-    textAlign: 'center', marginBottom: 12,
+  logoMark: {
+    width: 96,
+    height: 96,
+    borderRadius: 26,
+    backgroundColor: colors.navy,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 4,
   },
-  subtitle: {
-    color: colors.inkSoft, fontSize: 14, lineHeight: 22,
-    textAlign: 'center', marginBottom: 24,
+  brandKicker: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 8,
+    textTransform: 'uppercase',
   },
-  errorBox: {
-    backgroundColor: '#FFF1EF', borderColor: '#F3B4B0', borderWidth: 1,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: 16,
+  brand: {
+    color: colors.navy,
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 10,
   },
-  errorText: {color: colors.danger, fontSize: 13, fontWeight: '700', textAlign: 'center'},
-  fieldWrap: {marginBottom: 20},
+  tagline: {
+    color: '#4F5560',
+    fontSize: 15,
+    maxWidth: 300,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#F3B4B0',
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.lg,
+  },
+  errorDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorDotText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.danger,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  formCard: {
+    marginHorizontal: spacing.xl,
+    borderRadius: 28,
+    backgroundColor: colors.card,
+    padding: spacing.xl,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 5,
+  },
+  inputGroup: {
+    marginBottom: spacing.lg,
+  },
   label: {
-    color: colors.navy, fontSize: 13, fontWeight: '800',
-    textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8,
+    color: colors.navy,
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#D6DCE5',
+    borderRadius: 18,
+    minHeight: 64,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: '#F8FAFD',
+  },
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
-    borderWidth: 1.5, borderColor: '#C9D0DB',
-    borderRadius: radius.md, minHeight: 54,
-    paddingHorizontal: spacing.md, fontSize: 16,
-    color: colors.ink, backgroundColor: '#FAFBFD',
+    flex: 1,
+    fontSize: 17,
+    color: colors.ink,
+    paddingVertical: 0,
   },
-  inputError: {borderColor: colors.danger},
-  fieldError: {color: colors.danger, fontSize: 12, marginTop: 4, fontWeight: '700'},
-  sendBtn: {
-    backgroundColor: '#1066B1', borderRadius: radius.lg,
-    minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+  inputError: {
+    borderColor: colors.danger,
   },
-  sendBtnDisabled: {opacity: 0.5},
-  sendBtnText: {color: colors.accent, fontSize: 16, fontWeight: '900'},
-  noteBox: {
-    flexDirection: 'row', gap: 10, alignItems: 'flex-start',
-    backgroundColor: '#F8FAFD', borderRadius: radius.md, padding: spacing.md,
+  primaryButton: {
+    marginTop: spacing.sm,
+    backgroundColor: '#1066B1',
+    borderRadius: 18,
+    minHeight: 64,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: shadow.opacity,
+    shadowRadius: shadow.radius,
+    elevation: 4,
   },
-  noteIcon: {fontSize: 14, flexShrink: 0},
-  noteText: {flex: 1, color: colors.inkSoft, fontSize: 12, lineHeight: 18},
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+    gap: 10,
+    backgroundColor: colors.neutralSoft,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+  },
+  noteDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    marginTop: 6,
+    flexShrink: 0,
+  },
+  noteText: {
+    flex: 1,
+    color: colors.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
+  },
+  footerText: {
+    color: '#5A606B',
+    fontSize: 15,
+  },
+  footerLink: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  bottomBar: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  bottomCopy: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
 
 export default ForgotPasswordScreen;

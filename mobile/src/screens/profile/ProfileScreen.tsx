@@ -20,12 +20,25 @@ import {colors, radius, spacing} from '../../theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+const DRIVER_AVAILABILITY_LABELS: Record<string, string> = {
+  DRIVER_ONLY:       'Only Driver',
+  DRIVER_WITH_TRUCK: 'Driver with Truck',
+  TRUCK_ONLY:        'Only Truck',
+};
+
+const DRIVER_MODES = [
+  {key: 'DRIVER_ONLY',       label: 'Only Driver',       desc: 'Available as driver — no truck'},
+  {key: 'DRIVER_WITH_TRUCK', label: 'Driver with Truck', desc: 'Available with my own truck'},
+  {key: 'TRUCK_ONLY',        label: 'Only Truck',        desc: 'Providing a truck — no driver'},
+];
+
 interface ProfileForm {
   name: string;
   phone: string;
   licenceNumber: string;
   vehicleType: string;
   vehicleRegistration: string;
+  driverAvailability?: string;
   companyName?: string;
   companyAddress?: string;
   coverageArea?: string;
@@ -174,6 +187,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onRefresh,
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [availDropdownOpen, setAvailDropdownOpen] = useState(false);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const documentsSectionY = useRef<number | null>(null);
@@ -301,7 +315,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const effectiveDocuments = localDocuments.length ? localDocuments : documents;
   const effectiveVerification = localVerificationStatus ?? verificationStatus;
   const documentStatuses = effectiveVerification?.documentStatuses ?? {};
-  const verificationReady = effectiveVerification?.isVerified === true || effectiveVerification?.allDocumentsApproved === true;
+  const verificationReady = effectiveDocuments.length > 0 && (
+    effectiveVerification?.allDocumentsApproved === true ||
+    DRIVER_DOCUMENTS.every(doc => {
+      const st = normalizeSummaryStatus(documentStatuses[doc.backendKey]);
+      return st === 'active' || st === 'complete';
+    })
+  );
   const overallVerification = effectiveVerification?.allDocumentsApproved === true
     ? 'all approved'
     : effectiveVerification?.profileComplete
@@ -504,6 +524,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <View style={styles.nameWrap}>
         <Text style={styles.nameText}>{name}</Text>
         <Text style={styles.roleText}>{String(role).replace(/_/g, ' ')}</Text>
+        {profileForm.driverAvailability ? (
+          <View style={styles.availabilityBadge}>
+            <Text style={styles.availabilityText}>
+              {DRIVER_AVAILABILITY_LABELS[profileForm.driverAvailability] ?? profileForm.driverAvailability}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* ── Overall Rating card ───────────────────────────────────────────── */}
@@ -588,24 +615,88 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         ) : null}
 
-        <InfoField
-          label="VEHICLE TYPE"
-          value={profileForm.vehicleType}
-          onChange={v => onChange({vehicleType: v})}
-          placeholder="e.g. FLATBED, VAN, HGV"
-        />
-        <InfoField
-          label="LICENCE NUMBER"
-          value={profileForm.licenceNumber}
-          onChange={v => onChange({licenceNumber: v})}
-          placeholder="DL-XXXXXXXXXXXX"
-        />
-        <InfoField
-          label="VEHICLE REGISTRATION"
-          value={profileForm.vehicleRegistration}
-          onChange={v => onChange({vehicleRegistration: v})}
-          placeholder="e.g. TX-LOG-8892"
-        />
+        {/* Driver Availability dropdown */}
+        {!isHaulier && (
+          <View style={daStyles.wrap}>
+            <Text style={daStyles.label}>DRIVER AVAILABILITY</Text>
+            <Pressable
+              style={daStyles.trigger}
+              onPress={() => setAvailDropdownOpen(o => !o)}>
+              <Text style={profileForm.driverAvailability ? daStyles.triggerValue : daStyles.triggerPlaceholder}>
+                {profileForm.driverAvailability
+                  ? DRIVER_MODES.find(m => m.key === profileForm.driverAvailability)?.label
+                  : 'Select availability type'}
+              </Text>
+              <Text style={[daStyles.chevron, availDropdownOpen && daStyles.chevronUp]}>▾</Text>
+            </Pressable>
+
+            {availDropdownOpen && (
+              <View style={daStyles.dropList}>
+                {DRIVER_MODES.map((m, i) => {
+                  const active = profileForm.driverAvailability === m.key;
+                  const isLast = i === DRIVER_MODES.length - 1;
+                  return (
+                    <Pressable
+                      key={m.key}
+                      onPress={() => {
+                        onChange({driverAvailability: m.key});
+                        setAvailDropdownOpen(false);
+                      }}
+                      style={[daStyles.dropItem, !isLast && daStyles.dropItemBorder, active && daStyles.dropItemActive]}>
+                      <View style={{flex: 1}}>
+                        <Text style={[daStyles.dropItemLabel, active && daStyles.dropItemLabelActive]}>
+                          {m.label}
+                        </Text>
+                        <Text style={daStyles.dropItemDesc}>{m.desc}</Text>
+                      </View>
+                      {active && <Text style={daStyles.dropItemTick}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Conditional Driver Details */}
+        {!isHaulier && (profileForm.driverAvailability === 'DRIVER_ONLY' || profileForm.driverAvailability === 'DRIVER_WITH_TRUCK' || !profileForm.driverAvailability) && (
+          <View style={daStyles.condBlock}>
+            <View style={daStyles.divider}>
+              <View style={daStyles.dividerLine} />
+              <Text style={daStyles.dividerLabel}>👤  Driver Details</Text>
+              <View style={daStyles.dividerLine} />
+            </View>
+            <InfoField
+              label="LICENCE NUMBER"
+              value={profileForm.licenceNumber}
+              onChange={v => onChange({licenceNumber: v})}
+              placeholder="DL-XXXXXXXXXXXX"
+            />
+          </View>
+        )}
+
+        {/* Conditional Truck Details */}
+        {!isHaulier && (profileForm.driverAvailability === 'TRUCK_ONLY' || profileForm.driverAvailability === 'DRIVER_WITH_TRUCK' || !profileForm.driverAvailability) && (
+          <View style={daStyles.condBlock}>
+            <View style={daStyles.divider}>
+              <View style={daStyles.dividerLine} />
+              <Text style={daStyles.dividerLabel}>🚛  Truck Details</Text>
+              <View style={daStyles.dividerLine} />
+            </View>
+            <InfoField
+              label="VEHICLE TYPE"
+              value={profileForm.vehicleType}
+              onChange={v => onChange({vehicleType: v})}
+              placeholder="e.g. FLATBED, VAN, HGV"
+            />
+            <InfoField
+              label="VEHICLE REGISTRATION"
+              value={profileForm.vehicleRegistration}
+              onChange={v => onChange({vehicleRegistration: v})}
+              placeholder="e.g. TX-LOG-8892"
+            />
+          </View>
+        )}
 
         {isHaulier ? (
           <View style={{gap: spacing.md, marginTop: spacing.md}}>
@@ -920,6 +1011,11 @@ const styles = StyleSheet.create({
   nameWrap: {alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.lg},
   nameText: {fontSize: 26, fontWeight: '900', color: '#111827', marginBottom: 4},
   roleText: {fontSize: 14, color: '#6B7280', fontWeight: '500'},
+  availabilityBadge: {
+    marginTop: 6, backgroundColor: '#EAF3FD', borderRadius: 99,
+    paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  availabilityText: {fontSize: 12, fontWeight: '800', color: '#1066B1', letterSpacing: 0.3},
 
   // ── Rating card ───────────────────────────────────────────────────────────
   ratingCard: {
@@ -978,10 +1074,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   verificationPillReady: {backgroundColor: '#DCFCE7'},
-  verificationPillPending: {backgroundColor: '#FEF3C7'},
+  verificationPillPending: {backgroundColor: '#1066B1'},
   verificationPillText: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   verificationPillTextReady: {color: '#166534'},
-  verificationPillTextPending: {color: '#854D0E'},
+  verificationPillTextPending: {color: '#FFFFFF'},
 
   // ── Vehicle card ──────────────────────────────────────────────────────────
   vehicleCard: {
@@ -1126,6 +1222,40 @@ const styles = StyleSheet.create({
   },
   logoutBtnIcon: {fontSize: 16, color: '#DC2626'},
   logoutBtnText: {color: '#DC2626', fontSize: 15, fontWeight: '700'},
+});
+
+const daStyles = StyleSheet.create({
+  condBlock: {gap: spacing.md, marginBottom: 4},
+  divider: {flexDirection: 'row', alignItems: 'center', gap: 10},
+  dividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
+  dividerLabel: {fontSize: 12, fontWeight: '800', color: '#374151'},
+  wrap: {gap: 8},
+  label: {fontSize: 11, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5},
+  trigger: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: radius.md,
+    minHeight: 48, paddingHorizontal: spacing.md, backgroundColor: '#F3F4F6',
+  },
+  triggerValue: {fontSize: 15, color: '#111827', fontWeight: '600'},
+  triggerPlaceholder: {fontSize: 15, color: '#9CA3AF'},
+  chevron: {fontSize: 16, color: '#6B7280'},
+  chevronUp: {transform: [{rotate: '180deg'}]},
+  dropList: {
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: radius.md,
+    backgroundColor: '#FFFFFF', marginTop: 4, overflow: 'hidden',
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  dropItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 13, paddingHorizontal: spacing.md, backgroundColor: '#FFFFFF',
+  },
+  dropItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  dropItemActive: {backgroundColor: '#EAF3FD'},
+  dropItemLabel: {fontSize: 14, fontWeight: '700', color: '#111827'},
+  dropItemLabelActive: {color: '#1066B1'},
+  dropItemDesc: {fontSize: 11, color: '#6B7280', marginTop: 2},
+  dropItemTick: {fontSize: 15, color: '#1066B1', fontWeight: '900'},
 });
 
 export default ProfileScreen;
