@@ -53,7 +53,7 @@ export default function HaulierSecurityPage() {
     <div className="space-y-8">
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Settings</p>
-        <h1 className="text-3xl font-black tracking-tight text-primary">Security</h1>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Security</h1>
         <p className="text-on-surface-variant font-medium">Change your password or deactivate the account using backend endpoints.</p>
       </div>
 

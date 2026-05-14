@@ -333,7 +333,7 @@ const DriversPage: React.FC = () => {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Drivers</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Drivers</h2>
           <p className="text-on-surface-variant font-medium">Browse active drivers, assign them to your roster, and review availability.</p>
         </div>
         <div className="flex gap-3">

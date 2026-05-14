@@ -143,7 +143,7 @@ const SupportTicketsPage = ({ view }: { view: ViewMode }) => {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Support Tickets</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">{isActive ? 'Active Tickets' : 'Resolved Tickets'}</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">{isActive ? 'Active Tickets' : 'Resolved Tickets'}</h1>
           <p className="text-on-surface-variant font-medium">Tickets are loaded from the backend admin support endpoints.</p>
         </div>
         <button
