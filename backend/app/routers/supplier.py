@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, Request, UploadFile
+from pathlib import Path
+from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.core.response import ok, created
@@ -7,10 +9,12 @@ from app.dependencies import get_current_user, require_role
 from app.models.document import Document, DocType, DocStatus
 from app.models.user import User, Role
 from app.schemas.availability import AvailabilitySlotIn, AvailabilityBlockIn
-from app.models.local_upload import LocalUploadKind
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.services import documents as doc_svc
 from app.services import availability as avail_svc
 from app.services import local_storage as local_svc
+from app.services import s3
+from app.config import settings
 
 router = APIRouter(prefix="/supplier", tags=["Supplier"])
 
@@ -31,40 +35,59 @@ def _doc_dict(d: Document) -> dict:
 
 # ── Documents ─────────────────────────────────────────────────────────────────
 
-@router.post("/documents/upload")
-def get_document_upload_url(
+@router.post("/documents/upload", status_code=201)
+async def upload_document_direct(
     request: Request,
-    doc_type: str = Query(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
+    # Mobile sends 'documentType'; also accept 'doc_type' for web clients
+    documentType: str = Form(None),
+    doc_type: str = Form(None),
+    expiryDate: str = Form(None),
+    file: UploadFile = File(...),
 ):
-    DocType(doc_type)
-    if local_svc.azure_available():
-        result = doc_svc.get_upload_url(doc_type, current_user.id)
-        return ok(data={**result, "upload_url": result["upload_url"]}, message="Upload URL generated")
+    raw_type = (documentType or doc_type or "").strip().upper()
+    try:
+        DocType(raw_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid documentType '{raw_type}'. Must be one of: {[e.value for e in DocType]}",
+        )
 
-    pending = local_svc.create_pending_upload(
-        db,
-        user_id=current_user.id,
-        kind=LocalUploadKind.DOCUMENT,
-        original_name=f"{doc_type.lower()}.pdf",
-        content_type="application/pdf",
-    )
-    upload_url = local_svc.local_upload_endpoint_url(request, pending.upload_token)
-    file_url = local_svc.local_upload_url(request, pending.storage_key)
-    pending.public_url = file_url
-    db.commit()
-    return ok(
-        data={
-            "key": pending.storage_key,
-            "url": upload_url,
-            "upload_url": upload_url,
-            "file_url": file_url,
-            "storage": "local",
-            "upload_token": pending.upload_token,
-        },
-        message="Local upload URL generated",
-    )
+    suffix = {
+        "image/jpeg": "jpg", "image/jpg": "jpg",
+        "image/png": "png", "image/webp": "webp",
+        "application/pdf": "pdf",
+    }.get(file.content_type or "", (file.filename or "").rsplit(".", 1)[-1] or "pdf")
+
+    contents = await file.read()
+
+    if local_svc.azure_available():
+        key = f"documents/{current_user.id}/{raw_type}/{str(uuid4())[:8]}.{suffix}"
+        s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "application/pdf")
+        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    else:
+        local_svc.ensure_local_upload_root()
+        key = f"documents/{current_user.id}/{raw_type}/{str(uuid4())[:8]}.{suffix}"
+        file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(contents)
+        file_url = str(request.url_for("uploads", path=key))
+        record = local_svc.create_pending_upload(
+            db,
+            user_id=current_user.id,
+            kind=LocalUploadKind.DOCUMENT,
+            original_name=file.filename or f"doc.{suffix}",
+            content_type=file.content_type or "application/pdf",
+            storage_key=key,
+        )
+        record.public_url = file_url
+        record.status = LocalUploadStatus.STORED
+        db.commit()
+
+    doc = doc_svc.upsert_document(db, current_user.id, raw_type, file_url)
+    return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")
 
 
 @router.get("/documents/list")
