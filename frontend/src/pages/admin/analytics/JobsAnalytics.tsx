@@ -67,7 +67,7 @@ export default function JobsAnalyticsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Reports & Analytics</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Job Analytics</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Job Analytics</h1>
           <p className="text-on-surface-variant font-medium">Monitor platform job flow and status distribution from the backend.</p>
         </div>
         <button

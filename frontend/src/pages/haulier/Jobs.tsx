@@ -404,7 +404,7 @@ const HaulierJobsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-primary tracking-tight">Active Shipments</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Active Shipments</h2>
           <p className="text-on-surface-variant font-medium">Manage jobs and review driver quotes.</p>
         </div>
         <button

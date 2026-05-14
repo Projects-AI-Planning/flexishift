@@ -37,7 +37,7 @@ const StatCard = ({
           <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${accent === 'slate' ? 'text-white/60' : 'text-slate-400'}`}>
             {label}
           </p>
-          <h3 className={`mt-2 text-3xl font-black tracking-tight ${accent === 'slate' ? 'text-white' : 'text-primary'}`}>
+          <h3 className={`mt-2 text-2xl sm:text-3xl font-black tracking-tight ${accent === 'slate' ? 'text-white' : 'text-primary'}`}>
             {value}
           </h3>
           <p className={`mt-2 text-xs ${accent === 'slate' ? 'text-white/55' : 'text-slate-500'}`}>{note}</p>

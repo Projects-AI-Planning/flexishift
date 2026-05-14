@@ -99,7 +99,7 @@ export default function HaulierPerformancePage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Reports & Analytics</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Performance Analytics</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Performance Analytics</h1>
           <p className="text-on-surface-variant font-medium">Backend-driven job completion, rating, and operational performance.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

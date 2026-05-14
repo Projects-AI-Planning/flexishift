@@ -965,7 +965,7 @@ const HaulierPaymentsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-black text-primary tracking-tight">Payments</h2>
+        <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Payments</h2>
         <p className="text-slate-500 font-medium mt-1">Secure job payments, manage escrow, view history, and configure bank accounts.</p>
       </div>
 

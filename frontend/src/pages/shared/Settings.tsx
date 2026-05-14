@@ -44,7 +44,7 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="max-w-4xl space-y-8">
       <div>
-        <h2 className="text-3xl font-black text-primary tracking-tight">System Settings</h2>
+        <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">System Settings</h2>
         <p className="text-on-surface-variant font-medium">Manage your profile and platform configurations.</p>
       </div>
 

@@ -100,7 +100,7 @@ export default function HaulierProfilePage() {
     <div className="space-y-8">
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Settings</p>
-        <h1 className="text-3xl font-black tracking-tight text-primary">Profile</h1>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Profile</h1>
         <p className="text-on-surface-variant font-medium">Update your haulier account details using the backend profile service.</p>
       </div>
 

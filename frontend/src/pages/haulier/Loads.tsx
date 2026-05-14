@@ -216,7 +216,7 @@ const HaulierLoadsPage: React.FC = () => {
               Load Management
             </div>
             <div>
-              <h2 className="text-3xl font-black tracking-tight text-white">Matching, bids, and awarded loads</h2>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Matching, bids, and awarded loads</h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-300">
                 Browse open loads, inspect incoming bids, and track awarded jobs from the same backend-backed view.
               </p>

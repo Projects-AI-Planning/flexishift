@@ -48,7 +48,7 @@ export default function UsersAnalyticsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Reports & Analytics</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">User Analytics</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">User Analytics</h1>
           <p className="text-on-surface-variant font-medium">Role and account distribution from the backend user list.</p>
         </div>
         <button

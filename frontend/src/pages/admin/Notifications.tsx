@@ -120,7 +120,7 @@ export default function NotificationsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Admin Dashboard</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Notifications</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Notifications</h1>
           <p className="text-on-surface-variant font-medium">Backend notification inbox for the signed-in admin account.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -220,7 +220,7 @@ export default function NotificationsPage() {
           </div>
 
           <div className={`mt-5 overflow-x-auto rounded-2xl border border-slate-100 ${loading ? 'opacity-60' : ''}`}>
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
                   <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Notification</th>

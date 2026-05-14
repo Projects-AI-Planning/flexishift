@@ -112,7 +112,7 @@ const InsurancePage = () => {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Documents & Insurance</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Insurance</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Insurance</h1>
           <p className="text-on-surface-variant font-medium">Upload and track your vehicle and fleet insurance documents from the backend.</p>
         </div>
         <button

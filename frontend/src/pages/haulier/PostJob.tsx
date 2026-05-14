@@ -201,7 +201,7 @@ const PostJobPage: React.FC = () => {
             <div className="w-20 h-20 rounded-full bg-white/20 ring-4 ring-white/30 flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
             </div>
-            <h2 className="text-3xl font-black text-white">Job Posted!</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">Job Posted!</h2>
             <p className="text-emerald-100 mt-1.5 font-medium">
               Your freight job is live — drivers are being notified now.
             </p>

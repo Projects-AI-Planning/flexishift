@@ -257,7 +257,7 @@ export default function HaulierTrackingPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Operations</p>
-          <h1 className="text-3xl font-black tracking-tight text-primary">Live Tracking</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Live Tracking</h1>
           <p className="text-on-surface-variant font-medium">Track active jobs with backend live location, ETA, and history data.</p>
         </div>
         <button
