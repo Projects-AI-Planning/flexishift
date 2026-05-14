@@ -1,7 +1,7 @@
 """add local uploads table
 
-Revision ID: 0008_add_local_uploads
-Revises: 0007_support_tickets
+Revision ID: 0008
+Revises: 0007
 Create Date: 2026-05-14
 """
 
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0008_add_local_uploads"
-down_revision = "0007_support_tickets"
+revision = "0008"
+down_revision = "0007"
 branch_labels = None
 depends_on = None
 
