@@ -78,7 +78,7 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Working Days</Text>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysRow}>
+      <View style={styles.daysRow}>
         {dayCards.map(day => {
           const active = availabilityForm.availableDays.includes(day.key);
           return (
@@ -91,7 +91,7 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <Text style={styles.sectionTitle}>Available Shifts</Text>
       <View style={styles.shiftList}>
@@ -106,7 +106,7 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
                 active && styles.shiftCardActive,
                 pressed && styles.shiftCardPressed,
               ]}>
-              <View style={[styles.shiftCopy]}>
+              <View style={styles.shiftCopy}>
                 <Text style={[styles.shiftTitle, active && styles.shiftTitleActive]}>{shift.title}</Text>
                 <Text style={styles.shiftTime}>{shift.display}</Text>
               </View>
@@ -167,22 +167,22 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.bg},
   content: {
-    padding: spacing.xl,
-    paddingBottom: 120,
+    padding: spacing.lg,
+    paddingBottom: 100,
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
     color: colors.navy,
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: '900',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
     color: colors.inkSoft,
-    fontSize: 15,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
   },
   statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   statusLeft: {flex: 1},
@@ -193,25 +193,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  statusValue: {color: colors.navy, fontSize: 15, fontWeight: '700', marginTop: 4},
+  statusValue: {color: colors.navy, fontSize: 14, fontWeight: '700', marginTop: 3},
   sectionRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   sectionTitle: {
     color: colors.navy,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
     marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
-  daysRow: {gap: spacing.sm, paddingBottom: spacing.md},
+  daysRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
   dayCard: {
-    width: 52,
-    height: 68,
+    flex: 1,
+    marginHorizontal: 2,
+    height: 58,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: '#D6DCE5',
     backgroundColor: '#F8FAFD',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 3,
   },
   dayCardActive: {backgroundColor: '#1066B1', borderColor: '#1066B1'},
   dayShort: {color: '#6B7280', fontSize: 11, fontWeight: '800'},
@@ -222,17 +227,18 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.accent,
   },
-  shiftList: {gap: spacing.sm, marginBottom: spacing.sm},
+  shiftList: {gap: spacing.xs, marginBottom: spacing.xs},
   shiftCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.sm,
     backgroundColor: '#fff',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   shiftCardActive: {borderColor: colors.accent, borderWidth: 1.5, backgroundColor: '#FFFBEB'},
   shiftCardPressed: {backgroundColor: '#F8FAFC'},
@@ -259,27 +265,27 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: 14,
     backgroundColor: '#F8FAFD',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    minHeight: 56,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 48,
     color: colors.ink,
-    fontSize: 16,
-    marginBottom: spacing.md,
+    fontSize: 15,
+    marginBottom: spacing.sm,
   },
-  proTipText: {color: '#F8FAFC', fontSize: 15, lineHeight: 22},
+  proTipText: {color: '#F8FAFC', fontSize: 13, lineHeight: 20},
   saveButton: {
     backgroundColor: colors.accent,
-    borderRadius: 20,
-    minHeight: 72,
+    borderRadius: 16,
+    minHeight: 54,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   saveButtonText: {
     color: colors.card,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
   },
 });

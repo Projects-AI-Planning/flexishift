@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import Card from '../../components/common/Card';
-import {colors, spacing} from '../../theme';
+import {colors, spacing, radius} from '../../theme';
+import {driverApi} from '../../api/driverApi';
 
 interface LoadCodeScreenProps {
   jobId: string;
@@ -22,7 +23,7 @@ interface LoadCodeScreenProps {
 }
 
 const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
-  jobId: _jobId,
+  jobId,
   jobReference,
   onVerify,
   onOpenScanner,
@@ -30,14 +31,34 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
   error,
 }) => {
   const [code, setCode] = useState('');
+  const [job, setJob] = useState<Record<string, unknown> | null>(null);
+  const [jobLoading, setJobLoading] = useState(true);
+
+  useEffect(() => {
+    if (!jobId) {return;}
+    setJobLoading(true);
+    driverApi.jobs.getDetails(jobId)
+      .then(data => setJob(data as Record<string, unknown>))
+      .catch(() => setJob(null))
+      .finally(() => setJobLoading(false));
+  }, [jobId]);
+
+  const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
+  const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
+  const cargo    = String(job?.goodsType       ?? job?.cargoType      ?? '—');
+  const vehicle  = String(job?.vehicleTypeRequired ?? job?.vehicleType ?? '—');
+  const jobDate  = String(job?.jobDate         ?? '—');
+  const weight   = job?.weightKg ? `${job.weightKg} kg` : '—';
+  const ref      = String(job?.jobReference    ?? job?.jobRef ?? jobReference ?? jobId);
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}>
-        <View style={styles.topRow}>
-          <View style={styles.backBtnSpacer} />
+
+        {/* Step indicator */}
+        <View style={styles.stepRow}>
           <Text style={styles.stepTitle}>Step 1 of 3</Text>
         </View>
         <Text style={styles.mainTitle}>Load Code Confirmation</Text>
@@ -45,11 +66,66 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           Enter the 8-character code provided by the warehouse or shipper at pickup.
         </Text>
 
-        <Card
-          title="Pickup Verification"
-          subtitle={`Ref: ${jobReference}`}
-          variant="accent">
-          <Text style={styles.label}>Enter Load Code</Text>
+        {/* Job info card */}
+        {jobLoading ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.loadingText}>Loading job details…</Text>
+          </View>
+        ) : (
+          <View style={styles.jobCard}>
+            <View style={styles.jobCardHeader}>
+              <Text style={styles.jobRef}>{ref}</Text>
+              <View style={styles.openBadge}>
+                <Text style={styles.openBadgeText}>PICKUP</Text>
+              </View>
+            </View>
+
+            <View style={styles.routeRow}>
+              <View style={styles.routePoint}>
+                <View style={[styles.dot, styles.dotGreen]} />
+                <View style={styles.routeInfo}>
+                  <Text style={styles.routeLabel}>PICKUP</Text>
+                  <Text style={styles.routeValue}>{pickup}</Text>
+                </View>
+              </View>
+              <View style={styles.routeLine} />
+              <View style={styles.routePoint}>
+                <View style={[styles.dot, styles.dotAmber]} />
+                <View style={styles.routeInfo}>
+                  <Text style={styles.routeLabel}>DROP-OFF</Text>
+                  <Text style={styles.routeValue}>{drop}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>CARGO</Text>
+                <Text style={styles.metaValue}>{cargo}</Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>VEHICLE</Text>
+                <Text style={styles.metaValue}>{vehicle}</Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>DATE</Text>
+                <Text style={styles.metaValue}>{jobDate}</Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>WEIGHT</Text>
+                <Text style={styles.metaValue}>{weight}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Code input */}
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>Enter Load Code</Text>
           <TextInput
             style={styles.codeInput}
             placeholder="XXXXXXXX"
@@ -62,36 +138,29 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
             onChangeText={text => setCode(text.toUpperCase())}
             autoFocus
           />
-
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
           <Text style={styles.hintText}>
             This code ensures the right vehicle is picking up the correct cargo.
           </Text>
-        </Card>
+        </View>
 
         <Pressable
           onPress={() => onVerify(code)}
           disabled={loading || code.length < 8}
-          style={[
-            styles.primaryButton,
-            (loading || code.length < 8) && styles.disabledButton,
-          ]}>
-          <Text style={styles.primaryButtonText}>
-            {loading ? 'Verifying...' : 'Confirm & Proceed'}
-          </Text>
-        </Pressable>
-
-        <Pressable onPress={onOpenScanner} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Can't find code? Open scanner</Text>
+          style={[styles.primaryButton, (loading || code.length < 8) && styles.disabledButton]}>
+          {loading ? (
+            <ActivityIndicator color={colors.card} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Confirm & Proceed →</Text>
+          )}
         </Pressable>
 
         <Pressable onPress={onOpenScanner} style={styles.scannerButton}>
-          <Text style={styles.scannerButtonText}>Open Scanner</Text>
+          <Text style={styles.scannerButtonText}>Can't find code? Open Scanner</Text>
         </Pressable>
 
         <Text style={styles.nextStepText}>
-          After verification, continue to the handover checklist. Trip start is enabled from the next step.
+          After verification, continue to the handover checklist.
         </Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -99,125 +168,91 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
+  container: {flex: 1, backgroundColor: '#FFFFFF'},
+  flex: {flex: 1, padding: spacing.xl},
+
+  stepRow: {alignItems: 'flex-end', marginBottom: spacing.sm},
+  stepTitle: {fontSize: 13, fontWeight: '800', color: colors.accent, textTransform: 'uppercase'},
+
+  mainTitle: {fontSize: 28, fontWeight: '900', color: colors.navy, marginBottom: spacing.sm},
+  subtitle: {fontSize: 14, color: colors.inkSoft, lineHeight: 20, marginBottom: spacing.lg},
+
+  loadingCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F8FAFD', borderRadius: radius.lg,
+    padding: spacing.xl, marginBottom: spacing.lg,
+    borderWidth: 1, borderColor: colors.border,
   },
-  flex: {
-    flex: 1,
-    padding: spacing.xl,
+  loadingText: {color: colors.inkSoft, fontSize: 14},
+
+  jobCard: {
+    backgroundColor: colors.navy, borderRadius: radius.xl,
+    padding: spacing.xl, marginBottom: spacing.lg, gap: spacing.md,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+  jobCardHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  backBtn: {
-    alignSelf: 'flex-start',
+  jobRef: {color: '#FFFFFF', fontSize: 16, fontWeight: '900'},
+  openBadge: {
+    backgroundColor: colors.accent, borderRadius: radius.pill,
+    paddingHorizontal: 10, paddingVertical: 4,
   },
-  backBtnSpacer: {
-    width: 80,
+  openBadgeText: {color: colors.navy, fontSize: 10, fontWeight: '900'},
+
+  routeRow: {gap: spacing.sm},
+  routePoint: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm},
+  dot: {width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0},
+  dotGreen: {backgroundColor: '#34D399'},
+  dotAmber: {backgroundColor: colors.accent},
+  routeLine: {width: 2, height: 16, backgroundColor: 'rgba(255,255,255,0.2)', marginLeft: 4},
+  routeInfo: {flex: 1},
+  routeLabel: {color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase'},
+  routeValue: {color: '#FFFFFF', fontSize: 13, fontWeight: '700', marginTop: 1},
+
+  metaRow: {
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm,
   },
-  backText: {
-    color: colors.navy,
-    fontSize: 15,
-    fontWeight: '800',
+  metaItem: {flex: 1, alignItems: 'center'},
+  metaDivider: {width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 4},
+  metaLabel: {color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginBottom: 2},
+  metaValue: {color: '#FFFFFF', fontSize: 11, fontWeight: '800', textAlign: 'center'},
+
+  codeCard: {
+    backgroundColor: '#F8FAFD', borderRadius: radius.xl,
+    padding: spacing.xl, marginBottom: spacing.lg,
+    borderWidth: 1, borderColor: colors.border, gap: spacing.md,
   },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.accent,
-    textTransform: 'uppercase',
-  },
-  mainTitle: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: colors.navy,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.inkSoft,
-    lineHeight: 22,
-    marginBottom: spacing.xl,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: colors.navy,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-    textTransform: 'uppercase',
+  codeLabel: {
+    fontSize: 13, fontWeight: '900', color: colors.navy,
+    textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5,
   },
   codeInput: {
-    backgroundColor: '#F8FAFD',
-    borderRadius: 18,
-    paddingVertical: 18,
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.navy,
-    textAlign: 'center',
-    letterSpacing: 10,
-    borderWidth: 2,
-    borderColor: '#D6DCE5',
+    backgroundColor: '#FFFFFF', borderRadius: radius.lg,
+    paddingVertical: 16, fontSize: 26, fontWeight: '900',
+    color: colors.navy, textAlign: 'center', letterSpacing: 10,
+    borderWidth: 2, borderColor: colors.border,
   },
-  errorText: {
-    color: colors.danger,
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  hintText: {
-    fontSize: 13,
-    color: colors.inkSoft,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
+  errorText: {color: colors.danger, fontSize: 13, fontWeight: '700', textAlign: 'center'},
+  hintText: {fontSize: 12, color: colors.inkSoft, textAlign: 'center', lineHeight: 17},
+
   primaryButton: {
-    backgroundColor: '#1066B1',
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: spacing.xl,
+    backgroundColor: '#1066B1', borderRadius: radius.lg,
+    minHeight: 56, justifyContent: 'center', alignItems: 'center',
+    marginBottom: spacing.md,
   },
-  disabledButton: {
-    opacity: 0.45,
-  },
-  primaryButtonText: {
-    color: colors.card,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  secondaryButtonText: {
-    color: colors.accent,
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  disabledButton: {opacity: 0.45},
+  primaryButtonText: {color: '#FFFFFF', fontSize: 16, fontWeight: '900'},
+
   scannerButton: {
-    alignItems: 'center',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: spacing.sm,
-    paddingVertical: 14,
+    alignItems: 'center', borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    paddingVertical: 14, marginBottom: spacing.md,
   },
-  scannerButtonText: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  scannerButtonText: {color: colors.ink, fontSize: 14, fontWeight: '800'},
+
   nextStepText: {
-    color: colors.inkSoft,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginTop: spacing.lg,
+    color: colors.inkSoft, fontSize: 12, lineHeight: 18, textAlign: 'center',
   },
 });
 

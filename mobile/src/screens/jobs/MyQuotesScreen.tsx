@@ -14,7 +14,7 @@ interface MyQuotesScreenProps {
   quotes: any[];
   refreshing: boolean;
   onRefresh: () => void;
-  onProceedToCompliance: (jobId: string, jobReference?: string) => void;
+  onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
 }
@@ -45,9 +45,10 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
 
   const renderItem = ({item}: {item: any}) => {
     const statusUpper = (item.status ?? '').toUpperCase();
-    const isAccepted  = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
-    const isPending   = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
-    const isDeclined  = statusUpper === 'DECLINED' || statusUpper === 'WITHDRAWN';
+    const isAccepted   = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
+    const isPending    = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
+    const isDeclined   = statusUpper === 'DECLINED';
+    const isWithdrawn  = statusUpper === 'WITHDRAWN';
     const jobId       = String(item.jobId ?? '');
     // API nests route info under item.job
     const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
@@ -67,14 +68,14 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           </View>
           <View style={[
             styles.statusBadge,
-            isAccepted ? styles.badgeGreen :
-            isDeclined ? styles.badgeRed   :
+            isAccepted                    ? styles.badgeGreen :
+            isDeclined || isWithdrawn     ? styles.badgeRed   :
             styles.badgeGrey,
           ]}>
             <Text style={[
               styles.statusText,
-              isAccepted ? styles.statusTextGreen :
-              isDeclined ? styles.statusTextRed   :
+              isAccepted                    ? styles.statusTextGreen :
+              isDeclined || isWithdrawn     ? styles.statusTextRed   :
               styles.statusTextGrey,
             ]}>
               {STATUS_LABELS[statusUpper] ?? item.status}
@@ -132,7 +133,12 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
               </Pressable>
             )}
             <Pressable
-              onPress={() => onProceedToCompliance(jobId, item.jobReference ?? item.jobRef ?? undefined)}
+              onPress={() => onProceedToCompliance(
+                jobId,
+                item.jobReference ?? item.jobRef ?? undefined,
+                Number(item.quoteAmount ?? item.amount ?? 0) || undefined,
+                String(item.currency ?? 'Rs'),
+              )}
               style={styles.complianceBtn}>
               <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>
             </Pressable>
@@ -201,6 +207,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.md,
+    backgroundColor: '#FFFFFF',
   },
   card: {
     backgroundColor: colors.card,

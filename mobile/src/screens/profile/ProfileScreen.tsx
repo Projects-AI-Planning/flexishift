@@ -315,9 +315,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const effectiveDocuments = localDocuments.length ? localDocuments : documents;
   const effectiveVerification = localVerificationStatus ?? verificationStatus;
   const documentStatuses = effectiveVerification?.documentStatuses ?? {};
+
+  // Filter visible docs based on the driver's availability mode
+  const availabilityMode = (profileForm.driverAvailability ?? profile?.profile?.driverAvailability ?? '').toUpperCase();
+  const visibleDocuments = availabilityMode === 'DRIVER_ONLY'
+    ? DRIVER_DOCUMENTS.filter(d => d.key === 'driving_license')
+    : availabilityMode === 'TRUCK_ONLY'
+    ? DRIVER_DOCUMENTS.filter(d => d.key !== 'driving_license')
+    : DRIVER_DOCUMENTS;
+
   const verificationReady = effectiveDocuments.length > 0 && (
     effectiveVerification?.allDocumentsApproved === true ||
-    DRIVER_DOCUMENTS.every(doc => {
+    visibleDocuments.every(doc => {
       const st = normalizeSummaryStatus(documentStatuses[doc.backendKey]);
       return st === 'active' || st === 'complete';
     })
@@ -343,7 +352,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const completionRate = useMemo(() => {
     const backendProfileComplete = profile?.profileComplete === true || effectiveVerification?.profileComplete === true;
     const allDocsApproved = effectiveVerification?.allDocumentsApproved === true
-      || DRIVER_DOCUMENTS.every(doc => {
+      || visibleDocuments.every(doc => {
         const status = docStatus[doc.key];
         return status === 'active' || status === 'complete';
       });
@@ -362,11 +371,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       !isHaulier || Boolean(profileForm.companyName),
       !isHaulier || Boolean(profileForm.companyAddress),
       Boolean(photoUrl),
-      DRIVER_DOCUMENTS.some(doc => {
+      visibleDocuments.some(doc => {
         const status = docStatus[doc.key];
         return status === 'active' || status === 'complete';
       }),
-      DRIVER_DOCUMENTS.every(doc => {
+      visibleDocuments.every(doc => {
         const status = docStatus[doc.key];
         return status === 'active' || status === 'complete';
       }),
@@ -383,6 +392,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     profile?.name,
     profile?.phone,
     profile?.profileComplete,
+    profileForm.driverAvailability,
     profileForm.licenceNumber,
     profileForm.phone,
     profileForm.companyAddress,
@@ -759,7 +769,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {DRIVER_DOCUMENTS.map((doc, i, arr) => {
+        {visibleDocuments.map((doc, i, arr) => {
           const status = docStatus[doc.key];
           const c = docColor(status);
           const tappable = status === 'not_uploaded' || status === 'rejected';

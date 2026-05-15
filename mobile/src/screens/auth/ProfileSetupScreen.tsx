@@ -22,6 +22,7 @@ interface ProfileSetupScreenProps {
     licenceNumber: string;
     vehicleType: string;
     vehicleRegistration: string;
+    truckCapacity?: string;
     photoFile?: {uri: string; fileName: string; type: string};
   }) => void;
   onSkip: () => void;
@@ -36,6 +37,7 @@ const VEHICLES = [
   {icon: '🏗️', key: 'HGV', label: 'HGV'},
   {icon: '🚐', key: 'VAN', label: 'Van'},
   {icon: '⛽', key: 'TANKER', label: 'Tanker'},
+  {icon: '✏️', key: 'OTHER', label: 'Other'},
 ];
 
 const DRIVER_MODES = [
@@ -56,6 +58,8 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [licenceNumber, setLicenceNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('');
+  const [otherVehicleType, setOtherVehicleType] = useState('');
+  const [truckCapacity, setTruckCapacity] = useState('');
   const [vehicleRegistration, setVehicleRegistration] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<
@@ -113,6 +117,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     if (showTruckSection && !vehicleType) {
       e.vehicleType = 'Please select a vehicle category.';
     }
+    if (showTruckSection && vehicleType === 'OTHER' && !otherVehicleType.trim()) {
+      e.otherVehicleType = 'Please specify your vehicle category.';
+    }
     return e;
   };
 
@@ -123,7 +130,15 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
       return;
     }
     setFieldErrors({});
-    onComplete({name, driverAvailability, licenceNumber, vehicleType, vehicleRegistration, photoFile});
+    onComplete({
+      name,
+      driverAvailability,
+      licenceNumber,
+      vehicleType: vehicleType === 'OTHER' ? otherVehicleType.trim() : vehicleType,
+      vehicleRegistration,
+      truckCapacity: truckCapacity.trim() || undefined,
+      photoFile,
+    });
   };
 
   return (
@@ -259,7 +274,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                 {VEHICLES.map(v => (
                   <Pressable
                     key={v.key}
-                    onPress={() => { setVehicleType(v.key); clearErr('vehicleType'); }}
+                    onPress={() => { setVehicleType(v.key); clearErr('vehicleType'); clearErr('otherVehicleType'); }}
                     style={[styles.vehicleChip, vehicleType === v.key && styles.vehicleChipActive]}>
                     <Text style={styles.vehicleIcon}>{v.icon}</Text>
                     <Text style={[styles.vehicleLabel, vehicleType === v.key && styles.vehicleLabelActive]}>
@@ -271,6 +286,34 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
               {fieldErrors.vehicleType
                 ? <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
                 : null}
+              {vehicleType === 'OTHER' && (
+                <View style={styles.otherInputWrap}>
+                  <TextInput
+                    autoCapitalize="words"
+                    onChangeText={v => { setOtherVehicleType(v); clearErr('otherVehicleType'); }}
+                    placeholder="Specify your vehicle type"
+                    placeholderTextColor="#9CA4B0"
+                    style={[styles.input, fieldErrors.otherVehicleType ? styles.inputError : null]}
+                    value={otherVehicleType}
+                  />
+                  {fieldErrors.otherVehicleType
+                    ? <Text style={styles.inlineError}>{fieldErrors.otherVehicleType}</Text>
+                    : null}
+                </View>
+              )}
+            </View>
+
+            {/* Truck Capacity (Optional) */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>CAPACITY OF TRUCK <Text style={styles.optionalTag}>(OPTIONAL)</Text></Text>
+              <TextInput
+                keyboardType="default"
+                onChangeText={v => setTruckCapacity(v)}
+                placeholder="e.g. 10 Tons, 20,000 kg"
+                placeholderTextColor="#9CA4B0"
+                style={styles.input}
+                value={truckCapacity}
+              />
             </View>
 
             {/* Vehicle Registration */}
@@ -313,9 +356,6 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             : <Text style={styles.continueBtnText}>Continue to Verification →</Text>}
         </Pressable>
 
-        <Pressable onPress={onSkip} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </Pressable>
 
         <Text style={styles.terms}>
           {'By continuing, you agree to our '}
@@ -414,6 +454,8 @@ const styles = StyleSheet.create({
   vehicleIcon: {fontSize: 22},
   vehicleLabel: {color: colors.inkSoft, fontSize: 12, fontWeight: '700'},
   vehicleLabelActive: {color: colors.accent, fontWeight: '900'},
+  otherInputWrap: {marginTop: 12},
+  optionalTag: {color: colors.inkSoft, fontSize: 10, fontWeight: '600'},
 
   // Info box
   infoBox: {
@@ -433,8 +475,7 @@ const styles = StyleSheet.create({
   },
   continueBtnDisabled: {opacity: 0.7},
   continueBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
-  skipBtn: {alignItems: 'center', paddingVertical: 14},
-  skipText: {color: colors.inkSoft, fontSize: 14, fontWeight: '700'},
+
   terms: {textAlign: 'center', color: colors.inkSoft, fontSize: 13, lineHeight: 20},
   termsLink: {color: colors.accent, fontWeight: '700'},
 });

@@ -40,7 +40,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({onGetStarted, onLogin}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#071A2D',
+    backgroundColor: '#FFFFFF',
   },
   fill: {
     flex: 1,

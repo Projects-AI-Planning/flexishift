@@ -290,6 +290,17 @@ def driver_upcoming_jobs(
     for j in items:
         payment = j.payment
         haulier = j.haulier
+        # Payment row only exists after haulier pays — fall back to the winning quote price
+        # Use a direct query (avoids SQLAlchemy lazy-load session issues)
+        selected_quote = db.query(Quote).filter(
+            Quote.job_id == j.id,
+            Quote.status == QuoteStatus.SELECTED,
+        ).first()
+        agreed_amount = (
+            float(payment.amount) if payment
+            else float(selected_quote.price) if selected_quote
+            else None
+        )
         jobs.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
@@ -301,7 +312,7 @@ def driver_upcoming_jobs(
             "weight": f"{float(j.weight_kg)} kg" if j.weight_kg else None,
             "jobDate": j.job_date.isoformat() if j.job_date else None,
             "timeSlot": j.time_slot.value if j.time_slot else None,
-            "agreedAmount": float(payment.amount) if payment else None,
+            "agreedAmount": agreed_amount,
             "currency": "INR",
             "haulier": {
                 "name": haulier.full_name if haulier else None,

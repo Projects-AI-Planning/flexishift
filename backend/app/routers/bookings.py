@@ -9,6 +9,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.compliance import ComplianceRecord
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment
+from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 from app.services import quotes as quotes_svc
 from app.services.jobs import cancel_job
@@ -58,6 +59,16 @@ def _booking_dict(job: Job) -> dict:
     payment_status = payment.status.value if payment else None
     agreed_amount = float(payment.amount) if payment else None
 
+    # Selected quote price — always present even before payment is created
+    selected_quote = next(
+        (q for q in (job.quotes or []) if q.status == QuoteStatus.SELECTED), None
+    )
+    quote_amount = float(selected_quote.price) if selected_quote else None
+    quote_currency = selected_quote.currency if selected_quote else "INR"
+
+    # Prefer payment amount (final); fall back to the winning quote price
+    display_amount = agreed_amount if agreed_amount is not None else quote_amount
+
     compliance = job.compliance
     compliance_status = _compliance_status(compliance)
 
@@ -90,7 +101,9 @@ def _booking_dict(job: Job) -> dict:
         "weightKg": float(job.weight_kg) if job.weight_kg is not None else None,
         "vehicleType": job.vehicle_type,
         "distanceKm": float(job.distance_km) if job.distance_km else None,
-        "agreedAmount": agreed_amount,
+        "agreedAmount": display_amount,
+        "quoteAmount": quote_amount,
+        "currency": quote_currency,
         "complianceStatus": compliance_status,
         "paymentStatus": payment_status,
         "createdAt": job.created_at.isoformat() if job.created_at else None,

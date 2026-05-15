@@ -1,13 +1,16 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   FlatList,
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import {colors, radius, spacing} from '../../theme';
+import {BoxIcon, CalendarIcon, MapPinIcon} from '../../components/common/FieldIcon';
 
 interface JobDiscoveryScreenProps {
   availableJobs: any[];
@@ -19,6 +22,9 @@ interface JobDiscoveryScreenProps {
   refreshing: boolean;
 }
 
+const PICKUP_DATE_OPTIONS = ['All', 'Today', 'Tomorrow', 'This Week'];
+const RADIUS_OPTIONS = ['All', '10 km', '25 km', '50 km', '100 km', '200 km'];
+
 function addr(val: unknown): string {
   if (!val) {return '';}
   if (typeof val === 'string') {return val;}
@@ -26,6 +32,28 @@ function addr(val: unknown): string {
     return String((val as {address?: string}).address ?? '');
   }
   return String(val);
+}
+
+function matchesDateFilter(jobDate: string | undefined, filter: string): boolean {
+  if (!jobDate) {return true;}
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const jd = new Date(jobDate);
+  jd.setHours(0, 0, 0, 0);
+  if (filter === 'Today') {
+    return jd.getTime() === today.getTime();
+  }
+  if (filter === 'Tomorrow') {
+    const tom = new Date(today);
+    tom.setDate(today.getDate() + 1);
+    return jd.getTime() === tom.getTime();
+  }
+  if (filter === 'This Week') {
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7);
+    return jd >= today && jd <= weekEnd;
+  }
+  return true;
 }
 
 const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
@@ -38,27 +66,51 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   refreshing,
 }) => {
   const [search, setSearch] = useState('');
+  const [cargoFilter, setCargoFilter]   = useState<string | null>(null);
+  const [dateFilter, setDateFilter]     = useState<string | null>(null);
+  const [radiusFilter, setRadiusFilter] = useState<string | null>(null);
+
+  const [activeModal, setActiveModal] = useState<'cargo' | 'date' | 'radius' | null>(null);
+
   const canApply = docStatus === 'approved' || docStatus === 'none';
   const appliedSet = new Set(appliedJobIds.filter(Boolean));
 
-  const filtered = search.trim()
-    ? availableJobs.filter(j => {
-        const q = search.toLowerCase();
-        return (
-          String(j.jobReference ?? '').toLowerCase().includes(q) ||
-          addr(j.pickupLocation).toLowerCase().includes(q) ||
-          addr(j.dropLocation).toLowerCase().includes(q) ||
-          String(j.goodsType ?? '').toLowerCase().includes(q) ||
-          String(j.vehicleTypeRequired ?? '').toLowerCase().includes(q)
-        );
-      })
-    : availableJobs;
+  // Derive unique cargo types from loaded jobs
+  const cargoTypes = useMemo(() => {
+    const types = new Set<string>();
+    availableJobs.forEach(j => {
+      const g = String(j.goodsType ?? '').trim();
+      if (g) {types.add(g);}
+    });
+    return ['All', ...Array.from(types)];
+  }, [availableJobs]);
+
+  const filtered = availableJobs.filter(j => {
+    if (cargoFilter) {
+      if (String(j.goodsType ?? '').trim() !== cargoFilter) {return false;}
+    }
+    if (dateFilter) {
+      if (!matchesDateFilter(j.jobDate, dateFilter)) {return false;}
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        String(j.jobReference ?? '').toLowerCase().includes(q) ||
+        addr(j.pickupLocation).toLowerCase().includes(q) ||
+        addr(j.dropLocation).toLowerCase().includes(q) ||
+        String(j.goodsType ?? '').toLowerCase().includes(q) ||
+        String(j.vehicleTypeRequired ?? '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const renderJobItem = ({item}: {item: any}) => {
     const pickup = addr(item.pickupLocation) || '—';
     const drop = addr(item.dropLocation) || '—';
     const amount = item.agreedAmount ?? item.amount ?? null;
-    const isUrgent = String(item.status ?? '').toLowerCase() === 'urgent' ||
+    const isUrgent =
+      String(item.status ?? '').toLowerCase() === 'urgent' ||
       String(item.jobReference ?? '').includes('URGENT');
     const isApplied = appliedSet.has(String(item.jobId ?? ''));
 
@@ -72,13 +124,9 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         )}
 
         <View style={styles.jobCardTop}>
-          <View style={styles.refWrap}>
-            <Text style={styles.jobRef}>REF: {String(item.jobReference ?? item.jobId ?? '')}</Text>
-          </View>
+          <Text style={styles.jobRef}>REF: {String(item.jobReference ?? item.jobId ?? '')}</Text>
           {amount ? (
-            <Text style={styles.jobAmount}>
-              ₹{Number(amount).toLocaleString('en-IN')}
-            </Text>
+            <Text style={styles.jobAmount}>₹{Number(amount).toLocaleString('en-IN')}</Text>
           ) : (
             <View style={styles.openBadge}>
               <Text style={styles.openBadgeText}>OPEN</Text>
@@ -100,7 +148,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
             <Text style={styles.metaIcon}>⚖️</Text>
             <View>
               <Text style={styles.metaTag}>WEIGHT</Text>
-              <Text style={styles.metaVal}>{item.weightKg ? `${item.weightKg} kg` : item.weight || '—'}</Text>
+              <Text style={styles.metaVal}>{item.weightKg ? `${item.weightKg} kg` : '—'}</Text>
             </View>
           </View>
           <View style={styles.metaItem}>
@@ -143,8 +191,46 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     );
   };
 
+  const renderModal = (
+    title: string,
+    options: string[],
+    selected: string | null,
+    onSelect: (v: string | null) => void,
+  ) => (
+    <Modal
+      visible={activeModal !== null}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setActiveModal(null)}>
+      <Pressable style={styles.modalBackdrop} onPress={() => setActiveModal(null)} />
+      <View style={styles.modalSheet}>
+        <View style={styles.modalHandle} />
+        <Text style={styles.modalTitle}>{title}</Text>
+        {options.map(opt => {
+          const isSelected = opt === 'All' ? !selected : selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => {
+                onSelect(opt === 'All' ? null : opt);
+                setActiveModal(null);
+              }}
+              style={[styles.modalOption, isSelected && styles.modalOptionSelected]}>
+              <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
+                {opt}
+              </Text>
+              {isSelected && <Text style={styles.modalTick}>✓</Text>}
+            </Pressable>
+          );
+        })}
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={styles.searchBar}>
           <Text style={styles.searchIcon}>🔍</Text>
@@ -161,8 +247,50 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
             </Pressable>
           )}
         </View>
+
+        {/* Filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}>
+
+          {/* Cargo Type */}
+          <Pressable
+            onPress={() => setActiveModal('cargo')}
+            style={[styles.chip, cargoFilter ? styles.chipActive : styles.chipInactive]}>
+            <BoxIcon size={14} color={cargoFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Text style={[styles.chipText, cargoFilter && styles.chipTextActive]}>
+              {cargoFilter ?? 'Cargo Type'}
+            </Text>
+            <Text style={[styles.chipCaret, cargoFilter && styles.chipCaretActive]}>▾</Text>
+          </Pressable>
+
+          {/* Pickup Date */}
+          <Pressable
+            onPress={() => setActiveModal('date')}
+            style={[styles.chip, dateFilter ? styles.chipActive : styles.chipInactive]}>
+            <CalendarIcon size={14} color={dateFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Text style={[styles.chipText, dateFilter && styles.chipTextActive]}>
+              {dateFilter ?? 'Pickup Date'}
+            </Text>
+            <Text style={[styles.chipCaret, dateFilter && styles.chipCaretActive]}>▾</Text>
+          </Pressable>
+
+          {/* Distance / Radius */}
+          <Pressable
+            onPress={() => setActiveModal('radius')}
+            style={[styles.chip, radiusFilter ? styles.chipActive : styles.chipInactive]}>
+            <MapPinIcon size={14} color={radiusFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Text style={[styles.chipText, radiusFilter && styles.chipTextActive]}>
+              {radiusFilter ?? 'Distance'}
+            </Text>
+            <Text style={[styles.chipCaret, radiusFilter && styles.chipCaretActive]}>▾</Text>
+          </Pressable>
+
+        </ScrollView>
       </View>
 
+      {/* ── Doc banners ─────────────────────────────────────────────────── */}
       {docStatus === 'pending' && (
         <View style={styles.docBanner}>
           <Text style={styles.docBannerIcon}>⏳</Text>
@@ -177,7 +305,6 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           </Pressable>
         </View>
       )}
-
       {docStatus === 'none' && (
         <View style={[styles.docBanner, styles.docBannerWarn]}>
           <Text style={styles.docBannerIcon}>📋</Text>
@@ -193,6 +320,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         </View>
       )}
 
+      {/* ── Jobs list ───────────────────────────────────────────────────── */}
       <FlatList
         data={filtered}
         keyExtractor={item => String(item.jobId ?? item.jobReference ?? Math.random())}
@@ -201,39 +329,52 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         onRefresh={onRefresh}
         refreshing={refreshing}
         ListHeaderComponent={
-          filtered.length > 0 ? (
-            <Text style={styles.countLabel}>
-              {filtered.length} {filtered.length === 1 ? 'job' : 'jobs'} available
+          <View style={styles.listHeader}>
+            <Text style={styles.listHeaderTitle}>Available Jobs</Text>
+            <Text style={styles.listHeaderCount}>
+              {filtered.length} {filtered.length === 1 ? 'Load' : 'Loads'} nearby
             </Text>
-          ) : null
+          </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyIcon}>🚛</Text>
             <Text style={styles.emptyTitle}>
-              {search.trim() ? 'No matches found' : 'No Jobs Available'}
+              {search.trim() || cargoFilter || dateFilter ? 'No matches found' : 'No Jobs Available'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {search.trim()
-                ? 'Try a different search term.'
-                : 'Check back later for new opportunities in your area.'}
+              {search.trim() || cargoFilter || dateFilter
+                ? 'Try changing your filters.'
+                : 'Check back later for new opportunities.'}
             </Text>
           </View>
         }
       />
+
+      {/* ── Modals ──────────────────────────────────────────────────────── */}
+      {activeModal === 'cargo' &&
+        renderModal('Cargo Type', cargoTypes, cargoFilter, setCargoFilter)}
+      {activeModal === 'date' &&
+        renderModal('Pickup Date', PICKUP_DATE_OPTIONS, dateFilter, setDateFilter)}
+      {activeModal === 'radius' &&
+        renderModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, setRadiusFilter)}
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: colors.bg},
+  container: {flex: 1, backgroundColor: '#FFFFFF'},
 
   header: {
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.lg,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.md,
   },
-  title: {fontSize: 28, fontWeight: '900', color: colors.navy, marginBottom: spacing.md},
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#EEF5FB', borderRadius: radius.lg,
@@ -243,6 +384,19 @@ const styles = StyleSheet.create({
   searchIcon: {marginRight: spacing.sm, fontSize: 16},
   searchInput: {flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 8},
   clearSearch: {color: colors.inkSoft, fontSize: 16, paddingLeft: 8},
+
+  filterRow: {gap: 8},
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: radius.pill, borderWidth: 1,
+  },
+  chipActive:   {backgroundColor: '#1A2332', borderColor: '#1A2332'},
+  chipInactive: {backgroundColor: '#FFFFFF', borderColor: '#D1D9E6'},
+  chipText: {color: '#374151', fontSize: 13, fontWeight: '600'},
+  chipTextActive: {color: '#FFFFFF'},
+  chipCaret: {color: '#6B7280', fontSize: 11},
+  chipCaretActive: {color: '#FFFFFF'},
 
   docBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -257,13 +411,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radius.md,
     paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center',
   },
-  docBannerBtnText: {color: colors.navy, fontSize: 12, fontWeight: '900'},
+  docBannerBtnText: {color: colors.card, fontSize: 12, fontWeight: '900'},
 
-  listContent: {padding: spacing.xl, paddingBottom: 110, gap: 14},
-  countLabel: {
-    color: colors.inkSoft, fontSize: 13, fontWeight: '700',
-    marginBottom: 4, letterSpacing: 0.3,
+  listContent: {padding: spacing.lg, paddingBottom: 110, gap: 14},
+  listHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 8,
   },
+  listHeaderTitle: {color: colors.navy, fontSize: 20, fontWeight: '900'},
+  listHeaderCount: {color: colors.inkSoft, fontSize: 13, fontWeight: '600'},
 
   jobCard: {
     backgroundColor: colors.card, borderRadius: radius.lg,
@@ -278,16 +434,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 6,
   },
-  refWrap: {},
   jobRef: {color: colors.inkSoft, fontSize: 11, fontWeight: '700'},
-  jobAmount: {color: '#16A34A', fontSize: 18, fontWeight: '900'},
+  jobAmount: {color: '#1066B1', fontSize: 18, fontWeight: '900'},
   openBadge: {
     backgroundColor: '#EAF3FD', borderRadius: radius.pill,
     paddingHorizontal: 10, paddingVertical: 3,
   },
   openBadgeText: {color: colors.accent, fontSize: 11, fontWeight: '900'},
   routeText: {color: colors.navy, fontSize: 18, fontWeight: '900', marginBottom: 14},
-
   metaGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16},
   metaItem: {flexBasis: '45%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8},
   metaIcon: {fontSize: 16},
@@ -296,7 +450,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.4,
   },
   metaVal: {color: colors.ink, fontSize: 13, fontWeight: '700', marginTop: 1},
-
   cardActions: {flexDirection: 'row', gap: 10},
   applyBtn: {
     flex: 1, backgroundColor: '#1066B1', borderRadius: radius.md,
@@ -312,11 +465,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, minHeight: 48, justifyContent: 'center', alignItems: 'center',
   },
   detailsBtnText: {color: colors.navy, fontSize: 15, fontWeight: '800'},
-
   emptyWrap: {alignItems: 'center', marginTop: 60, paddingHorizontal: spacing.xl},
   emptyIcon: {fontSize: 56, marginBottom: 16},
   emptyTitle: {fontSize: 20, fontWeight: '900', color: colors.navy, marginBottom: 8},
   emptySubtitle: {fontSize: 14, color: colors.inkSoft, textAlign: 'center', lineHeight: 20},
+
+  modalBackdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.4)'},
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: spacing.xl, paddingBottom: 40, paddingTop: 16, gap: 4,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  modalTitle: {color: colors.navy, fontSize: 17, fontWeight: '900', marginBottom: 12},
+  modalOption: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: 16, borderRadius: radius.md, marginBottom: 2,
+  },
+  modalOptionSelected: {backgroundColor: '#EFF8FF'},
+  modalOptionText: {color: colors.ink, fontSize: 15, fontWeight: '600'},
+  modalOptionTextSelected: {color: '#1066B1', fontWeight: '800'},
+  modalTick: {color: '#1066B1', fontSize: 16, fontWeight: '900'},
 });
 
 export default JobDiscoveryScreen;

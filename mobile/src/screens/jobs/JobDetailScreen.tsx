@@ -50,12 +50,6 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}>
 
-      {/* Back */}
-      <Pressable onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backArrow}>←</Text>
-        <Text style={styles.backText}>Available Jobs</Text>
-      </Pressable>
-
       {/* Job header */}
       <View style={styles.headerCard}>
         <View style={styles.headerTop}>
@@ -139,28 +133,12 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: spacing.xl,
     paddingBottom: 40,
     gap: spacing.lg,
-  },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  backArrow: {
-    color: colors.navy,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  backText: {
-    color: colors.navy,
-    fontSize: 16,
-    fontWeight: '700',
   },
   headerCard: {
     backgroundColor: colors.navy,

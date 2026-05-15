@@ -15,14 +15,14 @@ export const bottomTabs: Array<{
   key: DriverTabKey;
   label: string;
 }> = [
-  {key: 'home', label: 'Home', icon: '\u2302'},
+  {key: 'home', label: 'FlexiShift', icon: '\u2302'},
   {key: 'jobs', label: 'Jobs', icon: '\u{1F4E6}'},
   {key: 'tracking', label: 'Route', icon: '\u{1F69A}'},
   {key: 'profile', label: 'Profile', icon: '\u{1F464}'},
 ];
 
 export const drawerItems: DrawerNavItem[] = [
-  {key: 'home', label: 'Home', icon: '\u2302'},
+  {key: 'home', label: 'FlexiShift', icon: '\u2302'},
   {
     key: 'jobs.available',
     label: 'My Jobs',

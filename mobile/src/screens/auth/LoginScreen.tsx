@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import {MailIcon, LockIcon} from '../../components/common/FieldIcon';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, fonts, radius, shadow, spacing} from '../../theme';
 
 interface LoginScreenProps {
   loginForm: any;
@@ -70,12 +70,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 
         <View style={styles.formCard}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={[styles.label, {marginBottom: spacing.sm}]}>Email Address</Text>
             <View style={[styles.inputWrap, authError ? styles.inputError : null]}>
               <MailIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
               <TextInput
                 autoCapitalize="none"
+                autoComplete="email"
                 keyboardType="email-address"
+                textContentType="emailAddress"
                 onChangeText={email =>
                   setLoginForm((current: any) => ({...current, email}))
                 }
@@ -269,8 +271,9 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.navy,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     textTransform: 'uppercase',
   },
   forgotText: {

@@ -180,18 +180,32 @@ export interface NotificationSummary {
 
 export interface BookingDetail {
   bookingId: string;
+  // backend uses jobRef; keep aliases for compatibility
+  jobRef?: string;
+  jobReference?: string;
   bookingReference?: string;
   driverId?: string;
+  // backend sends agreedAmount (from payment); escrowAmount is alias
+  agreedAmount?: number;
   escrowAmount?: number;
   escrowStatus?: string;
   jobDate?: string;
+  // bookingId === jobId in this backend
   jobId: string;
-  jobReference?: string;
   paymentStatus?: string;
+  complianceStatus?: string;
+  // backend field names
+  pickupAddress?: string;
+  dropAddress?: string;
+  // legacy aliases
   pickupLocation?: string | {address?: string};
   dropLocation?: string | {address?: string};
   status: string;
   goodsType?: string;
+  vehicleType?: string;
+  weightKg?: number;
+  distanceKm?: number;
+  // legacy aliases
   weight?: string;
   distance?: string;
   currency?: string;

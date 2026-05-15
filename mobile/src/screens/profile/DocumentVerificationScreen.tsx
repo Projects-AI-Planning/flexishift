@@ -12,435 +12,347 @@ import {
   View,
 } from 'react-native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
-import {colors, radius, spacing} from '../../theme';
+import {colors, fonts} from '../../theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type ViewMode = 'list' | 'upload';
 
 export interface DocumentVerificationScreenProps {
   documents: any[];
   verificationStatus: any;
+  driverAvailability?: string;
   refreshing: boolean;
   onRefresh: () => void;
   onUpload: (documentType: string, expiryDate: string, file: any) => Promise<void>;
   uploadLoading: boolean;
   uploadError: string | null;
-  startInUploadMode?: boolean;
+  onSubmit?: () => void;
+}
+
+interface UploadForm {
+  file: {uri: string; fileName: string; type: string} | null;
+  expiry: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DOC_ICONS: Record<string, string> = {
-  driving_license: '🪪',
-  vehicle_insurance: '🛡️',
-  vehicle_registration: '🚛',
-};
-
-const DOC_LABELS: Record<string, string> = {
-  driving_license: 'Driving License',
-  vehicle_insurance: 'Insurance Policy',
-  vehicle_registration: 'Vehicle Registration',
-};
-
-const DOC_SUBTITLES: Record<string, string> = {
-  driving_license: 'Standard Texas Class A CDL',
-  vehicle_insurance: 'General Liability Coverage',
-  vehicle_registration: 'Freightliner Cascadia 2022',
-};
-
-const DOC_TYPES = [
-  {id: 'DRIVING_LICENCE', label: 'Driving License'},
-  {id: 'VEHICLE_REG', label: 'Vehicle Registration (RC)'},
-  {id: 'VEHICLE_INSURANCE', label: 'Vehicle Insurance'},
+const REQUIRED_DOCS = [
+  {
+    backendKey: 'DRIVING_LICENCE',
+    normalKey:  'driving_license',
+    label:      'Driving License',
+    icon:       '🪪',
+    subtitle:   'Standard Texas Class A CDL',
+  },
+  {
+    backendKey: 'VEHICLE_REG',
+    normalKey:  'vehicle_registration',
+    label:      'Vehicle Registration',
+    icon:       '🚛',
+    subtitle:   'Freightliner Cascadia 2022',
+  },
+  {
+    backendKey: 'VEHICLE_INSURANCE',
+    normalKey:  'vehicle_insurance',
+    label:      'Insurance Policy',
+    icon:       '🛡️',
+    subtitle:   'General Liability Coverage',
+  },
 ];
 
-const STATUS_CONFIG: Record<string, {label: string; bg: string; text: string; border: string}> = {
-  approved:     {label: 'VERIFIED',       bg: '#DCFCE7', text: '#15803D', border: '#86EFAC'},
-  verified:     {label: 'VERIFIED',       bg: '#DCFCE7', text: '#15803D', border: '#86EFAC'},
-  pending:      {label: 'PENDING REVIEW', bg: '#FEF9C3', text: '#854D0E', border: '#FDE047'},
-  under_review: {label: 'PENDING REVIEW', bg: '#FEF9C3', text: '#854D0E', border: '#FDE047'},
-  rejected:     {label: 'REJECTED',       bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5'},
-};
-
-function getStatusConfig(status: string) {
-  return STATUS_CONFIG[status?.toLowerCase()] ?? STATUS_CONFIG.pending;
-}
-
-function formatDocType(type: string): string {
-  return DOC_LABELS[type] ?? type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+function getVisibleDocs(driverAvailability?: string) {
+  const mode = (driverAvailability ?? '').toUpperCase();
+  if (mode === 'DRIVER_ONLY') {
+    return REQUIRED_DOCS.filter(d => d.normalKey === 'driving_license');
+  }
+  if (mode === 'TRUCK_ONLY') {
+    return REQUIRED_DOCS.filter(d => d.normalKey !== 'driving_license');
+  }
+  // DRIVER_WITH_TRUCK or unknown → show all three
+  return REQUIRED_DOCS;
 }
 
 function normalizeDocType(raw: string | undefined): string {
-  const value = String(raw ?? '').toLowerCase();
-  if (value === 'driving_licence' || value === 'driving_license') return 'driving_license';
-  if (value === 'vehicle_reg' || value === 'vehicle_registration') return 'vehicle_registration';
-  if (value === 'vehicle_insurance') return 'vehicle_insurance';
-  return value;
-}
-
-function toBackendDocType(raw: string | undefined): string {
-  const value = normalizeDocType(raw);
-  if (value === 'driving_license') return 'DRIVING_LICENCE';
-  if (value === 'vehicle_registration') return 'VEHICLE_REG';
-  if (value === 'vehicle_insurance') return 'VEHICLE_INSURANCE';
-  return String(raw ?? '').toUpperCase();
-}
-
-function getDocSubtitle(doc: any): string {
-  const type = normalizeDocType(doc.documentType ?? doc.docType ?? doc.type);
-  return doc.description ?? DOC_SUBTITLES[type] ?? 'Uploaded document';
+  const v = String(raw ?? '').toLowerCase();
+  if (v === 'driving_licence' || v === 'driving_license') {return 'driving_license';}
+  if (v === 'vehicle_reg'     || v === 'vehicle_registration') {return 'vehicle_registration';}
+  if (v === 'vehicle_insurance') {return 'vehicle_insurance';}
+  return v;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
   documents,
-  verificationStatus,
+  verificationStatus: _verificationStatus,
+  driverAvailability,
   refreshing,
   onRefresh,
   onUpload,
   uploadLoading,
   uploadError,
-  startInUploadMode = false,
+  onSubmit,
 }) => {
-  const [view, setView] = useState<ViewMode>(startInUploadMode ? 'upload' : 'list');
-  const [uploadType, setUploadType] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [uploadForms, setUploadForms] = useState<Record<string, UploadForm>>({});
 
-  const isFullyVerified =
-    verificationStatus?.isVerified === true ||
-    (documents.length > 0 &&
-      documents.every(d => ['approved', 'verified'].includes(d.status?.toLowerCase())));
+  const visibleDocs = getVisibleDocs(driverAvailability);
 
-  // ── Upload helpers ──────────────────────────────────────────────────────────
+  const getUploadedDoc = (normalKey: string) =>
+    documents.find(d =>
+      normalizeDocType(d.documentType ?? d.docType ?? d.type) === normalKey,
+    );
 
-  const openUpload = (preselectedType = '') => {
-    setUploadType(preselectedType);
-    setExpiryDate('');
-    setSelectedFile(null);
-    setView('upload');
+  const openUploadForm = (normalKey: string) => {
+    setExpandedCard(normalKey);
+    setUploadForms(prev => ({...prev, [normalKey]: {file: null, expiry: ''}}));
   };
 
-  const pickImage = async (source: 'camera' | 'gallery') => {
-    try {
-      const response =
-        source === 'camera'
-          ? await launchCamera({mediaType: 'photo', quality: 0.8, saveToPhotos: false})
-          : await launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 1});
+  const patchForm = (normalKey: string, patch: Partial<UploadForm>) =>
+    setUploadForms(prev => ({...prev, [normalKey]: {...prev[normalKey], ...patch}}));
 
-      if (response.didCancel || response.errorCode || !response.assets?.length) {
-        return;
-      }
-      const asset = response.assets[0];
-      if (asset.uri) {
-        setSelectedFile({
-          uri: asset.uri,
-          fileName: asset.fileName ?? 'document.jpg',
-          type: asset.type ?? 'image/jpeg',
-        });
-      }
-    } catch (err) {
-      Alert.alert(
-        'Photo upload failed',
-        err instanceof Error ? err.message : 'Please try again.',
-      );
-    }
-  };
-
-  const handlePickImage = () => {
-    Alert.alert('Select Image', 'Choose a method to upload your document', [
-      {text: 'Camera', onPress: () => pickImage('camera').catch(() => undefined)},
-      {text: 'Gallery', onPress: () => pickImage('gallery').catch(() => undefined)},
+  const pickFile = (normalKey: string) => {
+    Alert.alert('Select Document', 'Choose upload method', [
+      {
+        text: 'Camera',
+        onPress: async () => {
+          try {
+            const res = await launchCamera({mediaType: 'photo', quality: 0.8, saveToPhotos: false});
+            const a = res.assets?.[0];
+            if (a?.uri) {
+              patchForm(normalKey, {file: {uri: a.uri, fileName: a.fileName ?? 'doc.jpg', type: a.type ?? 'image/jpeg'}});
+            }
+          } catch {}
+        },
+      },
+      {
+        text: 'Gallery',
+        onPress: async () => {
+          try {
+            const res = await launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 1});
+            const a = res.assets?.[0];
+            if (a?.uri) {
+              patchForm(normalKey, {file: {uri: a.uri, fileName: a.fileName ?? 'doc.jpg', type: a.type ?? 'image/jpeg'}});
+            }
+          } catch {}
+        },
+      },
       {text: 'Cancel', style: 'cancel'},
     ]);
   };
 
-  const handleSubmitUpload = async () => {
-    if (!uploadType || !expiryDate || !selectedFile) {
+  const handleUpload = async (backendKey: string, normalKey: string) => {
+    const form = uploadForms[normalKey];
+    if (!form?.file) {
+      Alert.alert('No file selected', 'Please select a document photo first.');
       return;
     }
-    await onUpload(uploadType, expiryDate, selectedFile);
-    // Parent navigates on success; on error, uploadError prop updates
+    if (!form.expiry.trim()) {
+      Alert.alert('Expiry required', 'Please enter the document expiry date.');
+      return;
+    }
+    await onUpload(backendKey, form.expiry.trim(), form.file);
+    setExpandedCard(null);
   };
-
-  // ── Upload View ─────────────────────────────────────────────────────────────
-
-  if (view === 'upload') {
-    const canSubmit = !uploadLoading && !!uploadType && !!expiryDate && !!selectedFile;
-
-    return (
-      <SafeAreaView style={styles.safe}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.uploadContent}>
-
-          {/* Upload header */}
-          <View style={styles.uploadHeader}>
-            <Pressable onPress={() => setView('list')} hitSlop={8} style={styles.backBtn}>
-              <Text style={styles.backBtnText}>← Back</Text>
-            </Pressable>
-            <Text style={styles.uploadTitle}>Upload Document</Text>
-            <Text style={styles.uploadSubtitle}>
-              Please provide clear photos of your documents for faster verification.
-            </Text>
-          </View>
-
-          {/* Document type */}
-          <View style={styles.uploadCard}>
-            <Text style={styles.uploadCardLabel}>DOCUMENT TYPE</Text>
-            <View style={styles.typeGrid}>
-              {DOC_TYPES.map(t => (
-                <Pressable
-                  key={t.id}
-                  onPress={() => setUploadType(t.id)}
-                  style={[styles.typeChip, uploadType === t.id && styles.typeChipActive]}>
-                  <Text
-                    style={[styles.typeChipText, uploadType === t.id && styles.typeChipTextActive]}>
-                    {t.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Expiry date */}
-          <View style={styles.uploadCard}>
-            <Text style={styles.uploadCardLabel}>EXPIRY DATE</Text>
-            <TextInput
-              style={styles.dateInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#94A3B8"
-              value={expiryDate}
-              onChangeText={setExpiryDate}
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* File picker */}
-          <View style={styles.uploadCard}>
-            <Text style={styles.uploadCardLabel}>DOCUMENT PHOTO</Text>
-            <Pressable
-              onPress={handlePickImage}
-              style={[styles.filePicker, selectedFile && styles.filePickerDone]}>
-              {selectedFile ? (
-                <View style={styles.filePickerBody}>
-                  <Text style={styles.filePickerIcon}>📄</Text>
-                  <Text style={styles.filePickerName}>
-                    {selectedFile.fileName || 'Document Captured'}
-                  </Text>
-                  <Text style={styles.filePickerRetake}>Tap to retake</Text>
-                </View>
-              ) : (
-                <View style={styles.filePickerBody}>
-                  <Text style={styles.filePickerIcon}>📷</Text>
-                  <Text style={styles.filePickerPrompt}>Capture Document Photo</Text>
-                  <Text style={styles.filePickerHint}>JPG, PNG or PDF · Max 10MB</Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-
-          {/* Error */}
-          {uploadError ? (
-            <View style={styles.uploadErrorBanner}>
-              <Text style={styles.uploadErrorText}>{uploadError}</Text>
-            </View>
-          ) : null}
-
-          {/* Submit upload */}
-          <Pressable
-            onPress={handleSubmitUpload}
-            disabled={!canSubmit}
-            style={[styles.submitUploadBtn, !canSubmit && styles.submitUploadBtnDisabled]}>
-            <Text style={styles.submitUploadBtnText}>
-              {uploadLoading ? 'Uploading...' : 'Submit for Verification'}
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ── List View ───────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
 
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <View style={styles.menuBtn}>
-            <Text style={styles.menuIcon}>☰</Text>
-          </View>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarIcon}>👤</Text>
-          </View>
+          <Text style={styles.headerTitle}>Document Verification</Text>
         </View>
 
-        {/* Info banner */}
-        {!isFullyVerified && (
-          <View style={styles.infoBanner}>
-            <View style={styles.infoIconCircle}>
-              <Text style={styles.infoIconGlyph}>ℹ</Text>
-            </View>
-            <Text style={styles.infoText}>
-              Job requests are restricted until all documents are approved by the admin.
-            </Text>
+        {/* ── Info Banner ─────────────────────────────────────────────────── */}
+        <View style={styles.infoBanner}>
+          <View style={styles.infoIconWrap}>
+            <Text style={styles.infoIconText}>i</Text>
           </View>
-        )}
+          <Text style={styles.infoText}>
+            Job requests are restricted until all{'\n'}documents are approved by the admin.
+          </Text>
+        </View>
 
-        {/* Verification Protocol */}
+        {/* ── Verification Protocol ──────────────────────────────────────── */}
         <View style={styles.protocolCard}>
           <View style={styles.protocolHeader}>
             <View style={styles.protocolIconBox}>
-              <Text style={styles.protocolIconGlyph}>☑</Text>
+              <Text style={styles.protocolIconText}>☑</Text>
             </View>
             <Text style={styles.protocolTitle}>Verification Protocol</Text>
           </View>
+
           {[
             'Ensure all text is legible and edges are visible',
             'Accepted formats: JPG, PNG, or PDF',
             'Max file size: 10MB per document',
           ].map((rule, i) => (
             <View key={i} style={styles.protocolRow}>
-              <Text style={styles.protocolCheckGlyph}>⊙</Text>
-              <Text style={styles.protocolText}>{rule}</Text>
+              <View style={styles.protocolBullet}>
+                <Text style={styles.protocolBulletTick}>✓</Text>
+              </View>
+              <Text style={styles.protocolRuleText}>{rule}</Text>
             </View>
           ))}
         </View>
 
-        {/* Background Check */}
-        <View style={styles.bgCard}>
-          <View style={styles.bgCardTop}>
-            <Text style={styles.bgCardTitle}>BACKGROUND CHECK{'\n'}REQUIRED</Text>
-            <View style={styles.bgShieldCircle}>
-              <Text style={styles.bgShieldGlyph}>🛡</Text>
-            </View>
-          </View>
-          <Text style={styles.bgCardSub}>
-            Mandatory safety screening for all active haulers.
-          </Text>
-          <Pressable style={styles.bgCardBtn}>
-            <Text style={styles.bgCardBtnText}>START SCREENING</Text>
-          </Pressable>
-        </View>
+        {/* ── Document Cards ─────────────────────────────────────────────── */}
+        {visibleDocs.map(def => {
+          const doc = getUploadedDoc(def.normalKey);
+          const status = doc?.status?.toLowerCase();
+          const isVerified  = status === 'approved' || status === 'verified';
+          const isPending   = status === 'pending'  || status === 'under_review';
+          const isRejected  = status === 'rejected';
+          const hasDoc      = isVerified || isPending || isRejected;
+          const isExpanded  = expandedCard === def.normalKey;
+          const form        = uploadForms[def.normalKey];
 
-        {/* Document Cards */}
-        <View style={styles.docList}>
-          {documents.length > 0 ? (
-            documents.map((doc, idx) => {
-              const sc = getStatusConfig(doc.status);
-              const status = doc.status?.toLowerCase();
-              const isRejected = status === 'rejected';
-              const isVerified = status === 'approved' || status === 'verified';
-              const isPending = !isVerified && !isRejected;
-              const docType = normalizeDocType(doc.documentType ?? doc.docType ?? doc.type);
+          return (
+            <View
+              key={def.normalKey}
+              style={[styles.docCard, isRejected && styles.docCardRejected]}>
 
-              return (
-                <View
-                  key={doc.documentId ?? idx}
-                  style={[styles.docCard, isRejected && styles.docCardRejected]}>
+              {/* ── Card top row ── */}
+              <View style={styles.docRow}>
+                <View style={[styles.docIconBox, isRejected && styles.docIconBoxRed]}>
+                  <Text style={styles.docIconText}>{def.icon}</Text>
+                </View>
 
-                  <View style={styles.docTop}>
-                    <View style={styles.docIconBox}>
-                      <Text style={styles.docIcon}>{DOC_ICONS[docType] ?? '📄'}</Text>
-                    </View>
-                    <View style={styles.docMeta}>
-                      <Text style={styles.docName}>{formatDocType(docType)}</Text>
-                      <Text style={styles.docDesc} numberOfLines={1}>
-                        {getDocSubtitle(doc)}
-                      </Text>
-                    </View>
-                    <View style={[styles.badge, {backgroundColor: sc.bg, borderColor: sc.border}]}>
-                      <Text style={[styles.badgeText, {color: sc.text}]}>{sc.label}</Text>
-                    </View>
+                <View style={styles.docMeta}>
+                  <Text style={styles.docName}>{def.label}</Text>
+                  <Text style={styles.docSubtitle}>
+                    {doc?.description ?? def.subtitle}
+                  </Text>
+                </View>
+
+                {isVerified && (
+                  <View style={styles.badgeVerified}>
+                    <Text style={styles.badgeVerifiedText}>VERIFIED</Text>
                   </View>
+                )}
+                {isPending && (
+                  <View style={styles.badgePending}>
+                    <Text style={styles.badgePendingText}>PENDING REVIEW</Text>
+                  </View>
+                )}
+                {isRejected && (
+                  <View style={styles.badgeRejected}>
+                    <Text style={styles.badgeRejectedText}>REJECTED</Text>
+                  </View>
+                )}
+              </View>
 
-                  {isRejected && (
-                    <View style={styles.rejectionRow}>
-                      <Text style={styles.rejectionWarnIcon}>⚠</Text>
-                      <View style={{flex: 1}}>
-                        <Text style={styles.rejectionLabel}>Rejection Reason</Text>
-                        <Text style={styles.rejectionText}>
-                          {doc.rejectionReason?.trim()
-                            ? doc.rejectionReason
-                            : 'Document was rejected by the admin. Please upload a clearer, legible copy and resubmit.'}
-                        </Text>
+              {/* ── Rejection reason ── */}
+              {isRejected && (
+                <View style={styles.rejectionRow}>
+                  <View style={styles.rejectionIcon}>
+                    <Text style={styles.rejectionIconText}>!</Text>
+                  </View>
+                  <Text style={styles.rejectionMsg}>
+                    {doc?.rejectionReason?.trim() || 'Image blurry: License number unreadable'}
+                  </Text>
+                </View>
+              )}
+
+              {/* ── Inline upload form (expands when Replace / Upload New tapped) ── */}
+              {isExpanded && (
+                <View style={styles.uploadForm}>
+                  <Pressable
+                    onPress={() => pickFile(def.normalKey)}
+                    style={[styles.filePicker, form?.file && styles.filePickerReady]}>
+                    {form?.file ? (
+                      <View style={styles.filePickerInner}>
+                        <Text style={styles.fpIcon}>📄</Text>
+                        <Text style={styles.fpName} numberOfLines={1}>{form.file.fileName}</Text>
+                        <Text style={styles.fpRetap}>Tap to change</Text>
                       </View>
-                    </View>
-                  )}
+                    ) : (
+                      <View style={styles.filePickerInner}>
+                        <Text style={styles.fpIcon}>📷</Text>
+                        <Text style={styles.fpPrompt}>Tap to select document</Text>
+                        <Text style={styles.fpHint}>JPG, PNG or PDF · Max 10MB</Text>
+                      </View>
+                    )}
+                  </Pressable>
 
+                  <TextInput
+                    style={styles.expiryInput}
+                    placeholder="Expiry date  YYYY-MM-DD"
+                    placeholderTextColor="#94A3B8"
+                    value={form?.expiry ?? ''}
+                    onChangeText={v => patchForm(def.normalKey, {expiry: v})}
+                    keyboardType="numeric"
+                  />
+
+                  <View style={styles.formActions}>
+                    <Pressable onPress={() => setExpandedCard(null)} style={styles.cancelBtn}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleUpload(def.backendKey, def.normalKey)}
+                      disabled={uploadLoading}
+                      style={[styles.uploadBtn, uploadLoading && {opacity: 0.5}]}>
+                      <Text style={styles.uploadBtnText}>
+                        {uploadLoading ? 'Uploading…' : 'Upload'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* ── Action buttons (hidden while card is expanded) ── */}
+              {!isExpanded && (
+                <>
                   {isVerified && (
                     <Pressable
-                      onPress={() => openUpload(toBackendDocType(docType))}
+                      onPress={() => openUploadForm(def.normalKey)}
                       style={styles.outlineBtn}>
                       <Text style={styles.outlineBtnText}>Replace</Text>
                     </Pressable>
                   )}
                   {isPending && (
-                    <View style={styles.docActionRow}>
-                      <Pressable
-                        onPress={() => doc.fileUrl && Linking.openURL(doc.fileUrl)}
-                        style={[styles.outlineBtn, styles.docActionHalf]}>
-                        <Text style={styles.outlineBtnText}>View</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => openUpload(toBackendDocType(docType))}
-                        style={[styles.outlineBtn, styles.docActionHalf]}>
-                        <Text style={styles.outlineBtnText}>Upload</Text>
-                      </Pressable>
-                    </View>
+                    <Pressable
+                      onPress={() => doc?.fileUrl && Linking.openURL(doc.fileUrl)}
+                      style={styles.outlineBtn}>
+                      <Text style={styles.outlineBtnText}>View</Text>
+                    </Pressable>
                   )}
                   {isRejected && (
                     <Pressable
-                      onPress={() => openUpload(toBackendDocType(docType))}
-                      style={styles.uploadNewBtn}>
-                      <Text style={styles.uploadNewBtnText}>Upload New</Text>
+                      onPress={() => openUploadForm(def.normalKey)}
+                      style={styles.darkBtn}>
+                      <Text style={styles.darkBtnText}>Upload New</Text>
                     </Pressable>
                   )}
-                </View>
-              );
-            })
-          ) : (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📂</Text>
-              <Text style={styles.emptyTitle}>No Documents Yet</Text>
-              <Text style={styles.emptySub}>
-                Upload your Driving License, Vehicle Registration, and Vehicle Insurance to start receiving jobs.
-              </Text>
-              <Pressable onPress={() => openUpload()} style={[styles.outlineBtn, {marginTop: 12}]}>
-                <Text style={styles.outlineBtnText}>+ Upload First Document</Text>
-              </Pressable>
+                  {!hasDoc && (
+                    <Pressable
+                      onPress={() => openUploadForm(def.normalKey)}
+                      style={styles.outlineBtn}>
+                      <Text style={styles.outlineBtnText}>Upload Document</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
             </View>
-          )}
-        </View>
+          );
+        })}
 
-        {/* Help card */}
-        <View style={styles.helpCard}>
-          <View style={styles.helpTextWrap}>
-            <Text style={styles.helpTitle}>Need help with{'\n'}verification?</Text>
-            <Text style={styles.helpSub}>
-              Our compliance team is available 24/7 to assist with document issues.
-            </Text>
+        {/* ── Upload error ───────────────────────────────────────────────── */}
+        {uploadError ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorBoxText}>{uploadError}</Text>
           </View>
-          <Pressable style={styles.helpBtn}>
-            <Text style={styles.helpBtnText}>Contact{'\n'}Compliance</Text>
-          </Pressable>
-        </View>
+        ) : null}
 
-        {/* Submit */}
-        <View style={styles.submitWrap}>
-          <Pressable
-            onPress={() => openUpload()}
-            style={[styles.submitBtn, documents.length === 0 && styles.submitBtnDisabled]}>
-            <Text style={styles.submitArrow}>▷</Text>
-            <Text style={styles.submitText}>Submit</Text>
-          </Pressable>
-        </View>
+        {/* ── Submit ─────────────────────────────────────────────────────── */}
+        <Pressable onPress={onSubmit} style={styles.submitBtn}>
+          <Text style={styles.submitArrow}>▷</Text>
+          <Text style={styles.submitText}>Submit</Text>
+        </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -450,206 +362,376 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  scroll: {paddingBottom: 36},
 
-  // ── Header ────────────────────────────────────────────────────────────────
+  // Header
   header: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E9F0',
+    paddingHorizontal: 18,
+    paddingVertical: 15,
+  },
+  headerTitle: {
+    textAlign: 'center',
+    fontSize: 19,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  // Info banner
+  infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF3',
+    gap: 10,
+    backgroundColor: '#C8E8FF',
+    marginHorizontal: 14,
+    marginTop: 14,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
-  menuBtn: {width: 36, height: 36, justifyContent: 'center'},
-  menuIcon: {fontSize: 22, color: colors.navy},
-  headerTitle: {flex: 1, textAlign: 'center', color: colors.navy, fontSize: 18, fontWeight: '900'},
-  avatarCircle: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#CBD5E1',
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
+  infoIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
-  avatarIcon: {fontSize: 20},
+  infoIconText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    fontWeight: '900',
+  },
+  infoText: {
+    flex: 1,
+    color: '#1565C0',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: fonts.medium,
+    fontWeight: '500',
+  },
 
-  // ── Info Banner ───────────────────────────────────────────────────────────
-  infoBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#EBF5FD', marginHorizontal: spacing.lg, marginTop: spacing.lg,
-    borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: '#BFDBFE',
-  },
-  infoIconCircle: {
-    width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563EB',
-    justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginTop: 1,
-  },
-  infoIconGlyph: {color: '#fff', fontSize: 11, fontWeight: '900'},
-  infoText: {flex: 1, color: '#1D4ED8', fontSize: 13, lineHeight: 19, fontWeight: '600'},
-
-  // ── Verification Protocol ─────────────────────────────────────────────────
+  // Verification Protocol card
   protocolCard: {
-    backgroundColor: '#0F172A', marginHorizontal: spacing.lg, marginTop: spacing.lg,
-    borderRadius: radius.lg, padding: spacing.lg, gap: 12,
+    backgroundColor: '#1A2332',
+    marginHorizontal: 14,
+    marginTop: 14,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    gap: 10,
   },
-  protocolHeader: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2},
+  protocolHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+  },
   protocolIconBox: {
-    width: 34, height: 34, borderRadius: 8, backgroundColor: '#1E293B',
-    justifyContent: 'center', alignItems: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#263347',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  protocolIconGlyph: {color: '#60A5FA', fontSize: 18},
-  protocolTitle: {color: '#fff', fontSize: 15, fontWeight: '900'},
-  protocolRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
-  protocolCheckGlyph: {color: '#60A5FA', fontSize: 15, flexShrink: 0, marginTop: 1},
-  protocolText: {flex: 1, color: '#94A3B8', fontSize: 13, lineHeight: 19},
+  protocolIconText: {fontSize: 20, color: '#60A5FA'},
+  protocolTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    flex: 1,
+  },
+  protocolRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  protocolBullet: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#4B5563',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  protocolBulletTick: {color: '#6B7280', fontSize: 9, fontWeight: '900'},
+  protocolRuleText: {
+    flex: 1,
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: fonts.regular,
+  },
 
-  // ── Background Check ──────────────────────────────────────────────────────
-  bgCard: {
-    backgroundColor: '#0F172A', marginHorizontal: spacing.lg, marginTop: spacing.md,
-    borderRadius: radius.lg, padding: spacing.lg,
-  },
-  bgCardTop: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10},
-  bgCardTitle: {color: '#fff', fontSize: 19, fontWeight: '900', lineHeight: 26, flex: 1},
-  bgShieldCircle: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: '#1E40AF',
-    justifyContent: 'center', alignItems: 'center', marginLeft: 10, flexShrink: 0,
-  },
-  bgShieldGlyph: {fontSize: 18},
-  bgCardSub: {color: '#94A3B8', fontSize: 13, lineHeight: 19, marginBottom: 16},
-  bgCardBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center',
-  },
-  bgCardBtnText: {color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1.5},
-
-  // ── Document List ─────────────────────────────────────────────────────────
-  docList: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
+  // Document card
   docCard: {
-    backgroundColor: '#fff', borderRadius: radius.lg, borderWidth: 1,
-    borderColor: '#E2E8F0', padding: spacing.lg, gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginHorizontal: 14,
+    marginTop: 14,
+    padding: 16,
+    gap: 14,
   },
-  docCardRejected: {borderColor: '#FCA5A5', borderWidth: 1.5},
-  docTop: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  docCardRejected: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
+  },
+  docRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   docIconBox: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: '#F1F5F9',
-    justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
-  docIcon: {fontSize: 20},
+  docIconBoxRed: {backgroundColor: '#FEE2E2'},
+  docIconText: {fontSize: 24},
   docMeta: {flex: 1},
-  docName: {color: colors.navy, fontSize: 14, fontWeight: '900', marginBottom: 2},
-  docDesc: {color: '#64748B', fontSize: 12},
-  badge: {borderRadius: radius.pill, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 0},
-  badgeText: {fontSize: 9, fontWeight: '900', letterSpacing: 0.5},
+  docName: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  docSubtitle: {
+    color: '#64748B',
+    fontSize: 12,
+    fontFamily: fonts.regular,
+  },
 
+  // Badges
+  badgeVerified: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  badgeVerifiedText: {
+    color: '#16A34A',
+    fontSize: 9,
+    fontFamily: fonts.bold,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  badgePending: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  badgePendingText: {
+    color: '#B45309',
+    fontSize: 9,
+    fontFamily: fonts.bold,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  badgeRejected: {
+    backgroundColor: '#DC2626',
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  badgeRejectedText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontFamily: fonts.bold,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+
+  // Rejection reason row
   rejectionRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: radius.sm, padding: spacing.md,
-    borderWidth: 1, borderColor: '#FECACA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF8F8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  rejectionWarnIcon: {color: '#DC2626', fontSize: 16, flexShrink: 0, marginTop: 1},
-  rejectionLabel: {color: '#B91C1C', fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 3},
-  rejectionText: {color: '#DC2626', fontSize: 13, lineHeight: 19, fontWeight: '500'},
+  rejectionIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  rejectionIconText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  rejectionMsg: {
+    flex: 1,
+    color: '#EF4444',
+    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontWeight: '500',
+  },
 
+  // Outline button (Replace / View)
   outlineBtn: {
-    borderWidth: 1, borderColor: '#CBD5E1', borderRadius: radius.sm,
-    paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  outlineBtnText: {color: colors.navy, fontSize: 13, fontWeight: '800'},
-  docActionRow: {flexDirection: 'row', gap: 10},
-  docActionHalf: {flex: 1},
-  uploadNewBtn: {backgroundColor: '#0F172A', borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center'},
-  uploadNewBtnText: {color: '#fff', fontSize: 14, fontWeight: '800'},
-
-  emptyCard: {
-    backgroundColor: '#fff', borderRadius: radius.lg, borderWidth: 1,
-    borderColor: '#E2E8F0', padding: spacing.xxl, alignItems: 'center', gap: 10,
-  },
-  emptyIcon: {fontSize: 48},
-  emptyTitle: {color: colors.navy, fontSize: 18, fontWeight: '900'},
-  emptySub: {color: '#64748B', fontSize: 14, textAlign: 'center', lineHeight: 20},
-
-  // ── Help Card ─────────────────────────────────────────────────────────────
-  helpCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#F8FAFC',
-    marginHorizontal: spacing.lg, marginTop: spacing.md, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: '#E2E8F0', padding: spacing.lg,
-  },
-  helpTextWrap: {flex: 1},
-  helpTitle: {color: colors.navy, fontSize: 14, fontWeight: '900', marginBottom: 4},
-  helpSub: {color: '#64748B', fontSize: 12, lineHeight: 17},
-  helpBtn: {
-    borderWidth: 1.5, borderColor: '#CBD5E1', borderRadius: radius.md,
-    paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center',
-    backgroundColor: '#fff', flexShrink: 0,
-  },
-  helpBtnText: {color: colors.navy, fontSize: 12, fontWeight: '900', textAlign: 'center'},
-
-  // ── Submit ────────────────────────────────────────────────────────────────
-  submitWrap: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: 32},
-  submitBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.lg, minHeight: 58,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12,
-  },
-  submitBtnDisabled: {opacity: 0.4},
-  submitArrow: {color: '#fff', fontSize: 18},
-  submitText: {color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.5},
-
-  // ── Upload View ───────────────────────────────────────────────────────────
-  uploadContent: {padding: spacing.lg, paddingBottom: 48, gap: spacing.md},
-  uploadHeader: {paddingVertical: spacing.sm},
-  backBtn: {alignSelf: 'flex-start', marginBottom: spacing.md},
-  backBtnText: {color: colors.accent, fontSize: 15, fontWeight: '800'},
-  uploadTitle: {color: colors.navy, fontSize: 28, fontWeight: '900', marginBottom: spacing.sm},
-  uploadSubtitle: {color: '#64748B', fontSize: 14, lineHeight: 21},
-
-  uploadCard: {
-    backgroundColor: '#fff', borderRadius: radius.lg, borderWidth: 1,
-    borderColor: '#E2E8F0', padding: spacing.lg, gap: spacing.sm,
-  },
-  uploadCardLabel: {
-    color: colors.navy, fontSize: 11, fontWeight: '900',
-    letterSpacing: 1, textTransform: 'uppercase',
+  outlineBtnText: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 
-  typeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
-  typeChip: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderRadius: radius.pill, borderWidth: 1, borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+  // Dark filled button (Upload New)
+  darkBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
   },
-  typeChipActive: {borderColor: '#1066B1', backgroundColor: '#1066B1'},
-  typeChipText: {fontSize: 13, fontWeight: '800', color: '#64748B'},
-  typeChipTextActive: {color: '#fff'},
-
-  dateInput: {
-    backgroundColor: '#F8FAFC', borderRadius: radius.sm, paddingHorizontal: spacing.lg,
-    minHeight: 52, fontSize: 15, color: colors.navy, borderWidth: 1, borderColor: '#E2E8F0',
+  darkBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 
+  // Inline upload form
+  uploadForm: {gap: 12},
   filePicker: {
-    height: 150, backgroundColor: '#F8FAFC', borderRadius: radius.md,
-    borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed',
-    justifyContent: 'center', alignItems: 'center',
+    minHeight: 110,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
   },
-  filePickerDone: {
-    borderStyle: 'solid', borderColor: colors.mint, backgroundColor: '#F0FDF4',
+  filePickerReady: {
+    borderStyle: 'solid',
+    borderColor: '#16A34A',
+    backgroundColor: '#F0FDF4',
   },
-  filePickerBody: {alignItems: 'center', gap: 6},
-  filePickerIcon: {fontSize: 32},
-  filePickerName: {color: colors.navy, fontSize: 14, fontWeight: '800'},
-  filePickerRetake: {color: colors.mint, fontSize: 12, fontWeight: '700'},
-  filePickerPrompt: {color: '#64748B', fontSize: 14, fontWeight: '800'},
-  filePickerHint: {color: '#94A3B8', fontSize: 12},
+  filePickerInner: {alignItems: 'center', gap: 4},
+  fpIcon: {fontSize: 28},
+  fpName: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    maxWidth: 220,
+    textAlign: 'center',
+  },
+  fpRetap: {color: '#16A34A', fontSize: 11, fontWeight: '600'},
+  fpPrompt: {color: '#475569', fontSize: 13, fontWeight: '700'},
+  fpHint: {color: '#94A3B8', fontSize: 11},
 
-  uploadErrorBanner: {
-    backgroundColor: '#FEE2E2', borderRadius: radius.sm,
-    padding: spacing.md, borderWidth: 1, borderColor: '#FCA5A5',
+  expiryInput: {
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 50,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    fontFamily: fonts.regular,
   },
-  uploadErrorText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
 
-  submitUploadBtn: {
-    backgroundColor: '#1066B1', borderRadius: radius.lg,
-    minHeight: 56, justifyContent: 'center', alignItems: 'center',
-    marginTop: spacing.sm,
+  formActions: {flexDirection: 'row', gap: 10},
+  cancelBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
   },
-  submitUploadBtnDisabled: {opacity: 0.4},
-  submitUploadBtnText: {color: '#fff', fontSize: 16, fontWeight: '900'},
+  cancelText: {color: '#64748B', fontSize: 14, fontFamily: fonts.bold, fontWeight: '700'},
+  uploadBtn: {
+    flex: 2,
+    backgroundColor: colors.accent,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  uploadBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+  },
+
+  // Error
+  errorBox: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  errorBoxText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
+
+  // Submit
+  submitBtn: {
+    marginHorizontal: 14,
+    marginTop: 20,
+    backgroundColor: '#1A5FAF',
+    borderRadius: 14,
+    height: 62,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+  },
+  submitArrow: {color: '#FFFFFF', fontSize: 22},
+  submitText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
 });
 
 export default DocumentVerificationScreen;
