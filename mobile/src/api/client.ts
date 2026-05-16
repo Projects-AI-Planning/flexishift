@@ -163,9 +163,14 @@ export async function request<T>(
   logResponse(id, response.status, response.ok && !!payload?.status, payload);
 
   if (!response.ok || !payload?.status) {
-    throw new Error(
-      payload?.message ?? `Request failed with status ${response.status}`,
-    );
+    const rawMessage = payload?.message;
+    const message =
+      typeof rawMessage === 'string'
+        ? rawMessage
+        : rawMessage != null
+        ? JSON.stringify(rawMessage)
+        : `Request failed with status ${response.status}`;
+    throw new Error(message);
   }
 
   return payload.data;

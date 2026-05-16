@@ -72,7 +72,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 
   const [activeModal, setActiveModal] = useState<'cargo' | 'date' | 'radius' | null>(null);
 
-  const canApply = docStatus === 'approved' || docStatus === 'none';
+  const canApply = docStatus === 'approved';
   const appliedSet = new Set(appliedJobIds.filter(Boolean));
 
   // Derive unique cargo types from loaded jobs

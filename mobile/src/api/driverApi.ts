@@ -89,13 +89,12 @@ export const driverApi = {
         method: 'POST',
         body: jsonBody(payload),
       }),
-    toggle: (payload: Record<string, unknown>) =>
-      request<Record<string, unknown>>('/supplier/availability/toggle', {
+    toggle: (slotId: string) =>
+      request<Record<string, unknown>>(`/supplier/availability/toggle/${slotId}`, {
         method: 'PUT',
-        body: jsonBody(payload),
       }),
-    update: (payload: Record<string, unknown>) =>
-      request<Record<string, unknown>>('/supplier/availability/update', {
+    update: (slotId: string, payload: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/supplier/availability/update/${slotId}`, {
         method: 'PUT',
         body: jsonBody(payload),
       }),
@@ -133,23 +132,21 @@ export const driverApi = {
         method: 'POST',
         body: jsonBody(payload),
       }),
-    submitDeliveryPhotos: (formData: FormData) =>
-      request<Record<string, unknown>>('/compliance/delivery/photos/upload', {
-        method: 'POST',
-        body: formData,
-        isFormData: true,
-      }),
+    submitDeliveryPhotos: (formData: FormData, jobId?: string) =>
+      request<Record<string, unknown>>(
+        `/compliance/delivery/photos/upload-direct${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''}`,
+        {method: 'POST', body: formData, isFormData: true},
+      ),
     submitDeliveryProof: (payload: Record<string, unknown>) =>
       request<Record<string, unknown>>('/compliance/delivery/submit', {
         method: 'POST',
         body: jsonBody(payload),
       }),
-    submitHandoverPhotos: (formData: FormData) =>
-      request<Record<string, unknown>>('/compliance/handover/photos/upload', {
-        method: 'POST',
-        body: formData,
-        isFormData: true,
-      }),
+    submitHandoverPhotos: (formData: FormData, jobId?: string) =>
+      request<Record<string, unknown>>(
+        `/compliance/handover/photos/upload-direct${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''}`,
+        {method: 'POST', body: formData, isFormData: true},
+      ),
     submitVehicleChecklist: (payload: Record<string, unknown>) =>
       request<Record<string, unknown>>(
         '/compliance/handover/checklist/submit',

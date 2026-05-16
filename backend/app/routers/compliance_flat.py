@@ -3,18 +3,21 @@ Flat /compliance/* endpoints matching the 125-API production spec.
 The original job-scoped /jobs/:id/compliance/* endpoints are kept for backward
 compatibility in compliance.py.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import List, Optional
+from uuid import uuid4
 
 from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.compliance import ComplianceRecord
 from app.models.job import Job, JobStatus
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.models.user import User, Role
 from app.services import compliance as comp_svc
+from app.services import local_storage as local_svc
 from app.services import s3
 from app.config import settings
 
@@ -156,14 +159,53 @@ def get_handover_photo_upload_urls(
     body: PhotosUploadRequest,
     current_user: User = Depends(DriverDep),
 ):
-    from uuid import uuid4
     urls = []
-    for i in range(min(body.count, 10)):
+    for _ in range(min(body.count, 10)):
         key = f"compliance/{body.job_id}/handover/{uuid4()}.jpg"
         result = s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, "image/jpeg")
         file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
         urls.append({**result, "fileUrl": file_url})
     return ok(data={"uploads": urls}, message="Upload URLs generated")
+
+
+@router.post("/handover/photos/upload-direct")
+async def upload_handover_photos_direct(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(DriverDep),
+    job_id: str = Query(..., alias="jobId"),
+    photos: List[UploadFile] = File(...),
+):
+    uploaded = []
+    for photo in photos[:10]:
+        suffix = {
+            "image/jpeg": "jpg", "image/jpg": "jpg",
+            "image/png": "png", "image/webp": "webp",
+        }.get(photo.content_type or "", "jpg")
+        key = f"compliance/{job_id}/handover/{uuid4()}.{suffix}"
+        contents = await photo.read()
+        if local_svc.azure_available():
+            s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, photo.content_type or "image/jpeg")
+            file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        else:
+            local_svc.ensure_local_upload_root()
+            file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(contents)
+            file_url = str(request.url_for("uploads", path=key))
+            record = local_svc.create_pending_upload(
+                db,
+                user_id=current_user.id,
+                kind=LocalUploadKind.IMAGE,
+                original_name=photo.filename or f"handover.{suffix}",
+                content_type=photo.content_type or "image/jpeg",
+                storage_key=key,
+            )
+            record.public_url = file_url
+            record.status = LocalUploadStatus.STORED
+            db.commit()
+        uploaded.append({"key": key, "fileUrl": file_url})
+    return ok(data={"uploads": uploaded, "photos": uploaded}, message="Handover photos uploaded")
 
 
 @router.get("/handover/photos/list/{job_id}")
@@ -318,6 +360,46 @@ def get_delivery_photo_upload_urls(
         file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
         urls.append({**result, "fileUrl": file_url})
     return ok(data={"uploads": urls}, message="Upload URLs generated")
+
+
+@router.post("/delivery/photos/upload-direct")
+async def upload_delivery_photos_direct(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(DriverDep),
+    job_id: str = Query(..., alias="jobId"),
+    photos: List[UploadFile] = File(...),
+):
+    uploaded = []
+    for photo in photos[:10]:
+        suffix = {
+            "image/jpeg": "jpg", "image/jpg": "jpg",
+            "image/png": "png", "image/webp": "webp",
+        }.get(photo.content_type or "", "jpg")
+        key = f"compliance/{job_id}/delivery/{uuid4()}.{suffix}"
+        contents = await photo.read()
+        if local_svc.azure_available():
+            s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, photo.content_type or "image/jpeg")
+            file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        else:
+            local_svc.ensure_local_upload_root()
+            file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(contents)
+            file_url = str(request.url_for("uploads", path=key))
+            record = local_svc.create_pending_upload(
+                db,
+                user_id=current_user.id,
+                kind=LocalUploadKind.IMAGE,
+                original_name=photo.filename or f"delivery.{suffix}",
+                content_type=photo.content_type or "image/jpeg",
+                storage_key=key,
+            )
+            record.public_url = file_url
+            record.status = LocalUploadStatus.STORED
+            db.commit()
+        uploaded.append({"key": key, "fileUrl": file_url})
+    return ok(data={"uploads": uploaded, "photos": uploaded}, message="Delivery photos uploaded")
 
 
 @router.post("/delivery/approve/{job_id}")

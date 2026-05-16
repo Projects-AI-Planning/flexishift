@@ -1,6 +1,8 @@
 import React, {useMemo, useState} from 'react';
 import {
+  Alert,
   GestureResponderEvent,
+  Image,
   PanResponder,
   PanResponderGestureState,
   Pressable,
@@ -11,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import Card from '../../components/common/Card';
 import {colors, radius, shadow, spacing} from '../../theme';
 
@@ -53,12 +56,41 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 }) => {
   const [notes, setNotes] = useState('');
   const [receiverName, setReceiverName] = useState('');
-  const [photos, setPhotos] = useState<Record<string, any>>({});
+  const [photos, setPhotos] = useState<Record<string, Asset>>({});
   const [signatureStrokes, setSignatureStrokes] = useState<Stroke[]>([]);
   const [currentStroke, setCurrentStroke] = useState<Stroke>([]);
 
   const handlePickPhoto = (type: string) => {
-    setPhotos(prev => ({...prev, [type]: {uri: 'mock-uri', type}}));
+    Alert.alert('Delivery Photo', 'Choose photo source', [
+      {
+        text: '📷  Camera',
+        onPress: () => {
+          launchCamera(
+            {mediaType: 'photo', cameraType: 'back', quality: 0.8, saveToPhotos: false},
+            response => {
+              if (response.didCancel || response.errorCode) {return;}
+              const asset = response.assets?.[0];
+              if (asset?.uri) {
+                setPhotos(prev => ({...prev, [type]: asset}));
+              }
+            },
+          );
+        },
+      },
+      {
+        text: '🖼  Gallery',
+        onPress: () => {
+          launchImageLibrary({mediaType: 'photo', quality: 0.8}, response => {
+            if (response.didCancel || response.errorCode) {return;}
+            const asset = response.assets?.[0];
+            if (asset?.uri) {
+              setPhotos(prev => ({...prev, [type]: asset}));
+            }
+          });
+        },
+      },
+      {text: 'Cancel', style: 'cancel'},
+    ]);
   };
 
   const clearSignature = () => {
@@ -116,7 +148,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 
   const isComplete =
     receiverName.length > 2 &&
-    Object.keys(photos).length >= 2 &&
+    Boolean(photos.delivery?.uri) &&
     signatureSegments.length > 0;
 
   return (
@@ -151,9 +183,18 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 
         <Card title="Upload Delivery Photo" variant="default">
           <Pressable onPress={() => handlePickPhoto('delivery')} style={styles.photoBoxLarge}>
-            <Text style={styles.photoLargeIcon}>{photos.delivery ? '\u2713' : '\uD83D\uDCF7'}</Text>
-            <Text style={styles.photoLargeTitle}>Upload Delivery Photo</Text>
-            <Text style={styles.photoLargeSubtitle}>Proof of cargo placement at site</Text>
+            {photos.delivery?.uri ? (
+              <Image
+                source={{uri: photos.delivery.uri}}
+                style={{width: '100%', height: 260, borderRadius: 18, resizeMode: 'cover'}}
+              />
+            ) : (
+              <>
+                <Text style={styles.photoLargeIcon}>{'\uD83D\uDCF7'}</Text>
+                <Text style={styles.photoLargeTitle}>Upload Delivery Photo</Text>
+                <Text style={styles.photoLargeSubtitle}>Proof of cargo placement at site</Text>
+              </>
+            )}
           </Pressable>
         </Card>
 

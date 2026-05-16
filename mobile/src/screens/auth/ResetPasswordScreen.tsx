@@ -56,9 +56,13 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
     const errs: Record<string, string> = {};
     const otp = otpDigits.join('');
     if (otp.length < OTP_LENGTH) {errs.otp = 'Enter all 6 digits';}
-    if (newPassword.length < 8) {errs.password = 'Password must be at least 8 characters';}
-    if (!/[A-Z]/.test(newPassword)) {errs.password = 'Password must contain an uppercase letter';}
-    if (!/\d/.test(newPassword)) {errs.password = 'Password must contain a number';}
+    if (newPassword.length < 8) {
+      errs.password = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(newPassword)) {
+      errs.password = 'Password must contain an uppercase letter';
+    } else if (!/\d/.test(newPassword)) {
+      errs.password = 'Password must contain a number';
+    }
     if (newPassword !== confirmPassword) {errs.confirm = 'Passwords do not match';}
     return errs;
   };
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
     minHeight: 56, justifyContent: 'center', alignItems: 'center', marginTop: 8,
   },
   resetBtnDisabled: {opacity: 0.5},
-  resetBtnText: {color: colors.accent, fontSize: 16, fontWeight: '900'},
+  resetBtnText: {color: '#FFFFFF', fontSize: 16, fontWeight: '900'},
 });
 
 export default ResetPasswordScreen;

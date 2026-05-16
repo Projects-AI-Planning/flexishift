@@ -108,7 +108,7 @@ const mapDocumentItems = (payload: Record<string, unknown> | null | undefined): 
 
 const defaultLogin = {email: '', password: ''};
 const defaultRegister = {email: '', name: '', password: '', phone: ''};
-const defaultVerify = {email: 'john@example.com', otp: ''};
+const defaultVerify = {email: '', otp: ''};
 const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
 const defaultQuoteForm = {
   currency: 'INR',
@@ -201,7 +201,7 @@ function normalizeComplianceStep(
   if (currentStep === 'compliance.handover') {
     return 'compliance.handover';
   }
-  if (currentStep === 'compliance.loadcode') {
+  if (currentStep === 'compliance.loadcode' || currentStep === 'compliance.loadcode') {
     return 'compliance.loadCode';
   }
 
@@ -1462,10 +1462,37 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      await driverApi.compliance.submitVehicleChecklist({jobId, checklistData: checklist});
+      // Upload handover photos if available
+      let conditionPhotoUrls: string[] = [];
+      const photoAssets = Array.isArray(photos) ? photos.filter((p: any) => p?.uri) : [];
+      if (photoAssets.length > 0) {
+        try {
+          const formData = new FormData();
+          photoAssets.forEach((asset: any, idx: number) => {
+            formData.append('photos', {
+              uri: asset.uri,
+              name: asset.fileName ?? `handover_${idx}.jpg`,
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+          });
+          const uploadResult = await driverApi.compliance.submitHandoverPhotos(formData, jobId) as any;
+          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+          conditionPhotoUrls = Array.isArray(uploaded)
+            ? uploaded.map((u: any) => String(u.fileUrl ?? u.url ?? u.uri ?? '')).filter(Boolean)
+            : [];
+        } catch {
+          conditionPhotoUrls = photoAssets.map((a: any) => String(a.uri));
+        }
+      }
+
+      const driverSignature = String(checklist.__driverSignature ?? 'driver_signed');
+      const cleanChecklist = {...checklist};
+      delete cleanChecklist.__driverSignature;
+
+      await driverApi.compliance.submitVehicleChecklist({jobId, checklistData: cleanChecklist});
       await driverApi.compliance.signDriverHandover({
         jobId,
-        signatureData: 'driver_signed',
+        signatureData: driverSignature,
       });
       // Start live tracking
       try {
@@ -1495,13 +1522,26 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      const photoItems = Array.isArray(photos) ? photos : [];
-      const deliveryPhotoUrl =
-        String(
-          photoItems.find((item: any) => item?.type === 'delivery')?.uri ??
-            photoItems[0]?.uri ??
-            '',
-        ) || undefined;
+      const photoItems = Array.isArray(photos) ? photos.filter((p: any) => p?.uri) : [];
+      let deliveryPhotoUrl: string | undefined;
+      if (photoItems.length > 0) {
+        try {
+          const formData = new FormData();
+          const asset = photoItems.find((p: any) => p?.type === 'delivery') ?? photoItems[0];
+          formData.append('photos', {
+            uri: asset.uri,
+            name: asset.fileName ?? 'delivery_photo.jpg',
+            type: asset.type ?? 'image/jpeg',
+          } as any);
+          const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData, jobId) as any;
+          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+          deliveryPhotoUrl = Array.isArray(uploaded) && uploaded[0]
+            ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? asset.uri)
+            : String(asset.uri);
+        } catch {
+          deliveryPhotoUrl = String(photoItems[0].uri);
+        }
+      }
       const recipientSignatureUrl =
         typeof proofData?.recipientSignature === 'string'
           ? proofData.recipientSignature
@@ -1615,7 +1655,7 @@ function DriverApp(): React.JSX.Element {
         formData.append('file', {
           uri: file.uri,
           name: file.fileName ?? 'doc.jpg',
-          type: 'image/jpeg',
+          type: file.type ?? 'image/jpeg',
         } as any);
       }
       await driverApi.documents.upload(formData);
@@ -1663,14 +1703,27 @@ function DriverApp(): React.JSX.Element {
     const startTime = availabilityForm.startTime || '08:00';
     const endTime   = availabilityForm.endTime   || '18:00';
     await runAction(async () => {
+      const existingSlots = Array.isArray(availability?.slots) ? availability!.slots : [];
       await Promise.all(
-        availabilityForm.availableDays.map(day =>
-          driverApi.availability.set({
-            day_of_week: dayIndex[day] ?? 0,
-            start_time:  startTime,
-            end_time:    endTime,
-          }),
-        ),
+        availabilityForm.availableDays.map(day => {
+          const dayNum = dayIndex[day] ?? 0;
+          const existing = existingSlots.find(
+            (s: any) => Number(s.day_of_week ?? s.dayOfWeek) === dayNum,
+          );
+          const slotId = existing ? String(existing.slotId ?? existing.id ?? '') : '';
+          if (slotId) {
+            return driverApi.availability.update(slotId, {
+              day_of_week: dayNum,
+              start_time: startTime,
+              end_time: endTime,
+            });
+          }
+          return driverApi.availability.set({
+            day_of_week: dayNum,
+            start_time: startTime,
+            end_time: endTime,
+          });
+        }),
       );
       setSuccessBanner('Availability saved.');
       await loadDrawerRoute('availability.set');
@@ -1818,6 +1871,17 @@ function DriverApp(): React.JSX.Element {
     } else if (route.startsWith('tracking.') || route.startsWith('compliance.')) {
       navigate('tracking', route);
     } else if (route.startsWith('profile.')) {
+      navigate('profile', route);
+    } else if (
+      route.startsWith('earnings.') ||
+      route.startsWith('documents.') ||
+      route.startsWith('availability.') ||
+      route.startsWith('notifications.') ||
+      route.startsWith('invoices.') ||
+      route.startsWith('ratings.') ||
+      route.startsWith('support.') ||
+      route.startsWith('legal.')
+    ) {
       navigate('profile', route);
     }
   };
@@ -2723,6 +2787,11 @@ function DriverApp(): React.JSX.Element {
           barStyle="dark-content"
           backgroundColor="#FFFFFF"
         />
+        {authInfo ? (
+          <View style={styles.authInfoBanner}>
+            <Text style={styles.authInfoText}>{authInfo}</Text>
+          </View>
+        ) : null}
         {authMode === 'login' ? (
           <LoginScreen
             loginForm={loginForm}
@@ -3100,7 +3169,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 24,
   },
-  authShell: {backgroundColor: palette.bg, flex: 1, justifyContent: 'center'},
+  authShell: {backgroundColor: palette.bg, flex: 1},
+  authInfoBanner: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#6EE7B7',
+    borderWidth: 1,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  authInfoText: {color: '#065F46', fontSize: 14, fontWeight: '700', textAlign: 'center'},
   authSwitchRow: {
     flexDirection: 'row',
     alignItems: 'center',

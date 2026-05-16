@@ -25,11 +25,10 @@ interface DocumentUploadScreenProps {
 }
 
 const documentTypes = [
-  {id: 'driving_license', label: 'Driving License'},
-  {id: 'vehicle_insurance', label: 'Vehicle Insurance'},
-  {id: 'aadhaar_card', label: 'Aadhaar Card'},
-  {id: 'pan_card', label: 'PAN Card'},
-  {id: 'vehicle_registration', label: 'Vehicle Registration (RC)'},
+  {id: 'DRIVING_LICENCE', label: 'Driving Licence'},
+  {id: 'VEHICLE_INSURANCE', label: 'Vehicle Insurance'},
+  {id: 'VEHICLE_REG', label: 'Vehicle Registration (RC)'},
+  {id: 'COMPANY_REG', label: 'Company Registration'},
 ];
 
 const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({

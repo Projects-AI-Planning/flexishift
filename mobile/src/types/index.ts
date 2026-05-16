@@ -159,7 +159,8 @@ export interface AvailabilityResponse {
 
 export interface DocumentSummary {
   documentId: string;
-  documentType: string;
+  docType?: string;
+  documentType?: string;
   expiryDate?: string;
   fileUrl?: string;
   rejectionReason?: string;

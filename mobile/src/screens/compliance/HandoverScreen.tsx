@@ -61,6 +61,7 @@ const photoSlots: {key: string; label: string}[] = [
 
 interface SignaturePadHandle {
   clear: () => void;
+  getSegments: () => Segment[];
 }
 
 interface SignaturePadProps {
@@ -70,15 +71,18 @@ interface SignaturePadProps {
 const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
   ({onSign}, ref) => {
     const [segments, setSegments] = useState<Segment[]>([]);
+    const segmentsRef = useRef<Segment[]>([]);
     const lastPoint = useRef<{x: number; y: number} | null>(null);
     const onSignRef = useRef(onSign);
     onSignRef.current = onSign;
 
     useImperativeHandle(ref, () => ({
       clear: () => {
+        segmentsRef.current = [];
         setSegments([]);
         onSignRef.current(false);
       },
+      getSegments: () => segmentsRef.current,
     }));
 
     const panResponder = useRef(
@@ -102,6 +106,7 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
             y2: locationY,
           };
           lastPoint.current = {x: locationX, y: locationY};
+          segmentsRef.current = [...segmentsRef.current, seg];
           setSegments(s => [...s, seg]);
           onSignRef.current(true);
         },
@@ -228,10 +233,10 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
   };
 
-  const haulierSigned = haulierLocalSigned;
+  const haulierSigned = haulierSignedProp || haulierLocalSigned;
   const allChecked = Object.values(checklist).every(v => v);
   const allPhotos = Object.keys(photos).length >= 4;
-  const isComplete = allChecked && allPhotos && driverSigned && haulierSigned;
+  const isComplete = allChecked && allPhotos && driverSigned;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -406,7 +411,13 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
 
         {/* ── Confirm Button ─────────────────────────────────────────────── */}
         <Pressable
-          onPress={() => onSubmit(checklist, Object.values(photos))}
+          onPress={() => {
+            const sigSegments = driverSigRef.current?.getSegments() ?? [];
+            const driverSignatureData = sigSegments.length > 0
+              ? JSON.stringify(sigSegments)
+              : 'driver_signed';
+            onSubmit({...checklist, __driverSignature: driverSignatureData}, Object.values(photos));
+          }}
           disabled={loading || !isComplete}
           style={[
             styles.confirmBtn,
