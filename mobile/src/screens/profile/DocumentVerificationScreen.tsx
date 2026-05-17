@@ -8,9 +8,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {colors, fonts} from '../../theme';
 
@@ -278,13 +278,12 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                     )}
                   </Pressable>
 
-                  <TextInput
-                    style={styles.expiryInput}
+                  <AppInput
                     placeholder="Expiry date  YYYY-MM-DD"
-                    placeholderTextColor="#94A3B8"
                     value={form?.expiry ?? ''}
                     onChangeText={v => patchForm(def.normalKey, {expiry: v})}
                     keyboardType="numeric"
+                    containerStyle={{marginBottom: 0}}
                   />
 
                   <View style={styles.formActions}>

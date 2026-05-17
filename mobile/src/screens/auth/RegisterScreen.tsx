@@ -5,10 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon, EyeIcon, EyeOffIcon} from '../../components/common/FieldIcon';
+import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon} from '../../components/common/FieldIcon';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
 
 interface RegisterScreenProps {
@@ -69,8 +69,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 }) => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const clearErr = (field: string) =>
@@ -142,98 +140,64 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
         <View style={styles.form}>
 
           {/* Full Name */}
-          <View>
-            <View style={[styles.fieldWrap, fieldErrors.name ? styles.fieldWrapError : null]}>
-              <AccountIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
-              <TextInput
-                autoCapitalize="words"
-                onChangeText={update('name')}
-                placeholder="Full Name"
-                placeholderTextColor="#9CA4B0"
-                style={styles.input}
-                value={registerForm.name}
-              />
-            </View>
-            {fieldErrors.name ? <Text style={styles.inlineError}>{fieldErrors.name}</Text> : null}
-          </View>
+          <AppInput
+            leftIcon={<AccountIcon size={20} color="#9CA4B0" />}
+            autoCapitalize="words"
+            onChangeText={update('name')}
+            placeholder="Full Name"
+            value={registerForm.name}
+            error={fieldErrors.name}
+            containerStyle={{marginBottom: 0}}
+          />
 
           {/* Email Address */}
-          <View>
-            <View style={[styles.fieldWrap, fieldErrors.email ? styles.fieldWrapError : null]}>
-              <MailIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
-              <TextInput
-                autoCapitalize="none"
-                keyboardType="email-address"
-                onChangeText={update('email')}
-                placeholder="Email Address"
-                placeholderTextColor="#9CA4B0"
-                style={styles.input}
-                value={registerForm.email}
-              />
-            </View>
-            {fieldErrors.email ? <Text style={styles.inlineError}>{fieldErrors.email}</Text> : null}
-          </View>
+          <AppInput
+            leftIcon={<MailIcon size={20} color="#9CA4B0" />}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            onChangeText={update('email')}
+            placeholder="Email Address"
+            value={registerForm.email}
+            error={fieldErrors.email}
+            containerStyle={{marginBottom: 0}}
+          />
 
           {/* Phone Number */}
-          <View>
-            <View style={[styles.fieldWrap, fieldErrors.phone ? styles.fieldWrapError : null]}>
-              <PhoneIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
-              <TextInput
-                keyboardType="phone-pad"
-                onChangeText={update('phone')}
-                placeholder="Phone Number"
-                placeholderTextColor="#9CA4B0"
-                style={styles.input}
-                value={registerForm.phone}
-              />
-            </View>
-            {fieldErrors.phone ? <Text style={styles.inlineError}>{fieldErrors.phone}</Text> : null}
-          </View>
+          <AppInput
+            leftIcon={<PhoneIcon size={20} color="#9CA4B0" />}
+            keyboardType="phone-pad"
+            onChangeText={update('phone')}
+            placeholder="Phone Number"
+            value={registerForm.phone}
+            error={fieldErrors.phone}
+            containerStyle={{marginBottom: 0}}
+          />
 
           {/* Password */}
-          <View>
-            <View style={[styles.fieldWrap, fieldErrors.password ? styles.fieldWrapError : null]}>
-              <LockIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
-              <TextInput
-                onChangeText={update('password')}
-                placeholder="Password"
-                placeholderTextColor="#9CA4B0"
-                secureTextEntry={!showPassword}
-                style={styles.input}
-                value={registerForm.password}
-              />
-              <Pressable hitSlop={8} onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
-                {showPassword ? <EyeOffIcon size={20} color="#9CA4B0" /> : <EyeIcon size={20} color="#9CA4B0" />}
-              </Pressable>
-            </View>
-            {fieldErrors.password ? (
-              <Text style={styles.inlineError}>{fieldErrors.password}</Text>
-            ) : null}
-          </View>
+          <AppInput
+            leftIcon={<LockIcon size={20} color="#9CA4B0" />}
+            onChangeText={update('password')}
+            placeholder="Password"
+            secureTextEntry
+            value={registerForm.password}
+            error={fieldErrors.password}
+            containerStyle={{marginBottom: 0}}
+          />
 
           {/* Confirm Password */}
           <View>
-            <View style={[styles.fieldWrap, fieldErrors.confirmPassword ? styles.fieldWrapError : null]}>
-              <LockCheckIcon size={20} color="#9CA4B0" style={styles.fieldIcon} />
-              <TextInput
-                onChangeText={handleConfirmChange}
-                placeholder="Confirm Password"
-                placeholderTextColor="#9CA4B0"
-                secureTextEntry={!showConfirm}
-                style={styles.input}
-                value={confirmPassword}
-              />
-              <Pressable hitSlop={8} onPress={() => setShowConfirm(p => !p)} style={styles.eyeBtn}>
-                {showConfirm ? <EyeOffIcon size={20} color="#9CA4B0" /> : <EyeIcon size={20} color="#9CA4B0" />}
-              </Pressable>
-            </View>
-            {fieldErrors.confirmPassword ? (
-              <Text style={styles.inlineError}>{fieldErrors.confirmPassword}</Text>
-            ) : (
-              confirmPassword.length > 0 && confirmPassword === registerForm.password ? (
-                <Text style={styles.matchText}>✓ Passwords match</Text>
-              ) : null
-            )}
+            <AppInput
+              leftIcon={<LockCheckIcon size={20} color="#9CA4B0" />}
+              onChangeText={handleConfirmChange}
+              placeholder="Confirm Password"
+              secureTextEntry
+              value={confirmPassword}
+              error={fieldErrors.confirmPassword}
+              containerStyle={{marginBottom: 0}}
+            />
+            {!fieldErrors.confirmPassword && confirmPassword.length > 0 && confirmPassword === registerForm.password ? (
+              <Text style={styles.matchText}>✓ Passwords match</Text>
+            ) : null}
           </View>
 
           {/* Password strength hint */}

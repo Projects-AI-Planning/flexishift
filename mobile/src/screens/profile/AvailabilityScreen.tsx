@@ -5,10 +5,10 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Card from '../../components/common/Card';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
 
 interface AvailabilityScreenProps {
@@ -119,34 +119,27 @@ const AvailabilityScreen: React.FC<AvailabilityScreenProps> = ({
       </View>
 
       <Card title="Adjust Hours" variant="default">
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Start time (e.g. 08:00)"
-          placeholderTextColor="#98A2B3"
           value={availabilityForm.startTime}
           onChangeText={startTime => onChangeForm({startTime})}
         />
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="End time (e.g. 18:00)"
-          placeholderTextColor="#98A2B3"
           value={availabilityForm.endTime}
           onChangeText={endTime => onChangeForm({endTime})}
         />
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Timezone (e.g. Asia/Kolkata)"
-          placeholderTextColor="#98A2B3"
           value={availabilityForm.timezone}
           onChangeText={timezone => onChangeForm({timezone})}
         />
         {!availabilityForm.isAvailable ? (
-          <TextInput
-            style={styles.input}
+          <AppInput
             placeholder="Reason for unavailability"
-            placeholderTextColor="#98A2B3"
             value={availabilityForm.reason}
             onChangeText={reason => onChangeForm({reason})}
+            containerStyle={{marginBottom: 0}}
           />
         ) : null}
       </Card>

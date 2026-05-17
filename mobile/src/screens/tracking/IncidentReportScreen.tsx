@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   Pressable,
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, shadow, spacing} from '../../theme';
 
 interface IncidentReportScreenProps {
@@ -103,15 +103,13 @@ const IncidentReportScreen: React.FC<IncidentReportScreenProps> = ({
         </View>
 
         <Text style={styles.sectionLabel}>Description</Text>
-        <TextInput
-          style={styles.textArea}
+        <AppInput
           placeholder="Describe what happened in detail. Include location, time, and any immediate actions taken..."
-          placeholderTextColor="#9AA4B2"
           multiline
           numberOfLines={6}
           value={description}
           onChangeText={setDescription}
-          textAlignVertical="top"
+          containerStyle={{marginBottom: 0}}
         />
         <Text style={styles.charCount}>{description.length} / 500</Text>
 

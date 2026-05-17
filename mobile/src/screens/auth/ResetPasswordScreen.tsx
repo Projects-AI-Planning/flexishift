@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
 
 interface ResetPasswordScreenProps {
@@ -32,7 +33,6 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const inputs = useRef<Array<TextInput | null>>(Array(OTP_LENGTH).fill(null));
 
@@ -132,42 +132,29 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
           </View>
 
           {/* New password */}
-          <Text style={styles.sectionLabel}>New Password</Text>
-          <View style={styles.fieldWrap}>
-            <View style={styles.pwRow}>
-              <TextInput
-                onChangeText={v => {
-                  setNewPassword(v);
-                  if (errors.password) {setErrors(p => ({...p, password: ''}));}
-                }}
-                placeholder="Min. 8 chars, 1 uppercase, 1 number"
-                placeholderTextColor="#9AA4B2"
-                secureTextEntry={!showPw}
-                style={[styles.input, errors.password ? styles.inputError : null]}
-                value={newPassword}
-              />
-              <Pressable onPress={() => setShowPw(p => !p)} style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>{showPw ? '🙈' : '👁'}</Text>
-              </Pressable>
-            </View>
-            {errors.password ? <Text style={styles.fieldError}>{errors.password}</Text> : null}
-          </View>
+          <AppInput
+            label="New Password"
+            onChangeText={v => {
+              setNewPassword(v);
+              if (errors.password) {setErrors(p => ({...p, password: ''}));}
+            }}
+            placeholder="Min. 8 chars, 1 uppercase, 1 number"
+            secureTextEntry
+            value={newPassword}
+            error={errors.password}
+          />
 
-          <Text style={styles.sectionLabel}>Confirm Password</Text>
-          <View style={styles.fieldWrap}>
-            <TextInput
-              onChangeText={v => {
-                setConfirmPassword(v);
-                if (errors.confirm) {setErrors(p => ({...p, confirm: ''}));}
-              }}
-              placeholder="Re-enter your password"
-              placeholderTextColor="#9AA4B2"
-              secureTextEntry={!showPw}
-              style={[styles.input, errors.confirm ? styles.inputError : null]}
-              value={confirmPassword}
-            />
-            {errors.confirm ? <Text style={styles.fieldError}>{errors.confirm}</Text> : null}
-          </View>
+          <AppInput
+            label="Confirm Password"
+            onChangeText={v => {
+              setConfirmPassword(v);
+              if (errors.confirm) {setErrors(p => ({...p, confirm: ''}));}
+            }}
+            placeholder="Re-enter your password"
+            secureTextEntry
+            value={confirmPassword}
+            error={errors.confirm}
+          />
 
           <Pressable
             onPress={handleSubmit}
