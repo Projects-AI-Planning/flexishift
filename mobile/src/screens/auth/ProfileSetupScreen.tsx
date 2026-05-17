@@ -8,9 +8,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
 
@@ -172,18 +172,15 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         ) : null}
 
         {/* Full Legal Name */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>FULL LEGAL NAME</Text>
-          <TextInput
-            autoCapitalize="words"
-            onChangeText={v => { setName(v); clearErr('name'); }}
-            placeholder="Enter your full name"
-            placeholderTextColor="#9CA4B0"
-            style={[styles.input, fieldErrors.name ? styles.inputError : null]}
-            value={name}
-          />
-          {fieldErrors.name ? <Text style={styles.inlineError}>{fieldErrors.name}</Text> : null}
-        </View>
+        <AppInput
+          label="Full Legal Name"
+          autoCapitalize="words"
+          onChangeText={v => { setName(v); clearErr('name'); }}
+          placeholder="Enter your full name"
+          value={name}
+          error={fieldErrors.name}
+          containerStyle={styles.fieldGroup}
+        />
 
         {/* ── Driver Availability dropdown ────────────────────────────────── */}
         <View style={styles.fieldGroup}>
@@ -240,20 +237,15 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
               <View style={styles.sectionDividerLine} />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>DRIVING LICENSE NUMBER</Text>
-              <TextInput
-                autoCapitalize="characters"
-                onChangeText={v => { setLicenceNumber(v); clearErr('licenceNumber'); }}
-                placeholder="ABC-1234567-8"
-                placeholderTextColor="#9CA4B0"
-                style={[styles.input, fieldErrors.licenceNumber ? styles.inputError : null]}
-                value={licenceNumber}
-              />
-              {fieldErrors.licenceNumber
-                ? <Text style={styles.inlineError}>{fieldErrors.licenceNumber}</Text>
-                : null}
-            </View>
+            <AppInput
+              label="Driving License Number"
+              autoCapitalize="characters"
+              onChangeText={v => { setLicenceNumber(v); clearErr('licenceNumber'); }}
+              placeholder="ABC-1234567-8"
+              value={licenceNumber}
+              error={fieldErrors.licenceNumber}
+              containerStyle={styles.fieldGroup}
+            />
 
           </View>
         )}
@@ -287,50 +279,36 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                 ? <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
                 : null}
               {vehicleType === 'OTHER' && (
-                <View style={styles.otherInputWrap}>
-                  <TextInput
-                    autoCapitalize="words"
-                    onChangeText={v => { setOtherVehicleType(v); clearErr('otherVehicleType'); }}
-                    placeholder="Specify your vehicle type"
-                    placeholderTextColor="#9CA4B0"
-                    style={[styles.input, fieldErrors.otherVehicleType ? styles.inputError : null]}
-                    value={otherVehicleType}
-                  />
-                  {fieldErrors.otherVehicleType
-                    ? <Text style={styles.inlineError}>{fieldErrors.otherVehicleType}</Text>
-                    : null}
-                </View>
+                <AppInput
+                  autoCapitalize="words"
+                  onChangeText={v => { setOtherVehicleType(v); clearErr('otherVehicleType'); }}
+                  placeholder="Specify your vehicle type"
+                  value={otherVehicleType}
+                  error={fieldErrors.otherVehicleType}
+                  containerStyle={styles.otherInputWrap}
+                />
               )}
             </View>
 
             {/* Truck Capacity (Optional) */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>CAPACITY OF TRUCK <Text style={styles.optionalTag}>(OPTIONAL)</Text></Text>
-              <TextInput
-                keyboardType="default"
-                onChangeText={v => setTruckCapacity(v)}
-                placeholder="e.g. 10 Tons, 20,000 kg"
-                placeholderTextColor="#9CA4B0"
-                style={styles.input}
-                value={truckCapacity}
-              />
-            </View>
+            <AppInput
+              label="Capacity of Truck (Optional)"
+              onChangeText={v => setTruckCapacity(v)}
+              placeholder="e.g. 10 Tons, 20,000 kg"
+              value={truckCapacity}
+              containerStyle={styles.fieldGroup}
+            />
 
             {/* Vehicle Registration */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>VEHICLE REGISTRATION NUMBER</Text>
-              <TextInput
-                autoCapitalize="characters"
-                onChangeText={v => { setVehicleRegistration(v); clearErr('vehicleRegistration'); }}
-                placeholder="e.g. TX-LOG-8892"
-                placeholderTextColor="#9CA4B0"
-                style={[styles.input, fieldErrors.vehicleRegistration ? styles.inputError : null]}
-                value={vehicleRegistration}
-              />
-              {fieldErrors.vehicleRegistration
-                ? <Text style={styles.inlineError}>{fieldErrors.vehicleRegistration}</Text>
-                : null}
-            </View>
+            <AppInput
+              label="Vehicle Registration Number"
+              autoCapitalize="characters"
+              onChangeText={v => { setVehicleRegistration(v); clearErr('vehicleRegistration'); }}
+              placeholder="e.g. TX-LOG-8892"
+              value={vehicleRegistration}
+              error={fieldErrors.vehicleRegistration}
+              containerStyle={styles.fieldGroup}
+            />
           </View>
         )}
 

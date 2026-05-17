@@ -3,13 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Pressable,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import Card from '../../components/common/Card';
 import {colors, radius, shadow, spacing} from '../../theme';
 
@@ -105,14 +105,13 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
           </Card>
 
           <Card title="Written Review (Optional)" variant="default">
-            <TextInput
-              style={styles.textArea}
+            <AppInput
               placeholder="Tell us about the unloading experience, site access, or staff helpfulness..."
-              placeholderTextColor="#98A2B3"
               multiline
               numberOfLines={6}
               value={comment}
               onChangeText={setComment}
+              containerStyle={{marginBottom: 0}}
             />
           </Card>
 

@@ -11,9 +11,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {driverApi} from '../../api/driverApi';
 import {colors, radius, spacing} from '../../theme';
@@ -108,19 +108,16 @@ function InfoField({label, value, onChange, placeholder, keyboardType, editable 
   editable?: boolean;
 }) {
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
-        style={[fieldStyles.input, !editable && fieldStyles.inputReadonly]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder ?? label}
-        placeholderTextColor="#9CA3AF"
-        keyboardType={keyboardType ?? 'default'}
-        autoCapitalize="none"
-        editable={editable}
-      />
-    </View>
+    <AppInput
+      label={label}
+      value={value}
+      onChangeText={onChange}
+      placeholder={placeholder ?? label}
+      keyboardType={keyboardType ?? 'default'}
+      autoCapitalize="none"
+      editable={editable}
+      containerStyle={{marginBottom: 0}}
+    />
   );
 }
 
@@ -929,26 +926,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </Pressable>
             </View>
 
-            <Text style={styles.modalFieldLabel}>VEHICLE TYPE</Text>
-            <TextInput
-              style={styles.modalInput}
+            <AppInput
+              label="Vehicle Type"
               placeholder="e.g. FLATBED, VAN, HGV, TRAILER"
-              placeholderTextColor="#9CA3AF"
               value={vehicleType}
               onChangeText={v => { setVehicleType(v); setVehicleError(null); }}
               autoCapitalize="characters"
               editable={!vehicleSaving}
             />
 
-            <Text style={styles.modalFieldLabel}>REGISTRATION NUMBER</Text>
-            <TextInput
-              style={styles.modalInput}
+            <AppInput
+              label="Registration Number"
               placeholder="e.g. TX-LOG-8892"
-              placeholderTextColor="#9CA3AF"
               value={vehicleReg}
               onChangeText={v => { setVehicleReg(v); setVehicleError(null); }}
               autoCapitalize="characters"
               editable={!vehicleSaving}
+              containerStyle={{marginBottom: 0}}
             />
 
             {vehicleError ? (

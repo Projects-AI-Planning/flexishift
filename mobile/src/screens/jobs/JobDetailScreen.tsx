@@ -5,9 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing, shadow} from '../../theme';
 
 interface JobDetailScreenProps {
@@ -95,24 +95,21 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
-        <Text style={styles.fieldLabel}>Quote Amount</Text>
-        <TextInput
-          style={styles.input}
+        <AppInput
+          label="Quote Amount"
           value={amount}
           onChangeText={setAmount}
           placeholder="Enter your price"
-          placeholderTextColor="#9AA4B2"
           keyboardType="numeric"
         />
-        <Text style={styles.fieldLabel}>Notes (optional)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
+        <AppInput
+          label="Notes (optional)"
           value={notes}
           onChangeText={setNotes}
           placeholder="Any notes for the haulier..."
-          placeholderTextColor="#9AA4B2"
           multiline
           numberOfLines={3}
+          containerStyle={{marginBottom: 0}}
         />
         <Pressable
           onPress={() => onSubmitQuote(amount, notes)}

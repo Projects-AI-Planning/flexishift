@@ -1,6 +1,7 @@
 import React from 'react';
-import {Text, StyleSheet, ScrollView, TextInput, Pressable, View} from 'react-native';
+import {Text, StyleSheet, ScrollView, Pressable, View} from 'react-native';
 import Card from '../../components/common/Card';
+import AppInput from '../../components/common/AppInput';
 import {colors, spacing} from '../../theme';
 
 interface PasswordScreenProps {
@@ -28,29 +29,24 @@ const PasswordScreen: React.FC<PasswordScreenProps> = ({
       </View>
 
       <Card title="Password" variant="accent">
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Current password"
-          placeholderTextColor="#98A2B3"
           secureTextEntry
           value={passwordForm.currentPassword}
           onChangeText={currentPassword => onChange({currentPassword})}
         />
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="New password"
-          placeholderTextColor="#98A2B3"
           secureTextEntry
           value={passwordForm.newPassword}
           onChangeText={newPassword => onChange({newPassword})}
         />
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Confirm password"
-          placeholderTextColor="#98A2B3"
           secureTextEntry
           value={passwordForm.confirmPassword}
           onChangeText={confirmPassword => onChange({confirmPassword})}
+          containerStyle={{marginBottom: 0}}
         />
       </Card>
 

@@ -11,7 +11,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {setApiAccessToken, setApiSessionRefresher} from './api/client';

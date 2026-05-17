@@ -10,9 +10,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import Card from '../../components/common/Card';
 import {colors, radius, shadow, spacing} from '../../theme';
@@ -224,24 +224,22 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
         </Card>
 
         <Card title="Recipient Name" variant="default">
-          <TextInput
-            style={styles.input}
+          <AppInput
             placeholder="Full name of the receiver"
-            placeholderTextColor="#98A2B3"
             value={receiverName}
             onChangeText={setReceiverName}
+            containerStyle={{marginBottom: 0}}
           />
         </Card>
 
         <Card title="Delivery Notes (Optional)" variant="default">
-          <TextInput
-            style={[styles.input, styles.textArea]}
+          <AppInput
             placeholder="Add details about cargo condition, gate codes, or site access..."
-            placeholderTextColor="#98A2B3"
             multiline
             numberOfLines={5}
             value={notes}
             onChangeText={setNotes}
+            containerStyle={{marginBottom: 0}}
           />
         </Card>
 

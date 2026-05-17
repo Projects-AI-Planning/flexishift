@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   SafeAreaView,
@@ -11,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import {MailIcon, LockIcon} from '../../components/common/FieldIcon';
+import AppInput from '../../components/common/AppInput';
 import {colors, fonts, radius, shadow, spacing} from '../../theme';
 
 interface LoginScreenProps {
@@ -42,12 +42,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.background}>
-        <View style={styles.topBar}>
-          <Pressable onPress={onBackToSplash} style={styles.backBtn}>
-            <Text style={styles.backIcon}>{'\u2190'}</Text>
-          </Pressable>
-        </View>
-
         <View style={styles.hero}>
           <View style={styles.logoMark}>
             <Text style={styles.logoIcon}>{'\uD83D\uDE9A'}</Text>
@@ -69,25 +63,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         ) : null}
 
         <View style={styles.formCard}>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, {marginBottom: spacing.sm}]}>Email Address</Text>
-            <View style={[styles.inputWrap, authError ? styles.inputError : null]}>
-              <MailIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                onChangeText={email =>
-                  setLoginForm((current: any) => ({...current, email}))
-                }
-                placeholder="driver.77@freightflex.com"
-                placeholderTextColor="#9AA4B2"
-                style={styles.input}
-                value={loginForm.email}
-              />
-            </View>
-          </View>
+          <AppInput
+            label="Email Address"
+            leftIcon={<MailIcon size={20} color="#9CA4B0" />}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            onChangeText={email =>
+              setLoginForm((current: any) => ({...current, email}))
+            }
+            placeholder="driver.77@freightflex.com"
+            value={loginForm.email}
+            containerStyle={styles.inputGroup}
+          />
 
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
@@ -96,19 +85,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={styles.forgotText}>Forgot Password?</Text>
               </Pressable>
             </View>
-            <View style={[styles.inputWrap, authError ? styles.inputError : null]}>
-              <LockIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
-              <TextInput
-                onChangeText={password =>
-                  setLoginForm((current: any) => ({...current, password}))
-                }
-                placeholder="••••••••••"
-                placeholderTextColor="#9AA4B2"
-                secureTextEntry
-                style={styles.input}
-                value={loginForm.password}
-              />
-            </View>
+            <AppInput
+              leftIcon={<LockIcon size={20} color="#9CA4B0" />}
+              onChangeText={password =>
+                setLoginForm((current: any) => ({...current, password}))
+              }
+              placeholder="••••••••••"
+              secureTextEntry
+              value={loginForm.password}
+              containerStyle={{marginBottom: 0}}
+            />
           </View>
 
           <Pressable onPress={handleLogin} style={styles.primaryButton}>

@@ -7,10 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {MailIcon} from '../../components/common/FieldIcon';
+import AppInput from '../../components/common/AppInput';
 import {colors, radius, shadow, spacing} from '../../theme';
 
 interface ForgotPasswordScreenProps {
@@ -78,24 +78,20 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             ) : null}
 
             <View style={styles.formCard}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email Address</Text>
-                <View style={[styles.inputWrap, (authError || emailError) ? styles.inputError : null]}>
-                  <MailIcon size={20} color="#9CA4B0" style={styles.inputIcon} />
-                  <TextInput
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    onChangeText={v => {
-                      setEmail(v);
-                      if (emailError) {setEmailError('');}
-                    }}
-                    placeholder="driver.77@freightflex.com"
-                    placeholderTextColor="#9AA4B2"
-                    style={styles.input}
-                    value={email}
-                  />
-                </View>
-              </View>
+              <AppInput
+                label="Email Address"
+                leftIcon={<MailIcon size={20} color="#9CA4B0" />}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onChangeText={v => {
+                  setEmail(v);
+                  if (emailError) {setEmailError('');}
+                }}
+                placeholder="driver.77@freightflex.com"
+                value={email}
+                error={emailError || undefined}
+                containerStyle={styles.inputGroup}
+              />
 
               <Pressable
                 onPress={handleSubmit}

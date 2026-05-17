@@ -6,9 +6,9 @@ import {
   ScrollView,
   Pressable,
   SafeAreaView,
-  TextInput,
   Alert,
 } from 'react-native';
+import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import Card from '../../components/common/Card';
 import {colors, radius, spacing} from '../../theme';
@@ -151,11 +151,9 @@ const DocumentUploadScreen: React.FC<DocumentUploadScreenProps> = ({
         </Card>
 
         <Card title="Details & File">
-          <Text style={styles.label}>Expiry Date</Text>
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Expiry Date"
             placeholder="YYYY-MM-DD"
-            placeholderTextColor="#7A8699"
             value={expiryDate}
             onChangeText={setExpiryDate}
           />
