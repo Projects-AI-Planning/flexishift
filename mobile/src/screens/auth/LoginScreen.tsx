@@ -42,12 +42,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.background}>
-        <View style={styles.topBar}>
-          <Pressable onPress={onBackToSplash} style={styles.backBtn}>
-            <Text style={styles.backIcon}>{'\u2190'}</Text>
-          </Pressable>
-        </View>
-
         <View style={styles.hero}>
           <View style={styles.logoMark}>
             <Text style={styles.logoIcon}>{'\uD83D\uDE9A'}</Text>
