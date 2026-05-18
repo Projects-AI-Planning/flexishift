@@ -28,7 +28,7 @@ const statusClass = (status: string) => {
   const value = status.toUpperCase();
   if (value === 'APPROVED') return 'bg-emerald-100 text-emerald-700';
   if (value === 'REJECTED') return 'bg-rose-100 text-rose-700';
-  return 'bg-amber-100 text-amber-700';
+  return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
 const prettyDate = (value?: string | null) => (value ? new Date(value).toLocaleString('en-IN') : 'N/A');
@@ -111,7 +111,7 @@ const InsurancePage = () => {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Documents & Insurance</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Documents & Insurance</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Insurance</h1>
           <p className="text-on-surface-variant font-medium">Upload and track your vehicle and fleet insurance documents from the backend.</p>
         </div>

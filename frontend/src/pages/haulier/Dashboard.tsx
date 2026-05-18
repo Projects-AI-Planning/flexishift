@@ -62,7 +62,7 @@ const DashboardSignModal: React.FC<{
       <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Step 2 · Handover</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Step 2 · Handover</p>
             <h2 className="text-xl font-black text-[#041627]">Haulier Signature</h2>
             <p className="text-sm text-slate-500">Job: <span className="font-bold">{job.jobReference}</span></p>
           </div>
@@ -123,17 +123,17 @@ const destinationIcon = new L.DivIcon({
 });
 
 interface DashboardData {
-  summary: {
-    totalSpentThisMonth: number;
-    totalActiveJobs: number;
+  summary?: {
+    totalSpentThisMonth?: number;
+    totalActiveJobs?: number;
     bookedAwaitingPayment?: number;
-    openJobsWithQuotes: number;
+    openJobsWithQuotes?: number;
   };
-  activeJobs: Array<{
+  activeJobs?: Array<{
     jobId?: string;
     jobReference: string;
-    pickupLocation: string | { address: string };
-    dropLocation: string | { address: string };
+    pickupLocation?: string | { address?: string | null } | null;
+    dropLocation?: string | { address?: string | null } | null;
     driverName?: string;
     status: string;
     delay?: string;
@@ -155,16 +155,20 @@ type ActiveMapData = {
 
 const formatCurrency = (value: number) => `£${value.toLocaleString('en-GB')}`;
 
-const toneForStatus = (status: string) => {
+const toneForStatus = (status?: string) => {
+  if (!status) return 'bg-[#1066b1]/15 text-[#083d7a]';
   const normalized = status.toLowerCase();
   if (normalized.includes('in_transit')) return 'bg-emerald-100 text-emerald-800';
   if (normalized.includes('completed')) return 'bg-slate-100 text-[#44474C]';
   if (normalized.includes('booked')) return 'bg-blue-100 text-blue-800';
-  return 'bg-amber-100 text-amber-800';
+  return 'bg-[#1066b1]/15 text-[#083d7a]';
 };
 
-const stripLocation = (location: string | { address: string }) =>
-  typeof location === 'string' ? location : location.address;
+const stripLocation = (location?: string | { address?: string | null } | null) => {
+  if (!location) return 'Unknown location';
+  if (typeof location === 'string') return location || 'Unknown location';
+  return location.address || 'Unknown location';
+};
 
 function FlyToDelivery({ delivery }: { delivery: LiveDelivery | null }) {
   const map = useMap();
@@ -209,14 +213,15 @@ const HaulierOverview: React.FC = () => {
   const [sigModalJob, setSigModalJob] = useState<{ jobId: string; jobReference: string } | null>(null);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
+  const summary = dashboardData?.summary ?? {};
 
   const stats = useMemo(() => ({
-    totalSpend: dashboardData?.summary.totalSpentThisMonth ?? 0,
-    activeShipments: dashboardData?.summary.totalActiveJobs ?? 0,
-    bookedAwaitingPayment: dashboardData?.summary.bookedAwaitingPayment ?? 0,
-    pendingQuotes: dashboardData?.summary.openJobsWithQuotes ?? 0,
-    fleetUtilization: dashboardData?.summary.totalActiveJobs ? 85 : 0,
-  }), [dashboardData]);
+    totalSpend: summary.totalSpentThisMonth ?? 0,
+    activeShipments: summary.totalActiveJobs ?? 0,
+    bookedAwaitingPayment: summary.bookedAwaitingPayment ?? 0,
+    pendingQuotes: summary.openJobsWithQuotes ?? 0,
+    fleetUtilization: summary.totalActiveJobs ? 85 : 0,
+  }), [summary]);
 
   const activeJobs = useMemo(() => {
     return (dashboardData?.activeJobs ?? []).map((job) => {
@@ -229,7 +234,7 @@ const HaulierOverview: React.FC = () => {
         route: `${pickup} → ${drop}`,
         type: job.goodsType ?? 'Freight',
         driver: job.driverName || 'Unassigned',
-        status: job.status.toUpperCase(),
+        status: (job.status || 'pending').toUpperCase(),
         eta: job.jobDate ?? 'Today',
         delay: job.delay,
         statusColor: toneForStatus(job.status),
@@ -244,10 +249,15 @@ const HaulierOverview: React.FC = () => {
     setMapLoading(true);
     try {
       const result = await haulierService.getActiveMapData();
-      setMapData(result);
+      const deliveries = Array.isArray(result?.deliveries) ? result.deliveries : [];
+      const safeResult = {
+        totalActiveDeliveries: result?.totalActiveDeliveries ?? deliveries.length,
+        deliveries,
+      };
+      setMapData(safeResult);
       setMapError(null);
 
-      const first = result.deliveries.find((delivery: LiveDelivery) => delivery.currentLocation) ?? result.deliveries[0] ?? null;
+      const first = deliveries.find((delivery: LiveDelivery) => delivery.currentLocation) ?? deliveries[0] ?? null;
       setSelectedDeliveryId((current) => current ?? first?.jobId ?? null);
     } catch {
       setMapError('Failed to load live fleet map data.');
@@ -379,29 +389,29 @@ const HaulierOverview: React.FC = () => {
 
       {/* ── Vehicle Handover Sign ───────────────────────────────────────────── */}
       {handoverRows.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
-          <div className="flex flex-wrap items-center gap-3 border-b border-amber-100 bg-amber-50 px-4 py-3 sm:px-6 sm:py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
+        <section className="overflow-hidden rounded-2xl border-2 border-[#1066b1] bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
+          <div className="flex flex-wrap items-center gap-3 border-b border-[#1066b1]/15 bg-[#1066b1]/10 px-4 py-3 sm:px-6 sm:py-4">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1066b1] text-white">
               <span className="material-symbols-outlined text-sm">draw</span>
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="font-black text-amber-900 text-base sm:text-lg">Vehicle Handover Signatures</h2>
-              <p className="text-xs sm:text-sm text-amber-700">Sign each active job to authorise vehicle release.</p>
+              <h2 className="font-black text-[#062f5e] text-base sm:text-lg">Vehicle Handover Signatures</h2>
+              <p className="text-xs sm:text-sm text-[#0a4a8f]">Sign each active job to authorise vehicle release.</p>
             </div>
             {handoverRows.filter((r) => !r.haulierSigned).length > 0 && (
-              <span className="rounded-full bg-amber-400 px-2.5 py-1 text-xs font-black text-white shrink-0">
+              <span className="rounded-full bg-[#1066b1] px-2.5 py-1 text-xs font-black text-white shrink-0">
                 {handoverRows.filter((r) => !r.haulierSigned).length} pending
               </span>
             )}
           </div>
           <div className="divide-y divide-slate-100">
             {handoverRows.map((row) => (
-              <div key={row.jobId} className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6 ${!row.haulierSigned ? 'bg-amber-50/30' : ''}`}>
+              <div key={row.jobId} className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6 ${!row.haulierSigned ? 'bg-[#1066b1]/10/30' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-black text-[#041627] text-sm">{row.jobReference}</p>
                     {row.driverSigned && !row.haulierSigned && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">Driver signed</span>
+                      <span className="rounded-full bg-[#1066b1]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0a4a8f]">Driver signed</span>
                     )}
                     {row.haulierSigned && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">Both signed ✓</span>
@@ -413,7 +423,7 @@ const HaulierOverview: React.FC = () => {
                       <span className="material-symbols-outlined text-sm">{row.driverSigned ? 'check_circle' : 'radio_button_unchecked'}</span>
                       Driver
                     </span>
-                    <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-amber-500'}`}>
+                    <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-[#1066b1]'}`}>
                       <span className="material-symbols-outlined text-sm">{row.haulierSigned ? 'check_circle' : 'pending'}</span>
                       You
                     </span>
@@ -430,7 +440,7 @@ const HaulierOverview: React.FC = () => {
                   ) : (
                     <button
                       onClick={() => setSigModalJob({ jobId: row.jobId, jobReference: row.jobReference })}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-amber-600 active:scale-95"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#0a4a8f] active:scale-95"
                     >
                       <span className="material-symbols-outlined text-sm">draw</span>
                       Sign Now
@@ -451,14 +461,14 @@ const HaulierOverview: React.FC = () => {
         }} />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300">Haulier Dashboard</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#1066b1]">Haulier Dashboard</p>
             <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Fleet Overview</h1>
             <p className="mt-1 text-xs sm:text-sm font-medium text-slate-300">Real-time status of your logistics operations.</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => navigate('/haulier/post-job')}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2.5 text-xs sm:text-sm font-black text-[#041627] transition hover:bg-amber-300"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2.5 text-xs sm:text-sm font-black text-white transition hover:bg-[#1066b1]"
             >
               <span className="material-symbols-outlined text-sm">add_circle</span>
               Post New Job
@@ -489,14 +499,14 @@ const HaulierOverview: React.FC = () => {
 
         <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
           <div className="mb-3">
-            <div className="rounded-xl bg-amber-50 p-2 text-amber-600 w-fit">
+            <div className="rounded-xl bg-[#1066b1]/10 p-2 text-[#0d55a0] w-fit">
               <span className="material-symbols-outlined text-lg sm:text-xl">package_2</span>
             </div>
           </div>
           <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Active Jobs</p>
           <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{String(stats.activeShipments).padStart(2, '0')}</h3>
           {stats.bookedAwaitingPayment > 0 && (
-            <p className="mt-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">{stats.bookedAwaitingPayment} need payment</p>
+            <p className="mt-0.5 text-[9px] font-black uppercase tracking-wider text-[#0d55a0]">{stats.bookedAwaitingPayment} need payment</p>
           )}
         </article>
 
@@ -515,7 +525,7 @@ const HaulierOverview: React.FC = () => {
             <div className="rounded-xl bg-blue-50 p-2 text-blue-500">
               <span className="material-symbols-outlined text-lg sm:text-xl">speed</span>
             </div>
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">Optimal</span>
+            <span className="rounded-full bg-[#1066b1]/10 px-2 py-0.5 text-[10px] font-black text-[#0a4a8f]">Optimal</span>
           </div>
           <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Fleet Use</p>
           <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{stats.fleetUtilization}%</h3>
@@ -527,7 +537,7 @@ const HaulierOverview: React.FC = () => {
         <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <span className="rounded-xl bg-amber-50 p-1.5 text-amber-500 shrink-0">
+              <span className="rounded-xl bg-[#1066b1]/10 p-1.5 text-[#1066b1] shrink-0">
                 <span className="material-symbols-outlined text-lg">map</span>
               </span>
               <div className="min-w-0">
@@ -593,7 +603,7 @@ const HaulierOverview: React.FC = () => {
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">Legend</p>
               <div className="space-y-1 text-xs font-medium text-[#44474C]">
                 <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" /><span>Vehicle</span></div>
-                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" /><span>Pickup</span></div>
+                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#1066b1] shrink-0" /><span>Pickup</span></div>
                 <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" /><span>Dest.</span></div>
               </div>
             </div>
@@ -603,12 +613,12 @@ const HaulierOverview: React.FC = () => {
         <aside className="flex flex-col gap-4 sm:gap-5">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-5 sm:p-6 text-white shadow-lg">
             <div className="relative z-10">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300">Quick Action</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Quick Action</p>
               <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight">Need a fast quote?</h3>
               <p className="mt-2 text-xs sm:text-sm leading-5 text-slate-300">Post a new job and get responses in under 15 minutes.</p>
               <button
                 onClick={() => navigate('/haulier/post-job')}
-                className="mt-4 w-full rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-black text-[#041627] transition hover:bg-amber-300"
+                className="mt-4 w-full rounded-xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#1066b1]"
               >
                 Post New Job
               </button>
@@ -640,18 +650,18 @@ const HaulierOverview: React.FC = () => {
 
       {/* ── Payment Pending Banner ───────────────────────────────────────────── */}
       {activeJobs.some((j) => j.paymentRequired) && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
+        <section className="rounded-2xl border border-[#1066b1]/25 bg-white px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <span className="material-symbols-outlined text-amber-600 shrink-0">lock_open</span>
+            <span className="material-symbols-outlined text-[#0d55a0] shrink-0">lock_open</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-amber-900">
+              <p className="text-sm font-black text-[#062f5e]">
                 {activeJobs.filter((j) => j.paymentRequired).length} job{activeJobs.filter((j) => j.paymentRequired).length > 1 ? 's' : ''} awaiting payment
               </p>
-              <p className="mt-0.5 text-xs text-amber-700">Payment must be secured before the driver can start.</p>
+              <p className="mt-0.5 text-xs text-[#0a4a8f]">Payment must be secured before the driver can start.</p>
             </div>
             <button
-              onClick={() => navigate('/haulier/jobs/booked')}
-              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-[#041627] transition hover:bg-amber-400 sm:self-auto shrink-0"
+              onClick={() => navigate('/haulier/jobs')}
+              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white transition hover:bg-[#1066b1] sm:self-auto shrink-0"
             >
               View Booked
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -693,7 +703,7 @@ const HaulierOverview: React.FC = () => {
                   </td>
                 </tr>
               ) : activeJobs.map((job) => (
-                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? 'bg-amber-50/60' : job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
+                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? 'bg-[#1066b1]/10/60' : job.paymentRequired ? 'bg-[#1066b1]/10/40' : ''}`}>
                   <td className="px-6 py-5">
                     <p className="font-black text-[#041627] text-sm">{job.id}</p>
                     {job.distanceKm != null && (
@@ -719,7 +729,7 @@ const HaulierOverview: React.FC = () => {
                       {job.status}
                     </span>
                     {job.paymentRequired && (
-                      <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-amber-600">Payment Required</p>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-[#0d55a0]">Payment Required</p>
                     )}
                   </td>
                   <td className="px-6 py-5">
@@ -738,7 +748,7 @@ const HaulierOverview: React.FC = () => {
                     ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
                       <button
                         onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
-                        className="inline-flex items-center gap-1.5 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 shadow-sm transition hover:bg-amber-400 hover:text-white active:scale-95"
+                        className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#1066b1] bg-[#1066b1]/10 px-3 py-2 text-xs font-black text-[#083d7a] shadow-sm transition hover:bg-[#1066b1] hover:text-white active:scale-95"
                       >
                         <span className="material-symbols-outlined text-sm">draw</span>
                         Sign Handover
@@ -764,7 +774,7 @@ const HaulierOverview: React.FC = () => {
           {activeJobs.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-slate-400">No active shipments. Post a job to get started.</p>
           ) : activeJobs.map((job) => (
-            <div key={job.id} className={`px-4 py-4 space-y-3 ${job.paymentRequired ? 'bg-amber-50/40' : ''}`}>
+            <div key={job.id} className={`px-4 py-4 space-y-3 ${job.paymentRequired ? 'bg-[#1066b1]/10/40' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-black text-sm text-[#041627]">{job.id}</p>
@@ -795,7 +805,7 @@ const HaulierOverview: React.FC = () => {
                 ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
                   <button
                     onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
-                    className="inline-flex items-center gap-1 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800"
+                    className="inline-flex items-center gap-1 rounded-xl border-2 border-[#1066b1] bg-white px-3 py-2 text-xs font-black text-[#083d7a] hover:bg-[#1066b1] hover:text-white transition"
                   >
                     <span className="material-symbols-outlined text-sm">draw</span>
                     Sign
@@ -817,7 +827,7 @@ const HaulierOverview: React.FC = () => {
         <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 flex items-center justify-between">
           <p className="text-xs text-slate-400">Showing {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''}</p>
           <button
-            onClick={() => navigate('/haulier/jobs/booked')}
+            onClick={() => navigate('/haulier/jobs')}
             className="inline-flex items-center gap-2 text-sm font-black text-primary transition hover:text-[#041627]"
           >
             View All Jobs

@@ -8,10 +8,10 @@ export const colors = {
   dangerSoft: '#FDECEC',
   ink: '#041627',
   inkSoft: '#44474C',
-  mint: '#16A34A',
+  mint: '#1066B1',
   navy: '#071A2D',
   neutralSoft: '#EEF2F7',
-  success: '#16A34A',
+  success: '#1066B1',
   warning: '#D08B00',
 };
 

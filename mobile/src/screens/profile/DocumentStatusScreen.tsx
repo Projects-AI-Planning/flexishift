@@ -46,8 +46,8 @@ const DOC_SUBTITLES: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, {label: string; bg: string; text: string; border: string}> = {
-  approved:     {label: 'VERIFIED',       bg: '#DCFCE7', text: '#15803D', border: '#86EFAC'},
-  verified:     {label: 'VERIFIED',       bg: '#DCFCE7', text: '#15803D', border: '#86EFAC'},
+  approved:     {label: 'VERIFIED',       bg: '#DBEAFE', text: '#1066B1', border: '#93C5FD'},
+  verified:     {label: 'VERIFIED',       bg: '#DBEAFE', text: '#1066B1', border: '#93C5FD'},
   pending:      {label: 'PENDING REVIEW', bg: '#FEF9C3', text: '#854D0E', border: '#FDE047'},
   under_review: {label: 'PENDING REVIEW', bg: '#FEF9C3', text: '#854D0E', border: '#FDE047'},
   rejected:     {label: 'REJECTED',       bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5'},
@@ -243,7 +243,7 @@ const DocumentStatusScreen: React.FC<DocumentStatusScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  safe: {flex: 1, backgroundColor: colors.bg},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {

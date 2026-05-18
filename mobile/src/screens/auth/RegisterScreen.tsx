@@ -115,7 +115,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           <View style={styles.brandBadge}>
             <Text style={styles.brandIcon}>⛟</Text>
           </View>
-          <Text style={styles.brandName}>FREIGHTFLEX</Text>
+          <Text style={styles.brandName}>FLEXISHIFT</Text>
         </View>
 
         {/* Hero */}
@@ -269,7 +269,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: {flex: 1, backgroundColor: colors.bg},
 
   content: {
     paddingHorizontal: spacing.xxl,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   eyeBtn: {paddingLeft: 8},
   inlineError: {color: colors.danger, fontSize: 12, marginLeft: 4, marginTop: 4},
   inlineErrorTerms: {marginLeft: 34},
-  matchText: {color: '#15803D', fontSize: 12, marginLeft: 4, marginTop: 4, fontWeight: '700'},
+  matchText: {color: '#1066B1', fontSize: 12, marginLeft: 4, marginTop: 4, fontWeight: '700'},
 
   // Password strength
   strengthRow: {
@@ -356,9 +356,9 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
     backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0',
   },
-  strengthPillMet: {backgroundColor: '#DCFCE7', borderColor: '#86EFAC'},
+  strengthPillMet: {backgroundColor: '#DBEAFE', borderColor: '#93C5FD'},
   strengthPillText: {fontSize: 11, fontWeight: '700', color: '#94A3B8'},
-  strengthPillTextMet: {color: '#15803D'},
+  strengthPillTextMet: {color: '#1066B1'},
 
   // Terms
   termsBlock: {alignItems: 'flex-start', flexDirection: 'row', gap: 12, marginTop: 4},

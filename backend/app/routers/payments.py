@@ -20,9 +20,7 @@ class InitiateRequest(BaseModel):
 
 
 class PaymentVerifyRequest(BaseModel):
-    razorpay_order_id: str = Field(..., alias="razorpayOrderId")
-    razorpay_payment_id: str = Field(..., alias="razorpayPaymentId")
-    razorpay_signature: str = Field(..., alias="razorpaySignature")
+    payment_intent_id: str = Field(..., alias="paymentIntentId")
     model_config = {"populate_by_name": True}
 
 
@@ -62,29 +60,55 @@ def create_payment_order(
     return created(
         data={
             "paymentId": order["payment_id"],
-            "gatewayOrderId": order["gateway_order_id"],
+            "paymentIntentId": order["gateway_order_id"],
+            "clientSecret": order["client_secret"],
             "amount": order["amount"],
             "currency": order["currency"],
-            "keyId": order["key_id"],
+            "publishableKey": order["publishable_key"],
         },
         message="Payment order created",
     )
 
 
 @router.post("/{job_id}/payment/verify")
-def verify_payment(
+async def verify_payment(
     job_id: str,
     body: PaymentVerifyRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    p = pay_svc.verify_payment(
-        db, job_id,
-        body.razorpay_order_id,
-        body.razorpay_payment_id,
-        body.razorpay_signature,
-    )
+    p = pay_svc.verify_payment(db, job_id, body.payment_intent_id)
+
+    # Notify the selected driver that payment is in escrow
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if job and job.selected_supplier_id:
+        from app.services.notifications import create_notification
+        await create_notification(
+            db, job.selected_supplier_id, "PAYMENT_ESCROWED",
+            "Payment Secured in Escrow",
+            f"The haulier has secured payment of £{float(p.amount):,.2f} for job {job.job_ref}. "
+            "Funds are held in escrow and will be released upon job completion.",
+            {
+                "job_id": job_id,
+                "job_ref": job.job_ref,
+                "amount": float(p.amount),
+                "currency": p.currency,
+                "payment_intent_id": body.payment_intent_id,
+            },
+        )
+        db.commit()
+
     return ok(data=_payment_dict(p), message="Payment verified and escrowed")
+
+
+@router.get("/{job_id}/payment/details")
+def get_payment_details(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    details = pay_svc.get_payment_details(db, job_id, current_user.id)
+    return ok(data=details, message="Payment details retrieved")
 
 
 @router.post("/{job_id}/payment/release")
@@ -131,32 +155,47 @@ def initiate_payment(
     return created(
         data={
             "paymentId": order["payment_id"],
-            "gatewayOrderId": order["gateway_order_id"],
+            "paymentIntentId": order["gateway_order_id"],
+            "clientSecret": order["client_secret"],
             "amount": order["amount"],
             "currency": order["currency"],
-            "keyId": order["key_id"],
+            "publishableKey": order["publishable_key"],
         },
         message="Payment initiated",
     )
 
 
 @flat.post("/verify")
-def verify_payment_flat(
+async def verify_payment_flat(
     body: PaymentVerifyRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     payment = db.query(Payment).filter(
-        Payment.gateway_order_id == body.razorpay_order_id
+        Payment.gateway_order_id == body.payment_intent_id
     ).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    p = pay_svc.verify_payment(
-        db, payment.job_id,
-        body.razorpay_order_id,
-        body.razorpay_payment_id,
-        body.razorpay_signature,
-    )
+    p = pay_svc.verify_payment(db, payment.job_id, body.payment_intent_id)
+
+    job = db.query(Job).filter(Job.id == payment.job_id).first()
+    if job and job.selected_supplier_id:
+        from app.services.notifications import create_notification
+        await create_notification(
+            db, job.selected_supplier_id, "PAYMENT_ESCROWED",
+            "Payment Secured in Escrow",
+            f"The haulier has secured payment of £{float(p.amount):,.2f} for job {job.job_ref}. "
+            "Funds are held in escrow and will be released upon job completion.",
+            {
+                "job_id": payment.job_id,
+                "job_ref": job.job_ref,
+                "amount": float(p.amount),
+                "currency": p.currency,
+                "payment_intent_id": body.payment_intent_id,
+            },
+        )
+        db.commit()
+
     return ok(data=_payment_dict(p), message="Payment verified")
 
 

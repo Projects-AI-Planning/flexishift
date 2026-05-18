@@ -1,6 +1,6 @@
 import enum
 from uuid import uuid4
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 
 from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -43,6 +43,7 @@ class Job(Base):
     goods_type:           Mapped[str]       = mapped_column(String(100), nullable=False)
     weight_kg:            Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=False)
     vehicle_type:         Mapped[str]       = mapped_column(String(50), nullable=False)
+    driver_requirement:   Mapped[str]       = mapped_column(String(50), nullable=True, default="DRIVER_WITH_TRUCK")
     job_date:             Mapped[date]      = mapped_column(Date, nullable=False)
     time_slot:            Mapped[TimeSlot]  = mapped_column(Enum(TimeSlot), nullable=False)
     distance_km:          Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
@@ -51,9 +52,9 @@ class Job(Base):
     selected_supplier_id: Mapped[str]       = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     original_eta:         Mapped[datetime]  = mapped_column(DateTime, nullable=True)
     invoice_url:          Mapped[str]       = mapped_column(String(500), nullable=True)
-    created_at:           Mapped[datetime]  = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:           Mapped[datetime]  = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                             onupdate=lambda: datetime.now(timezone.utc))
+    created_at:           Mapped[datetime]  = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:           Mapped[datetime]  = mapped_column(DateTime, default=datetime.utcnow,
+                                                             onupdate=datetime.utcnow)
     deleted_at:           Mapped[datetime]  = mapped_column(DateTime, nullable=True)
 
     haulier:    Mapped["User"]              = relationship("User", foreign_keys=[haulier_id], back_populates="jobs_posted")

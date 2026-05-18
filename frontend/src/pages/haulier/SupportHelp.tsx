@@ -53,7 +53,7 @@ export default function HaulierSupportHelpPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Support</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Support</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Help Center</h1>
           <p className="text-on-surface-variant font-medium">Backend-backed support resources, FAQs, and your recent ticket activity.</p>
         </div>
@@ -79,7 +79,7 @@ export default function HaulierSupportHelpPage() {
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Open</p>
-          <h3 className="mt-2 text-3xl font-black text-amber-700">{data?.stats.openTickets ?? 0}</h3>
+          <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{data?.stats.openTickets ?? 0}</h3>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Resolved</p>

@@ -11,11 +11,13 @@ import {
   View,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
+import Icon, {IconName} from '../../components/common/Icon';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
 
 interface ProfileSetupScreenProps {
   email: string;
+  initialName?: string;
   onComplete: (data: {
     name: string;
     driverAvailability: string;
@@ -30,14 +32,14 @@ interface ProfileSetupScreenProps {
   error: string | null;
 }
 
-const VEHICLES = [
-  {icon: '🚛', key: 'FLATBED', label: 'Flatbed'},
-  {icon: '❄️', key: 'REFRIGERATED', label: 'Refrigerated'},
-  {icon: '📦', key: 'BOX_TRUCK', label: 'Box Truck'},
-  {icon: '🏗️', key: 'HGV', label: 'HGV'},
-  {icon: '🚐', key: 'VAN', label: 'Van'},
-  {icon: '⛽', key: 'TANKER', label: 'Tanker'},
-  {icon: '✏️', key: 'OTHER', label: 'Other'},
+const VEHICLES: {icon: IconName; key: string; label: string}[] = [
+  {icon: 'truck',     key: 'FLATBED',      label: 'Flatbed'},
+  {icon: 'snowflake', key: 'REFRIGERATED', label: 'Refrigerated'},
+  {icon: 'package',   key: 'BOX_TRUCK',    label: 'Box Truck'},
+  {icon: 'truck',     key: 'HGV',          label: 'HGV'},
+  {icon: 'van',       key: 'VAN',          label: 'Van'},
+  {icon: 'scale',     key: 'TANKER',       label: 'Tanker'},
+  {icon: 'pen',       key: 'OTHER',        label: 'Other'},
 ];
 
 const DRIVER_MODES = [
@@ -48,12 +50,13 @@ const DRIVER_MODES = [
 
 const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   email: _email,
+  initialName,
   onComplete,
   onSkip,
   loading,
   error,
 }) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName ?? '');
   const [driverAvailability, setDriverAvailability] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [licenceNumber, setLicenceNumber] = useState('');
@@ -155,9 +158,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
           <View style={styles.avatarCircle}>
             {photoUri
               ? <Image source={{uri: photoUri}} style={styles.avatarImage} />
-              : <Text style={styles.avatarIcon}>👤</Text>}
+              : <Icon name="user" size={40} color={colors.accent} />}
             <View style={styles.cameraBtn}>
-              <Text style={styles.cameraIcon}>📷</Text>
+              <Icon name="camera" size={13} color="#fff" strokeWidth={2} />
             </View>
           </View>
           <Text style={styles.avatarLabel}>{photoUri ? 'Photo Selected ✓' : 'Upload Profile Photo'}</Text>
@@ -231,10 +234,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         {/* ── Driver Details (DRIVER_ONLY or DRIVER_WITH_TRUCK) ───────────── */}
         {showDriverSection && (
           <View style={styles.conditionalSection}>
-            <View style={styles.sectionDivider}>
-              <View style={styles.sectionDividerLine} />
-              <Text style={styles.sectionDividerLabel}>👤  Driver Details</Text>
-              <View style={styles.sectionDividerLine} />
+            <View style={styles.sectionHeadingRow}>
+              <Icon name="user" size={15} color="#374151" strokeWidth={2.2} />
+              <Text style={styles.sectionHeading}>Driver Details</Text>
             </View>
 
             <AppInput
@@ -253,10 +255,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         {/* ── Truck Details (TRUCK_ONLY or DRIVER_WITH_TRUCK) ─────────────── */}
         {showTruckSection && (
           <View style={styles.conditionalSection}>
-            <View style={styles.sectionDivider}>
-              <View style={styles.sectionDividerLine} />
-              <Text style={styles.sectionDividerLabel}>🚛  Truck Details</Text>
-              <View style={styles.sectionDividerLine} />
+            <View style={styles.sectionHeadingRow}>
+              <Icon name="truck" size={15} color="#374151" strokeWidth={2.2} />
+              <Text style={styles.sectionHeading}>Truck Details</Text>
             </View>
 
             {/* Vehicle Category */}
@@ -268,7 +269,12 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                     key={v.key}
                     onPress={() => { setVehicleType(v.key); clearErr('vehicleType'); clearErr('otherVehicleType'); }}
                     style={[styles.vehicleChip, vehicleType === v.key && styles.vehicleChipActive]}>
-                    <Text style={styles.vehicleIcon}>{v.icon}</Text>
+                    <Icon
+                      name={v.icon}
+                      size={22}
+                      color={vehicleType === v.key ? colors.accent : '#6B7280'}
+                      strokeWidth={1.8}
+                    />
                     <Text style={[styles.vehicleLabel, vehicleType === v.key && styles.vehicleLabelActive]}>
                       {v.label}
                     </Text>
@@ -315,7 +321,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         {/* ── Common Document Verification info (shown once any option is selected) ── */}
         {driverAvailability ? (
           <View style={styles.infoBox}>
-            <Text style={styles.infoIcon}>ℹ️</Text>
+            <Icon name="info" size={18} color={colors.accent} strokeWidth={2} />
             <View style={styles.infoTextWrap}>
               <Text style={styles.infoTitle}>Document Verification</Text>
               <Text style={styles.infoDesc}>
@@ -345,7 +351,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: {flex: 1, backgroundColor: colors.bg},
   content: {paddingHorizontal: spacing.xxl, paddingTop: spacing.xxl, paddingBottom: 48},
 
   subtitle: {color: '#525863', fontSize: 16, lineHeight: 24, marginBottom: 28},
@@ -357,14 +363,12 @@ const styles = StyleSheet.create({
     marginBottom: 10, overflow: 'hidden',
   },
   avatarImage: {width: 96, height: 96, borderRadius: 48},
-  avatarIcon: {fontSize: 44},
   cameraBtn: {
     position: 'absolute', bottom: 0, right: 0,
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: '#F4F7FB',
   },
-  cameraIcon: {fontSize: 13},
   avatarLabel: {color: colors.accent, fontSize: 14, fontWeight: '700', marginBottom: 2},
   avatarHint: {color: colors.inkSoft, fontSize: 12},
 
@@ -417,6 +421,8 @@ const styles = StyleSheet.create({
 
   // Conditional sections
   conditionalSection: {marginBottom: 4},
+  sectionHeadingRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20},
+  sectionHeading: {fontSize: 13, fontWeight: '800', color: '#374151'},
   sectionDivider: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20},
   sectionDividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
   sectionDividerLabel: {fontSize: 13, fontWeight: '800', color: '#374151'},
@@ -429,7 +435,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center', gap: 4,
   },
   vehicleChipActive: {backgroundColor: '#EAF3FD', borderColor: colors.accent, borderWidth: 2},
-  vehicleIcon: {fontSize: 22},
   vehicleLabel: {color: colors.inkSoft, fontSize: 12, fontWeight: '700'},
   vehicleLabelActive: {color: colors.accent, fontWeight: '900'},
   otherInputWrap: {marginTop: 12},
@@ -440,7 +445,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: '#EAF3FD', borderRadius: radius.md, padding: spacing.lg, marginBottom: 20,
   },
-  infoIcon: {fontSize: 18},
   infoTextWrap: {flex: 1},
   infoTitle: {color: colors.ink, fontSize: 14, fontWeight: '800', marginBottom: 2},
   infoDesc: {color: colors.inkSoft, fontSize: 13, lineHeight: 19},

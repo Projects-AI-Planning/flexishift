@@ -15,9 +15,6 @@ interface LiveTrackingScreenProps {
   complianceStatus: any;
   onUpdateLocation: (location: any) => void;
   onStopTracking: () => void;
-  onGoToLoadCode: () => void;
-  onGoToHandover: () => void;
-  onGoToDelivery: () => void;
   onReportIncident: () => void;
 }
 
@@ -73,7 +70,6 @@ function formatDuration(value: unknown): string {
 const STEP_LABELS = [
   {id: 'load_code', label: 'Load Code'},
   {id: 'handover', label: 'Handover'},
-  {id: 'in_transit', label: 'In Transit'},
   {id: 'delivery', label: 'Delivery'},
 ];
 
@@ -84,9 +80,6 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   complianceStatus,
   onUpdateLocation,
   onStopTracking,
-  onGoToLoadCode,
-  onGoToHandover,
-  onGoToDelivery,
   onReportIncident,
 }) => {
   const [progress, setProgress] = useState(14);
@@ -115,7 +108,6 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   const etaLabel = formatEta(etaValue);
   const distanceLabel = formatDistance(distanceValue);
   const durationLabel = formatDuration(durationValue);
-  const showLoadCodeOnly = currentStep === 'load_code';
 
   const pickupCoords =
     activeJob?.pickupLat != null && activeJob?.pickupLng != null
@@ -230,35 +222,6 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           </View>
         </Card>
 
-        <View style={styles.actionsCard}>
-          <Text style={styles.actionsTitle}>
-            {showLoadCodeOnly ? 'Load Code Required' : 'Journey actions'}
-          </Text>
-          <Text style={styles.actionsCopy}>
-            {showLoadCodeOnly
-              ? 'Verify the load code first. Handover and delivery steps unlock after that.'
-              : 'Move to the next compliance step without leaving this screen.'}
-          </Text>
-          {showLoadCodeOnly ? (
-            <View style={styles.singleActionWrap}>
-              <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, styles.journeyBtnPrimary]}>
-                <Text style={[styles.journeyBtnText, styles.journeyBtnTextOnAccent]}>Open Load Code</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.journeyButtonRow}>
-              <Pressable onPress={onGoToLoadCode} style={[styles.journeyBtn, currentStep === 'load_code' && styles.journeyBtnActive]}>
-                <Text style={styles.journeyBtnText}>Load Code</Text>
-              </Pressable>
-              <Pressable onPress={onGoToHandover} style={[styles.journeyBtn, currentStep === 'handover' && styles.journeyBtnActive]}>
-                <Text style={styles.journeyBtnText}>Handover</Text>
-              </Pressable>
-              <Pressable onPress={onGoToDelivery} style={[styles.journeyBtn, currentStep === 'delivery' && styles.journeyBtnActive]}>
-                <Text style={styles.journeyBtnText}>Delivery</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -377,41 +340,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.accent,
   },
-  primaryBtnText: {color: colors.nav, fontSize: 13, fontWeight: '900'},
-  actionsCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  actionsTitle: {color: colors.navy, fontSize: 16, fontWeight: '900'},
-  actionsCopy: {color: colors.inkSoft, fontSize: 13, marginTop: 4, marginBottom: spacing.md, lineHeight: 18},
-  journeyButtonRow: {flexDirection: 'row', gap: spacing.sm},
-  singleActionWrap: {marginTop: spacing.sm},
-  journeyBtn: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D6DCE5',
-    backgroundColor: '#F8FAFD',
-  },
-  journeyBtnActive: {
-    backgroundColor: '#FFF3D5',
-    borderColor: colors.accent,
-  },
-  journeyBtnPrimary: {
-    flex: 0,
-    alignSelf: 'stretch',
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  journeyBtnTextOnAccent: {color: colors.card},
-  journeyBtnText: {color: colors.navy, fontSize: 12, fontWeight: '900'},
+  primaryBtnText: {color: colors.navy, fontSize: 13, fontWeight: '900'},
 });
 
 export default LiveTrackingScreen;

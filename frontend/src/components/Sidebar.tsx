@@ -53,7 +53,7 @@ const NavItem: React.FC<NavItemProps> = ({
             isCollapsed && !isMobile ? 'justify-center' : 'justify-between'
           } px-4 py-3 mx-2 rounded-lg transition-all duration-200 font-bold text-sm outline-none ${
             isMainActive || isExpanded
-              ? 'bg-amber-500/10 text-amber-500'
+              ? 'bg-[#1066b1]/20 text-white'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
           title={isCollapsed && !isMobile ? link.label : undefined}
@@ -78,7 +78,7 @@ const NavItem: React.FC<NavItemProps> = ({
                 className={({ isActive }) =>
                   `block rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
                     isActive
-                      ? 'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20'
+                      ? 'bg-[#1066b1]/20 text-white'
                       : 'text-slate-500 hover:bg-slate-800 hover:text-white'
                   }`
                 }
@@ -101,7 +101,7 @@ const NavItem: React.FC<NavItemProps> = ({
       className={({ isActive }) =>
         `flex items-center ${isCollapsed && !isMobile ? 'justify-center' : 'gap-3'} px-4 py-3 mx-2 rounded-lg transition-all duration-200 font-bold text-sm ${
           isActive
-            ? 'bg-amber-500 text-[#041627] shadow-lg shadow-amber-500/10'
+            ? 'bg-[#1066b1] text-white shadow-lg shadow-[#1066b1]/20'
             : 'text-slate-400 hover:text-white hover:bg-slate-800'
         }`
       }
@@ -213,26 +213,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
   const haulierLinks: SidebarLink[] = [
     { to: '/haulier', icon: 'dashboard', label: 'Dashboard' },
     { to: '/haulier/post-job', icon: 'add_circle', label: 'Post Job' },
-    {
-      icon: 'local_shipping',
-      label: 'My Jobs',
-      children: [
-        { to: '/haulier/jobs', label: 'All Jobs & Quotes' },
-        { to: '/haulier/jobs/open', label: 'Open' },
-        { to: '/haulier/jobs/booked', label: 'Booked' },
-        { to: '/haulier/jobs/transit', label: 'In Transit' },
-        { to: '/haulier/jobs/completed', label: 'Completed' },
-      ],
-    },
-    {
-      icon: 'payments',
-      label: 'Payments',
-      children: [
-        { to: '/haulier/payments/escrow', label: 'Escrow' },
-        { to: '/haulier/payments/history', label: 'History' },
-        { to: '/haulier/payments/invoices', label: 'Invoices' },
-      ],
-    },
+    { to: '/haulier/shifts', icon: 'event_available', label: 'Schedule Shift' },
+    { to: '/haulier/jobs', icon: 'local_shipping', label: 'My Jobs' },
+    { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     {
       icon: 'forklift',
       label: 'Fleet Management',
@@ -275,24 +258,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/documents/insurance', label: 'Insurance' },
       ],
     },
-    {
-      icon: 'settings',
-      label: 'Settings',
-      children: [
-        { to: '/haulier/settings/profile', label: 'Profile' },
-        { to: '/haulier/settings/notifications', label: 'Notifications' },
-        { to: '/haulier/settings/security', label: 'Security' },
-      ],
-    },
-    {
-      icon: 'help',
-      label: 'Support',
-      children: [
-        { to: '/haulier/support/help', label: 'Help Center' },
-        { to: '/haulier/support/contact', label: 'Contact' },
-      ],
-    },
-    { to: '/haulier/notifications', icon: 'notifications', label: 'Notifications' },
+    // { icon: 'settings', label: 'Settings', children: [
+    //   { to: '/haulier/settings/profile', label: 'Profile' },
+    //   { to: '/haulier/settings/notifications', label: 'Notifications' },
+    //   { to: '/haulier/settings/security', label: 'Security' },
+    // ] },
+    // { icon: 'help', label: 'Support', children: [
+    //   { to: '/haulier/support/help', label: 'Help Center' },
+    //   { to: '/haulier/support/contact', label: 'Contact' },
+    // ] },
+    // { to: '/haulier/notifications', icon: 'notifications', label: 'Notifications' },
     { to: '/haulier/tracking', icon: 'distance', label: 'Live Tracking' },
   ];
 
@@ -335,8 +310,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         <div className={`pt-6 pb-4 ${isCollapsed ? 'lg:px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className={`flex items-center ${isCollapsed ? 'lg:justify-center lg:w-full' : 'gap-3 min-w-0'}`}>
-              <div className="w-10 h-10 bg-amber-500 rounded flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[#041627] font-bold">local_shipping</span>
+              <div className="w-10 h-10 bg-[#1066b1] rounded flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-white font-bold">local_shipping</span>
               </div>
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0">
@@ -359,13 +334,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
 
         <div className={`py-4 mb-2 bg-slate-800/30 border-y border-slate-800/50 ${isCollapsed ? 'lg:px-4' : 'px-6'}`}>
           <div className={`flex items-center ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-black text-sm shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#1066b1]/20 flex items-center justify-center text-white font-black text-sm shrink-0">
               {user?.name?.charAt(0) || 'U'}
             </div>
             {(!isCollapsed || isMobileOpen) && (
               <div className="overflow-hidden">
                 <p className="text-white text-sm font-bold truncate">{user?.name}</p>
-                <p className="text-amber-500 text-[10px] uppercase font-black tracking-widest truncate">{user?.role}</p>
+                <p className="text-[#1066b1] text-[10px] uppercase font-black tracking-widest truncate">{user?.role}</p>
               </div>
             )}
           </div>

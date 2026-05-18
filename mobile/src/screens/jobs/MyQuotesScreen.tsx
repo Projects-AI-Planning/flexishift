@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ interface MyQuotesScreenProps {
   onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
+  highlightedJobId?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,7 +36,20 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
   onProceedToCompliance,
   onWithdrawQuote,
   onViewQuoteStatus,
+  highlightedJobId,
 }) => {
+  const listRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (!highlightedJobId || !quotes.length) return;
+    const index = quotes.findIndex(q => String(q.jobId ?? '') === highlightedJobId);
+    if (index < 0) return;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({index, animated: true, viewPosition: 0.2});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightedJobId, quotes]);
+
   const handleWithdraw = (quoteId: string) => {
     Alert.alert('Withdraw Bid', 'Are you sure you want to withdraw this bid?', [
       {text: 'Cancel', style: 'cancel'},
@@ -49,13 +63,23 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
     const isPending    = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
     const isDeclined   = statusUpper === 'DECLINED';
     const isWithdrawn  = statusUpper === 'WITHDRAWN';
-    const jobId       = String(item.jobId ?? '');
+    const jobId        = String(item.jobId ?? '');
+    const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
     // API nests route info under item.job
     const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
     const dropLocation   = item.dropLocation   ?? item.job?.dropLocation   ?? null;
 
     return (
-      <View style={[styles.card, isAccepted && styles.cardAccepted]}>
+      <View style={[
+        styles.card,
+        isAccepted && styles.cardAccepted,
+        isHighlighted && styles.cardHighlighted,
+      ]}>
+        {isHighlighted && (
+          <View style={styles.highlightBanner}>
+            <Text style={styles.highlightBannerText}>From Upcoming Schedule</Text>
+          </View>
+        )}
         {/* Top row: ref + status badge */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
@@ -181,11 +205,14 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
 
   return (
     <FlatList
+      ref={listRef}
       data={quotes}
       renderItem={renderItem}
       keyExtractor={item => item.quoteId ?? String(Math.random())}
+      style={styles.screen}
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}
+      onScrollToIndexFailed={() => {}}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
@@ -203,11 +230,12 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  screen: {flex: 1, backgroundColor: colors.bg},
   listContent: {
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   card: {
     backgroundColor: colors.card,
@@ -223,8 +251,27 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardAccepted: {
-    borderColor: '#34D399',
+    borderColor: '#1066B1',
     borderWidth: 2,
+  },
+  cardHighlighted: {
+    borderColor: '#1066B1',
+    borderWidth: 2,
+    backgroundColor: '#EBF4FF',
+  },
+  highlightBanner: {
+    backgroundColor: '#1066B1',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+  },
+  highlightBannerText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -250,7 +297,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  badgeGreen: {backgroundColor: '#DCFCE7'},
+  badgeGreen: {backgroundColor: '#DBEAFE'},
   badgeRed:   {backgroundColor: '#FEE2E2'},
   badgeGrey:  {backgroundColor: '#F1F5F9'},
   statusText: {
@@ -259,7 +306,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  statusTextGreen: {color: '#15803D'},
+  statusTextGreen: {color: '#1066B1'},
   statusTextRed:   {color: '#B91C1C'},
   statusTextGrey:  {color: '#64748B'},
   routeRow: {
@@ -277,7 +324,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     flexShrink: 0,
   },
-  dotGreen: {backgroundColor: '#34D399'},
+  dotGreen: {backgroundColor: '#1066B1'},
   dotAmber: {backgroundColor: colors.accent},
   routeText: {
     flex: 1,
@@ -327,15 +374,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#EFF6FF',
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#BFDBFE',
   },
   acceptedBannerIcon: {fontSize: 24},
   acceptedBannerTitle: {
-    color: '#15803D',
+    color: '#1066B1',
     fontSize: 14,
     fontWeight: '900',
   },

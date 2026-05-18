@@ -144,11 +144,11 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: {flex: 1, backgroundColor: colors.bg},
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.xl, paddingVertical: 14,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   backBtn: {width: 60},
   backText: {color: colors.navy, fontSize: 15, fontWeight: '800'},

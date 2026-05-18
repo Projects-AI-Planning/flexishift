@@ -81,12 +81,12 @@ def _quote_dict(quote: Quote, include_job: bool = False) -> dict:
 
 
 @router.post("/submit", status_code=201)
-def submit_quote(
+async def submit_quote(
     body: SubmitQuoteRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    quote = quotes_svc.submit_quote(db, body.job_id, current_user, body.price)
+    quote = await quotes_svc.submit_quote(db, body.job_id, current_user, body.price)
     return created(data=_quote_dict(quote), message="Quote submitted successfully")
 
 

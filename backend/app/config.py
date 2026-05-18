@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
 
+    STRIPE_SECRET_KEY: str = "REDACTED"
+    STRIPE_PUBLISHABLE_KEY: str = "pk_test_51TYMGaFw6TQ1e6pVSB6FoLBNIZLH0BfUU22kxyhJoi0RrNQrrIZSZJwDOaryWfIOhqVQTR54unroLb6XQhICMpJG001DchYHXN"
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@freightflex.io"
     EMAIL_FROM: str = ""
@@ -53,6 +57,7 @@ class Settings(BaseSettings):
     FCM_SERVER_KEY: str = ""
     FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
+    BACKEND_URL: str = "http://localhost:8000"
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://freightflex.vercel.app"
 
     CELERY_BROKER_URL: str = ""

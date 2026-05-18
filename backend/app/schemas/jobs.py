@@ -16,6 +16,7 @@ class JobCreateRequest(BaseModel):
     vehicle_type: str = Field(..., alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")
+    driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
 
     model_config = {"populate_by_name": True}
 
@@ -36,6 +37,7 @@ class JobOut(BaseModel):
     vehicleType: str = Field(..., alias="vehicle_type")
     jobDate: date = Field(..., alias="job_date")
     timeSlot: str = Field(..., alias="time_slot")
+    driverRequirement: Optional[str] = Field(None, alias="driver_requirement")
     distanceKm: Optional[float] = Field(None, alias="distance_km")
     durationMin: Optional[int] = Field(None, alias="duration_min")
     status: str
@@ -60,6 +62,7 @@ class JobUpdateRequest(BaseModel):
     vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: Optional[date] = Field(None, alias="jobDate")
     time_slot: Optional[str] = Field(None, alias="timeSlot")
+    driver_requirement: Optional[str] = Field(None, alias="driverRequirement")
 
     model_config = {"populate_by_name": True}
 

@@ -72,7 +72,7 @@ const formatDate = (value?: string | null) =>
 
 const stepTone = (done?: boolean, active?: boolean) => {
   if (done) return 'bg-emerald-500 text-white';
-  if (active) return 'bg-amber-500 text-white';
+  if (active) return 'bg-[#1066b1]/100 text-white';
   return 'bg-slate-100 text-slate-400';
 };
 
@@ -148,7 +148,7 @@ function SignatureCanvas({
       <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">
               Step 2 · Handover
             </p>
             <h2 className="text-xl font-black text-primary">Haulier Signature</h2>
@@ -347,7 +347,7 @@ export default function HaulierCompliancePage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Documents & Compliance</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Documents & Compliance</p>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-primary">Compliance</h1>
           <p className="text-on-surface-variant font-medium">Backend-backed compliance timeline for your haulier jobs.</p>
         </div>
@@ -483,26 +483,26 @@ export default function HaulierCompliancePage() {
           {selectedJob && !detailLoading && (
             <>
               {needsHaulierSignature && (
-                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                <div className="rounded-3xl border border-[#1066b1]/25 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1066b1]/15 text-[#0d55a0]">
                         <span className="material-symbols-outlined text-xl">edit</span>
                       </span>
                       <div>
-                        <p className="font-black text-amber-800">Your signature is required</p>
-                        <p className="mt-1 text-sm text-amber-700">
+                        <p className="font-black text-[#083d7a]">Your signature is required</p>
+                        <p className="mt-1 text-sm text-[#0a4a8f]">
                           The driver has completed their handover checklist and signed.
                           Sign now to confirm vehicle release and start the trip.
                         </p>
-                        <p className="mt-2 text-xs text-amber-600">
+                        <p className="mt-2 text-xs text-[#0d55a0]">
                           Driver signed at: {formatDate(detail.handover?.driverSignedAt)}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => { setSignError(''); setShowSignModal(true); }}
-                      className="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-md shadow-amber-300/40 transition hover:bg-amber-600"
+                      className="shrink-0 rounded-2xl bg-[#1066b1]/100 px-5 py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/30 transition hover:bg-[#0a4a8f]"
                     >
                       Sign Now
                     </button>
@@ -566,7 +566,7 @@ export default function HaulierCompliancePage() {
                       {driverSigned ? '✓' : '○'} Driver signed
                       {driverSigned && <span className="ml-1 opacity-70">{formatDate(detail.handover?.driverSignedAt)}</span>}
                     </div>
-                    <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${haulierSigned ? 'bg-emerald-100 text-emerald-700' : needsHaulierSignature ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${haulierSigned ? 'bg-emerald-100 text-emerald-700' : needsHaulierSignature ? 'bg-[#1066b1]/15 text-[#0a4a8f]' : 'bg-slate-100 text-slate-500'}`}>
                       {haulierSigned ? '✓' : '○'} Haulier signed
                       {haulierSigned && <span className="ml-1 opacity-70">{formatDate(detail.handover?.haulierSignedAt)}</span>}
                       {needsHaulierSignature && !haulierSigned && <span className="ml-1">— action needed</span>}

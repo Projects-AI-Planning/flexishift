@@ -28,8 +28,8 @@ class ComplianceRecord(Base):
     step3_approved_at:       Mapped[datetime] = mapped_column(DateTime, nullable=True)
     dispute_reason:          Mapped[str]      = mapped_column(Text, nullable=True)
     disputed_at:             Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at:              Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:              Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                               onupdate=lambda: datetime.now(timezone.utc))
+    created_at:              Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:              Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
+                                                               onupdate=datetime.utcnow)
 
     job: Mapped["Job"] = relationship("Job", back_populates="compliance")

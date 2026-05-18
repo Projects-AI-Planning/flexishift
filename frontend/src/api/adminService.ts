@@ -204,6 +204,9 @@ const adminService = {
   rejectDocument: (docId: string, reason: string) =>
     client.put(`/admin/documents/reject/${docId}`, { rejectionReason: reason }).then((res) => res.data),
 
+  getJobQuotes: (jobId: string) =>
+    client.get(`/jobs/${jobId}/quotes`).then((res) => res.data.data),
+
   // EPIC 4: Payment & Invoices (Note: EPIC 3 is missing in api.md numbering)
   listAdminPayments: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
     client.get('/dashboard/admin/payments/list', { params }).then((res) => res.data.data),

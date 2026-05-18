@@ -5,6 +5,7 @@ import {
   SafeAreaView,
   StyleSheet,
 } from 'react-native';
+import {colors} from '../theme';
 
 interface SplashScreenProps {
   onGetStarted: () => void;
@@ -40,26 +41,26 @@ const SplashScreen: React.FC<SplashScreenProps> = ({onGetStarted, onLogin}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   fill: {
     flex: 1,
   },
-  // Sits over the blue GET STARTED button (~68–78% from top)
+  // Sits over the blue GET STARTED button in the static splash artwork.
   getStartedArea: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '68%',
-    height: '11%',
+    top: '69%',
+    height: '8%',
   },
-  // Sits over the "Already have an account? Login" text (~79–87% from top)
+  // Sits over the "Already have an account? Login" text in the artwork.
   loginArea: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '79%',
-    height: '8%',
+    top: '80%',
+    height: '6%',
   },
 });
 

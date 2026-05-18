@@ -96,7 +96,7 @@ const statusTone = (value?: string) => {
   const normalized = (value || '').toLowerCase();
   if (normalized.includes('complete') || normalized.includes('deliver')) return 'bg-emerald-100 text-emerald-700';
   if (normalized.includes('transit') || normalized.includes('active')) return 'bg-blue-100 text-blue-700';
-  return 'bg-amber-100 text-amber-700';
+  return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
 const formatTime = (value?: string | null) => (value ? new Date(value).toLocaleString('en-IN') : 'N/A');
@@ -256,7 +256,7 @@ export default function HaulierTrackingPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Operations</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Operations</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Live Tracking</h1>
           <p className="text-on-surface-variant font-medium">Track active jobs with backend live location, ETA, and history data.</p>
         </div>

@@ -14,6 +14,7 @@ from app.schemas.admin import AdminCreateUserRequest, UpdateUserStatusRequest, A
 from app.core.security import hash_password
 from app.models.user import UserProfile
 from app.services import documents as doc_svc
+from app.services.notifications import create_notification
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -150,9 +151,21 @@ def list_pending_documents(
     _: User = Depends(AdminDep),
 ):
     result = doc_svc.list_pending_documents(db, page, limit, document_type)
+    docs = result.get("items", [])
+    # Enrich each document with the owner's user info
+    items = []
+    for d in docs:
+        owner = db.get(User, d.user_id)
+        items.append({
+            **_doc_dict(d),
+            "userName": owner.full_name if owner else "Unknown",
+            "userEmail": owner.email if owner else "",
+            "userRole": owner.role.value if owner else "",
+            "userPhone": owner.phone if owner else "",
+        })
     return ok(
         data={
-            "items": [_doc_dict(d) for d in result.get("items", [])],
+            "items": items,
             "total": result.get("total", 0),
             "page": page,
             "perPage": limit,
@@ -162,35 +175,69 @@ def list_pending_documents(
 
 
 @router.patch("/documents/{doc_id}/review")
-def review_document(
+async def review_document(
     doc_id: str,
     body: DocumentReviewRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(AdminDep),
 ):
     doc = doc_svc.review_document(db, doc_id, admin, body.status, body.rejection_reason)
+    doc_label = doc.doc_type.replace("_", " ").title()
+    if body.status == "APPROVED":
+        await create_notification(
+            db, doc.user_id, "DOCUMENT_APPROVED",
+            "Document Approved",
+            f"Your {doc_label} has been approved.",
+            {"doc_id": doc.id, "doc_type": doc.doc_type},
+        )
+    elif body.status == "REJECTED":
+        reason = body.rejection_reason or "No reason provided"
+        await create_notification(
+            db, doc.user_id, "DOCUMENT_REJECTED",
+            "Document Rejected",
+            f"Your {doc_label} was rejected: {reason}",
+            {"doc_id": doc.id, "doc_type": doc.doc_type, "reason": reason},
+        )
+    db.commit()
     return ok(data=_doc_dict(doc), message="Document reviewed")
 
 
 @router.put("/documents/approve/{doc_id}")
-def approve_document(
+async def approve_document(
     doc_id: str,
     body: ApproveDocumentRequest = ApproveDocumentRequest(),
     db: Session = Depends(get_db),
     admin: User = Depends(AdminDep),
 ):
     doc = doc_svc.review_document(db, doc_id, admin, "APPROVED", body.remarks)
+    doc_label = doc.doc_type.replace("_", " ").title()
+    await create_notification(
+        db, doc.user_id, "DOCUMENT_APPROVED",
+        "Document Approved",
+        f"Your {doc_label} has been approved.",
+        {"doc_id": doc.id, "doc_type": doc.doc_type},
+    )
+    db.commit()
     return ok(data=_doc_dict(doc), message="Document approved")
 
 
 @router.put("/documents/reject/{doc_id}")
-def reject_document(
+async def reject_document(
     doc_id: str,
     body: RejectDocumentRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(AdminDep),
 ):
     doc = doc_svc.review_document(db, doc_id, admin, "REJECTED", body.rejection_reason)
+    doc_label = doc.doc_type.replace("_", " ").title()
+    reason = body.rejection_reason or "No reason provided"
+    await create_notification(
+        db, doc.user_id, "DOCUMENT_REJECTED",
+        "Document Rejected",
+        f"Your {doc_label} was rejected: {reason}",
+        {"doc_id": doc.id, "doc_type": doc.doc_type, "reason": reason},
+    )
+    db.commit()
     return ok(data=_doc_dict(doc), message="Document rejected")
 
 

@@ -29,6 +29,7 @@ from app.routers import (
     profile,
     quotes,
     ratings,
+    shifts,
     support,
     supplier,
     suppliers,
@@ -74,7 +75,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-uploads_dir = Path(__file__).resolve().parents[1] / "static" / "uploads"
+uploads_dir = Path(__file__).resolve().parent / "static" / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
@@ -146,6 +147,7 @@ app.include_router(compliance_flat.router, prefix=PREFIX)
 app.include_router(tracking.router, prefix=PREFIX)
 app.include_router(tracking.flat, prefix=PREFIX)
 app.include_router(ratings.router, prefix=PREFIX)
+app.include_router(shifts.router, prefix=PREFIX)
 app.include_router(notifications.router, prefix=PREFIX)
 app.include_router(support.router, prefix=PREFIX)
 app.include_router(dashboard.router, prefix=PREFIX)

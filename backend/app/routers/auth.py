@@ -59,31 +59,43 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depen
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    user = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r)
-    email_sent = getattr(user, "email_sent", True)
+    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r)
     return created(
         data={
-            "userId": user.id,
-            "email": user.email,
-            "role": user.role.value,
-            "isVerified": user.verified,
-            "emailSent": email_sent,
+            "email": result["email"],
+            "role": result["role"],
+            "emailSent": result["email_sent"],
         },
         message=(
             "Registration successful. A verification code has been sent to your email."
-            if email_sent
+            if result["email_sent"]
             else "Registration successful. Email delivery failed — use Resend OTP on the verification screen."
         ),
     )
 
 
 @router.post("/verify-email")
-async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
+async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     token = body.get_token()
     if not token:
         raise HTTPException(status_code=400, detail="Verification token or OTP is required")
-    user = await auth_svc.verify_email(db, token, email=body.email)
-    return ok(data=None, message="Email verified. You can now log in.")
+    result = await auth_svc.verify_email(db, token, email=body.email, r=r)
+    user = result["user"]
+    return ok(
+        data={
+            "accessToken": result["access_token"],
+            "refreshToken": result["refresh_token"],
+            "tokenType": "bearer",
+            "userId": user.id,
+            "role": user.role.value,
+            "name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "isVerified": user.verified,
+            "isProfileComplete": getattr(user, "profile_complete", False),
+        },
+        message="Email verified successfully.",
+    )
 
 
 @router.post("/login")
@@ -124,8 +136,8 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db), r=Depends(get_r
 
 
 @router.post("/logout", status_code=200)
-def logout(body: RefreshRequest, r=Depends(get_redis)):
-    auth_svc.logout(r, body.refresh_token)
+def logout(body: RefreshRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
+    auth_svc.logout(r, body.refresh_token, db=db)
     return ok(data=None, message="Logged out successfully")
 
 

@@ -1,4 +1,4 @@
-export type DriverTabKey = 'home' | 'jobs' | 'tracking' | 'profile';
+export type DriverTabKey = 'home' | 'jobs' | 'shifts' | 'tracking' | 'profile';
 
 export type DrawerRouteKey =
   | 'home'
@@ -32,7 +32,10 @@ export type DrawerRouteKey =
   | 'support.contact'
   | 'legal.terms'
   | 'legal.privacy'
-  | 'profile.settings';
+  | 'profile.settings'
+  | 'shifts.available'
+  | 'shifts.myShifts'
+  | 'payment.escrow';
 
 export interface ApiResponse<T> {
   code: number;

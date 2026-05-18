@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 
 // ── Razorpay types ──────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ const methodTail = (methodId: string) => {
 const STATUS_STYLES: Record<string, string> = {
   ESCROWED: 'bg-indigo-100 text-indigo-700',
   RELEASED: 'bg-emerald-100 text-emerald-700',
-  PENDING: 'bg-amber-100 text-amber-700',
+  PENDING: 'bg-[#1066b1]/15 text-[#0a4a8f]',
   REFUNDED: 'bg-red-100 text-red-700',
   FAILED: 'bg-slate-100 text-[#44474C]',
 };
@@ -141,13 +141,23 @@ const Empty: React.FC<{ icon: string; title: string; sub: string }> = ({ icon, t
   </div>
 );
 
-const TAB_LINKS = [
-  { to: '/haulier/payments/create', label: 'Pay Now', icon: 'payments' },
-  { to: '/haulier/payments/escrow', label: 'Escrow', icon: 'security' },
-  { to: '/haulier/payments/history', label: 'History', icon: 'receipt_long' },
-  { to: '/haulier/payments/invoices', label: 'Invoices', icon: 'description' },
-  { to: '/haulier/payments/methods', label: 'Methods', icon: 'account_balance' },
+type PaymentTab = 'create' | 'escrow' | 'history' | 'invoices' | 'methods';
+
+const PAYMENT_TABS: { key: PaymentTab; label: string; icon: string }[] = [
+  { key: 'create',   label: 'Pay Now',  icon: 'payments' },
+  { key: 'escrow',   label: 'Escrow',   icon: 'security' },
+  { key: 'history',  label: 'History',  icon: 'receipt_long' },
+  { key: 'invoices', label: 'Invoices', icon: 'description' },
+  { key: 'methods',  label: 'Methods',  icon: 'account_balance' },
 ];
+
+const getTabFromPath = (pathname: string): PaymentTab => {
+  if (pathname.includes('/escrow'))   return 'escrow';
+  if (pathname.includes('/history'))  return 'history';
+  if (pathname.includes('/invoices')) return 'invoices';
+  if (pathname.includes('/methods'))  return 'methods';
+  return 'create';
+};
 
 // ── Create Payment Tab ──────────────────────────────────────────────────────
 
@@ -282,9 +292,9 @@ const CreatePaymentTab: React.FC = () => {
       </div>
 
       {/* Info banner */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-4">
-        <span className="material-symbols-outlined text-amber-500 shrink-0 text-base mt-0.5">info</span>
-        <div className="text-xs text-amber-800 font-medium leading-relaxed">
+      <div className="flex items-start gap-3 bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4">
+        <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">info</span>
+        <div className="text-xs text-[#083d7a] font-medium leading-relaxed">
           <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds in escrow via Razorpay.
           Once secured, the driver can enter the load code and begin the trip. Payment releases to the driver after delivery is approved.
         </div>
@@ -377,7 +387,7 @@ const CreatePaymentTab: React.FC = () => {
                               Selected
                             </span>
                           )}
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700">
+                          <span className="rounded-full bg-[#1066b1]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#0a4a8f]">
                             Payment Pending
                           </span>
                         </div>
@@ -708,11 +718,11 @@ const InvoicesTab: React.FC = () => {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Invoices</p>
           <p className="text-4xl font-black text-primary">{loading ? '...' : total}</p>
         </div>
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 flex items-center gap-4">
-          <span className="material-symbols-outlined text-amber-500 text-3xl">description</span>
+        <div className="bg-gradient-to-br from-[#1066b1]/10 to-[#1066b1]/10 border border-[#1066b1]/25 rounded-2xl p-6 flex items-center gap-4">
+          <span className="material-symbols-outlined text-[#1066b1] text-3xl">description</span>
           <div>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Auto-Generated</p>
-            <p className="text-xs text-amber-800 font-medium leading-relaxed">
+            <p className="text-[10px] font-black text-[#0d55a0] uppercase tracking-widest mb-0.5">Auto-Generated</p>
+            <p className="text-xs text-[#083d7a] font-medium leading-relaxed">
               Invoices are generated when a job payment is secured. Download as PDF for your records.
             </p>
           </div>
@@ -747,7 +757,7 @@ const InvoicesTab: React.FC = () => {
                           Available
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-700">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-[#1066b1]/15 text-[#0a4a8f]">
                           <span className="material-symbols-outlined text-xs">hourglass_empty</span>
                           Pending
                         </span>
@@ -954,13 +964,7 @@ const MethodsTab: React.FC = () => {
 
 const HaulierPaymentsPage: React.FC = () => {
   const location = useLocation();
-  const activeTab = TAB_LINKS.find((tab) => location.pathname.startsWith(tab.to))?.label ?? 'Pay Now';
-
-  const isCreate = location.pathname.startsWith('/haulier/payments/create') || location.pathname === '/haulier/payments';
-  const isEscrow = location.pathname.startsWith('/haulier/payments/escrow');
-  const isHistory = location.pathname.startsWith('/haulier/payments/history');
-  const isInvoices = location.pathname.startsWith('/haulier/payments/invoices');
-  const isMethods = location.pathname.startsWith('/haulier/payments/methods');
+  const [activeTab, setActiveTab] = useState<PaymentTab>(() => getTabFromPath(location.pathname));
 
   return (
     <div className="space-y-6">
@@ -970,36 +974,27 @@ const HaulierPaymentsPage: React.FC = () => {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-1.5 inline-flex gap-1 shadow-[0_2px_8px_rgba(26,43,60,0.05)] flex-wrap">
-        {TAB_LINKS.map((tab) => {
-          const isActive = location.pathname.startsWith(tab.to) || (tab.to === '/haulier/payments/create' && location.pathname === '/haulier/payments');
-          return (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
-                isActive
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-slate-500 hover:text-[#041627] hover:bg-slate-50'
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">{tab.icon}</span>
-              {tab.label}
-            </NavLink>
-          );
-        })}
+        {PAYMENT_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
+              activeTab === tab.key
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'text-slate-500 hover:text-[#041627] hover:bg-slate-50'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div className="flex items-center gap-2 text-slate-400">
-        <span className="text-xs font-black uppercase tracking-widest">Payments</span>
-        <span className="material-symbols-outlined text-sm">chevron_right</span>
-        <span className="text-xs font-black uppercase tracking-widest text-primary">{activeTab}</span>
-      </div>
-
-      {isCreate && <CreatePaymentTab />}
-      {isEscrow && <EscrowTab />}
-      {isHistory && <HistoryTab />}
-      {isInvoices && <InvoicesTab />}
-      {isMethods && <MethodsTab />}
+      {activeTab === 'create'   && <CreatePaymentTab />}
+      {activeTab === 'escrow'   && <EscrowTab />}
+      {activeTab === 'history'  && <HistoryTab />}
+      {activeTab === 'invoices' && <InvoicesTab />}
+      {activeTab === 'methods'  && <MethodsTab />}
     </div>
   );
 };

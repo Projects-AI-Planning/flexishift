@@ -7,9 +7,10 @@ import {
   View,
 } from 'react-native';
 import {colors, spacing} from '../../theme';
+import Icon, {IconName} from '../../components/common/Icon';
 
 interface SettingsItem {
-  icon: string;
+  icon: IconName;
   label: string;
   subtitle: string;
   onPress: () => void;
@@ -31,7 +32,12 @@ function SettingsRow({item}: {item: SettingsItem}) {
       onPress={item.onPress}
       style={({pressed}) => [styles.row, pressed && styles.rowPressed]}>
       <View style={[styles.iconBox, item.danger && styles.iconBoxDanger]}>
-        <Text style={styles.rowIcon}>{item.icon}</Text>
+        <Icon
+          name={item.icon}
+          size={20}
+          color={item.danger ? colors.danger : '#000000'}
+          strokeWidth={2}
+        />
       </View>
       <View style={styles.rowText}>
         <Text style={[styles.rowLabel, item.danger && styles.rowLabelDanger]}>
@@ -39,7 +45,9 @@ function SettingsRow({item}: {item: SettingsItem}) {
         </Text>
         <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
       </View>
-      {!item.danger && <Text style={styles.chevron}>›</Text>}
+      {!item.danger && (
+        <Icon name="chevron-right" size={18} color="#000000" strokeWidth={2.5} />
+      )}
     </Pressable>
   );
 }
@@ -54,19 +62,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const accountItems: SettingsItem[] = [
     {
-      icon: '🔒',
+      icon: 'lock',
       label: 'Change Password',
       subtitle: 'Update your account password',
       onPress: onChangePassword,
     },
     {
-      icon: '🔔',
+      icon: 'bell',
       label: 'Notification Preferences',
       subtitle: 'Manage push and SMS alerts',
       onPress: onNotificationPreferences,
     },
     {
-      icon: '📅',
+      icon: 'calendar',
       label: 'Set Availability',
       subtitle: 'Manage your working days & hours',
       onPress: onAvailability,
@@ -75,13 +83,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const legalItems: SettingsItem[] = [
     {
-      icon: '📋',
+      icon: 'clipboard',
       label: 'Terms & Conditions',
       subtitle: 'Read our terms of service',
       onPress: onTerms,
     },
     {
-      icon: '🔏',
+      icon: 'shield',
       label: 'Privacy Policy',
       subtitle: 'How we handle your data',
       onPress: onPrivacy,
@@ -90,7 +98,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const dangerItems: SettingsItem[] = [
     {
-      icon: '⚠️',
+      icon: 'alert-triangle',
       label: 'Deactivate Account',
       subtitle: 'Temporarily disable your account',
       onPress: onDeactivate,
@@ -143,7 +151,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </View>
       </View>
 
-      <Text style={styles.version}>FreightFlex Driver App · v1.0.0</Text>
+      <Text style={styles.version}>FlexiShift Driver App · v1.0.0</Text>
     </ScrollView>
   );
 };
@@ -178,7 +186,6 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   divider: {height: 1, backgroundColor: '#EEF2F7', marginHorizontal: 0},
-
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.lg, paddingVertical: 13, gap: 14,
@@ -190,13 +197,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   iconBoxDanger: {backgroundColor: colors.dangerSoft},
-  rowIcon: {fontSize: 18},
   rowText: {flex: 1},
   rowLabel: {fontSize: 15, fontWeight: '800', color: colors.ink},
   rowLabelDanger: {color: colors.danger},
   rowSubtitle: {fontSize: 12, color: colors.inkSoft, marginTop: 2},
-  chevron: {fontSize: 22, color: '#9CA3AF', fontWeight: '300', marginLeft: 8},
-
   version: {
     textAlign: 'center',
     fontSize: 12,

@@ -25,7 +25,7 @@ const INCIDENT_TYPES = [
   {id: 'breakdown', label: '🔧 Breakdown', color: '#FEF9C3', textColor: '#92400E'},
   {id: 'delay', label: '⏱ Delay', color: '#EFF6FF', textColor: '#1D4ED8'},
   {id: 'cargo_damage', label: '📦 Cargo Issue', color: '#FEF3C7', textColor: '#D97706'},
-  {id: 'route_change', label: '🗺 Route Change', color: '#F0FDF4', textColor: '#15803D'},
+  {id: 'route_change', label: '🗺 Route Change', color: '#EFF6FF', textColor: '#1066B1'},
   {id: 'other', label: '❓ Other', color: '#F1F5F9', textColor: '#475569'},
 ];
 

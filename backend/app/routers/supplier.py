@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, Request, UploadFile
-from pathlib import Path
+from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, UploadFile
 from uuid import uuid4
 from sqlalchemy.orm import Session
 
@@ -37,7 +36,6 @@ def _doc_dict(d: Document) -> dict:
 
 @router.post("/documents/upload", status_code=201)
 async def upload_document_direct(
-    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
     # Mobile sends 'documentType'; also accept 'doc_type' for web clients
@@ -73,7 +71,7 @@ async def upload_document_direct(
         file_path = local_svc.LOCAL_UPLOAD_ROOT / key
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_bytes(contents)
-        file_url = str(request.url_for("uploads", path=key))
+        file_url = f"{settings.BACKEND_URL}/uploads/{key}"
         record = local_svc.create_pending_upload(
             db,
             user_id=current_user.id,

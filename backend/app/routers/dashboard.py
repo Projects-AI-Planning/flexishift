@@ -1586,7 +1586,7 @@ def admin_pending_verifications(
             "documents": [
                 {
                     "documentId": d.id,
-                    "documentType": d.doc_type,
+                    "documentType": d.doc_type.value,
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "uploadedAt": d.created_at.isoformat() if d.created_at else None,
@@ -1647,7 +1647,7 @@ def admin_processed_verifications(
             "documents": [
                 {
                     "documentId": d.id,
-                    "documentType": d.doc_type,
+                    "documentType": d.doc_type.value,
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "rejectionReason": d.rejection_reason,
@@ -1701,6 +1701,7 @@ def admin_monitor_jobs(
         haulier = j.haulier
         supplier = j.supplier
         payment = j.payment
+        quote_count = len(j.quotes) if hasattr(j, 'quotes') and j.quotes else 0
         jobs.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
@@ -1723,6 +1724,7 @@ def admin_monitor_jobs(
             "isDelayed": False,
             "hasDispute": j.status == JobStatus.DISPUTED,
             "complianceStatus": _compliance_step_status(j.compliance),
+            "quoteCount": quote_count,
         })
 
     return ok(

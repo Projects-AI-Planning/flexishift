@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Truck } from 'lucide-react';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
 
 const RESEND_COOLDOWN = 60;
 
 const VerifyEmail: React.FC = () => {
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
   const [searchParams] = useSearchParams();
   const emailFromQuery = searchParams.get('email') ?? '';
 
@@ -64,9 +66,21 @@ const VerifyEmail: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      await haulierService.verifyEmail({ email: email.trim().toLowerCase(), otp: code });
-      setSuccess('Email verified! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 1800);
+      const result = await haulierService.verifyEmail({ email: email.trim().toLowerCase(), otp: code });
+      const data = result?.data;
+      if (data?.accessToken) {
+        authLogin(data.accessToken, data.refreshToken ?? null, {
+          userId: data.userId ?? '',
+          name: data.name ?? '',
+          email: data.email ?? email.trim().toLowerCase(),
+          phone: data.phone,
+          role: data.role ?? 'HAULIER',
+          status: 'ACTIVE',
+          isVerified: true,
+        });
+      }
+      setSuccess('Email verified! Redirecting to dashboard...');
+      setTimeout(() => navigate('/'), 1800);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message || err.response?.data?.detail;
@@ -110,7 +124,7 @@ const VerifyEmail: React.FC = () => {
       <div className="bg-white p-5 sm:p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-navy p-3 rounded-full mb-4">
-            <Truck className="text-amber" size={32} />
+            <Truck className="text-[#1066b1]" size={32} />
           </div>
           <h1 className="text-2xl font-bold text-navy">Verify Your Email</h1>
           <p className="text-gray-500 text-sm mt-1 text-center">
@@ -118,7 +132,7 @@ const VerifyEmail: React.FC = () => {
               ? `Enter the 6-digit code sent to ${email}`
               : 'Enter your email and the 6-digit code we sent you'}
           </p>
-          <p className="text-xs text-amber-600 font-semibold mt-2 text-center bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+          <p className="text-xs text-[#0d55a0] font-semibold mt-2 text-center bg-white px-3 py-2 rounded-lg border border-[#1066b1]/25">
             Can't find the email? Check your <strong>spam / junk folder</strong>.
           </p>
         </div>
@@ -131,7 +145,7 @@ const VerifyEmail: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 placeholder="your@email.com"
                 required
               />
@@ -151,7 +165,7 @@ const VerifyEmail: React.FC = () => {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="w-12 h-14 text-center text-xl font-black text-navy rounded-lg border-2 border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                  className="w-12 h-14 text-center text-xl font-black text-navy rounded-lg border-2 border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 />
               ))}
             </div>

@@ -3,6 +3,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
   Modal,
   Platform,
@@ -14,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
+import Icon from '../../components/common/Icon';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {driverApi} from '../../api/driverApi';
 import {colors, radius, spacing} from '../../theme';
@@ -70,9 +72,13 @@ function Stars({rating}: {rating: number}) {
         const filled = rating >= i;
         const half = !filled && rating >= i - 0.5;
         return (
-          <Text key={i} style={[starStyles.star, filled || half ? starStyles.starFilled : starStyles.starEmpty]}>
-            {filled ? '★' : half ? '⯨' : '☆'}
-          </Text>
+          <Icon
+            key={i}
+            name="star"
+            size={14}
+            color={filled || half ? '#000000' : '#D1D5DB'}
+            strokeWidth={filled || half ? 2 : 1.5}
+          />
         );
       })}
     </View>
@@ -80,10 +86,7 @@ function Stars({rating}: {rating: number}) {
 }
 
 const starStyles = StyleSheet.create({
-  row: {flexDirection: 'row', gap: 2},
-  star: {fontSize: 16},
-  starFilled: {color: '#1066B1'},
-  starEmpty: {color: '#D1D5DB'},
+  row: {flexDirection: 'row', gap: 3},
 });
 
 function ProgressBar({value, color}: {value: number; color: string}) {
@@ -162,9 +165,9 @@ function normalizeSummaryStatus(raw: string | undefined): string {
 }
 
 const DRIVER_DOCUMENTS = [
-  {key: 'driving_license', backendKey: 'DRIVING_LICENCE', icon: '🪪', label: 'Driving License'},
-  {key: 'vehicle_registration', backendKey: 'VEHICLE_REG', icon: '🚛', label: 'Vehicle Registration'},
-  {key: 'vehicle_insurance', backendKey: 'VEHICLE_INSURANCE', icon: '🛡️', label: 'Insurance Policy'},
+  {key: 'driving_license', backendKey: 'DRIVING_LICENCE', icon: 'id-card' as const, label: 'Driving License'},
+  {key: 'vehicle_registration', backendKey: 'VEHICLE_REG', icon: 'truck' as const, label: 'Vehicle Registration'},
+  {key: 'vehicle_insurance', backendKey: 'VEHICLE_INSURANCE', icon: 'shield-check' as const, label: 'Insurance Policy'},
 ] as const;
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -227,6 +230,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [modalUploading, setModalUploading] = useState(false);
   const [modalPickerDate, setModalPickerDate] = useState(new Date(Date.now() + 86400000));
   const [modalShowPicker, setModalShowPicker] = useState(false);
+  const [docManageModalVisible, setDocManageModalVisible] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerLoadError, setViewerLoadError] = useState(false);
+
+  const openDocViewer = (url: string) => {
+    setViewerLoadError(false);
+    setViewerUrl(url);
+  };
 
   const openModal = (doc: ModalDoc) => {
     setActiveModal(doc);
@@ -244,6 +255,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setModalExpiry('');
     setModalError(null);
     setModalShowPicker(false);
+  };
+
+  const openUploadFromManage = (doc: ModalDoc) => {
+    setDocManageModalVisible(false);
+    setTimeout(() => openModal(doc), 350);
   };
 
   const onModalDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
@@ -486,7 +502,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const docColor = (status: string): {bg: string; text: string} => {
     switch (status) {
       case 'active':
-      case 'complete':     return {bg: '#DCFCE7', text: '#15803D'};
+      case 'complete':     return {bg: '#DBEAFE', text: '#1066B1'};
       case 'under_review': return {bg: '#FEF9C3', text: '#854D0E'};
       case 'rejected':     return {bg: '#FEE2E2', text: '#B91C1C'};
       default:             return {bg: '#F1F5F9', text: '#64748B'}; // not uploaded — gray
@@ -516,7 +532,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <View style={styles.cameraOverlay}>
               {photoUploading
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.cameraIcon}>📷</Text>}
+                : <Icon name="pen" size={12} color="#ffffff" strokeWidth={2} />}
             </View>
           </Pressable>
           {isVerified && (
@@ -550,7 +566,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
         <View style={styles.trophyCircle}>
-          <Text style={styles.trophyIcon}>🏆</Text>
+          <Icon name="award" size={22} color="#000000" strokeWidth={1.8} />
         </View>
       </View>
 
@@ -571,7 +587,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* ── Personal Information ──────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeaderIcon}>🏠</Text>
+          <Icon name="user" size={16} color="#000000" strokeWidth={2} />
           <Text style={styles.sectionHeaderText}>PERSONAL INFORMATION</Text>
         </View>
         <InfoField
@@ -597,14 +613,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* ── Vehicle Information ───────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeaderIcon}>🚛</Text>
+          <Icon name="truck" size={16} color="#000000" strokeWidth={2} />
           <Text style={styles.sectionHeaderText}>VEHICLE INFORMATION</Text>
         </View>
 
         {(profileForm.vehicleType || profileForm.vehicleRegistration) ? (
           <View style={styles.vehicleCard}>
             <View style={styles.vehicleImgBox}>
-              <Text style={styles.vehicleImgPlaceholder}>🚛</Text>
+              <Icon name="truck" size={32} color="#000000" strokeWidth={1.5} />
             </View>
             <View style={styles.vehicleInfo}>
               {profileForm.vehicleType ? (
@@ -668,10 +684,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Conditional Driver Details */}
         {!isHaulier && (profileForm.driverAvailability === 'DRIVER_ONLY' || profileForm.driverAvailability === 'DRIVER_WITH_TRUCK' || !profileForm.driverAvailability) && (
           <View style={daStyles.condBlock}>
-            <View style={daStyles.divider}>
-              <View style={daStyles.dividerLine} />
-              <Text style={daStyles.dividerLabel}>👤  Driver Details</Text>
-              <View style={daStyles.dividerLine} />
+            <View style={daStyles.sectionHeadingRow}>
+              <Icon name="user" size={14} color="#000000" strokeWidth={2} />
+              <Text style={daStyles.sectionHeading}>Driver Details</Text>
             </View>
             <InfoField
               label="LICENCE NUMBER"
@@ -685,10 +700,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Conditional Truck Details */}
         {!isHaulier && (profileForm.driverAvailability === 'TRUCK_ONLY' || profileForm.driverAvailability === 'DRIVER_WITH_TRUCK' || !profileForm.driverAvailability) && (
           <View style={daStyles.condBlock}>
-            <View style={daStyles.divider}>
-              <View style={daStyles.dividerLine} />
-              <Text style={daStyles.dividerLabel}>🚛  Truck Details</Text>
-              <View style={daStyles.dividerLine} />
+            <View style={daStyles.sectionHeadingRow}>
+              <Icon name="truck" size={14} color="#000000" strokeWidth={2} />
+              <Text style={daStyles.sectionHeading}>Truck Details</Text>
             </View>
             <InfoField
               label="VEHICLE TYPE"
@@ -708,7 +722,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {isHaulier ? (
           <View style={{gap: spacing.md, marginTop: spacing.md}}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderIcon}>🏢</Text>
+              <Icon name="building" size={16} color="#000000" strokeWidth={2} />
               <Text style={styles.sectionHeaderText}>HAULIER DETAILS</Text>
             </View>
             <InfoField
@@ -750,7 +764,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           }
         }}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeaderIcon}>📂</Text>
+          <Icon name="folder" size={16} color="#000000" strokeWidth={2} />
           <Text style={styles.sectionHeaderText}>DOCUMENTS & VERIFICATION</Text>
         </View>
 
@@ -766,34 +780,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {visibleDocuments.map((doc, i, arr) => {
-          const status = docStatus[doc.key];
-          const c = docColor(status);
-          const tappable = status === 'not_uploaded' || status === 'rejected';
-          return (
-            <Pressable
-              key={doc.key}
-              onPress={() => openModal(doc)}
-              style={({pressed}) => [
-                styles.docRow,
-                i < arr.length - 1 && styles.docRowBorder,
-                pressed && styles.docRowPressed,
-              ]}>
-              <Text style={styles.docIcon}>{doc.icon}</Text>
-              <Text style={styles.docLabel}>{doc.label}</Text>
-              <View style={styles.docRowRight}>
-                <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
-                  <Text style={[styles.docBadgeText, {color: c.text}]}>
-                    {docLabel(status)}
-                  </Text>
-                </View>
-                {tappable && (
-                  <Text style={styles.docRowChevron}>›</Text>
-                )}
-              </View>
-            </Pressable>
-          );
-        })}
+        <Pressable
+          style={styles.manageDocsBtn}
+          onPress={() => setDocManageModalVisible(true)}>
+          <Icon name="upload" size={15} color="#000000" strokeWidth={2} />
+          <Text style={styles.manageDocsBtnText}>  Upload / Manage Documents</Text>
+        </Pressable>
       </View>
 
       {/* ── Save Changes ──────────────────────────────────────────────────── */}
@@ -821,6 +813,174 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </Pressable>
       </View>
 
+      {/* ── Document Viewer Modal ────────────────────────────────────────── */}
+      <Modal
+        visible={!!viewerUrl}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setViewerUrl(null)}>
+        <View style={styles.viewerContainer}>
+          {/* Top bar */}
+          <View style={styles.viewerTopBar}>
+            <Text style={styles.viewerTopBarTitle}>Document</Text>
+            <Pressable style={styles.viewerCloseBtn} onPress={() => setViewerUrl(null)}>
+              <Text style={styles.viewerCloseBtnText}>✕</Text>
+            </Pressable>
+          </View>
+
+          {viewerLoadError ? (
+            <View style={styles.viewerFallback}>
+              <Text style={styles.viewerFallbackIcon}>📄</Text>
+              <Text style={styles.viewerFallbackTitle}>Could not load document</Text>
+              <Text style={styles.viewerFallbackSub}>The document could not be displayed. Please try again.</Text>
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={styles.viewerScrollContent}
+              maximumZoomScale={4}
+              minimumZoomScale={1}
+              centerContent
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}>
+              <ActivityIndicator
+                size="large"
+                color="#1066B1"
+                style={styles.viewerSpinner}
+              />
+              <Image
+                source={{uri: viewerUrl ?? ''}}
+                style={styles.viewerImage}
+                resizeMode="contain"
+                onLoadStart={() => setViewerLoadError(false)}
+                onError={() => setViewerLoadError(true)}
+              />
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
+
+      {/* ── Document Management Modal ────────────────────────────────────── */}
+      <Modal
+        visible={docManageModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDocManageModalVisible(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setDocManageModalVisible(false)}>
+          <Pressable style={[styles.modalCard, {maxHeight: '85%', gap: 0}]} onPress={() => {}}>
+
+            {/* Header */}
+            <View style={[styles.modalHeader, {marginBottom: 16}]}>
+              <Icon name="folder" size={28} color="#000000" strokeWidth={1.8} />
+              <View style={{flex: 1}}>
+                <Text style={styles.modalTitle}>My Documents</Text>
+                <Text style={styles.modalSubtitle}>
+                  {visibleDocuments.filter(d => docStatus[d.key] !== 'not_uploaded').length} of {visibleDocuments.length} uploaded
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setDocManageModalVisible(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {visibleDocuments.map((doc, idx, arr) => {
+                const status = docStatus[doc.key];
+                const uploadedDoc = findDoc(doc.key);
+                const c = docColor(status);
+                const rejectionReason = String(uploadedDoc?.rejectionReason ?? '').trim();
+                const fileUrl = uploadedDoc?.fileUrl;
+                const isLast = idx === arr.length - 1;
+                const isApproved = status === 'active' || status === 'complete';
+                const isUnderReview = status === 'under_review';
+                const isRejected = status === 'rejected';
+                const isNotUploaded = status === 'not_uploaded';
+
+                return (
+                  <View
+                    key={doc.key}
+                    style={[
+                      styles.manageDocItem,
+                      !isLast && styles.manageDocItemBorder,
+                    ]}>
+
+                    {/* Doc title row */}
+                    <View style={styles.docRow}>
+                      <View style={styles.docIcon}>
+                        <Icon name={doc.icon} size={18} color="#000000" strokeWidth={2} />
+                      </View>
+                      <Text style={styles.docLabel}>{doc.label}</Text>
+                      <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
+                        <Text style={[styles.docBadgeText, {color: c.text}]}>
+                          {docLabel(status)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Rejection reason — auto-expanded */}
+                    {isRejected && (
+                      <View style={styles.docRejectBox}>
+                        <Text style={styles.docRejectTitle}>Rejection Reason</Text>
+                        <Text style={styles.docRejectText}>
+                          {rejectionReason || 'Document was rejected by admin. Please upload a clearer document.'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Action buttons */}
+                    <View style={styles.manageDocActions}>
+                      {/* View Doc — under review */}
+                      {isUnderReview && fileUrl && (
+                        <Pressable
+                          style={styles.manageViewBtn}
+                          onPress={() => openDocViewer(String(fileUrl))}>
+                          <Icon name="eye" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageViewBtnText}>  View Doc</Text>
+                        </Pressable>
+                      )}
+
+                      {/* View Doc — approved (read-only, no upload) */}
+                      {isApproved && fileUrl && (
+                        <Pressable
+                          style={styles.manageViewBtnApproved}
+                          onPress={() => openDocViewer(String(fileUrl))}>
+                          <Icon name="eye" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageViewBtnTextApproved}>  View Doc</Text>
+                        </Pressable>
+                      )}
+
+                      {/* Upload — not uploaded */}
+                      {isNotUploaded && (
+                        <Pressable
+                          style={styles.manageUploadBtn}
+                          onPress={() => openUploadFromManage(doc)}>
+                          <Icon name="upload" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageUploadBtnText}>  Upload</Text>
+                        </Pressable>
+                      )}
+
+                      {/* Re-upload — rejected */}
+                      {isRejected && (
+                        <Pressable
+                          style={styles.manageReuploadBtn}
+                          onPress={() => openUploadFromManage(doc)}>
+                          <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ── Document Upload Modal ─────────────────────────────────────────── */}
       <Modal
         visible={!!activeModal}
@@ -832,7 +992,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderIcon}>{activeModal?.icon}</Text>
+              {activeModal?.icon ? (
+                <Icon name={activeModal.icon as any} size={28} color="#000000" strokeWidth={1.8} />
+              ) : null}
               <View style={{flex: 1}}>
                 <Text style={styles.modalTitle}>Upload Document</Text>
                 <Text style={styles.modalSubtitle}>{activeModal?.label}</Text>
@@ -847,7 +1009,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Pressable onPress={pickDocFile} style={styles.filePicker} disabled={modalUploading}>
               {modalFile ? (
                 <View style={styles.filePickerSelected}>
-                  <Text style={styles.filePickerSelectedIcon}>📄</Text>
+                  <Icon name="file" size={24} color="#000000" strokeWidth={1.8} />
                   <Text style={styles.filePickerSelectedName} numberOfLines={1}>
                     {modalFile.fileName ?? 'Selected file'}
                   </Text>
@@ -855,7 +1017,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </View>
               ) : (
                 <View style={styles.filePickerEmpty}>
-                  <Text style={styles.filePickerEmptyIcon}>⬆</Text>
+                  <Icon name="upload" size={28} color="#000000" strokeWidth={1.8} />
                   <Text style={styles.filePickerEmptyText}>Tap to select file</Text>
                   <Text style={styles.filePickerEmptyHint}>JPG, PNG or PDF</Text>
                 </View>
@@ -913,7 +1075,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Pressable style={styles.modalCard} onPress={() => {}}>
 
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderIcon}>🚛</Text>
+              <Icon name="truck" size={28} color="#000000" strokeWidth={1.8} />
               <View style={{flex: 1}}>
                 <Text style={styles.modalTitle}>Vehicle Details</Text>
                 <Text style={styles.modalSubtitle}>Enter your vehicle information</Text>
@@ -977,7 +1139,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F9FAFB'},
+  container: {flex: 1, backgroundColor: colors.bg},
   content: {paddingBottom: 48},
 
   // ── Cover + Avatar ────────────────────────────────────────────────────────
@@ -1003,7 +1165,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center', alignItems: 'center',
   },
-  cameraIcon: {fontSize: 12},
   verifiedBadge: {
     marginTop: 6, backgroundColor: colors.navy,
     borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 4,
@@ -1035,7 +1196,6 @@ const styles = StyleSheet.create({
     width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF2FB',
     justifyContent: 'center', alignItems: 'center',
   },
-  trophyIcon: {fontSize: 22, color: '#1066B1'},
 
   // ── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {
@@ -1077,7 +1237,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
   },
-  verificationPillReady: {backgroundColor: '#DCFCE7'},
+  verificationPillReady: {backgroundColor: '#DBEAFE'},
   verificationPillPending: {backgroundColor: '#1066B1'},
   verificationPillText: {fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   verificationPillTextReady: {color: '#166534'},
@@ -1093,7 +1253,6 @@ const styles = StyleSheet.create({
     width: 80, height: 64, borderRadius: radius.sm,
     backgroundColor: '#2D4A6B', justifyContent: 'center', alignItems: 'center',
   },
-  vehicleImgPlaceholder: {fontSize: 32},
   vehicleInfo: {flex: 1, gap: 4},
   vehicleCategoryTag: {
     alignSelf: 'flex-start', backgroundColor: colors.accent,
@@ -1111,19 +1270,31 @@ const styles = StyleSheet.create({
   },
   addVehicleBtnText: {color: '#374151', fontSize: 14, fontWeight: '700'},
 
-  // ── Document rows ─────────────────────────────────────────────────────────
+  // ── Document rows (manage modal) ──────────────────────────────────────────
   docRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12, borderRadius: radius.md,
   },
-  docRowBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
-  docRowPressed: {backgroundColor: '#F8FAFC'},
-  docRowRight: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  docRowChevron: {fontSize: 20, color: '#9CA3AF', fontWeight: '300'},
-  docIcon: {fontSize: 20, width: 28, textAlign: 'center'},
+  docIcon: {width: 28, alignItems: 'center', justifyContent: 'center'},
   docLabel: {flex: 1, fontSize: 14, fontWeight: '600', color: '#111827'},
   docBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
   docBadgeText: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
+  docRejectBox: {
+    marginLeft: 40,
+    marginTop: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    padding: 10,
+  },
+  docRejectTitle: {
+    color: '#991B1B',
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+  },
+  docRejectText: {color: '#B91C1C', fontSize: 12, lineHeight: 17, fontWeight: '600'},
 
   // ── Upload modal ──────────────────────────────────────────────────────────
   modalBackdrop: {
@@ -1137,7 +1308,6 @@ const styles = StyleSheet.create({
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4,
   },
-  modalHeaderIcon: {fontSize: 28},
   modalTitle: {fontSize: 18, fontWeight: '900', color: '#111827'},
   modalSubtitle: {fontSize: 13, color: '#6B7280', fontWeight: '500', marginTop: 2},
   modalCloseBtn: {
@@ -1157,14 +1327,14 @@ const styles = StyleSheet.create({
     padding: spacing.lg, alignItems: 'center', gap: 6,
     backgroundColor: '#F9FAFB',
   },
-  filePickerEmptyIcon: {fontSize: 28},
+  filePickerEmptyIcon: {},
   filePickerEmptyText: {fontSize: 14, fontWeight: '700', color: '#374151'},
   filePickerEmptyHint: {fontSize: 12, color: '#9CA3AF'},
   filePickerSelected: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, backgroundColor: '#F0FDF4',
+    padding: 14, backgroundColor: '#EFF6FF',
   },
-  filePickerSelectedIcon: {fontSize: 22},
+  filePickerSelectedIcon: {},
   filePickerSelectedName: {flex: 1, fontSize: 13, fontWeight: '600', color: '#111827'},
   filePickerChange: {fontSize: 12, fontWeight: '800', color: '#1C2E45'},
   modalInput: {
@@ -1196,7 +1366,77 @@ const styles = StyleSheet.create({
   },
   modalUploadBtnText: {fontSize: 15, fontWeight: '900', color: '#FFFFFF'},
 
-  // ── Document rows ─────────────────────────────────────────────────────────
+  // ── Document viewer ───────────────────────────────────────────────────────
+  viewerContainer: {flex: 1, backgroundColor: '#fff'},
+  viewerTopBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 48, paddingBottom: 12, paddingHorizontal: 20,
+    backgroundColor: '#1C2E45',
+  },
+  viewerTopBarTitle: {fontSize: 16, fontWeight: '800', color: '#fff'},
+  viewerCloseBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  viewerCloseBtnText: {color: '#fff', fontSize: 16, fontWeight: '700'},
+  viewerScrollContent: {
+    width: Dimensions.get('window').width,
+    minHeight: Dimensions.get('window').height - 80,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  viewerImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height - 80,
+  },
+  viewerSpinner: {
+    position: 'absolute',
+  },
+  viewerFallback: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 40, gap: 12, backgroundColor: '#fff',
+  },
+  viewerFallbackIcon: {fontSize: 56},
+  viewerFallbackTitle: {fontSize: 18, fontWeight: '800', color: '#111827'},
+  viewerFallbackSub: {fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20},
+
+  // ── Manage documents button ───────────────────────────────────────────────
+  manageDocsBtn: {
+    borderWidth: 1.5, borderColor: '#000000', borderStyle: 'dashed',
+    borderRadius: radius.md, paddingVertical: 14, alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+    backgroundColor: '#F5F5F5', marginBottom: 4,
+  },
+  manageDocsBtnText: {color: '#000000', fontSize: 14, fontWeight: '800'},
+
+  // ── Manage modal doc items ─────────────────────────────────────────────────
+  manageDocItem: {paddingVertical: 14},
+  manageDocItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  manageDocActions: {marginTop: 10, marginLeft: 40, flexDirection: 'row', gap: 8, flexWrap: 'wrap'},
+  manageViewBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
+    flexDirection: 'row', alignItems: 'center',
+  },
+  manageViewBtnText: {fontSize: 13, fontWeight: '700', color: '#000000'},
+  manageViewBtnApproved: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
+    flexDirection: 'row', alignItems: 'center',
+  },
+  manageViewBtnTextApproved: {fontSize: 13, fontWeight: '700', color: '#000000'},
+  manageUploadBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
+    flexDirection: 'row', alignItems: 'center',
+  },
+  manageUploadBtnText: {fontSize: 13, fontWeight: '800', color: '#000000'},
+  manageReuploadBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
+    flexDirection: 'row', alignItems: 'center',
+  },
+  manageReuploadBtnText: {fontSize: 13, fontWeight: '800', color: '#000000'},
 
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtn: {
@@ -1230,9 +1470,8 @@ const styles = StyleSheet.create({
 
 const daStyles = StyleSheet.create({
   condBlock: {gap: spacing.md, marginBottom: 4},
-  divider: {flexDirection: 'row', alignItems: 'center', gap: 10},
-  dividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
-  dividerLabel: {fontSize: 12, fontWeight: '800', color: '#374151'},
+  sectionHeadingRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  sectionHeading: {fontSize: 12, fontWeight: '800', color: '#374151', textAlign: 'left'},
   wrap: {gap: 8},
   label: {fontSize: 11, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5},
   trigger: {

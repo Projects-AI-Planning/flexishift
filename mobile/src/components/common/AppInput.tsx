@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -29,6 +29,7 @@ const AppInput: React.FC<AppInputProps> = ({
   ...rest
 }) => {
   const [showText, setShowText] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const isPassword = secureTextEntry === true;
 
   return (
@@ -39,9 +40,11 @@ const AppInput: React.FC<AppInputProps> = ({
           styles.inputWrap,
           multiline && styles.inputWrapMultiline,
           error ? styles.inputWrapError : null,
-        ]}>
+        ]}
+        onTouchEnd={() => inputRef.current?.focus()}>
         {leftIcon ? <View style={styles.iconWrap}>{leftIcon}</View> : null}
         <TextInput
+          ref={inputRef}
           style={[styles.input, multiline && styles.inputMultiline, style]}
           secureTextEntry={isPassword && !showText}
           multiline={multiline}
@@ -107,9 +110,11 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   eyeBtn: {
-    paddingLeft: 10,
+    alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
+    marginLeft: 10,
+    minHeight: 44,
+    width: 44,
   },
   errorText: {
     color: colors.danger,

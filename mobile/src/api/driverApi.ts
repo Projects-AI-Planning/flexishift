@@ -264,6 +264,8 @@ export const driverApi = {
     ) => request<Record<string, unknown>>('/payments/history', {params}),
     getStatus: (paymentId: string) =>
       request<Record<string, unknown>>(`/payments/status/${paymentId}`),
+    getEscrowDetails: (jobId: string) =>
+      request<Record<string, unknown>>(`/jobs/${jobId}/payment/details`),
   },
   profile: {
     getMe: () => request<Record<string, unknown>>('/profile/me'),
@@ -321,6 +323,27 @@ export const driverApi = {
       request<Record<string, unknown>>('/ratings/submit', {
         method: 'POST',
         body: jsonBody(payload),
+      }),
+  },
+  shifts: {
+    listAvailable: () =>
+      request<Record<string, unknown>>('/shifts/available'),
+    listMine: () =>
+      request<Record<string, unknown>>('/shifts/my-shifts'),
+    getDetails: (shiftId: string) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}`),
+    submitQuote: (shiftId: string, payload: {amountPerDay: number; notes?: string}) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/quote`, {
+        method: 'POST',
+        body: jsonBody(payload),
+      }),
+    withdrawQuote: (shiftId: string) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/quote`, {
+        method: 'DELETE',
+      }),
+    cancel: (shiftId: string) =>
+      request<Record<string, unknown>>(`/shifts/cancel/${shiftId}`, {
+        method: 'PUT',
       }),
   },
   tracking: {

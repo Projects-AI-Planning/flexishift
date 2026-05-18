@@ -32,7 +32,7 @@ const SupportScreen: React.FC<SupportScreenProps> = ({mode}) => {
         </Card>
 
         <Card title="Need Direct Help?" variant="dark">
-          <Text style={styles.contactTitle}>support@freightflex.com</Text>
+          <Text style={styles.contactTitle}>support@flexishift.com</Text>
           <Text style={styles.contactBody}>
             Typical response time is within one business day.
           </Text>

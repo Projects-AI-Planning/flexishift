@@ -17,7 +17,7 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({onBack}) => {
       ) : null}
       <View style={styles.header}>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.subtitle}>How FreightFlex collects, uses, and protects your data</Text>
+        <Text style={styles.subtitle}>How FlexiShift collects, uses, and protects your data</Text>
         <Text style={styles.updated}>Last updated: January 2025</Text>
       </View>
 
@@ -31,7 +31,7 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({onBack}) => {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>2. How We Use Your Information</Text>
         <Text style={styles.body}>
-          Your information is used to operate and improve the FreightFlex platform, facilitate logistics operations, process payments, send notifications, verify your identity and compliance, and provide customer support. We do not sell your personal data to third parties.
+          Your information is used to operate and improve the FlexiShift platform, facilitate logistics operations, process payments, send notifications, verify your identity and compliance, and provide customer support. We do not sell your personal data to third parties.
         </Text>
       </View>
 
@@ -78,7 +78,7 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({onBack}) => {
       </View>
 
       <Text style={styles.notice}>
-        This is a placeholder policy. The final Privacy Policy will be provided by the FreightFlex legal team and will supersede this document.
+        This is a placeholder policy. The final Privacy Policy will be provided by the FlexiShift legal team and will supersede this document.
       </Text>
     </ScrollView>
   );

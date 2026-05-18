@@ -99,7 +99,7 @@ export default function HaulierProfilePage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Settings</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Settings</p>
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Profile</h1>
         <p className="text-on-surface-variant font-medium">Update your haulier account details using the backend profile service.</p>
       </div>
@@ -113,13 +113,13 @@ export default function HaulierProfilePage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-amber-500 text-2xl font-black text-[#041627]">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#1066b1]/100 text-2xl font-black text-white">
               {profile?.name?.charAt(0) || 'H'}
             </div>
             <div>
               <h2 className="text-xl font-black text-primary">{profile?.name ?? 'Haulier account'}</h2>
               <p className="text-sm font-bold text-slate-500">{profile?.email}</p>
-              <p className="text-xs font-black uppercase tracking-widest text-amber-500">
+              <p className="text-xs font-black uppercase tracking-widest text-[#1066b1]">
                 {profile?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
               </p>
             </div>

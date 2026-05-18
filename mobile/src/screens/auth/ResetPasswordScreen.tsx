@@ -171,7 +171,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  safe: {flex: 1, backgroundColor: colors.bg},
   backBtn: {
     paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm,
   },

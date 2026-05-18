@@ -15,6 +15,6 @@ class TrackingPoint(Base):
     lat:         Mapped[float]    = mapped_column(DECIMAL(10, 7), nullable=False)
     lng:         Mapped[float]    = mapped_column(DECIMAL(10, 7), nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    created_at:  Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at:  Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     job: Mapped["Job"] = relationship("Job", back_populates="tracking")

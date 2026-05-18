@@ -137,6 +137,15 @@ const haulierService = {
   listHaulierSupportTickets: (params?: Record<string, unknown>) => client.get('/support/haulier/tickets', { params }).then(res => res.data.data),
   createHaulierSupportTicket: (data: Record<string, unknown>) => client.post('/support/haulier/tickets', data).then(res => res.data.data),
 
+  // Shifts
+  createShift: (data: Record<string, unknown>) => client.post('/shifts/create', data).then(res => res.data.data),
+  listMyShifts: () => client.get('/shifts/list').then(res => res.data.data),
+  getShiftDetails: (shiftId: string) => client.get(`/shifts/${shiftId}`).then(res => res.data.data),
+  cancelShift: (shiftId: string) => client.put(`/shifts/cancel/${shiftId}`).then(res => res.data),
+  listShiftQuotes: (shiftId: string) => client.get(`/shifts/${shiftId}/quotes`).then(res => res.data.data),
+  acceptShiftQuote: (shiftId: string, quoteId: string) => client.post(`/shifts/${shiftId}/quotes/${quoteId}/accept`).then(res => res.data.data),
+  completeShiftDay: (shiftId: string) => client.post(`/shifts/${shiftId}/days/complete`).then(res => res.data.data),
+
   // File Management
   uploadFile: (formData: FormData) => client.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data),
   deleteFile: (fileId: string) => client.delete(`/files/delete/${fileId}`).then(res => res.data),
