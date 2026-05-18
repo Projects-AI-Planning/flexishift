@@ -129,7 +129,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
         {/* Escrow icon + heading */}
         <View style={styles.iconWrap}>
           <View style={[styles.iconCircle, isAuthorised && styles.iconCircleGreen]}>
-            <Text style={styles.iconEmoji}>🔒</Text>
+            <Text style={styles.iconEmoji}>🤝</Text>
           </View>
         </View>
         <Text style={styles.heading}>
@@ -215,7 +215,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
             <View style={[styles.stepDot, styles.dotBlue]} />
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Complete the Job</Text>
-              <Text style={styles.stepDesc}>Pick up and deliver the goods as agreed. Track your progress in the app.</Text>
+              <Text style={styles.stepDesc}>Enter the load code provided by the haulier to begin the job, then pick up and deliver the goods.</Text>
             </View>
           </View>
           <View style={styles.connector} />
@@ -230,7 +230,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
 
         {/* CTA */}
         <Pressable onPress={onViewJob} style={styles.primaryBtn}>
-          <Text style={styles.primaryBtnText}>View Job & Start Navigation</Text>
+          <Text style={styles.primaryBtnText}>View Job & Enter Load Code</Text>
         </Pressable>
 
         <Pressable onPress={onBack} style={styles.secondaryBtn}>

@@ -20,6 +20,8 @@ interface LoadCodeScreenProps {
   onVerify: (code: string) => Promise<void>;
   loading: boolean;
   error: string | null;
+  alreadyVerified?: boolean;
+  onContinue?: () => void;
 }
 
 const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
@@ -28,6 +30,8 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
   onVerify,
   loading,
   error,
+  alreadyVerified = false,
+  onContinue,
 }) => {
   const [code, setCode] = useState('');
   const [job, setJob] = useState<Record<string, unknown> | null>(null);
@@ -54,6 +58,36 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
       }, 100);
     }
   }, [error]);
+
+  if (alreadyVerified) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepTitle}>Step 1 of 3 — Complete</Text>
+          </View>
+          <Text style={styles.mainTitle}>Load Code Verified</Text>
+          <Text style={styles.subtitle}>
+            The load code for this job has already been verified. You can proceed to the vehicle handover checklist.
+          </Text>
+
+          <View style={styles.verifiedCard}>
+            <Text style={styles.verifiedIcon}>✅</Text>
+            <Text style={styles.verifiedTitle}>Already Verified</Text>
+            <Text style={styles.verifiedSub}>
+              Load code was accepted. This step cannot be repeated for the same job.
+            </Text>
+          </View>
+
+          {onContinue ? (
+            <Pressable onPress={onContinue} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Continue to Handover →</Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
   const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
@@ -267,6 +301,20 @@ const styles = StyleSheet.create({
 
   nextStepText: {
     color: colors.inkSoft, fontSize: 12, lineHeight: 18, textAlign: 'center',
+  },
+
+  verifiedCard: {
+    backgroundColor: '#F0FDF4', borderRadius: radius.xl,
+    borderWidth: 1.5, borderColor: '#86EFAC',
+    padding: spacing.xl, alignItems: 'center', gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  verifiedIcon: {fontSize: 48, textAlign: 'center'},
+  verifiedTitle: {
+    fontSize: 20, fontWeight: '900', color: '#15803D', textAlign: 'center',
+  },
+  verifiedSub: {
+    fontSize: 13, color: '#166534', textAlign: 'center', lineHeight: 19,
   },
 });
 

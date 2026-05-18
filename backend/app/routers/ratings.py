@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
@@ -257,7 +257,7 @@ def report_rating(
             "reportReason": body.report_reason,
             "description": body.description,
             "status": "under_review",
-            "reportedAt": datetime.now(timezone.utc).isoformat(),
+            "reportedAt": datetime.utcnow().isoformat(),
         },
         message="Review reported successfully. Admin will review within 24 hours.",
     )
@@ -280,7 +280,7 @@ def admin_remove_rating(
             "ratingId": rating_id,
             "removedBy": current_admin.id,
             "reason": body.reason if body else None,
-            "removedAt": datetime.now(timezone.utc).isoformat(),
+            "removedAt": datetime.utcnow().isoformat(),
         },
         message="Review removed successfully.",
     )

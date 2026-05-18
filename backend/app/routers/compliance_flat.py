@@ -225,13 +225,13 @@ def driver_sign_handover(
     db: Session = Depends(get_db),
     current_user: User = Depends(DriverDep),
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
     job = db.query(Job).filter(Job.id == body.job_id, Job.deleted_at.is_(None)).first()
     if not job or job.selected_supplier_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found or forbidden")
     record = comp_svc.get_or_create_compliance(db, body.job_id)
     record.driver_signature_url = body.signature_data
-    record.driver_signed_at = datetime.now(timezone.utc)
+    record.driver_signed_at = datetime.utcnow()
     _try_complete_step1(record, job, db)
     db.commit()
     return ok(
@@ -252,13 +252,13 @@ def haulier_sign_handover(
     db: Session = Depends(get_db),
     current_user: User = Depends(HaulierDep),
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
     job = db.query(Job).filter(Job.id == body.job_id, Job.deleted_at.is_(None)).first()
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found or forbidden")
     record = comp_svc.get_or_create_compliance(db, body.job_id)
     record.haulier_signature_url = body.signature_data
-    record.haulier_signed_at = datetime.now(timezone.utc)
+    record.haulier_signed_at = datetime.utcnow()
     _try_complete_step1(record, job, db)
     db.commit()
     return ok(
@@ -274,13 +274,13 @@ def haulier_sign_handover(
 
 
 def _try_complete_step1(record: ComplianceRecord, job: Job, db: Session) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
     if (
         record.driver_signature_url
         and record.haulier_signature_url
         and not record.step1_completed_at
     ):
-        record.step1_completed_at = datetime.now(timezone.utc)
+        record.step1_completed_at = datetime.utcnow()
         job.status = JobStatus.IN_TRANSIT
 
 

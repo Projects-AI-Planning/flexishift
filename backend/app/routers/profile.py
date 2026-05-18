@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
@@ -30,13 +30,20 @@ _PROFILE_FIELDS = {
 
 
 def _apply_updates(current_user: User, updates: dict, db: Session) -> None:
+    from app.models.user import UserProfile
     profile_updates = {k: v for k, v in updates.items() if k in _PROFILE_FIELDS}
     user_updates = {k: v for k, v in updates.items() if k in _USER_FIELDS}
     for k, v in user_updates.items():
         setattr(current_user, k, v)
-    if profile_updates and current_user.profile:
+
+    if profile_updates:
+        if not current_user.profile:
+            current_user.profile = UserProfile(user_id=current_user.id)
+            db.add(current_user.profile)
+            db.flush()
         for k, v in profile_updates.items():
             setattr(current_user.profile, k, v)
+
     _check_profile_complete(current_user)
     db.commit()
     db.refresh(current_user)
@@ -61,28 +68,36 @@ def _check_profile_complete(user: User) -> None:
 def _presigned_photo_url(raw_url: str | None) -> str | None:
     if not raw_url:
         return None
-    if raw_url.startswith("http://10.0.2.2:8000/uploads/") or raw_url.startswith("http://localhost:8000/uploads/"):
+    # For local uploads, return as is if already a full URL
+    if "/static/uploads/" in raw_url or "/uploads/" in raw_url:
         return raw_url
+
     try:
-        prefix = (
-            f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
-            f".blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/"
-        )
-        if raw_url.startswith(prefix):
-            key = raw_url[len(prefix):]
-            return s3.generate_presigned_download(
-                settings.AZURE_CONTAINER_DOCS, key, expires=86400
+        if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+            prefix = (
+                f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
+                f".blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/"
             )
+            if raw_url.startswith(prefix):
+                key = raw_url[len(prefix):]
+                return s3.generate_presigned_download(
+                    settings.AZURE_CONTAINER_DOCS, key, expires=86400
+                )
         return raw_url
     except Exception:
         return raw_url
 
 
 def _local_photo_url(request: Request, key: str) -> str:
-    return str(request.url_for("uploads", path=key))
+    url = str(request.url_for("uploads", path=key))
+    # Fix potential http/https mismatch when behind a proxy
+    if request.headers.get("x-forwarded-proto") == "https":
+        url = url.replace("http://", "https://")
+    return url
 
 
 def _save_local_photo(request: Request, key: str, contents: bytes) -> str:
+    local_svc.ensure_local_upload_root()
     file_path = LOCAL_UPLOAD_DIR / key
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_bytes(contents)
@@ -243,7 +258,7 @@ async def upload_photo_direct(
         data={
             "photoUrl": photo_url,
             "key": key,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="Profile photo uploaded successfully",
     )
@@ -274,7 +289,7 @@ def submit_photo_upload(
         data={
             "photoUrl": photo_url,
             "key": body.key,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="Profile photo updated successfully",
     )
@@ -294,7 +309,7 @@ def deactivate_account(
         from app.core.security import verify_password
         if not verify_password(body.password, current_user.password_hash):
             raise HTTPException(status_code=400, detail="Incorrect password")
-    current_user.deleted_at = datetime.now(timezone.utc)
+    current_user.deleted_at = datetime.utcnow()
     current_user.status = UserStatus.SUSPENDED
     db.commit()
     return ok(data=None, message="Account deactivated")

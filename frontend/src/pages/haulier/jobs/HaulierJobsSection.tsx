@@ -41,6 +41,8 @@ type HaulierJobRow = {
   distanceKm?: number;
   timeSlot?: string;
   updatedAt?: string;
+  agreedAmount?: number;
+  currency?: string;
 };
 
 type HandoverState = {
@@ -82,7 +84,7 @@ const SECTIONS: SectionMeta[] = [
   {
     key: 'IN_TRANSIT',
     label: 'In Transit',
-    title: 'In Transit Jobs',
+    title: 'Active Trip',
     description: 'Jobs currently moving with active handover or live tracking.',
     icon: 'local_shipping',
     accent: 'from-emerald-600 via-teal-600 to-cyan-500',
@@ -110,13 +112,18 @@ const formatDate = (value?: string) => {
   });
 };
 
-const statusLabel = (status: string) => status.replace(/_/g, ' ');
+const statusLabel = (status: string) => {
+  const normalized = status.toUpperCase();
+  if (normalized === 'DELIVERY_SUBMITTED') return 'Awaiting Approval';
+  return status.replace(/_/g, ' ');
+};
 
 const statusBadge = (status: string) => {
   const normalized = status.toUpperCase();
   if (normalized === 'OPEN') return 'bg-blue-100 text-blue-700';
   if (normalized === 'BOOKED') return 'bg-indigo-100 text-indigo-700';
   if (normalized === 'IN_TRANSIT') return 'bg-emerald-100 text-emerald-700';
+  if (normalized === 'DELIVERY_SUBMITTED') return 'bg-amber-100 text-amber-700 border border-amber-200';
   if (normalized === 'COMPLETED') return 'bg-green-100 text-green-700';
   if (normalized === 'CANCELLED') return 'bg-red-100 text-red-700';
   return 'bg-slate-100 text-[#44474C]';
@@ -188,7 +195,7 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150">
         <div className="mb-1 flex items-start justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Step 2 · Handover</p>
@@ -446,9 +453,9 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
             {isWorking ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              <span className="material-symbols-outlined text-[16px]">payments</span>
             )}
-            Approve
+            Approve & Pay
           </button>
           <button
             onClick={() => onReject(quote.quoteId)}
@@ -497,6 +504,9 @@ const HaulierJobsSection: React.FC = () => {
   const [signingJobRef, setSigningJobRef] = useState('');
   const [sigLoading, setSigLoading] = useState(false);
   const [sigError, setSigError] = useState('');
+
+  /* Approval state */
+  const [approvingJobId, setApprovingJobId] = useState<string | null>(null);
 
   /* Fetch handover status for every in-transit job */
   const fetchHandoverStatuses = useCallback(async (jobList: HaulierJobRow[]) => {
@@ -617,6 +627,21 @@ const HaulierJobsSection: React.FC = () => {
     setSigError('');
     setSigningJobId(jobId);
     setSigningJobRef(jobRef);
+  };
+
+  const handleApproveDelivery = async (jobId: string) => {
+    setApprovingJobId(jobId);
+    try {
+      await haulierService.approveDelivery(jobId, { bookingId: jobId, approvalNote: 'Delivery approved via dashboard.' });
+      refresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Failed to approve delivery. Please try again.';
+      alert(msg);
+    } finally {
+      setApprovingJobId(null);
+    }
   };
 
   const openCount = jobs.filter((j) => j.status.toUpperCase() === 'OPEN').length;
@@ -768,7 +793,7 @@ const HaulierJobsSection: React.FC = () => {
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Goods</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
@@ -778,8 +803,8 @@ const HaulierJobsSection: React.FC = () => {
                 {activeStatus === 'BOOKED' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Payment</th>
                 )}
-                {status === 'IN_TRANSIT' && (
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Handover</th>
+                {activeStatus === 'IN_TRANSIT' && (
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
                 )}
               </tr>
             </thead>
@@ -787,6 +812,7 @@ const HaulierJobsSection: React.FC = () => {
               {jobs.map((job) => {
                 const isPaymentSecured = job.status?.toUpperCase() === 'PAYMENT_SECURED';
                 const needsPayment = !isPaymentSecured && ['BOOKED', 'PAYMENT_PENDING'].includes(job.status?.toUpperCase() ?? '');
+                const isDelivered = job.status?.toUpperCase() === 'DELIVERY_SUBMITTED';
                 const handover = handoverMap[job.jobId];
                 const needsMySign = handover?.driverSigned && !handover?.haulierSigned;
                 const bothSigned = handover?.driverSigned && handover?.haulierSigned;
@@ -794,7 +820,7 @@ const HaulierJobsSection: React.FC = () => {
                 return (
                   <tr
                     key={job.jobId}
-                    className={`transition hover:bg-slate-50/70 ${needsMySign ? 'bg-[#1066b1]/10/40' : isPaymentSecured ? 'bg-emerald-50/30' : ''}`}
+                    className={`transition hover:bg-slate-50/70 ${needsMySign || isDelivered ? 'bg-[#1066b1]/10/40' : isPaymentSecured ? 'bg-emerald-50/30' : ''}`}
                   >
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
@@ -826,8 +852,10 @@ const HaulierJobsSection: React.FC = () => {
                       <p className="text-sm text-slate-500 truncate">{job.dropLocation ?? job.dropAddress ?? 'N/A'}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="text-sm font-bold text-[#041627]">{job.goodsType ?? 'N/A'}</p>
-                      {job.weightKg != null && <p className="text-xs text-slate-400">{job.weightKg} kg</p>}
+                      <p className="text-sm font-black text-[#1066b1]">
+                        {job.currency === 'INR' || !job.currency ? '₹' : job.currency} {Number(job.agreedAmount ?? 0).toLocaleString('en-IN')}
+                      </p>
+                      <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-sm font-bold text-[#041627]">{job.vehicleType ?? 'N/A'}</p>
@@ -890,25 +918,30 @@ const HaulierJobsSection: React.FC = () => {
                       </td>
                     )}
 
-                    {/* In-Transit: handover signature column */}
-                    {status === 'IN_TRANSIT' && (
+                    {/* In-Transit: actions */}
+                    {activeStatus === 'IN_TRANSIT' && (
                       <td className="px-6 py-5 min-w-[180px]">
-                        {!handover ? (
-                          <span className="text-xs text-slate-400">Checking…</span>
+                        {isDelivered ? (
+                          <button
+                            onClick={() => handleApproveDelivery(job.jobId)}
+                            disabled={approvingJobId === job.jobId}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {approvingJobId === job.jobId ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : (
+                              <span className="material-symbols-outlined text-sm">verified_user</span>
+                            )}
+                            Approve & Release
+                          </button>
                         ) : needsMySign ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                              <span className="text-xs font-bold text-emerald-700">Driver signed</span>
-                            </div>
-                            <button
-                              onClick={() => openSignModal(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}
-                              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#1066b1] bg-[#1066b1]/10 px-3 py-2 text-xs font-black text-[#083d7a] shadow-sm transition hover:bg-[#1066b1] hover:text-white"
-                            >
-                              <span className="material-symbols-outlined text-sm">draw</span>
-                              Sign Handover
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => openSignModal(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#1066b1] bg-[#1066b1]/10 px-3 py-2 text-xs font-black text-[#083d7a] shadow-sm transition hover:bg-[#1066b1] hover:text-white"
+                          >
+                            <span className="material-symbols-outlined text-sm">draw</span>
+                            Sign Handover
+                          </button>
                         ) : bothSigned ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">

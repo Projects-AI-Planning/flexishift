@@ -5,6 +5,7 @@ import {
   Alert,
   BackHandler,
   Image,
+  Linking,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -473,6 +474,7 @@ function DriverApp(): React.JSX.Element {
     amount: number;
     currency: string;
     completionDate?: string;
+    invoiceUrl?: string;
   } | null>(null);
 
   // Payment escrow data (driver notification)
@@ -1256,8 +1258,9 @@ function DriverApp(): React.JSX.Element {
     try {
       if (data.photoFile?.uri) {
         const formData = new FormData();
+        const uploadUri = Platform.OS === 'android' ? data.photoFile.uri : data.photoFile.uri.replace('file://', '');
         formData.append('file', {
-          uri: data.photoFile.uri,
+          uri: uploadUri,
           name: data.photoFile.fileName,
           type: data.photoFile.type,
         } as any);
@@ -1661,7 +1664,7 @@ function DriverApp(): React.JSX.Element {
   };
 
   const handleSubmitDelivery = async (proofData: any, photos: any[]) => {
-    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    const jobId = complianceJobId ?? dashboardRef.current?.activeJob?.jobId;
     if (!jobId) {
       return;
     }
@@ -1714,13 +1717,18 @@ function DriverApp(): React.JSX.Element {
           throw err;
         }
       }
-      setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
+
+      // Fetch job details to get the final agreed amount and invoice URL
+      const jobDetails = await driverApi.jobs.getDetails(jobId);
       setPaymentReleasedData({
-        jobReference: dashboard?.activeJob?.jobReference ?? jobId,
-        amount: Number((proofData as any)?.amount ?? 0),
-        currency: '₹',
+        jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
+        amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
+        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? '₹'),
         completionDate: new Date().toISOString(),
+        invoiceUrl: jobDetails?.invoiceUrl ? String(jobDetails.invoiceUrl) : undefined,
       });
+
+      setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
       navigate('jobs', 'payments.released' as any);
       await refreshActiveView();
     } catch (err) {
@@ -1997,7 +2005,23 @@ function DriverApp(): React.JSX.Element {
     }
 
     if (type.includes('PAYMENT_RELEASED')) {
-      navigate('profile', 'earnings.history');
+      const jobId = String(data.job_id ?? data.jobId ?? '');
+      if (jobId) {
+        driverApi.jobs.getDetails(jobId).then(job => {
+          setPaymentReleasedData({
+            jobReference: String(job?.jobReference ?? jobId),
+            amount: Number(job?.agreedAmount ?? 0),
+            currency: String(job?.currency ?? '₹'),
+            completionDate: String(job?.updatedAt ?? new Date().toISOString()),
+            invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
+          });
+          navigate('jobs', 'payments.released' as any);
+        }).catch(() => {
+          navigate('profile', 'earnings.history');
+        });
+      } else {
+        navigate('profile', 'earnings.history');
+      }
       return;
     }
 
@@ -2382,6 +2406,7 @@ function DriverApp(): React.JSX.Element {
     if (activeRoute === 'compliance.loadCode') {
       const lcJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
       const lcJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? lcJobId;
+      const lcVerified = complianceStatus?.load_code_verified === true;
       return (
         <LoadCodeScreen
           jobId={lcJobId}
@@ -2389,6 +2414,8 @@ function DriverApp(): React.JSX.Element {
           onVerify={handleVerifyLoadCode}
           loading={actionLoading}
           error={errorBanner}
+          alreadyVerified={lcVerified}
+          onContinue={lcVerified ? () => navigate('tracking', 'compliance.handover') : undefined}
         />
       );
     }
@@ -2662,8 +2689,16 @@ function DriverApp(): React.JSX.Element {
               }
               setEscrowRefreshing(false);
             }}
-            onViewJob={() => {
-              navigate('tracking', 'tracking.active');
+            onViewJob={async () => {
+              if (escrowJobId) {
+                setComplianceJobId(escrowJobId);
+                const ref = escrowDetails?.jobRef ? String(escrowDetails.jobRef) : escrowJobId;
+                setComplianceJobRef(ref);
+                const route = await resolveComplianceRoute(escrowJobId);
+                navigate('tracking', route);
+              } else {
+                navigate('tracking', 'compliance.loadCode');
+              }
             }}
             onBack={() => {
               setEscrowJobId(null);
@@ -2686,16 +2721,22 @@ function DriverApp(): React.JSX.Element {
             currency={paymentReleasedData.currency}
             completionDate={paymentReleasedData.completionDate}
             onViewInvoice={async () => {
-              try {
-                const inv = await driverApi.invoices.list({limit: 1, page: 1});
-                const first = (
-                  (inv.invoices ?? []) as Array<Record<string, unknown>>
-                )[0];
-                if (first?.invoiceId) {
-                  await driverApi.invoices.download(String(first.invoiceId));
+              if (paymentReleasedData.invoiceUrl) {
+                Linking.openURL(paymentReleasedData.invoiceUrl);
+              } else {
+                try {
+                  const jobId = complianceJobId ?? dashboardRef.current?.activeJob?.jobId;
+                  if (jobId) {
+                    const jobDetails = await driverApi.jobs.getDetails(jobId);
+                    if (jobDetails?.invoiceUrl) {
+                      Linking.openURL(jobDetails.invoiceUrl);
+                    } else {
+                      Alert.alert('Invoice Pending', 'The invoice is being generated. Please check back in a few minutes in your Job History.');
+                    }
+                  }
+                } catch {
+                  Alert.alert('Error', 'Failed to retrieve invoice. Please view it from your earnings history.');
                 }
-              } catch {
-                /* silent */
               }
             }}
             onRate={() => {
@@ -2839,12 +2880,16 @@ function DriverApp(): React.JSX.Element {
               await loadDrawerRoute('earnings.history');
               setRefreshing(false);
             }}
-            onViewInvoice={async (id: string) => {
+            onViewInvoice={async (jobId: string) => {
               try {
-                const result = await driverApi.invoices.download(id);
-                return (result as any).downloadUrl ?? '';
+                const jobDetails = await driverApi.jobs.getDetails(jobId);
+                if (jobDetails?.invoiceUrl) {
+                  Linking.openURL(String(jobDetails.invoiceUrl));
+                } else {
+                  Alert.alert('Invoice Pending', 'The invoice is being generated. Please check back in a few minutes.');
+                }
               } catch {
-                setErrorBanner('Failed to get invoice.');
+                setErrorBanner('Failed to get invoice URL.');
               }
             }}
           />

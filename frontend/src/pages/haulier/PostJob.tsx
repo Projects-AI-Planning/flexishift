@@ -236,43 +236,55 @@ const PostJobPage: React.FC = () => {
   /* ── SUCCESS SCREEN ── */
   if (created) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-6">
-        {/* Left: celebration card */}
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-8 flex flex-col items-center text-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-white/20 ring-4 ring-white/30 flex items-center justify-center">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-6 animate-in fade-in duration-700">
+        {/* Left: celebration card (Blue theme) */}
+        <div className="bg-gradient-to-br from-[#1066b1] to-[#0a4a8f] rounded-3xl p-8 flex flex-col items-center text-center gap-6 shadow-[0_20px_50px_rgba(16,102,177,0.2)]">
+          <div className="w-20 h-20 rounded-full bg-white/20 ring-8 ring-white/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
           </div>
           <div>
             <h2 className="text-2xl font-black text-white">Job Posted!</h2>
-            <p className="text-emerald-100 mt-1.5 font-medium text-sm">
+            <p className="text-blue-100/90 mt-1.5 font-medium text-sm">
               Your freight job is live — drivers are being notified now.
             </p>
           </div>
           <div className="w-full space-y-3">
-            <div className="bg-white/15 border border-white/20 rounded-xl p-4 text-left">
-              <p className="text-[10px] font-black text-emerald-100/70 uppercase tracking-widest mb-1">Job Reference</p>
-              <p className="text-2xl font-black text-white font-mono">{created.jobRef}</p>
+            <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
+              <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Job Reference</p>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">{created.jobRef}</p>
             </div>
             {created.loadCode && (
-              <div className="bg-white/15 border border-white/20 rounded-xl p-4 text-left">
-                <p className="text-[10px] font-black text-emerald-100/70 uppercase tracking-widest mb-1">Load Code</p>
-                <p className="text-2xl font-black text-white font-mono">{created.loadCode}</p>
+              <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
+                <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Load Code</p>
+                <p className="text-2xl font-black text-white font-mono tracking-tight">{created.loadCode}</p>
               </div>
             )}
           </div>
-          <div className="flex gap-3 w-full mt-auto">
+          <div className="flex flex-col gap-3 w-full mt-auto">
             <button
-              onClick={() => navigate('/haulier/jobs')}
-              className="flex-1 bg-white text-emerald-700 py-3 rounded-xl font-black text-sm hover:bg-emerald-50 transition-colors"
+              onClick={() => navigate(`/haulier/payments${created.jobId ? `?jobId=${created.jobId}` : ''}`)}
+              className="w-full flex items-center justify-center gap-2 bg-white text-[#1066b1] py-3.5 rounded-xl font-black text-sm transition-all hover:bg-blue-50 shadow-xl shadow-black/10 active:scale-[0.98]"
             >
-              View My Jobs
+              <span className="material-symbols-outlined text-base">lock</span>
+              Secure Escrow Payment
             </button>
-            <button
-              onClick={() => { setCreated(null); setForm(EMPTY); setStep(1); setError(''); }}
-              className="flex-1 bg-white/15 border border-white/20 text-white py-3 rounded-xl font-black text-sm hover:bg-white/25 transition-colors"
-            >
-              Post Another
-            </button>
+            <p className="text-[10px] text-blue-100/60 font-bold uppercase tracking-widest">
+              Note: Fund escrow after accepting a bid
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => navigate('/haulier/jobs')}
+                className="flex-1 bg-white/15 border border-white/20 text-white py-3 rounded-xl font-black text-sm hover:bg-white/25 transition-colors"
+              >
+                View Jobs
+              </button>
+              <button
+                onClick={() => { setCreated(null); setForm(EMPTY); setStep(1); setError(''); }}
+                className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
+              >
+                Post New
+              </button>
+            </div>
           </div>
         </div>
 

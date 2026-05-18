@@ -1,6 +1,6 @@
 import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -151,13 +151,13 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                     User.email == email,
                     EmailVerification.token_hash == token_hash,
                     EmailVerification.used_at.is_(None),
-                    EmailVerification.expires_at > datetime.now(timezone.utc),
+                    EmailVerification.expires_at > datetime.utcnow(),
                 )
                 .first()
             )
             if not ev:
                 raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-            ev.used_at = datetime.now(timezone.utc)
+            ev.used_at = datetime.utcnow()
             user = db.get(User, ev.user_id)
             user.verified = True
             user.status = UserStatus.ACTIVE
@@ -168,11 +168,11 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
         ev = db.query(EmailVerification).filter(
             EmailVerification.token_hash == token_hash,
             EmailVerification.used_at.is_(None),
-            EmailVerification.expires_at > datetime.now(timezone.utc),
+            EmailVerification.expires_at > datetime.utcnow(),
         ).first()
         if not ev:
             raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-        ev.used_at = datetime.now(timezone.utc)
+        ev.used_at = datetime.utcnow()
         user = db.get(User, ev.user_id)
         user.verified = True
         user.status = UserStatus.ACTIVE
@@ -247,7 +247,7 @@ async def resend_verification(db: Session, email: str, r=None) -> bool:
     ev = EmailVerification(
         user_id=user.id,
         token_hash=hash_token(otp),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
     )
     db.add(ev)
     db.commit()
@@ -266,7 +266,7 @@ async def forgot_password(db: Session, email: str) -> bool:
     pr = PasswordReset(
         user_id=user.id,
         token_hash=hash_token(otp),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
     )
     db.add(pr)
     db.commit()
@@ -348,14 +348,14 @@ def reset_password(db: Session, email: str, otp: str, new_password: str) -> None
             User.email == email,
             PasswordReset.token_hash == token_hash,
             PasswordReset.used_at.is_(None),
-            PasswordReset.expires_at > datetime.now(timezone.utc),
+            PasswordReset.expires_at > datetime.utcnow(),
         )
         .first()
     )
     if not pr:
         raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
-    pr.used_at = datetime.now(timezone.utc)
+    pr.used_at = datetime.utcnow()
     user = db.get(User, pr.user_id)
     user.password_hash = hash_password(new_password)
     # Receiving the OTP proves email ownership — activate account if not already

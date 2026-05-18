@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -28,7 +28,7 @@ def verify_load_code(db: Session, job_id: str, driver_id: str, code: str) -> Com
     record = get_or_create_compliance(db, job_id)
     if record.load_code_verified_at:
         raise HTTPException(status_code=409, detail="Load code already verified")
-    record.load_code_verified_at = datetime.now(timezone.utc)
+    record.load_code_verified_at = datetime.utcnow()
     db.commit()
     db.refresh(record)
     return record
@@ -49,7 +49,7 @@ def complete_step1(db: Session, job_id: str, supplier_id: str, data: dict) -> Co
     if record.step1_completed_at:
         raise HTTPException(status_code=409, detail="Vehicle handover already completed")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     record.checklist_data = data["checklist_data"]
     record.condition_photo_urls = data["condition_photo_urls"]
     record.driver_signature_url = data["driver_signature_url"]
@@ -79,7 +79,7 @@ def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict) -> Co
     if record.step2_completed_at:
         raise HTTPException(status_code=409, detail="Delivery proof already submitted")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     record.delivery_photo_url = data["delivery_photo_url"]
     record.recipient_signature_url = data["recipient_signature_url"]
     record.delivery_notes = data.get("delivery_notes")
@@ -105,7 +105,7 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
     if not record:
         raise HTTPException(status_code=404, detail="Compliance record not found")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     record.step3_approved_at = now
     job.status = JobStatus.COMPLETED
 
@@ -120,6 +120,16 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
         release_payment(db, job_id)
     except HTTPException:
         pass
+
+    # Generate and upload invoice
+    from app.services.invoice import generate_and_upload_invoice
+    payment = job.payment
+    if payment:
+        try:
+            url = await generate_and_upload_invoice(job, payment)
+            job.invoice_url = url
+        except Exception:
+            pass
 
     from app.services.notifications import create_notification
     await create_notification(
@@ -147,7 +157,7 @@ def raise_dispute(db: Session, job_id: str, haulier_id: str, dispute_reason: str
         raise HTTPException(status_code=404, detail="Compliance record not found")
 
     record.dispute_reason = dispute_reason
-    record.disputed_at = datetime.now(timezone.utc)
+    record.disputed_at = datetime.utcnow()
     job.status = JobStatus.DISPUTED
     db.commit()
     db.refresh(record)
@@ -171,7 +181,7 @@ def resolve_dispute(
     if not record:
         raise HTTPException(status_code=404, detail="Compliance record not found")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     resolution_upper = resolution.upper()
 
     if resolution_upper in ("APPROVE", "RELEASE_FULL_PAYMENT", "FULL_REFUND_DRIVER"):

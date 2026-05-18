@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -32,7 +32,7 @@ async def store_local_upload(
             "uploadToken": record.upload_token,
             "key": record.storage_key,
             "fileUrl": record.public_url,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="Local upload stored successfully",
     )

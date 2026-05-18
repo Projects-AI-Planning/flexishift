@@ -128,6 +128,8 @@ def list_jobs(
             q = q.filter(Job.status.in_([
                 JobStatus.BOOKED, JobStatus.PAYMENT_PENDING, JobStatus.PAYMENT_SECURED,
             ]))
+        elif status.upper() == 'IN_TRANSIT':
+            q = q.filter(Job.status.in_([JobStatus.IN_TRANSIT, JobStatus.DELIVERY_SUBMITTED]))
         else:
             q = q.filter(Job.status == JobStatus(status.upper()))
 

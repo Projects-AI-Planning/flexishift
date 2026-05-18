@@ -138,7 +138,7 @@ def driver_overview(
         Job.deleted_at.is_(None),
     ).order_by(Job.updated_at.desc()).first()
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.utcnow().date()
     today_completed = db.query(func.count(Job.id)).filter(
         Job.selected_supplier_id == current_user.id,
         Job.status == JobStatus.COMPLETED,
@@ -168,6 +168,7 @@ def driver_overview(
             .order_by(TrackingPoint.recorded_at.desc())
             .first()
         )
+        payment = active_job.payment
         active_job_data = {
             "jobId": active_job.id,
             "jobReference": active_job.job_ref,
@@ -181,6 +182,8 @@ def driver_overview(
             "distanceKm": float(active_job.distance_km) if active_job.distance_km is not None else None,
             "durationMin": int(active_job.duration_min) if active_job.duration_min is not None else None,
             "originalEta": active_job.original_eta.isoformat() if active_job.original_eta else None,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else "INR",
             "currentLocation": {
                 "latitude": float(last_point.lat),
                 "longitude": float(last_point.lng),
@@ -203,7 +206,7 @@ def driver_overview(
             "upcomingJobs": upcoming,
             "rating": float(current_user.avg_rating) if current_user.avg_rating else 0.0,
             "completedJobs": current_user.completed_jobs,
-            "lastUpdatedAt": datetime.now(timezone.utc).isoformat(),
+            "lastUpdatedAt": datetime.utcnow().isoformat(),
         },
         message="Driver dashboard fetched successfully.",
     )
@@ -219,7 +222,7 @@ def driver_earnings(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -380,7 +383,7 @@ def haulier_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     profile = current_user.profile
 
     active_jobs = db.query(Job).filter(
@@ -563,7 +566,7 @@ def haulier_spend_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -615,7 +618,7 @@ def haulier_costs(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -701,7 +704,7 @@ def haulier_revenue(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -790,7 +793,7 @@ def haulier_performance(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -1153,7 +1156,7 @@ def haulier_list_drivers(
         q = q.filter(UserProfile.vehicle_type == vehicle_type)
 
     candidates = q.order_by(User.created_at.desc()).all()
-    today = datetime.now(timezone.utc).date()
+    today = datetime.utcnow().date()
     rows = []
     for driver in candidates:
         profile = driver.profile
@@ -1285,7 +1288,7 @@ def haulier_assign_driver(
         "vehicleType": driver_profile.vehicle_type if driver_profile else None,
         "vehicleRegistration": driver_profile.vehicle_registration if driver_profile else None,
         "licenseNumber": driver_profile.licence_number if driver_profile else None,
-        "assignedAt": datetime.now(timezone.utc).isoformat(),
+        "assignedAt": datetime.utcnow().isoformat(),
         "note": body.note,
     }
     assignments.insert(0, item)
@@ -1373,7 +1376,7 @@ def admin_overview(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     today = now.date()
 
     total_users = db.query(func.count(User.id)).scalar() or 0
@@ -1514,7 +1517,7 @@ def admin_suspend_user(
         raise HTTPException(status_code=404, detail="User not found")
     user.status = UserStatus.SUSPENDED
     db.commit()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     return ok(
         data={
             "userId": user_id,
@@ -1540,7 +1543,7 @@ def admin_activate_user(
         raise HTTPException(status_code=404, detail="User not found")
     user.status = UserStatus.ACTIVE
     db.commit()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     return ok(
         data={
             "userId": user_id,
@@ -1847,7 +1850,7 @@ def admin_revenue(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -2111,7 +2114,7 @@ def admin_escalated_disputes(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    threshold = datetime.now(timezone.utc) - timedelta(hours=48)
+    threshold = datetime.utcnow() - timedelta(hours=48)
     q = (
         db.query(Job)
         .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
@@ -2124,7 +2127,7 @@ def admin_escalated_disputes(
     total = q.count()
     items = q.order_by(ComplianceRecord.disputed_at.asc()).offset((page - 1) * limit).limit(limit).all()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     disputes = []
     for j in items:
         haulier = j.haulier

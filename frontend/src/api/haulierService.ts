@@ -63,7 +63,7 @@ const haulierService = {
   listAllBookings: (params?: Record<string, unknown>) => client.get('/bookings/list', { params }).then(res => res.data.data),
   cancelBooking: (bookingId: string, data: { reason: string }) => client.put(`/bookings/cancel/${bookingId}`, data).then(res => res.data),
   initiatePayment: (data: Record<string, unknown>) => client.post('/payments/initiate', data).then(res => res.data.data),
-  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+  verifyPayment: (data: { paymentIntentId: string }) =>
     client.post('/payments/verify', data).then(res => res.data.data),
   checkPaymentStatus: (paymentId: string) => client.get(`/payments/status/${paymentId}`).then(res => res.data.data),
   releasePayment: (bookingId: string, data: { approvalNote: string }) => client.post(`/payments/release/${bookingId}`, data).then(res => res.data),

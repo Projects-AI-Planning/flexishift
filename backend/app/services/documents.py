@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -43,7 +43,7 @@ def review_document(db: Session, doc_id: str, admin: User, status: str, rejectio
 
     doc.status = DocStatus(status)
     doc.reviewed_by = admin.id
-    doc.reviewed_at = datetime.now(timezone.utc)
+    doc.reviewed_at = datetime.utcnow()
     doc.rejection_reason = rejection_reason
     db.commit()
     db.refresh(doc)

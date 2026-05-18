@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -129,7 +129,7 @@ def delete_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    current_user.deleted_at = datetime.now(timezone.utc)
+    current_user.deleted_at = datetime.utcnow()
     current_user.status = UserStatus.SUSPENDED
     db.commit()
     return ok(data=None, message="Account deactivated")
@@ -176,7 +176,7 @@ def mark_notification_read(
     if not notif or notif.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Notification not found")
     if not notif.read_at:
-        notif.read_at = datetime.now(timezone.utc)
+        notif.read_at = datetime.utcnow()
         db.commit()
     return ok(data={"notificationId": notification_id, "isRead": True}, message="Notification marked as read")
 

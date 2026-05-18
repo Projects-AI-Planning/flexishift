@@ -2,41 +2,44 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 
-// ── Razorpay types ──────────────────────────────────────────────────────────
+// ── Stripe types (CDN-loaded Stripe.js) ─────────────────────────────────────
 
 declare global {
   interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+    Stripe: (publishableKey: string) => StripeInstance;
   }
 }
 
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  order_id: string;
-  name: string;
-  description: string;
-  handler: (response: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }) => void;
-  modal?: { ondismiss?: () => void };
-  theme?: { color: string };
+interface StripeCardElement {
+  mount: (el: HTMLElement) => void;
+  unmount: () => void;
+  on: (event: string, handler: (e: { error?: { message: string } }) => void) => void;
 }
 
-interface RazorpayInstance {
-  open: () => void;
+interface StripeElements {
+  create: (type: 'card', options?: object) => StripeCardElement;
 }
 
-const loadRazorpayScript = (): Promise<void> => {
-  if (window.Razorpay) return Promise.resolve();
+interface StripePaymentIntentResult {
+  paymentIntent?: { id: string; status: string };
+  error?: { message: string };
+}
+
+interface StripeInstance {
+  elements: (options?: object) => StripeElements;
+  confirmCardPayment: (
+    clientSecret: string,
+    data?: { payment_method: string | { card: StripeCardElement } },
+  ) => Promise<StripePaymentIntentResult>;
+}
+
+const loadStripeScript = (): Promise<void> => {
+  if (window.Stripe) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.src = 'https://js.stripe.com/v3/';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Razorpay SDK failed to load'));
+    script.onerror = () => reject(new Error('Stripe.js failed to load'));
     document.body.appendChild(script);
   });
 };
@@ -101,10 +104,11 @@ interface BookedJob {
 
 interface PaymentOrder {
   paymentId: string;
-  gatewayOrderId: string;
+  paymentIntentId: string;
+  clientSecret: string;
   amount: number;
   currency: string;
-  keyId: string;
+  publishableKey: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -159,6 +163,144 @@ const getTabFromPath = (pathname: string): PaymentTab => {
   return 'create';
 };
 
+// ── Stripe Payment Modal ─────────────────────────────────────────────────────
+
+interface StripeModalProps {
+  job: BookedJob;
+  order: PaymentOrder;
+  onSuccess: () => void;
+  onCancel: () => void;
+  onError: (msg: string) => void;
+}
+
+const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess, onCancel, onError }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
+  const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cardError, setCardError] = useState('');
+  const isTest = order.publishableKey.startsWith('pk_test');
+
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      try {
+        await loadStripeScript();
+        if (!active) return;
+        const stripe = window.Stripe(order.publishableKey);
+        setStripeInstance(stripe);
+        if (!isTest && cardRef.current) {
+          const elements = stripe.elements();
+          const card = elements.create('card', {
+            style: {
+              base: { fontSize: '15px', color: '#041627', '::placeholder': { color: '#94a3b8' } },
+            },
+          });
+          card.mount(cardRef.current);
+          card.on('change', (e) => setCardError(e.error?.message ?? ''));
+          setCardElement(card);
+        }
+      } catch {
+        onError('Failed to load payment SDK. Please refresh and try again.');
+      }
+    };
+    void init();
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleConfirm = async () => {
+    if (!stripeInstance) return;
+    setConfirming(true);
+    setCardError('');
+    try {
+      const result = await stripeInstance.confirmCardPayment(
+        order.clientSecret,
+        { payment_method: isTest ? 'pm_card_visa' : { card: cardElement! } },
+      );
+      if (result.error) {
+        setCardError(result.error.message);
+        setConfirming(false);
+        return;
+      }
+      const status = result.paymentIntent?.status;
+      if (status === 'requires_capture' || status === 'succeeded') {
+        await haulierService.verifyPayment({ paymentIntentId: result.paymentIntent!.id });
+        onSuccess();
+      } else {
+        setCardError(`Unexpected payment status: ${status ?? 'unknown'}`);
+        setConfirming(false);
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      onError(e.response?.data?.message ?? e.message ?? 'Payment failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-[#041627]">Secure Payment — Escrow</h3>
+          <button onClick={onCancel} disabled={confirming} className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-40">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+          {[
+            { label: 'Job', value: job.jobRef, mono: true },
+            { label: 'Amount', value: `£${order.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`, bold: true },
+            { label: 'Currency', value: order.currency.toUpperCase() },
+          ].map(({ label, value, mono, bold }) => (
+            <div key={label} className="flex justify-between text-sm">
+              <span className="font-bold text-slate-500">{label}</span>
+              <span className={`${mono ? 'font-mono' : ''} ${bold ? 'text-base text-primary' : ''} font-black text-[#041627]`}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        {isTest ? (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <span className="material-symbols-outlined text-amber-500 text-base mt-0.5 shrink-0">science</span>
+            <div className="text-xs text-amber-800">
+              <p className="font-black mb-0.5">Test Mode</p>
+              <p className="font-medium">A Stripe test Visa card will be used. No real funds will be moved.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
+            <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
+            {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+          </div>
+        )}
+
+        <div className="flex items-start gap-2 text-xs text-slate-500">
+          <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
+          <span>Funds are held in escrow and released to the driver only after delivery is approved.</span>
+        </div>
+
+        {cardError && isTest && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={onCancel} disabled={confirming} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-[#44474C] hover:bg-slate-50 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleConfirm()}
+            disabled={confirming || !stripeInstance || (!isTest && !cardElement)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>
+            {confirming ? 'Processing…' : 'Confirm Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Create Payment Tab ──────────────────────────────────────────────────────
 
 const CreatePaymentTab: React.FC = () => {
@@ -172,6 +314,7 @@ const CreatePaymentTab: React.FC = () => {
   const [payingJobId, setPayingJobId] = useState<string | null>(null);
   const [payError, setPayError] = useState('');
   const [successJobIds, setSuccessJobIds] = useState<Set<string>>(new Set());
+  const [activeOrder, setActiveOrder] = useState<{ job: BookedJob; order: PaymentOrder } | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
   const fetchJobs = useCallback(async () => {
@@ -182,13 +325,48 @@ const CreatePaymentTab: React.FC = () => {
         total?: number;
       };
       const all = result.items ?? [];
-      // Show jobs where payment has not yet been secured (BOOKED or stuck PAYMENT_PENDING)
+      
+      // If we have a preselected jobId from URL, we should also check if it's in OPEN jobs
+      let openJob: BookedJob | null = null;
+      if (preselectedJobId) {
+        const found = all.find(j => j.bookingId === preselectedJobId);
+        if (!found) {
+          try {
+            const jobRes = await haulierService.getJobDetails(preselectedJobId);
+            if (jobRes && jobRes.status === 'OPEN') {
+              openJob = {
+                bookingId: jobRes.jobId,
+                jobRef: jobRes.jobReference || jobRes.jobRef,
+                status: 'OPEN',
+                pickupAddress: jobRes.pickupLocation || jobRes.pickupAddress,
+                dropAddress: jobRes.dropLocation || jobRes.dropAddress,
+                goodsType: jobRes.goodsType,
+                vehicleType: jobRes.vehicleTypeRequired || jobRes.vehicleType,
+                weightKg: jobRes.weightKg,
+                distanceKm: jobRes.distanceKm,
+                jobDate: jobRes.jobDate,
+                timeSlot: jobRes.timeSlot,
+                agreedAmount: null,
+                paymentStatus: null
+              };
+            }
+          } catch (e) {
+            console.error("Failed to fetch open job details", e);
+          }
+        }
+      }
+
       const pending = all.filter(
         (j) =>
           (j.status === 'BOOKED' || j.status === 'PAYMENT_PENDING') &&
           j.paymentStatus !== 'ESCROWED' &&
           j.paymentStatus !== 'RELEASED',
       );
+      
+      if (openJob && !pending.find(j => j.bookingId === openJob!.bookingId)) {
+        pending.unshift(openJob);
+      }
+
       setJobs(pending);
       setTotalJobs(pending.length);
       setFetchError('');
@@ -197,7 +375,7 @@ const CreatePaymentTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preselectedJobId]);
 
   useEffect(() => { void fetchJobs(); }, [fetchJobs]);
 
@@ -212,48 +390,7 @@ const CreatePaymentTab: React.FC = () => {
     setPayError('');
     try {
       const order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
-
-      if (order.keyId === 'mock_rzp_key') {
-        // Razorpay not configured — simulate payment in sandbox mode
-        await haulierService.verifyPayment({
-          razorpayOrderId: order.gatewayOrderId,
-          razorpayPaymentId: `mock_pay_${Date.now()}`,
-          razorpaySignature: 'mock_signature',
-        });
-        setSuccessJobIds((prev) => new Set(prev).add(job.bookingId));
-        setJobs((prev) => prev.filter((j) => j.bookingId !== job.bookingId));
-        setPayingJobId(null);
-        return;
-      }
-
-      await loadRazorpayScript();
-
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: Math.round(order.amount * 100),
-        currency: order.currency || 'INR',
-        order_id: order.gatewayOrderId,
-        name: 'FreightFlex',
-        description: `Secure payment for job ${job.jobRef}`,
-        handler: async (response) => {
-          try {
-            await haulierService.verifyPayment({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            setSuccessJobIds((prev) => new Set(prev).add(job.bookingId));
-            setJobs((prev) => prev.filter((j) => j.bookingId !== job.bookingId));
-          } catch {
-            setPayError(`Payment verification failed for ${job.jobRef}. Contact support if amount was deducted.`);
-          } finally {
-            setPayingJobId(null);
-          }
-        },
-        modal: { ondismiss: () => setPayingJobId(null) },
-        theme: { color: '#1A2B3C' },
-      });
-      rzp.open();
+      setActiveOrder({ job, order });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; detail?: string } } };
       const detail =
@@ -261,6 +398,7 @@ const CreatePaymentTab: React.FC = () => {
         axiosErr?.response?.data?.detail ||
         'Please try again.';
       setPayError(`Failed to initiate payment: ${detail}`);
+    } finally {
       setPayingJobId(null);
     }
   };
@@ -269,6 +407,19 @@ const CreatePaymentTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {activeOrder && (
+        <StripePaymentModal
+          job={activeOrder.job}
+          order={activeOrder.order}
+          onSuccess={() => {
+            setSuccessJobIds((prev) => new Set(prev).add(activeOrder.job.bookingId));
+            setJobs((prev) => prev.filter((j) => j.bookingId !== activeOrder.job.bookingId));
+            setActiveOrder(null);
+          }}
+          onCancel={() => setActiveOrder(null)}
+          onError={(msg) => { setPayError(msg); setActiveOrder(null); }}
+        />
+      )}
       {/* Header stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 relative overflow-hidden">
@@ -295,7 +446,7 @@ const CreatePaymentTab: React.FC = () => {
       <div className="flex items-start gap-3 bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">info</span>
         <div className="text-xs text-[#083d7a] font-medium leading-relaxed">
-          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds in escrow via Razorpay.
+          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds in escrow via Stripe.
           Once secured, the driver can enter the load code and begin the trip. Payment releases to the driver after delivery is approved.
         </div>
       </div>
@@ -335,7 +486,7 @@ const CreatePaymentTab: React.FC = () => {
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-black text-[#041627]">Booked Jobs — Payment Pending</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Razorpay</p>
+            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Stripe escrow</p>
           </div>
           <button
             onClick={() => void fetchJobs()}
@@ -365,6 +516,8 @@ const CreatePaymentTab: React.FC = () => {
             {pendingJobs.map((job) => {
               const isHighlighted = job.bookingId === preselectedJobId;
               const isPaying = payingJobId === job.bookingId;
+              const isOpen = job.status === 'OPEN';
+              
               return (
                 <div
                   key={job.bookingId}
@@ -387,8 +540,8 @@ const CreatePaymentTab: React.FC = () => {
                               Selected
                             </span>
                           )}
-                          <span className="rounded-full bg-[#1066b1]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#0a4a8f]">
-                            Payment Pending
+                          <span className={`rounded-full ${isOpen ? 'bg-amber-100 text-amber-700' : 'bg-[#1066b1]/15 text-[#0a4a8f]'} px-2 py-0.5 text-[10px] font-black uppercase tracking-widest`}>
+                            {isOpen ? 'Awaiting Bids' : 'Payment Pending'}
                           </span>
                         </div>
                         <div className="mt-2 space-y-0.5">
@@ -402,6 +555,11 @@ const CreatePaymentTab: React.FC = () => {
                             <p className="text-sm text-slate-500">{job.dropAddress ?? 'Drop N/A'}</p>
                           </div>
                         </div>
+                        {isOpen && (
+                          <p className="mt-2 text-xs font-medium text-amber-600 italic">
+                            Next step: Accept a bid to secure payment.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -427,9 +585,11 @@ const CreatePaymentTab: React.FC = () => {
 
                       <button
                         onClick={() => void handleSecurePayment(job)}
-                        disabled={isPaying || payingJobId !== null}
+                        disabled={isPaying || payingJobId !== null || isOpen}
                         className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition-all shadow-md ${
-                          isPaying
+                          isOpen
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            : isPaying
                             ? 'bg-indigo-400 text-white cursor-wait'
                             : payingJobId !== null
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -437,9 +597,9 @@ const CreatePaymentTab: React.FC = () => {
                         }`}
                       >
                         <span className="material-symbols-outlined text-base">
-                          {isPaying ? 'hourglass_top' : 'lock'}
+                          {isPaying ? 'hourglass_top' : isOpen ? 'info' : 'lock'}
                         </span>
-                        {isPaying ? 'Opening…' : 'Secure Payment'}
+                        {isPaying ? 'Opening…' : isOpen ? 'Awaiting Bids' : 'Secure Payment'}
                       </button>
                     </div>
                   </div>
