@@ -477,9 +477,14 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
 
 /* ── Main Component ─────────────────────────────────────────────────────────── */
 
-const HaulierJobsSection: React.FC = () => {
+interface HaulierJobsSectionProps {
+  status?: JobStatus;
+  allowPostJob?: boolean;
+}
+
+const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initialStatus }) => {
   const navigate = useNavigate();
-  const [activeStatus, setActiveStatus] = useState<JobStatus>('OPEN');
+  const [activeStatus, setActiveStatus] = useState<JobStatus>(initialStatus ?? 'OPEN');
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ page, per_page: PAGE_SIZE, status: activeStatus }), [page, activeStatus]);
   const { data, loading, error, refresh } = useHaulierJobs(params);
