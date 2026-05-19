@@ -354,4 +354,276 @@ Refunded to haulier:  3 × £180    = £540.00 (from remaining escrow)
 
 ---
 
+---
+
+## 13. Edge Cases & Frequently Asked Questions
+
+---
+
+### SECTION A — Driver Cancellation Mid-Shift
+
+---
+
+**Q1. The driver cancels in the middle of the shift. What happens to the job?**
+
+The shift is marked `CANCELLED`. Days already completed and paid are final — those payments are not reversed. The remaining days are removed from the schedule and the escrow for those remaining days is refunded to the haulier's account within 1–2 business days.
+
+The haulier is then free to:
+- Re-post the shift for the remaining days as a new shorter shift
+- Find a replacement driver directly and book them manually
+- Absorb the disruption if the remaining days are few
+
+The system does NOT automatically reassign the driver. The haulier must take action.
+
+---
+
+**Q2. What happens to the money already paid to the driver when they cancel mid-shift?**
+
+| Payment | Outcome |
+|---------|---------|
+| Days already completed and signed off | Driver keeps the money — fully earned, non-refundable |
+| Current day (in progress, not yet signed off) | Not released — stays in escrow and is refunded to haulier |
+| Future days not yet started | Fully refunded to haulier from escrow |
+
+**Example:** Driver is booked for 5 days at £180/day. They cancel after Day 3 is complete but Day 4 has not started.
+
+```
+Driver keeps:       3 × £180 = £540 (Days 1–3 already released)
+Refunded to haulier: 2 × £180 = £360 (Days 4–5 from escrow)
+```
+
+---
+
+**Q3. What if the driver cancels with less than 24 hours notice?**
+
+A late cancellation penalty applies. The platform deducts a penalty fee from the driver's next payout or wallet balance. The penalty amount is platform-configurable (default: 50% of one day's rate).
+
+| Notice Given | Penalty |
+|-------------|---------|
+| > 24 hours | No penalty |
+| 12–24 hours | 25% of one day's rate |
+| < 12 hours | 50% of one day's rate |
+| No-show (day already started) | 100% of one day's rate |
+
+The penalty goes to the haulier as partial compensation, not to the platform. The driver is notified via push and email at the time of cancellation showing the exact penalty amount deducted.
+
+---
+
+**Q4. What if the driver simply stops showing up without cancelling?**
+
+This is a no-show. After a configurable grace period (default: 2 hours past the expected start time), the haulier can raise a no-show report. The system then:
+
+1. Automatically cancels the shift
+2. Applies the maximum penalty (100% of one day's rate) to the driver
+3. Refunds all remaining escrow to the haulier
+4. Flags the driver's account with a reliability mark (3 flags = temporary suspension)
+5. Opens an escalation ticket (see Section C)
+
+---
+
+**Q5. Can a driver cancel after the shift has started on the same day?**
+
+Yes, but the day's payment is not released because the haulier has not signed off. The current day is treated as incomplete:
+- No payment released for the current day
+- Penalty applied as a no-show (100% of one day's rate)
+- Remaining days refunded to haulier
+
+---
+
+**Q6. What happens to any cargo or goods if the driver cancels mid-route on a day?**
+
+This is an operational emergency. The platform escalates immediately (see Section C — Escalation). The haulier is notified via push, SMS, and email with the driver's last known GPS location from the tracking module. The haulier is responsible for arranging recovery of goods. The platform's role is notification and documentation only — liability for goods is governed by the haulier's freight insurance.
+
+---
+
+### SECTION B — Haulier Cancellation
+
+---
+
+**Q7. The haulier cancels mid-shift. Does the driver get any compensation?**
+
+Yes. The driver keeps all payments for days already completed. Additionally, if the haulier cancels after Day 1 has started, a haulier-side cancellation notice period applies:
+
+| Notice Given by Haulier | Driver Compensation |
+|------------------------|---------------------|
+| > 48 hours before next day | No additional compensation |
+| 24–48 hours | 50% of next day's rate as compensation |
+| < 24 hours | 100% of next day's rate as compensation |
+
+Compensation is paid from the haulier's escrow before the remainder is refunded.
+
+---
+
+**Q8. Can the haulier cancel after accepting a quote but before Day 1 starts?**
+
+Yes. Full escrow is refunded to the haulier. The driver receives no payment since no work was done. However, if the cancellation is within 24 hours of the scheduled start date, the driver receives a cancellation compensation of 50% of one day's rate.
+
+---
+
+**Q9. What if the haulier refuses to mark a day as complete even though the driver worked?**
+
+The driver can raise a **day completion dispute** from the mobile app. This opens an escalation ticket (see Section C). During a dispute:
+- The day's payment is held in escrow — not released to driver, not refunded to haulier
+- Platform admin reviews evidence (GPS tracking data, check-in timestamps, any uploaded proof)
+- Admin makes the final ruling within 48 hours
+- If ruled in driver's favour: payment released to driver
+- If ruled in haulier's favour: payment returned to haulier's escrow
+
+---
+
+### SECTION C — Escalations & Dispute Resolution
+
+---
+
+**Q10. What types of issues can be escalated?**
+
+| Issue Type | Who Can Raise | Priority |
+|-----------|--------------|----------|
+| Driver no-show | Haulier | High |
+| Day completion disputed | Driver | Medium |
+| Payment not received | Driver | High |
+| Cargo abandoned mid-route | Haulier | Critical |
+| Driver behaviour complaint | Haulier | Medium |
+| Haulier non-payment or fraud | Driver | High |
+| Incorrect cancellation penalty applied | Driver | Medium |
+| Shift details misrepresented | Driver | Medium |
+
+---
+
+**Q11. How does the escalation process work step by step?**
+
+```
+Step 1 — Raise a ticket
+  Either party raises a dispute from the app (Shift → Report Issue).
+  They select the issue type, describe the problem, and attach evidence
+  (photos, screenshots, GPS data).
+
+Step 2 — Automatic hold
+  If money is involved, the relevant payment is frozen immediately.
+  Neither party can withdraw disputed funds during review.
+
+Step 3 — Notification
+  Both parties are notified that an escalation is open.
+  The other party has 24 hours to submit their response.
+
+Step 4 — Platform admin review
+  Admin reviews both sides, GPS tracking history, sign-off logs,
+  and any uploaded evidence.
+  Target resolution time: 48 hours from ticket creation.
+
+Step 5 — Decision
+  Admin rules in favour of one party (or splits if warranted).
+  Decision is final and executed automatically (payment released/refunded).
+  Both parties are notified with the outcome and reasoning.
+
+Step 6 — Appeal (optional)
+  Either party can appeal within 72 hours of the decision.
+  Appeals are reviewed by a senior admin.
+  Appeal decision is final.
+```
+
+---
+
+**Q12. What evidence does the platform use to resolve disputes?**
+
+| Evidence Type | Source | Used For |
+|--------------|--------|----------|
+| GPS tracking history | Tracking module (tracking_points table) | Proving driver was on site |
+| Check-in / check-out timestamps | Compliance module | Proving hours worked |
+| Day sign-off logs | shift_day_payments table | Proving haulier acknowledged work |
+| Photo proof of delivery | Compliance / delivery module | Cargo condition |
+| In-app messages | Support ticket thread | Communications record |
+| Driver rating history | Ratings module | Pattern of behaviour |
+| Cancellation timestamps | shifts.updated_at | Late cancellation verification |
+
+---
+
+**Q13. What happens if a driver abandons cargo mid-route and the haulier incurs losses?**
+
+The platform is not liable for goods in transit — this is covered by the haulier's freight insurance. However, the platform will:
+
+1. Provide a full GPS tracking export for the incident (last known location, route history)
+2. Open a critical escalation ticket immediately
+3. Apply the maximum driver penalty (100% of day rate)
+4. Flag the driver's account for review — repeated incidents result in permanent suspension
+5. Provide a signed incident report PDF for insurance claim purposes
+
+---
+
+**Q14. What if the driver claims they were not paid for a completed day?**
+
+The driver can raise a **Payment Dispute** from the app. The platform checks:
+
+1. Was the day marked complete by the haulier? (shift.days_completed)
+2. Was a `shift_day_payments` record created?
+3. Did the payment gateway confirm the transfer?
+
+If the payment was processed correctly but not received in the driver's bank, the issue is with the payment gateway. The platform opens a payment gateway dispute on the driver's behalf. Target resolution: 3–5 business days.
+
+If the day was marked complete but payment was not triggered (system error), the platform manually releases the payment and logs a bug report.
+
+---
+
+**Q15. Can a dispute result in a driver being banned from the platform?**
+
+Yes. Escalation outcomes can include account actions:
+
+| Severity | Action |
+|----------|--------|
+| First no-show or late cancellation | Warning + reliability flag |
+| Second incident within 30 days | 7-day suspension from new shifts |
+| Third incident or cargo abandonment | Permanent suspension, pending appeal |
+| Fraud (false dispute, fake GPS) | Immediate permanent ban, legal referral |
+
+Hauliers are held to the same standards — repeated bad-faith dispute filings or refusal to pay result in account suspension.
+
+---
+
+**Q16. What if both the haulier and driver agree to cancel the shift without penalty?**
+
+A **mutual cancellation** can be initiated by either party. If the other party agrees within 24 hours:
+- No penalties applied to either side
+- Driver keeps all payments for completed days
+- Haulier receives full escrow refund for remaining days
+- Shift status set to `CANCELLED` with reason `MUTUAL_AGREEMENT`
+
+If the other party does not respond within 24 hours, the standard cancellation policy applies.
+
+---
+
+**Q17. What happens to the shift data after it is cancelled or completed?**
+
+All shift data is permanently retained for audit and legal purposes. Cancelled and completed shifts remain visible in the haulier's and driver's history dashboards. Payment records, GPS logs, sign-off timestamps, and escalation tickets are stored indefinitely. Drivers and hauliers can request an export of their shift history at any time.
+
+---
+
+**Q18. Can the haulier re-post remaining days after a driver cancels?**
+
+Yes. The haulier can create a new shift for the remaining days immediately after cancellation. The system pre-fills the form with the original shift's details (requirement type, location, hours per day, rate) to speed up re-posting. The new shift gets a fresh `SH-` reference number and enters the `OPEN` state for new driver quotes.
+
+---
+
+**Q19. Is there a minimum shift length or maximum shift length?**
+
+| Constraint | Value | Reason |
+|-----------|-------|--------|
+| Minimum shift | 1 day | Single-day engagements are valid |
+| Maximum shift | 90 days | Prevents indefinite open-ended bookings |
+| Minimum hours per day | 4 hours | Below this is not a meaningful shift |
+| Maximum hours per day | 14 hours | Legal driving hour limits |
+
+---
+
+**Q20. What if there is a dispute about the hours actually worked on a given day?**
+
+Hours worked are validated against the driver's check-in and check-out timestamps from the compliance module. If a driver checks in at 08:00 and checks out at 14:00, the system records 6 hours. If the shift required 8 hours, the haulier can:
+
+1. Accept the day as complete (sign off despite short hours)
+2. Not sign off and request the driver to complete the remaining hours
+3. Raise an escalation if the driver refuses and demands payment
+
+Partial-day payment (e.g. 6 of 8 hours = 75% of daily rate) can be agreed between parties and is supported by the platform as a custom settlement in the escalation process.
+
+---
+
 *FreightFlex Shift Module — Prepared 19 May 2026*
