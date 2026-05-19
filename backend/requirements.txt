@@ -28,6 +28,7 @@ celery==5.4.0
 
 # Payment gateway
 razorpay==1.4.1
+stripe==15.1.0
 
 # Azure Blob Storage
 azure-storage-blob==12.19.0
