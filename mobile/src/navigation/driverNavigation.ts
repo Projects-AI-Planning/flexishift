@@ -30,7 +30,7 @@ export const drawerItems: DrawerNavItem[] = [
     icon: '\u{1F4E6}',
     children: [
       {key: 'jobs.available', label: 'Available Jobs'},
-      {key: 'jobs.myQuotes', label: 'My Bids'},
+      {key: 'jobs.myQuotes', label: 'My Quotes'},
       {key: 'jobs.upcoming', label: 'Upcoming Jobs'},
       {key: 'jobs.history', label: 'Job History'},
     ],

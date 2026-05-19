@@ -190,3 +190,12 @@ def list_shift_quotes(db: Session, shift_id: str, haulier: User) -> list[ShiftQu
     if shift.haulier_id != haulier.id:
         raise HTTPException(status_code=403, detail="Not authorised")
     return db.query(ShiftQuote).filter(ShiftQuote.shift_id == shift_id).all()
+
+
+def list_driver_shift_quotes(db: Session, driver_id: str) -> list[ShiftQuote]:
+    return (
+        db.query(ShiftQuote)
+        .filter(ShiftQuote.driver_id == driver_id)
+        .order_by(ShiftQuote.created_at.desc())
+        .all()
+    )

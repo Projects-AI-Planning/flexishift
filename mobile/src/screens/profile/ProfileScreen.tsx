@@ -473,12 +473,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       // Optimistic preview from local file immediately
       setLocalPhotoUrl(asset.uri);
       const formData = new FormData();
-      // Handle URI properly for Android (standard fetch behavior in RN)
-      const uploadUri = Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', '');
       formData.append('file', {
-        uri: uploadUri,
+        uri: asset.uri,
         name: asset.fileName ?? `profile_${Date.now()}.jpg`,
-        type: asset.type ?? 'image/jpeg'
+        type: asset.type ?? 'image/jpeg',
       } as any);
       await driverApi.profile.uploadPhotoDirect(formData);
       // Clear local state so that the refresh pulls the fresh backend URL from props

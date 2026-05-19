@@ -40,7 +40,7 @@ def _shift_dict(shift, quotes=None) -> dict:
 def _quote_dict(quote) -> dict:
     driver_name = None
     if hasattr(quote, "driver") and quote.driver:
-        driver_name = quote.driver.name
+        driver_name = quote.driver.full_name
     return {
         "quoteId": quote.id,
         "shiftId": quote.shift_id,
@@ -52,6 +52,32 @@ def _quote_dict(quote) -> dict:
         "notes": quote.notes,
         "createdAt": quote.created_at.isoformat() if quote.created_at else None,
     }
+
+
+def _driver_quote_dict(quote) -> dict:
+    d = {
+        "quoteId": quote.id,
+        "shiftId": quote.shift_id,
+        "amountPerDay": float(quote.amount_per_day),
+        "totalAmount": float(quote.total_amount),
+        "status": quote.status.value if hasattr(quote.status, "value") else quote.status,
+        "notes": quote.notes,
+        "createdAt": quote.created_at.isoformat() if quote.created_at else None,
+    }
+    shift = quote.shift if hasattr(quote, "shift") else None
+    if shift:
+        d.update({
+            "shiftRef": shift.shift_ref,
+            "startDate": str(shift.start_date),
+            "endDate": str(shift.end_date),
+            "totalDays": shift.total_days,
+            "hoursPerDay": shift.hours_per_day,
+            "location": shift.location or "",
+            "pickupAddress": shift.pickup_address or "",
+            "dropAddress": shift.drop_address or "",
+            "shiftStatus": shift.status.value if hasattr(shift.status, "value") else shift.status,
+        })
+    return d
 
 
 # ── Haulier endpoints ──────────────────────────────────────────────────────────
@@ -95,6 +121,15 @@ def list_driver_shifts(
 ):
     items = shifts_svc.list_driver_shifts(db, current_user.id)
     return ok({"items": [_shift_dict(s) for s in items], "total": len(items)})
+
+
+@router.get("/my-quotes")
+def list_my_shift_quotes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quotes = shifts_svc.list_driver_shift_quotes(db, current_user.id)
+    return ok({"items": [_driver_quote_dict(q) for q in quotes], "total": len(quotes)})
 
 
 @router.get("/{shift_id}")

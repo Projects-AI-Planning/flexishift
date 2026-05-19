@@ -143,9 +143,13 @@ def logout(body: RefreshRequest, db: Session = Depends(get_db), r=Depends(get_re
 
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    email_sent = await auth_svc.forgot_password(db, body.email)
+    email_sent, dev_otp = await auth_svc.forgot_password(db, body.email)
+    data: dict = {"emailSent": email_sent}
+    # In development, surface the OTP in the response when email is not configured
+    if dev_otp and settings.APP_ENV == "development":
+        data["devOtp"] = dev_otp
     return ok(
-        data={"emailSent": email_sent},
+        data=data,
         message=(
             "A password reset code has been sent to your email. Check your inbox and spam folder."
             if email_sent

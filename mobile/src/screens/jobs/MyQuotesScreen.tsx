@@ -51,7 +51,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
   }, [highlightedJobId, quotes]);
 
   const handleWithdraw = (quoteId: string) => {
-    Alert.alert('Withdraw Bid', 'Are you sure you want to withdraw this bid?', [
+    Alert.alert('Withdraw Quote', 'Are you sure you want to withdraw this quote?', [
       {text: 'Cancel', style: 'cancel'},
       {text: 'Withdraw', style: 'destructive', onPress: () => onWithdrawQuote(quoteId)},
     ]);
@@ -121,7 +121,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
         {/* Bid amount + job date */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Your Bid</Text>
+            <Text style={styles.statLabel}>Your Quote</Text>
             <Text style={styles.statValue}>
               {item.currency ?? 'Rs'} {Number(item.quoteAmount ?? item.amount ?? 0).toLocaleString()}
             </Text>
@@ -143,7 +143,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
             <View style={styles.acceptedBanner}>
               <Text style={styles.acceptedBannerIcon}>🎉</Text>
               <View style={{flex: 1}}>
-                <Text style={styles.acceptedBannerTitle}>Your bid was accepted!</Text>
+                <Text style={styles.acceptedBannerTitle}>Your quote was accepted!</Text>
                 <Text style={styles.acceptedBannerSub}>
                   Proceed to verify the load code at pickup.
                 </Text>
@@ -195,7 +195,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
             <Pressable
               onPress={() => handleWithdraw(item.quoteId)}
               style={styles.withdrawBtn}>
-              <Text style={styles.withdrawBtnText}>Withdraw Bid</Text>
+              <Text style={styles.withdrawBtnText}>Withdraw Quote</Text>
             </Pressable>
           </View>
         )}
@@ -219,9 +219,9 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
       ListEmptyComponent={
         <View style={styles.emptyBox}>
           <Text style={styles.emptyIcon}>✍️</Text>
-          <Text style={styles.emptyTitle}>No Active Bids</Text>
+          <Text style={styles.emptyTitle}>No Active Quotes</Text>
           <Text style={styles.emptySub}>
-            Go to Find Jobs to place your first bid.
+            Go to Find Jobs to place your first quote.
           </Text>
         </View>
       }

@@ -257,10 +257,10 @@ async def resend_verification(db: Session, email: str, r=None) -> bool:
     return await send_verification_email(email, user.full_name, otp)
 
 
-async def forgot_password(db: Session, email: str) -> bool:
+async def forgot_password(db: Session, email: str) -> tuple[bool, str | None]:
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        return False  # silent — don't reveal existence
+        return False, None  # silent — don't reveal existence
 
     otp = _generate_otp()
     pr = PasswordReset(
@@ -270,7 +270,13 @@ async def forgot_password(db: Session, email: str) -> bool:
     )
     db.add(pr)
     db.commit()
-    return await send_password_reset_email(email, user.full_name, otp)
+
+    # Store in memory so the debug endpoint and dev fallback can read it
+    _email_otp_store[email] = otp
+
+    email_sent = await send_password_reset_email(email, user.full_name, otp)
+    # Return raw OTP only when email delivery failed (caller uses it for dev fallback)
+    return email_sent, (otp if not email_sent else None)
 
 
 def get_email_otp(r, email: str) -> str:

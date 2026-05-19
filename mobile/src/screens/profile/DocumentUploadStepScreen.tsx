@@ -210,25 +210,63 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
           {/* Expiry date */}
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>EXPIRY DATE</Text>
-            <Pressable
-              onPress={() => setShowPicker(true)}
-              style={[styles.dateInput, styles.datePressable]}>
-              <Text style={expiryDate ? styles.dateValueText : styles.datePlaceholderText}>
-                {expiryDate || 'Tap to select date'}
-              </Text>
-              <Text style={styles.calendarIcon}>📅</Text>
-            </Pressable>
+            <View style={styles.dateRow}>
+              {/* Date display — left side */}
+              <View style={[styles.dateDisplay, !!expiryDate && styles.dateDisplayFilled]}>
+                {expiryDate ? (
+                  <>
+                    <Text style={styles.dateDisplayLabel}>Selected</Text>
+                    <Text style={styles.dateValueText}>{expiryDate}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.datePlaceholderText}>No date selected</Text>
+                )}
+              </View>
+
+              {/* Calendar button — right side */}
+              <Pressable
+                onPress={() => setShowPicker(v => !v)}
+                style={[styles.calendarBtn, showPicker && styles.calendarBtnActive]}>
+                <Text style={styles.calendarBtnIcon}>📅</Text>
+                <Text style={[styles.calendarBtnLabel, showPicker && styles.calendarBtnLabelActive]}>
+                  {showPicker ? 'Close' : 'Pick'}
+                </Text>
+              </Pressable>
+            </View>
+
             {dateError ? (
               <Text style={styles.dateErrorText}>{dateError}</Text>
             ) : null}
+
+            {/* Calendar picker */}
             {showPicker && (
-              <DateTimePicker
-                value={pickerDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                minimumDate={new Date(Date.now() + 86400000)}
-                onChange={onDateChange}
-              />
+              Platform.OS === 'ios' ? (
+                <View style={styles.iosCalendarWrap}>
+                  <DateTimePicker
+                    value={pickerDate}
+                    mode="date"
+                    display="inline"
+                    minimumDate={new Date(Date.now() + 86400000)}
+                    onChange={onDateChange}
+                    themeVariant="light"
+                    accentColor="#1066B1"
+                    style={styles.iosCalendar}
+                  />
+                  <Pressable
+                    onPress={() => setShowPicker(false)}
+                    style={styles.calendarDoneBtn}>
+                    <Text style={styles.calendarDoneBtnText}>Done</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="date"
+                  display="calendar"
+                  minimumDate={new Date(Date.now() + 86400000)}
+                  onChange={onDateChange}
+                />
+              )
             )}
           </View>
 
@@ -658,24 +696,80 @@ const styles = StyleSheet.create({
     color: colors.navy, fontSize: 11, fontWeight: '900',
     letterSpacing: 1, textTransform: 'uppercase',
   },
-  dateInput: {
-    backgroundColor: '#F8FAFC', borderRadius: radius.sm,
-    paddingHorizontal: spacing.lg, minHeight: 52,
-    fontSize: 15, color: colors.navy,
-    borderWidth: 1, borderColor: '#E2E8F0',
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
   },
-  datePressable: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  dateDisplay: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  dateDisplayFilled: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  dateDisplayLabel: {
+    color: '#1066B1',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   dateValueText: {
-    color: colors.navy, fontSize: 15, fontWeight: '700',
+    color: colors.navy, fontSize: 15, fontWeight: '800',
   },
   datePlaceholderText: {
-    color: '#94A3B8', fontSize: 15,
+    color: '#94A3B8', fontSize: 14,
   },
-  calendarIcon: {fontSize: 20},
+  calendarBtn: {
+    width: 68,
+    backgroundColor: '#EFF6FF',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    flexShrink: 0,
+  },
+  calendarBtnActive: {
+    backgroundColor: '#1066B1',
+    borderColor: '#1066B1',
+  },
+  calendarBtnIcon: {fontSize: 22},
+  calendarBtnLabel: {
+    color: '#1066B1',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  calendarBtnLabelActive: {color: '#fff'},
+  iosCalendarWrap: {
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: spacing.xs,
+  },
+  iosCalendar: {width: '100%'},
+  calendarDoneBtn: {
+    backgroundColor: '#1066B1',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  calendarDoneBtnText: {color: '#fff', fontSize: 15, fontWeight: '900'},
   dateErrorText: {
-    color: '#B91C1C', fontSize: 12, fontWeight: '700', marginTop: 4,
+    color: '#B91C1C', fontSize: 12, fontWeight: '700',
   },
   filePicker: {
     height: 150, backgroundColor: '#F8FAFC', borderRadius: radius.md,

@@ -47,7 +47,7 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
           <Text style={styles.emptyIcon}>📋</Text>
           <Text style={styles.emptyTitle}>No Booking Found</Text>
           <Pressable onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>Go to My Bids</Text>
+            <Text style={styles.backBtnText}>Go to My Quotes</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -97,7 +97,7 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
         <View style={styles.successBanner}>
           <Text style={styles.successIcon}>🎉</Text>
           <View style={styles.successCopy}>
-            <Text style={styles.successTitle}>Your Bid Was Accepted!</Text>
+            <Text style={styles.successTitle}>Your Quote Was Accepted!</Text>
             <Text style={styles.successSub}>The haulier has selected you for this job.</Text>
           </View>
         </View>
