@@ -6,7 +6,7 @@ import haulierService from '../../api/haulierService';
 
 declare global {
   interface Window {
-    Stripe: (publishableKey: string) => StripeInstance;
+    Stripe?: (publishableKey: string) => StripeInstance;
   }
 }
 
@@ -187,7 +187,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
       try {
         await loadStripeScript();
         if (!active) return;
-        const stripe = window.Stripe(order.publishableKey);
+        const stripe = window.Stripe!(order.publishableKey);
         setStripeInstance(stripe);
         if (!isTest && cardRef.current) {
           const elements = stripe.elements();
