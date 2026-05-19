@@ -2,17 +2,25 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.job import Job, JobStatus
+from app.models.document import Document, DocStatus
 from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 
 
-def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
+def _has_admin_approved_documents(db: Session, user_id: str) -> bool:
+    docs = db.query(Document).filter(Document.user_id == user_id).all()
+    return bool(docs) and all(doc.status == DocStatus.APPROVED for doc in docs)
+
+
+async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
     if supplier.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
     if not supplier.profile_complete:
         raise HTTPException(status_code=403, detail="Complete your profile before submitting quotes")
     if not supplier.verified:
         raise HTTPException(status_code=403, detail="Your account must be verified before submitting quotes")
+    if not _has_admin_approved_documents(db, supplier.id):
+        raise HTTPException(status_code=403, detail="Admin approval of your documents is required before viewing or applying for jobs")
 
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
@@ -34,6 +42,16 @@ def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quot
     db.add(quote)
     db.commit()
     db.refresh(quote)
+
+    from app.services.notifications import create_notification
+    await create_notification(
+        db, job.haulier_id, "QUOTE_RECEIVED",
+        "New Quote Received",
+        f"{supplier.full_name} submitted a quote of £{price:,.2f} for job {job.job_ref}.",
+        {"job_id": job_id, "job_ref": job.job_ref, "quote_id": quote.id, "supplier_name": supplier.full_name},
+    )
+    db.commit()
+
     return quote
 
 

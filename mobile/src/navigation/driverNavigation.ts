@@ -17,6 +17,7 @@ export const bottomTabs: Array<{
 }> = [
   {key: 'home', label: 'FlexiShift', icon: '\u2302'},
   {key: 'jobs', label: 'Jobs', icon: '\u{1F4E6}'},
+  {key: 'shifts', label: 'Shifts', icon: '\ud83d\uddd3'},
   {key: 'tracking', label: 'Route', icon: '\u{1F69A}'},
   {key: 'profile', label: 'Profile', icon: '\u{1F464}'},
 ];
@@ -116,6 +117,15 @@ export const drawerItems: DrawerNavItem[] = [
     children: [
       {key: 'support.faq', label: 'FAQs'},
       {key: 'support.contact', label: 'Contact Support'},
+    ],
+  },
+  {
+    key: 'shifts.available',
+    label: 'Shifts',
+    icon: '\uD83D\uDDD3',
+    children: [
+      {key: 'shifts.available', label: 'Available Shifts'},
+      {key: 'shifts.myShifts', label: 'My Booked Shifts'},
     ],
   },
   {key: 'logout', label: 'Logout', icon: '\uD83D\uDEAA'},

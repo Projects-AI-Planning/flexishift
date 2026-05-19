@@ -1,9 +1,10 @@
+import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app.models.user import User, UserProfile, EmailVerification, PasswordReset, Role, UserStatus
+from app.models.user import User, UserProfile, EmailVerification, PasswordReset, RefreshToken, Role, UserStatus
 from app.core.security import (
     hash_password, verify_password, create_access_token,
     generate_token, hash_token,
@@ -23,94 +24,166 @@ OTP_TTL = 600  # 10 minutes
 REFRESH_PREFIX = "refresh:"
 PHONE_OTP_PREFIX = "phone_otp:"
 EMAIL_OTP_PREFIX = "email_otp:"
+PENDING_REG_PREFIX = "pending_reg:"
 
 # In-memory fallback stores (used when Redis is unavailable)
-_memory_store: dict[str, str] = {}   # refresh token → user_id
-_otp_store: dict[str, str] = {}      # phone → otp
-_email_otp_store: dict[str, str] = {}  # email → otp
+_otp_store: dict[str, str] = {}           # phone → otp
+_email_otp_store: dict[str, str] = {}     # email → otp
+_pending_store: dict[str, dict] = {}      # email → pending registration data
 
 
-def _store_refresh(r, user_id: str, token: str) -> None:
+def _store_refresh(r, user_id: str, token: str, db=None) -> None:
     ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
     if r is not None:
         r.setex(f"{REFRESH_PREFIX}{token}", ttl, user_id)
-    else:
-        _memory_store[token] = user_id
+    elif db is not None:
+        token_hash = hash_token(token)
+        expires_at = datetime.utcnow() + timedelta(seconds=ttl)
+        db.add(RefreshToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
+        db.commit()
 
 
-def _consume_refresh(r, token: str) -> str | None:
+def _consume_refresh(r, token: str, db=None) -> str | None:
     if r is not None:
         key = f"{REFRESH_PREFIX}{token}"
         user_id = r.get(key)
         if user_id:
             r.delete(key)
         return user_id
-    return _memory_store.pop(token, None)
+    if db is not None:
+        token_hash = hash_token(token)
+        row = db.query(RefreshToken).filter(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked.is_(False),
+            RefreshToken.expires_at > datetime.utcnow(),
+        ).first()
+        if row:
+            row.revoked = True
+            db.commit()
+            return row.user_id
+    return None
 
 
-def _revoke_refresh(r, token: str) -> None:
+def _revoke_refresh(r, token: str, db=None) -> None:
     if r is not None:
         r.delete(f"{REFRESH_PREFIX}{token}")
+    elif db is not None:
+        token_hash = hash_token(token)
+        row = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+        if row:
+            row.revoked = True
+            db.commit()
+
+
+def _store_pending(r, email: str, data: dict) -> None:
+    if r is not None:
+        r.setex(f"{PENDING_REG_PREFIX}{email}", OTP_TTL, json.dumps(data))
     else:
-        _memory_store.pop(token, None)
+        _pending_store[email] = data
 
 
-async def register(db: Session, full_name: str, email: str, phone: str, password: str, role: str, r=None) -> User:
+def _get_pending(r, email: str) -> dict | None:
+    if r is not None:
+        raw = r.get(f"{PENDING_REG_PREFIX}{email}")
+        return json.loads(raw) if raw else None
+    return _pending_store.get(email)
+
+
+def _delete_pending(r, email: str) -> None:
+    if r is not None:
+        r.delete(f"{PENDING_REG_PREFIX}{email}")
+    else:
+        _pending_store.pop(email, None)
+
+
+async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None) -> dict:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    user = User(
-        full_name=full_name,
-        email=email,
-        phone=phone,
-        password_hash=hash_password(password),
-        role=Role(role),
-        status=UserStatus.INACTIVE,
-    )
-    db.add(user)
-    db.flush()
-
-    profile = UserProfile(user_id=user.id)
-    db.add(profile)
-
     otp = _generate_otp()
-    ev = EmailVerification(
-        user_id=user.id,
-        token_hash=hash_token(otp),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
-    )
-    db.add(ev)
-    db.commit()
-    db.refresh(user)
+    pending = {
+        "full_name": full_name,
+        "email": email,
+        "phone": phone or "",
+        "password_hash": hash_password(password),
+        "role": role,
+        "otp": otp,
+    }
+    _store_pending(r, email, pending)
 
-    _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
+    _email_otp_store[email] = otp
     if r is not None:
         r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
+
     email_sent = await send_verification_email(email, full_name, otp)
-    user.email_sent = email_sent  # transient flag consumed by router
-    return user
+    return {"email": email, "role": role, "email_sent": email_sent}
 
 
-async def verify_email(db: Session, token: str, email: str | None = None) -> User:
-    token_hash = hash_token(token)
-    query = db.query(EmailVerification).filter(
-        EmailVerification.token_hash == token_hash,
-        EmailVerification.used_at.is_(None),
-        EmailVerification.expires_at > datetime.now(timezone.utc),
-    )
+async def verify_email(db: Session, token: str, email: str | None = None, r=None) -> dict:
+    user = None
+
     if email:
-        query = query.join(User, User.id == EmailVerification.user_id).filter(User.email == email)
-    ev = query.first()
-    if not ev:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        # New flow: create user in DB only after OTP is verified
+        pending = _get_pending(r, email)
+        if pending and pending.get("otp") == token:
+            user = User(
+                full_name=pending["full_name"],
+                email=pending["email"],
+                phone=pending["phone"],
+                password_hash=pending["password_hash"],
+                role=Role(pending["role"]),
+                status=UserStatus.ACTIVE,
+                verified=True,
+            )
+            db.add(user)
+            db.flush()
+            db.add(UserProfile(user_id=user.id))
+            db.commit()
+            db.refresh(user)
+            _delete_pending(r, email)
+        else:
+            # Legacy flow: check EmailVerification table (for users registered before this change)
+            token_hash = hash_token(token)
+            ev = (
+                db.query(EmailVerification)
+                .join(User, User.id == EmailVerification.user_id)
+                .filter(
+                    User.email == email,
+                    EmailVerification.token_hash == token_hash,
+                    EmailVerification.used_at.is_(None),
+                    EmailVerification.expires_at > datetime.utcnow(),
+                )
+                .first()
+            )
+            if not ev:
+                raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+            ev.used_at = datetime.utcnow()
+            user = db.get(User, ev.user_id)
+            user.verified = True
+            user.status = UserStatus.ACTIVE
+            db.commit()
+            db.refresh(user)
+    else:
+        token_hash = hash_token(token)
+        ev = db.query(EmailVerification).filter(
+            EmailVerification.token_hash == token_hash,
+            EmailVerification.used_at.is_(None),
+            EmailVerification.expires_at > datetime.utcnow(),
+        ).first()
+        if not ev:
+            raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        ev.used_at = datetime.utcnow()
+        user = db.get(User, ev.user_id)
+        user.verified = True
+        user.status = UserStatus.ACTIVE
+        db.commit()
+        db.refresh(user)
 
-    ev.used_at = datetime.now(timezone.utc)
-    user = db.get(User, ev.user_id)
-    user.verified = True
-    user.status = UserStatus.ACTIVE
-    db.commit()
-    db.refresh(user)
-    return user
+    access_token = create_access_token(user.id, user.role.value)
+    raw_refresh = generate_token()
+    _store_refresh(r, user.id, raw_refresh, db=db)
+
+    return {"user": user, "access_token": access_token, "refresh_token": raw_refresh}
 
 
 def login(db: Session, r, email: str, password: str) -> dict:
@@ -124,7 +197,7 @@ def login(db: Session, r, email: str, password: str) -> dict:
 
     access_token = create_access_token(user.id, user.role.value)
     raw_refresh = generate_token()
-    _store_refresh(r, user.id, raw_refresh)
+    _store_refresh(r, user.id, raw_refresh, db=db)
 
     return {
         "access_token": access_token,
@@ -135,7 +208,7 @@ def login(db: Session, r, email: str, password: str) -> dict:
 
 
 def refresh_tokens(db: Session, r, refresh_token: str) -> dict:
-    user_id = _consume_refresh(r, refresh_token)
+    user_id = _consume_refresh(r, refresh_token, db=db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
@@ -145,28 +218,40 @@ def refresh_tokens(db: Session, r, refresh_token: str) -> dict:
 
     access_token = create_access_token(user.id, user.role.value)
     raw_refresh = generate_token()
-    _store_refresh(r, user.id, raw_refresh)
+    _store_refresh(r, user.id, raw_refresh, db=db)
 
     return {"access_token": access_token, "refresh_token": raw_refresh, "token_type": "bearer"}
 
 
-def logout(r, refresh_token: str) -> None:
-    _revoke_refresh(r, refresh_token)
+def logout(r, refresh_token: str, db=None) -> None:
+    _revoke_refresh(r, refresh_token, db=db)
 
 
 async def resend_verification(db: Session, email: str, r=None) -> bool:
+    # New flow: pending registration not yet in DB
+    pending = _get_pending(r, email)
+    if pending:
+        otp = _generate_otp()
+        pending["otp"] = otp
+        _store_pending(r, email, pending)
+        _email_otp_store[email] = otp
+        if r is not None:
+            r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
+        return await send_verification_email(email, pending["full_name"], otp)
+
+    # Legacy flow: user already in DB but unverified
     user = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
     if not user or user.verified:
-        return False  # silent — don't reveal state
+        return False
     otp = _generate_otp()
     ev = EmailVerification(
         user_id=user.id,
         token_hash=hash_token(otp),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
     )
     db.add(ev)
     db.commit()
-    _email_otp_store[email] = otp  # cache plaintext for retrieval endpoint
+    _email_otp_store[email] = otp
     if r is not None:
         r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
     return await send_verification_email(email, user.full_name, otp)
@@ -181,7 +266,7 @@ async def forgot_password(db: Session, email: str) -> bool:
     pr = PasswordReset(
         user_id=user.id,
         token_hash=hash_token(otp),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
     )
     db.add(pr)
     db.commit()
@@ -263,14 +348,14 @@ def reset_password(db: Session, email: str, otp: str, new_password: str) -> None
             User.email == email,
             PasswordReset.token_hash == token_hash,
             PasswordReset.used_at.is_(None),
-            PasswordReset.expires_at > datetime.now(timezone.utc),
+            PasswordReset.expires_at > datetime.utcnow(),
         )
         .first()
     )
     if not pr:
         raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
-    pr.used_at = datetime.now(timezone.utc)
+    pr.used_at = datetime.utcnow()
     user = db.get(User, pr.user_id)
     user.password_hash = hash_password(new_password)
     # Receiving the OTP proves email ownership — activate account if not already

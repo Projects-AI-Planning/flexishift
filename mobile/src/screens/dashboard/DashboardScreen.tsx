@@ -313,7 +313,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
   },
   content: {
     padding: spacing.xl,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   goalPill: {
-    backgroundColor: '#E8F8ED',
+    backgroundColor: '#EBF4FF',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,

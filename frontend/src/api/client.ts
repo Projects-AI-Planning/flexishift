@@ -17,6 +17,7 @@ const normalizeBaseUrl = (value?: string) => {
 
 const client = axios.create({
   baseURL: normalizeBaseUrl(rawApiUrl),
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

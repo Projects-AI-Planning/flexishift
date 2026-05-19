@@ -33,7 +33,7 @@ async function geocode(address: string): Promise<Coords | null> {
       `https://nominatim.openstreetmap.org/search` +
       `?format=json&q=${encodeURIComponent(address)}&limit=1`;
     const res = await fetch(url, {
-      headers: {'User-Agent': 'FreightFlexDriverApp/1.0'},
+      headers: {'User-Agent': 'FlexiShiftDriverApp/1.0'},
     });
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {

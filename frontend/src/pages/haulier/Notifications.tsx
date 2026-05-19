@@ -38,7 +38,7 @@ const typeLabel = (value: string) => value.replace(/_/g, ' ');
 const typeTone = (value: string) => {
   const normalized = value.toLowerCase();
   if (normalized === 'payment') return 'bg-emerald-100 text-emerald-700';
-  if (normalized === 'compliance') return 'bg-amber-100 text-amber-700';
+  if (normalized === 'compliance') return 'bg-[#1066b1]/15 text-[#0a4a8f]';
   if (normalized === 'system') return 'bg-rose-100 text-rose-700';
   return 'bg-blue-100 text-blue-700';
 };
@@ -174,7 +174,7 @@ export default function HaulierNotificationsPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Settings</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Settings</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Notifications</h1>
           <p className="text-on-surface-variant font-medium">
             Manage your notification inbox and delivery preferences using backend data.
@@ -212,7 +212,7 @@ export default function HaulierNotificationsPage() {
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Unread</p>
-          <h3 className="mt-2 text-3xl font-black text-amber-600">{unread?.unreadCount ?? 0}</h3>
+          <h3 className="mt-2 text-3xl font-black text-[#0d55a0]">{unread?.unreadCount ?? 0}</h3>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
@@ -333,7 +333,7 @@ export default function HaulierNotificationsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((notification) => (
-                  <tr key={notification.notificationId} className={notification.isRead ? 'bg-white' : 'bg-amber-50/40'}>
+                  <tr key={notification.notificationId} className={notification.isRead ? 'bg-white' : 'bg-[#1066b1]/10/40'}>
                     <td className="px-4 py-4">
                       <p className="font-black text-primary">{notification.title}</p>
                       <p className="mt-1 max-w-[420px] text-xs text-slate-500">{notification.message}</p>

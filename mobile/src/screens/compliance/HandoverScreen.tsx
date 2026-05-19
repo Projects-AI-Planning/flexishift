@@ -1,4 +1,4 @@
-import React, {useState, useRef, forwardRef, useImperativeHandle} from 'react';
+import React, {useEffect, useState, useRef, forwardRef, useImperativeHandle} from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
+import ActiveJobMap from '../../components/map/ActiveJobMap';
+import {driverApi} from '../../api/driverApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,7 +166,7 @@ const sigPadStyles = StyleSheet.create({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const HandoverScreen: React.FC<HandoverScreenProps> = ({
-  jobId: _jobId,
+  jobId,
   jobReference: _jobReference,
   onSubmit,
   loading,
@@ -180,6 +182,14 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     bodyDamage: false,
   });
   const [photos, setPhotos] = useState<Record<string, Asset>>({});
+  const [job, setJob] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    if (!jobId) {return;}
+    driverApi.jobs.getDetails(jobId)
+      .then(data => setJob(data as Record<string, unknown>))
+      .catch(() => setJob(null));
+  }, [jobId]);
 
   // Signature state
   const [driverSigned, setDriverSigned] = useState(false);
@@ -279,6 +289,22 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
             <Text style={styles.stepLabelIdle}>Departure</Text>
           </View>
         </View>
+
+        {/* ── Route Map ──────────────────────────────────────────────────── */}
+        <ActiveJobMap
+          pickupLocation={String(job?.pickupLocation ?? job?.pickupAddress ?? '')}
+          dropLocation={String(job?.dropLocation ?? job?.dropAddress ?? '')}
+          pickupCoords={
+            job?.pickupLat != null && job?.pickupLng != null
+              ? {latitude: Number(job.pickupLat), longitude: Number(job.pickupLng)}
+              : null
+          }
+          dropCoords={
+            job?.dropLat != null && job?.dropLng != null
+              ? {latitude: Number(job.dropLat), longitude: Number(job.dropLng)}
+              : null
+          }
+        />
 
         {/* ── Vehicle Checklist ──────────────────────────────────────────── */}
         <View style={styles.card}>
@@ -529,7 +555,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
 const NODE_SIZE = 44;
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F4F6FA'},
+  container: {flex: 1, backgroundColor: colors.bg},
   content: {padding: 16, paddingBottom: 48},
 
   /* Header */
@@ -745,12 +771,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   signedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#DBEAFE',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  signedBadgeText: {color: '#16A34A', fontSize: 12, fontWeight: '800'},
+  signedBadgeText: {color: '#1066B1', fontSize: 12, fontWeight: '800'},
 
   /* Error */
   errorText: {

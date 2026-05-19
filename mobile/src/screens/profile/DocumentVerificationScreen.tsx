@@ -360,7 +360,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  safe: {flex: 1, backgroundColor: colors.bg},
   scroll: {paddingBottom: 36},
 
   // Header
@@ -520,16 +520,16 @@ const styles = StyleSheet.create({
 
   // Badges
   badgeVerified: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#DBEAFE',
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#86EFAC',
+    borderColor: '#93C5FD',
     paddingHorizontal: 10,
     paddingVertical: 5,
     flexShrink: 0,
   },
   badgeVerifiedText: {
-    color: '#16A34A',
+    color: '#1066B1',
     fontSize: 9,
     fontFamily: fonts.bold,
     fontWeight: '800',
@@ -646,8 +646,8 @@ const styles = StyleSheet.create({
   },
   filePickerReady: {
     borderStyle: 'solid',
-    borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
+    borderColor: '#1066B1',
+    backgroundColor: '#EFF6FF',
   },
   filePickerInner: {alignItems: 'center', gap: 4},
   fpIcon: {fontSize: 28},
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     maxWidth: 220,
     textAlign: 'center',
   },
-  fpRetap: {color: '#16A34A', fontSize: 11, fontWeight: '600'},
+  fpRetap: {color: '#1066B1', fontSize: 11, fontWeight: '600'},
   fpPrompt: {color: '#475569', fontSize: 13, fontWeight: '700'},
   fpHint: {color: '#94A3B8', fontSize: 11},
 

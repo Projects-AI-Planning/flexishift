@@ -16,7 +16,7 @@ class AvailabilitySlot(Base):
     start_time:  Mapped[time] = mapped_column(Time, nullable=False)
     end_time:    Mapped[time] = mapped_column(Time, nullable=False)
     is_active:   Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at:  Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at:  Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class AvailabilityBlock(Base):
@@ -27,4 +27,4 @@ class AvailabilityBlock(Base):
     block_start: Mapped[date] = mapped_column(Date, nullable=False)
     block_end:   Mapped[date] = mapped_column(Date, nullable=False)
     reason:      Mapped[str]  = mapped_column(Text, nullable=True)
-    created_at:  Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at:  Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

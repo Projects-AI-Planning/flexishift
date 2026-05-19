@@ -18,7 +18,7 @@ class Rating(Base):
     stars:       Mapped[int]      = mapped_column(SmallInteger, nullable=False)
     review_text: Mapped[str]      = mapped_column(Text, nullable=True)
     tags:        Mapped[list]     = mapped_column(JSON, nullable=True)
-    created_at:  Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at:  Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     job:   Mapped["Job"]  = relationship("Job", back_populates="ratings")
     rater: Mapped["User"] = relationship("User", foreign_keys=[rater_id], back_populates="ratings_given")

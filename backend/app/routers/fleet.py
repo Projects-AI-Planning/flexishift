@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -57,7 +57,7 @@ def add_equipment(
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     items = _equipment_items(current_user)
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     item = {
         "equipment_id": str(uuid4()),
         "name": body.name,
@@ -90,7 +90,7 @@ def update_equipment(
             if "last_service_date" in payload and payload["last_service_date"] is not None:
                 payload["last_service_date"] = payload["last_service_date"].isoformat()
             item.update(payload)
-            item["updated_at"] = datetime.now(timezone.utc).isoformat()
+            item["updated_at"] = datetime.utcnow().isoformat()
             updated = item
             break
 

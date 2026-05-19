@@ -41,10 +41,6 @@ import ResolvedSupportTicketsPage from './pages/admin/ResolvedSupportTickets';
 import HaulierOverview from './pages/haulier/Dashboard';
 import FleetPage from './pages/haulier/Fleet';
 import HaulierDriversPage from './pages/haulier/Drivers';
-import OpenJobsPage from './pages/haulier/jobs/Open';
-import BookedJobsPage from './pages/haulier/jobs/Booked';
-import InTransitJobsPage from './pages/haulier/jobs/InTransit';
-import HaulierCompletedJobsPage from './pages/haulier/jobs/Completed';
 import HaulierLoadsPage from './pages/haulier/Loads';
 import HaulierCostsPage from './pages/haulier/Costs';
 import HaulierRevenuePage from './pages/haulier/Revenue';
@@ -60,6 +56,7 @@ import HaulierSupportContactPage from './pages/haulier/SupportContact';
 import HaulierTrackingPage from './pages/haulier/Tracking';
 import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierShiftsPage from './pages/haulier/Shifts';
 
 // Auth Pages
 import RegisterPage from './pages/haulier/Register';
@@ -83,6 +80,7 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode, role?: 
   return <Layout>{children}</Layout>;
 };
 
+
 function AppRoutes() {
   const { user } = useAuth();
   const userRole = normalizeRole(user?.role);
@@ -92,7 +90,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
       <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
-      
+
       {/* Admin Section */}
       <Route 
         path="/admin/*" 
@@ -155,21 +153,17 @@ function AppRoutes() {
       />
 
       {/* Haulier Section */}
-      <Route 
-        path="/haulier/*" 
+      <Route
+        path="/haulier/*"
         element={
           <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
               <Route path="post-job" element={<PostJobPage />} />
+              <Route path="shifts" element={<HaulierShiftsPage />} />
+              <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
-              <Route path="jobs/open" element={<OpenJobsPage />} />
-              <Route path="jobs/book" element={<BookedJobsPage />} />
-              <Route path="jobs/booked" element={<BookedJobsPage />} />
-              <Route path="jobs/transit" element={<InTransitJobsPage />} />
-              <Route path="jobs/in-transit" element={<InTransitJobsPage />} />
-              <Route path="jobs/completed" element={<HaulierCompletedJobsPage />} />
-              <Route path="jobs/*" element={<Navigate to="/haulier/jobs/open" replace />} />
+              <Route path="jobs/*" element={<HaulierJobsPage />} />
               <Route path="payments/*" element={<HaulierPaymentsPage />} />
               <Route path="fleet/*" element={<FleetPage />} />
               <Route path="drivers/*" element={<HaulierDriversPage />} />

@@ -1,5 +1,5 @@
 from uuid import uuid4
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,6 +17,6 @@ class Notification(Base):
     body:       Mapped[str]      = mapped_column(Text, nullable=False)
     data:       Mapped[dict]     = mapped_column(JSON, nullable=True)
     read_at:    Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="notifications")

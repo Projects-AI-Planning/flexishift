@@ -20,7 +20,6 @@ interface LoginScreenProps {
   authLoading: boolean;
   authError: string | null;
   setAuthMode: (mode: any) => void;
-  onBackToSplash: () => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -30,7 +29,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
   authLoading,
   authError,
   setAuthMode,
-  onBackToSplash,
 }) => {
   return (
     <SafeAreaView style={styles.container}>
@@ -42,82 +40,82 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.background}>
-        <View style={styles.hero}>
-          <View style={styles.logoMark}>
-            <Text style={styles.logoIcon}>{'\uD83D\uDE9A'}</Text>
-          </View>
-          <Text style={styles.brandKicker}>Driver Portal</Text>
-          <Text style={styles.brand}>FreightFlex</Text>
-          <Text style={styles.tagline}>
-            Secure access for drivers, dispatch, and delivery operations.
-          </Text>
-        </View>
-
-        {authError ? (
-          <View style={styles.errorBanner}>
-            <View style={styles.errorDot}>
-              <Text style={styles.errorDotText}>!</Text>
+            <View style={styles.hero}>
+              <View style={styles.logoMark}>
+                <Text style={styles.logoIcon}>{'\uD83D\uDE9A'}</Text>
+              </View>
+              <Text style={styles.brandKicker}>Driver Portal</Text>
+              <Text style={styles.brand}>FlexiShift</Text>
+              <Text style={styles.tagline}>
+                Secure access for drivers, dispatch, and delivery operations.
+              </Text>
             </View>
-            <Text style={styles.errorText}>{authError}</Text>
-          </View>
-        ) : null}
 
-        <View style={styles.formCard}>
-          <AppInput
-            label="Email Address"
-            leftIcon={<MailIcon size={20} color="#9CA4B0" />}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            onChangeText={email =>
-              setLoginForm((current: any) => ({...current, email}))
-            }
-            placeholder="driver.77@freightflex.com"
-            value={loginForm.email}
-            containerStyle={styles.inputGroup}
-          />
+            {authError ? (
+              <View style={styles.errorBanner}>
+                <View style={styles.errorDot}>
+                  <Text style={styles.errorDotText}>!</Text>
+                </View>
+                <Text style={styles.errorText}>{authError}</Text>
+              </View>
+            ) : null}
 
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Password</Text>
-              <Pressable onPress={() => setAuthMode('forgot')}>
-                <Text style={styles.forgotText}>Forgot Password?</Text>
+            <View style={styles.formCard}>
+              <AppInput
+                label="Email Address"
+                leftIcon={<MailIcon size={20} color="#9CA4B0" />}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                onChangeText={email =>
+                  setLoginForm((current: any) => ({...current, email}))
+                }
+                placeholder="driver.77@flexishift.com"
+                value={loginForm.email}
+                containerStyle={styles.inputGroup}
+              />
+
+              <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Password</Text>
+                  <Pressable onPress={() => setAuthMode('forgot')}>
+                    <Text style={styles.forgotText}>Forgot Password?</Text>
+                  </Pressable>
+                </View>
+                <AppInput
+                  leftIcon={<LockIcon size={20} color="#9CA4B0" />}
+                  onChangeText={password =>
+                    setLoginForm((current: any) => ({...current, password}))
+                  }
+                  placeholder="••••••••••"
+                  secureTextEntry
+                  value={loginForm.password}
+                  containerStyle={{marginBottom: 0}}
+                />
+              </View>
+
+              <Pressable onPress={handleLogin} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>
+                  {authLoading ? 'Logging in...' : 'Login'}
+                  {'  '}
+                  {'\u21AA'}
+                </Text>
               </Pressable>
             </View>
-            <AppInput
-              leftIcon={<LockIcon size={20} color="#9CA4B0" />}
-              onChangeText={password =>
-                setLoginForm((current: any) => ({...current, password}))
-              }
-              placeholder="••••••••••"
-              secureTextEntry
-              value={loginForm.password}
-              containerStyle={{marginBottom: 0}}
-            />
-          </View>
 
-          <Pressable onPress={handleLogin} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              {authLoading ? 'Logging in...' : 'Login'}
-              {'  '}
-              {'\u21AA'}
-            </Text>
-          </Pressable>
-        </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Pressable onPress={() => setAuthMode('register')}>
+                <Text style={styles.footerLink}>Create Account</Text>
+              </Pressable>
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <Pressable onPress={() => setAuthMode('register')}>
-            <Text style={styles.footerLink}>Create Account</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.bottomBar}>
-          <Text style={styles.bottomCopy}>
-            © 2026 FreightFlow Systems. All rights reserved.
-          </Text>
-          </View>
+            <View style={styles.bottomBar}>
+              <Text style={styles.bottomCopy}>
+                © 2026 FlexiShift Systems. All rights reserved.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -128,7 +126,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
@@ -138,23 +136,8 @@ const styles = StyleSheet.create({
   },
   background: {
     flexGrow: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
     overflow: 'hidden',
-  },
-  topBar: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    color: colors.navy,
-    fontSize: 26,
-    fontWeight: '800',
   },
   hero: {
     alignItems: 'center',

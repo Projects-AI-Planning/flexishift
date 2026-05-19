@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -211,7 +211,7 @@ async def flat_job_eta(
                 "longitude": origin_lng,
             },
             "originalETA": job.original_eta.isoformat() if job.original_eta else None,
-            "lastCalculatedAt": datetime.now(timezone.utc).isoformat(),
+            "lastCalculatedAt": datetime.utcnow().isoformat(),
             **eta_data,
         },
         message="ETA fetched successfully.",
@@ -278,7 +278,7 @@ async def flat_stop_tracking(
             "status": "completed",
             "finalLocation": body.final_location if body and body.final_location else None,
             "startedAt": first_point.recorded_at.isoformat() if first_point else None,
-            "stoppedAt": datetime.now(timezone.utc).isoformat(),
+            "stoppedAt": datetime.utcnow().isoformat(),
         },
         message="Tracking session stopped successfully.",
     )
@@ -296,7 +296,7 @@ async def flat_delay_alert(
         raise HTTPException(status_code=404, detail="Job not found or forbidden")
 
     haulier = db.get(User, job.haulier_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     from app.services.notifications import create_notification
     from uuid import uuid4

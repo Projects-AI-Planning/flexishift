@@ -20,8 +20,8 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
-// Move all build outputs to C:\Temp to avoid OneDrive file locking
-def buildBase = new File("C:\\Temp\\FreightflexBuild")
+// Keep build outputs inside the Android project on Linux.
+def buildBase = new File(rootProject.projectDir, "build")
 rootProject.buildDir = new File(buildBase, "_root")
 subprojects {
     buildDir = new File(buildBase, project.name)

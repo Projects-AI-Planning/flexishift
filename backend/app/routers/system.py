@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -39,7 +39,7 @@ def health_check():
             "version": "1.0.0",
             "environment": settings.APP_ENV,
             "uptime": _uptime_str(),
-            "serverTime": datetime.now(timezone.utc).isoformat(),
+            "serverTime": datetime.utcnow().isoformat(),
             "status": "healthy",
         },
         message="Server is running.",
@@ -58,7 +58,7 @@ def health_db(db: Session = Depends(get_db)):
                 "database": "MySQL",
                 "status": "connected",
                 "responseTime": f"{response_ms}ms",
-                "checkedAt": datetime.now(timezone.utc).isoformat(),
+                "checkedAt": datetime.utcnow().isoformat(),
             },
             message="Database connection is healthy.",
         )
@@ -101,7 +101,7 @@ def get_system_config(_: User = Depends(require_role(Role.ADMIN))):
             "sendgridConfigured": bool(settings.SENDGRID_API_KEY),
             "redisConfigured": bool(settings.REDIS_URL),
             "firebaseConfigured": bool(settings.FIREBASE_CREDENTIALS_JSON),
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="System config fetched successfully.",
     )
@@ -128,7 +128,7 @@ def update_system_config(
         data={
             "updatedFields": updated,
             "updatedBy": current_admin.id,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="System configuration updated successfully.",
     )
@@ -165,7 +165,7 @@ def get_system_logs(
             "logId": f"log_{str(uuid4())[:8]}",
             "level": detected_level,
             "message": line,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
         })
 
     total = len(logs)

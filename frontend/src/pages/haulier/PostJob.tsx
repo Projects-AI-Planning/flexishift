@@ -22,6 +22,31 @@ const TIME_SLOTS = [
   { value: 'FULL_DAY',  label: 'Full Day',  sub: '06:00 – 22:00', icon: 'schedule' },
 ];
 
+const SLOT_END_HOURS: Record<string, number> = {
+  MORNING: 12, AFTERNOON: 18, EVENING: 22, FULL_DAY: 22,
+};
+
+const DRIVER_REQUIREMENTS = [
+  {
+    value: 'DRIVER_ONLY',
+    label: 'Driver Only',
+    desc: 'Hire a driver — you provide the truck.',
+    icon: 'person',
+  },
+  {
+    value: 'DRIVER_WITH_TRUCK',
+    label: 'Truck with Driver',
+    desc: 'Hire a driver who brings their own truck.',
+    icon: 'local_shipping',
+  },
+  {
+    value: 'TRUCK_ONLY',
+    label: 'Truck Only',
+    desc: 'Hire a truck — no driver services needed.',
+    icon: 'garage',
+  },
+];
+
 const GOODS_SUGGESTIONS = [
   'Palletised Goods', 'Machinery', 'Refrigerated Food', 'Building Materials',
   'Electronics', 'Automotive Parts', 'Chemicals', 'Furniture', 'Textiles',
@@ -38,6 +63,7 @@ interface FormState {
   jobDate: string;
   timeSlot: string;
   specialInstructions: string;
+  driverRequirement: string;
 }
 
 interface CreatedJob {
@@ -59,6 +85,7 @@ const EMPTY: FormState = {
   jobDate: '',
   timeSlot: 'MORNING',
   specialInstructions: '',
+  driverRequirement: 'DRIVER_WITH_TRUCK',
 };
 
 /* ─── Shared styles ──────────────────────────────────────────────────────────── */
@@ -125,6 +152,12 @@ const PostJobPage: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const isSlotExpired = (slot: string): boolean => {
+    const endHour = SLOT_END_HOURS[slot];
+    if (endHour === undefined) return false;
+    return new Date().getHours() >= endHour;
+  };
+
   const set = (k: keyof FormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setForm(f => ({ ...f, [k]: e.target.value }));
@@ -140,10 +173,13 @@ const PostJobPage: React.FC = () => {
       if (form.dropAddress.trim().length < 5)   return 'Please enter a full drop-off address.';
     }
     if (step === 2) {
-      if (!form.goodsType.trim())                     return 'Goods type is required.';
-      if (!form.weightKg || Number(form.weightKg) <= 0) return 'Enter a valid weight greater than 0.';
-      if (!form.jobDate)                              return 'Job date is required.';
-      if (form.jobDate < today)                       return 'Job date cannot be in the past.';
+      if (!form.driverRequirement)                       return 'Please select a driver requirement.';
+      if (!form.goodsType.trim())                        return 'Goods type is required.';
+      if (!form.weightKg || Number(form.weightKg) <= 0)  return 'Enter a valid weight greater than 0.';
+      if (!form.jobDate)                                 return 'Job date is required.';
+      if (form.jobDate < today)                          return 'Job date cannot be in the past.';
+      if (form.jobDate === today && isSlotExpired(form.timeSlot))
+        return 'The selected time slot has already passed for today. Please choose a later slot.';
     }
     return '';
   };
@@ -162,13 +198,14 @@ const PostJobPage: React.FC = () => {
     setError('');
     try {
       const res = await haulierService.createJob({
-        pickupAddress: form.pickupAddress.trim(),
-        dropAddress:   form.dropAddress.trim(),
-        goodsType:     form.goodsType.trim(),
-        weightKg:      parseFloat(form.weightKg),
-        vehicleType:   form.vehicleType,
-        jobDate:       form.jobDate,
-        timeSlot:      form.timeSlot,
+        pickupAddress:     form.pickupAddress.trim(),
+        dropAddress:       form.dropAddress.trim(),
+        goodsType:         form.goodsType.trim(),
+        weightKg:          parseFloat(form.weightKg),
+        vehicleType:       form.vehicleType,
+        jobDate:           form.jobDate,
+        timeSlot:          form.timeSlot,
+        driverRequirement: form.driverRequirement,
       }) as {
         jobId?: string; jobReference?: string; loadCode?: string;
         distanceKm?: number; durationMin?: number;
@@ -184,8 +221,13 @@ const PostJobPage: React.FC = () => {
         jobId:       res?.jobId,
       });
     } catch (e: unknown) {
-      const r = (e as { response?: { data?: { message?: string; detail?: string } } })?.response;
-      setError(r?.data?.message ?? r?.data?.detail ?? 'Failed to post job. Please try again.');
+      const err = e as { code?: string; response?: { data?: { message?: string; detail?: string } } };
+      if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+        setError('Request timed out. Please check your connection and try again.');
+      } else {
+        const r = err.response;
+        setError(r?.data?.message ?? r?.data?.detail ?? 'Failed to post job. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -194,100 +236,116 @@ const PostJobPage: React.FC = () => {
   /* ── SUCCESS SCREEN ── */
   if (created) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 overflow-hidden">
-          {/* green banner */}
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 sm:px-8 py-10 text-center">
-            <div className="w-20 h-20 rounded-full bg-white/20 ring-4 ring-white/30 flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">Job Posted!</h2>
-            <p className="text-emerald-100 mt-1.5 font-medium">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-6 animate-in fade-in duration-700">
+        {/* Left: celebration card (Blue theme) */}
+        <div className="bg-gradient-to-br from-[#1066b1] to-[#0a4a8f] rounded-3xl p-8 flex flex-col items-center text-center gap-6 shadow-[0_20px_50px_rgba(16,102,177,0.2)]">
+          <div className="w-20 h-20 rounded-full bg-white/20 ring-8 ring-white/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white">Job Posted!</h2>
+            <p className="text-blue-100/90 mt-1.5 font-medium text-sm">
               Your freight job is live — drivers are being notified now.
             </p>
           </div>
-
-          {/* details */}
-          <div className="px-4 sm:px-8 py-8 space-y-6">
-            {/* ref + load code */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Job Reference</p>
-                <p className="text-xl font-black text-primary font-mono">{created.jobRef}</p>
-              </div>
-              {created.loadCode && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Load Code</p>
-                  <p className="text-xl font-black text-primary font-mono">{created.loadCode}</p>
-                </div>
-              )}
+          <div className="w-full space-y-3">
+            <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
+              <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Job Reference</p>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">{created.jobRef}</p>
             </div>
-
-            {/* route stats */}
-            {(created.distanceKm != null || created.durationMin != null) && (
-              <div className="flex gap-4">
-                {created.distanceKm != null && (
-                  <div className="flex-1 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
-                    <span className="material-symbols-outlined text-blue-500">route</span>
-                    <div>
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Distance</p>
-                      <p className="font-black text-blue-700">{created.distanceKm} km</p>
-                    </div>
-                  </div>
-                )}
-                {created.durationMin != null && (
-                  <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3">
-                    <span className="material-symbols-outlined text-amber-500">schedule</span>
-                    <div>
-                      <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Est. Duration</p>
-                      <p className="font-black text-amber-700">{Math.round(created.durationMin / 60 * 10) / 10} hrs</p>
-                    </div>
-                  </div>
-                )}
+            {created.loadCode && (
+              <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
+                <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Load Code</p>
+                <p className="text-2xl font-black text-white font-mono tracking-tight">{created.loadCode}</p>
               </div>
             )}
-
-            {/* route */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route</p>
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-1 mt-1 shrink-0">
-                  <span className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
-                  <span className="w-0.5 h-8 bg-slate-300" />
-                  <span className="w-3 h-3 rounded-full bg-red-500 ring-4 ring-red-100" />
-                </div>
-                <div className="space-y-4 flex-1 min-w-0">
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pickup</p>
-                    <p className="text-sm font-bold text-[#44474C]">{created.pickup}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Drop-off</p>
-                    <p className="text-sm font-bold text-[#44474C]">{created.drop}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-400 text-center">
-              Quotes typically arrive within 15 minutes. You'll be notified when drivers respond.
+          </div>
+          <div className="flex flex-col gap-3 w-full mt-auto">
+            <button
+              onClick={() => navigate(`/haulier/payments${created.jobId ? `?jobId=${created.jobId}` : ''}`)}
+              className="w-full flex items-center justify-center gap-2 bg-white text-[#1066b1] py-3.5 rounded-xl font-black text-sm transition-all hover:bg-blue-50 shadow-xl shadow-black/10 active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-base">lock</span>
+              Secure Escrow Payment
+            </button>
+            <p className="text-[10px] text-blue-100/60 font-bold uppercase tracking-widest">
+              Note: Fund escrow after accepting a bid
             </p>
-
-            {/* actions */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 w-full">
               <button
                 onClick={() => navigate('/haulier/jobs')}
-                className="flex-1 bg-primary text-white py-3 rounded-xl font-black text-sm hover:opacity-90 transition-colors"
+                className="flex-1 bg-white/15 border border-white/20 text-white py-3 rounded-xl font-black text-sm hover:bg-white/25 transition-colors"
               >
-                View My Jobs
+                View Jobs
               </button>
               <button
                 onClick={() => { setCreated(null); setForm(EMPTY); setStep(1); setError(''); }}
-                className="flex-1 bg-amber-500 text-[#041627] py-3 rounded-xl font-black text-sm hover:bg-amber-400 transition-colors"
+                className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
               >
-                Post Another Job
+                Post New
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Right: details */}
+        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 p-6 sm:p-8 space-y-6">
+          <div>
+            <h3 className="text-lg font-black text-[#041627]">Job Details</h3>
+            <p className="text-sm text-slate-500 font-medium mt-1">Quotes typically arrive within 15 minutes. You'll be notified when drivers respond.</p>
+          </div>
+
+          {/* route stats */}
+          {(created.distanceKm != null || created.durationMin != null) && (
+            <div className="flex gap-4">
+              {created.distanceKm != null && (
+                <div className="flex-1 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-blue-500">route</span>
+                  <div>
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Distance</p>
+                    <p className="font-black text-blue-700">{created.distanceKm} km</p>
+                  </div>
+                </div>
+              )}
+              {created.durationMin != null && (
+                <div className="flex-1 bg-white border border-[#1066b1]/15 rounded-xl p-4 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#1066b1]">schedule</span>
+                  <div>
+                    <p className="text-[10px] font-black text-[#1066b1] uppercase tracking-widest">Est. Duration</p>
+                    <p className="font-black text-[#0a4a8f]">{Math.round(created.durationMin / 60 * 10) / 10} hrs</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* route */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <span className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-100 shrink-0 mt-1" />
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pickup</p>
+                  <p className="text-sm font-bold text-[#44474C]">{created.pickup}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-3 h-3 rounded-full bg-red-500 ring-4 ring-red-100 shrink-0 mt-1" />
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Drop-off</p>
+                  <p className="text-sm font-bold text-[#44474C]">{created.drop}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* info */}
+          <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
+            <span className="material-symbols-outlined text-blue-500 shrink-0 text-base mt-0.5">notifications_active</span>
+            <p className="text-xs text-blue-700 font-medium leading-relaxed">
+              You'll receive a notification as soon as a driver submits a quote. Go to <strong>My Jobs</strong> to review and accept offers.
+            </p>
           </div>
         </div>
       </div>
@@ -296,19 +354,19 @@ const PostJobPage: React.FC = () => {
 
   /* ── FORM ── */
   return (
-    <div className="max-w-3xl mx-auto px-4 py-2 space-y-6 sm:px-6">
+    <div className="space-y-6">
 
-      {/* page title */}
-      <div>
-        <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl lg:text-3xl">Post a New Job</h2>
-        <p className="text-slate-500 font-medium mt-1">
-          Fill in your shipment details and receive quotes from our driver network.
-        </p>
-      </div>
-
-      {/* step bar */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-4 sm:px-8 py-6">
-        <StepBar current={step} />
+      {/* page header + step bar */}
+      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-4 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl">Post a New Job</h2>
+          <p className="text-slate-500 font-medium mt-0.5 text-sm">
+            Fill in your shipment details and receive quotes from our driver network.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <StepBar current={step} />
+        </div>
       </div>
 
       {/* form card */}
@@ -329,55 +387,49 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-8">
-              {/* Pickup */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-white text-xs">my_location</span>
-                  </span>
-                  <h4 className="font-black text-[#44474C]">Pickup Location</h4>
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
+              {/* Pickup + Drop-off side by side on large screens */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Pickup */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-white text-xs">my_location</span>
+                    </span>
+                    <h4 className="font-black text-[#44474C]">Pickup Location</h4>
+                  </div>
+                  <div>
+                    <Label text="Pickup Address" required />
+                    <textarea
+                      className={`${inputCls} resize-none`}
+                      rows={4}
+                      placeholder="e.g. 14 Industrial Way, Manchester, M1 2AB, United Kingdom"
+                      value={form.pickupAddress}
+                      onChange={set('pickupAddress')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
+                  </div>
                 </div>
-                <div>
-                  <Label text="Pickup Address" required />
-                  <textarea
-                    className={`${inputCls} resize-none`}
-                    rows={3}
-                    placeholder="e.g. 14 Industrial Way, Manchester, M1 2AB, United Kingdom"
-                    value={form.pickupAddress}
-                    onChange={set('pickupAddress')}
-                  />
-                  <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
-                </div>
-              </div>
 
-              {/* connector */}
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-slate-100" />
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-slate-400 text-sm">arrow_downward</span>
-                </div>
-                <div className="flex-1 h-px bg-slate-100" />
-              </div>
-
-              {/* Drop-off */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-white text-xs">flag</span>
-                  </span>
-                  <h4 className="font-black text-[#44474C]">Drop-off Location</h4>
-                </div>
-                <div>
-                  <Label text="Drop-off Address" required />
-                  <textarea
-                    className={`${inputCls} resize-none`}
-                    rows={3}
-                    placeholder="e.g. Warehouse B, Leeds Distribution Park, Leeds, LS1 4AP"
-                    value={form.dropAddress}
-                    onChange={set('dropAddress')}
-                  />
-                  <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
+                {/* Drop-off */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-white text-xs">flag</span>
+                    </span>
+                    <h4 className="font-black text-[#44474C]">Drop-off Location</h4>
+                  </div>
+                  <div>
+                    <Label text="Drop-off Address" required />
+                    <textarea
+                      className={`${inputCls} resize-none`}
+                      rows={4}
+                      placeholder="e.g. Warehouse B, Leeds Distribution Park, Leeds, LS1 4AP"
+                      value={form.dropAddress}
+                      onChange={set('dropAddress')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
+                  </div>
                 </div>
               </div>
 
@@ -395,9 +447,9 @@ const PostJobPage: React.FC = () => {
         {/* ── STEP 2: Cargo & Schedule ── */}
         {step === 2 && (
           <div>
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 sm:px-8 py-6 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-[#1066b1]/10 to-[#1066b1]/10 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#1066b1]/100 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[#041627] text-sm">inventory_2</span>
                 </div>
                 <div>
@@ -408,6 +460,41 @@ const PostJobPage: React.FC = () => {
             </div>
 
             <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-7">
+
+              {/* Driver Requirement */}
+              <div>
+                <Label text="Driver Requirement" required />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
+                  {DRIVER_REQUIREMENTS.map(r => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, driverRequirement: r.value }))}
+                      className={`flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all ${
+                        form.driverRequirement === r.value
+                          ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                        form.driverRequirement === r.value ? 'bg-primary text-white' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        <span className="material-symbols-outlined text-base">{r.icon}</span>
+                      </div>
+                      <div>
+                        <p className={`font-black text-sm ${form.driverRequirement === r.value ? 'text-primary' : 'text-[#041627]'}`}>
+                          {r.label}
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5 leading-snug">{r.desc}</p>
+                      </div>
+                      {form.driverRequirement === r.value && (
+                        <span className="material-symbols-outlined text-primary text-base self-end ml-auto -mt-2">check_circle</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Goods type */}
               <div className="relative">
                 <Label text="Goods Type" required />
@@ -426,7 +513,7 @@ const PostJobPage: React.FC = () => {
                       <button
                         key={s}
                         type="button"
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-amber-50 hover:text-amber-700 font-medium transition-colors"
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#1066b1]/10 hover:text-[#0a4a8f] font-medium transition-colors"
                         onMouseDown={() => { setForm(f => ({ ...f, goodsType: s })); setShowSuggestions(false); }}
                       >
                         {s}
@@ -436,8 +523,8 @@ const PostJobPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Weight + Vehicle */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Weight + Vehicle + Date — 3 columns on large screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div>
                   <Label text="Total Weight" required hint="(kg)" />
                   <input
@@ -458,47 +545,54 @@ const PostJobPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* Job date */}
-              <div>
-                <Label text="Collection Date" required />
-                <input
-                  className={inputCls}
-                  type="date"
-                  min={today}
-                  value={form.jobDate}
-                  onChange={set('jobDate')}
-                />
+                <div>
+                  <Label text="Collection Date" required />
+                  <input
+                    className={inputCls}
+                    type="date"
+                    min={today}
+                    value={form.jobDate}
+                    onChange={set('jobDate')}
+                  />
+                </div>
               </div>
 
               {/* Time slot */}
               <div>
                 <Label text="Collection Time Slot" required />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {TIME_SLOTS.map(t => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, timeSlot: t.value }))}
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                        form.timeSlot === t.value
-                          ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <span className={`material-symbols-outlined text-xl ${form.timeSlot === t.value ? 'text-primary' : 'text-slate-400'}`}>
-                        {t.icon}
-                      </span>
-                      <div>
-                        <p className={`font-black text-sm ${form.timeSlot === t.value ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{t.sub}</p>
-                      </div>
-                      {form.timeSlot === t.value && (
-                        <span className="material-symbols-outlined text-primary text-base ml-auto">check_circle</span>
-                      )}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {TIME_SLOTS.map(t => {
+                    const expired = form.jobDate === today && isSlotExpired(t.value);
+                    const selected = form.timeSlot === t.value;
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        disabled={expired}
+                        onClick={() => !expired && setForm(f => ({ ...f, timeSlot: t.value }))}
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                          expired
+                            ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
+                            : selected
+                            ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <span className={`material-symbols-outlined text-xl ${expired ? 'text-slate-300' : selected ? 'text-primary' : 'text-slate-400'}`}>
+                          {t.icon}
+                        </span>
+                        <div>
+                          <p className={`font-black text-sm ${expired ? 'text-slate-400' : selected ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
+                          <p className={`text-[10px] font-medium ${expired ? 'text-red-400' : 'text-slate-400'}`}>
+                            {expired ? 'Passed for today' : t.sub}
+                          </p>
+                        </div>
+                        {selected && !expired && (
+                          <span className="material-symbols-outlined text-primary text-base ml-auto">check_circle</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -532,53 +626,54 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
-              {/* Route */}
-              <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center gap-1 mt-1 shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200" />
-                    <span className="w-0.5 h-8 bg-slate-200" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-200" />
-                  </div>
-                  <div className="space-y-3 flex-1 min-w-0">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pickup</p>
-                      <p className="text-sm font-bold text-[#44474C] leading-snug">{form.pickupAddress}</p>
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-5">
+              {/* Route + Cargo side by side on large screens */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Route */}
+                <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
+                  <div className="space-y-3 flex-1 min-w-0 mb-3">
+                    <div className="flex items-start gap-3">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0 mt-1" />
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pickup</p>
+                        <p className="text-sm font-bold text-[#44474C] leading-snug">{form.pickupAddress}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Drop-off</p>
-                      <p className="text-sm font-bold text-[#44474C] leading-snug">{form.dropAddress}</p>
+                    <div className="flex items-start gap-3">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-200 shrink-0 mt-1" />
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Drop-off</p>
+                        <p className="text-sm font-bold text-[#44474C] leading-snug">{form.dropAddress}</p>
+                      </div>
                     </div>
                   </div>
-                  <button onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline shrink-0">Edit</button>
-                </div>
-              </ReviewSection>
+                  <button onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline">Edit Route</button>
+                </ReviewSection>
 
-              {/* Cargo */}
-              <ReviewSection title="Cargo" icon="inventory_2" iconBg="bg-amber-50" iconColor="text-amber-500">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
-                  <ReviewRow label="Goods Type" value={form.goodsType} />
-                  <ReviewRow label="Weight" value={`${form.weightKg} kg`} />
-                  <ReviewRow label="Vehicle" value={VEHICLE_TYPES.find(v => v.value === form.vehicleType)?.label ?? form.vehicleType} />
-                  <ReviewRow label="Date" value={form.jobDate} />
-                  <ReviewRow label="Time Slot" value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
-                </div>
-                {form.specialInstructions && (
-                  <div className="mt-3 pt-3 border-t border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Special Instructions</p>
-                    <p className="text-sm text-[#44474C]">{form.specialInstructions}</p>
+                {/* Cargo summary */}
+                <ReviewSection title="Cargo & Schedule" icon="inventory_2" iconBg="bg-[#1066b1]/10" iconColor="text-[#1066b1]">
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
+                    <ReviewRow label="Requirement" value={DRIVER_REQUIREMENTS.find(r => r.value === form.driverRequirement)?.label ?? form.driverRequirement} />
+                    <ReviewRow label="Goods Type"  value={form.goodsType} />
+                    <ReviewRow label="Weight"      value={`${form.weightKg} kg`} />
+                    <ReviewRow label="Vehicle"     value={VEHICLE_TYPES.find(v => v.value === form.vehicleType)?.label ?? form.vehicleType} />
+                    <ReviewRow label="Date"        value={form.jobDate} />
+                    <ReviewRow label="Time Slot"   value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
                   </div>
-                )}
-                <div className="mt-3 flex justify-end">
-                  <button onClick={() => setStep(2)} className="text-xs text-primary font-bold hover:underline">Edit</button>
-                </div>
-              </ReviewSection>
+                  {form.specialInstructions && (
+                    <div className="pt-3 border-t border-slate-100 mb-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Special Instructions</p>
+                      <p className="text-sm text-[#44474C]">{form.specialInstructions}</p>
+                    </div>
+                  )}
+                  <button onClick={() => setStep(2)} className="text-xs text-primary font-bold hover:underline">Edit Cargo</button>
+                </ReviewSection>
+              </div>
 
               {/* notice */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 flex items-start gap-3">
-                <span className="material-symbols-outlined text-amber-500 shrink-0 text-base mt-0.5">bolt</span>
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+              <div className="bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4 flex items-start gap-3">
+                <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">bolt</span>
+                <p className="text-xs text-[#083d7a] font-medium leading-relaxed">
                   Once posted, your job will be visible to our network of verified drivers. You'll receive quotes within minutes and can accept the best offer.
                 </p>
               </div>
@@ -615,7 +710,7 @@ const PostJobPage: React.FC = () => {
             <button
               onClick={submit}
               disabled={submitting}
-              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-[#041627] bg-amber-500 hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-white bg-[#1066b1]/100 hover:bg-[#1066b1] transition-colors shadow-lg shadow-[#1066b1]/20 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]"
             >
               {submitting
                 ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Posting…</>

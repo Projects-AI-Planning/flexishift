@@ -10,7 +10,16 @@ import {
   View,
 } from 'react-native';
 import {colors, radius, spacing} from '../../theme';
-import {BoxIcon, CalendarIcon, MapPinIcon} from '../../components/common/FieldIcon';
+import Icon, {IconName} from '../../components/common/Icon';
+
+function formatDriverRequirement(value?: string | null): {label: string; icon: IconName} {
+  switch ((value ?? '').toUpperCase()) {
+    case 'DRIVER_ONLY':      return {label: 'Driver Only',       icon: 'user'};
+    case 'TRUCK_ONLY':       return {label: 'Truck Only',        icon: 'truck'};
+    case 'DRIVER_WITH_TRUCK':
+    default:                 return {label: 'Driver with Truck', icon: 'briefcase'};
+  }
+}
 
 interface JobDiscoveryScreenProps {
   availableJobs: any[];
@@ -138,28 +147,28 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 
         <View style={styles.metaGrid}>
           <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>📦</Text>
+            <Icon name="package" size={20} color="#000000" strokeWidth={2} />
             <View>
               <Text style={styles.metaTag}>CARGO</Text>
               <Text style={styles.metaVal}>{item.goodsType || 'General Goods'}</Text>
             </View>
           </View>
           <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>⚖️</Text>
+            <Icon name="scale" size={20} color="#000000" strokeWidth={2} />
             <View>
               <Text style={styles.metaTag}>WEIGHT</Text>
               <Text style={styles.metaVal}>{item.weightKg ? `${item.weightKg} kg` : '—'}</Text>
             </View>
           </View>
           <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>📅</Text>
+            <Icon name="calendar" size={20} color="#000000" strokeWidth={2} />
             <View>
               <Text style={styles.metaTag}>PICKUP</Text>
               <Text style={styles.metaVal}>{item.jobDate || 'Today'}</Text>
             </View>
           </View>
           <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>📏</Text>
+            <Icon name="ruler" size={20} color="#000000" strokeWidth={2} />
             <View>
               <Text style={styles.metaTag}>DISTANCE</Text>
               <Text style={styles.metaVal}>
@@ -167,6 +176,18 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
               </Text>
             </View>
           </View>
+          {(() => {
+            const req = formatDriverRequirement(item.driverRequirement);
+            return (
+              <View style={styles.metaItem}>
+                <Icon name={req.icon} size={20} color="#1066B1" strokeWidth={2} />
+                <View>
+                  <Text style={styles.metaTag}>REQUIREMENT</Text>
+                  <Text style={[styles.metaVal, styles.metaValReq]}>{req.label}</Text>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
         <View style={styles.cardActions}>
@@ -258,7 +279,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           <Pressable
             onPress={() => setActiveModal('cargo')}
             style={[styles.chip, cargoFilter ? styles.chipActive : styles.chipInactive]}>
-            <BoxIcon size={14} color={cargoFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Icon name="package" size={14} color={cargoFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
             <Text style={[styles.chipText, cargoFilter && styles.chipTextActive]}>
               {cargoFilter ?? 'Cargo Type'}
             </Text>
@@ -269,7 +290,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           <Pressable
             onPress={() => setActiveModal('date')}
             style={[styles.chip, dateFilter ? styles.chipActive : styles.chipInactive]}>
-            <CalendarIcon size={14} color={dateFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Icon name="calendar" size={14} color={dateFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
             <Text style={[styles.chipText, dateFilter && styles.chipTextActive]}>
               {dateFilter ?? 'Pickup Date'}
             </Text>
@@ -280,7 +301,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           <Pressable
             onPress={() => setActiveModal('radius')}
             style={[styles.chip, radiusFilter ? styles.chipActive : styles.chipInactive]}>
-            <MapPinIcon size={14} color={radiusFilter ? '#FFFFFF' : '#1A1A1A'} />
+            <Icon name="map" size={14} color={radiusFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
             <Text style={[styles.chipText, radiusFilter && styles.chipTextActive]}>
               {radiusFilter ?? 'Distance'}
             </Text>
@@ -364,10 +385,10 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#FFFFFF'},
+  container: {flex: 1, backgroundColor: colors.bg},
 
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -391,7 +412,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: radius.pill, borderWidth: 1,
   },
-  chipActive:   {backgroundColor: '#1A2332', borderColor: '#1A2332'},
+  chipActive:   {backgroundColor: '#1066B1', borderColor: '#1066B1'},
   chipInactive: {backgroundColor: '#FFFFFF', borderColor: '#D1D9E6'},
   chipText: {color: '#374151', fontSize: 13, fontWeight: '600'},
   chipTextActive: {color: '#FFFFFF'},
@@ -444,22 +465,22 @@ const styles = StyleSheet.create({
   routeText: {color: colors.navy, fontSize: 18, fontWeight: '900', marginBottom: 14},
   metaGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16},
   metaItem: {flexBasis: '45%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8},
-  metaIcon: {fontSize: 16},
   metaTag: {
     color: colors.inkSoft, fontSize: 10, fontWeight: '800',
     textTransform: 'uppercase', letterSpacing: 0.4,
   },
   metaVal: {color: colors.ink, fontSize: 13, fontWeight: '700', marginTop: 1},
+  metaValReq: {color: '#1066B1'},
   cardActions: {flexDirection: 'row', gap: 10},
   applyBtn: {
     flex: 1, backgroundColor: '#1066B1', borderRadius: radius.md,
     minHeight: 48, justifyContent: 'center', alignItems: 'center',
   },
   applyBtnLocked: {backgroundColor: '#D1D9E6'},
-  applyBtnApplied: {backgroundColor: '#E8F5E9'},
+  applyBtnApplied: {backgroundColor: '#EBF4FF'},
   applyBtnText: {color: colors.card, fontSize: 15, fontWeight: '900'},
   applyBtnLockedText: {color: '#64748B', fontSize: 14, fontWeight: '700'},
-  applyBtnAppliedText: {color: '#2E7D32', fontSize: 14, fontWeight: '800'},
+  applyBtnAppliedText: {color: '#1066B1', fontSize: 14, fontWeight: '800'},
   detailsBtn: {
     borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md,
     paddingHorizontal: 20, minHeight: 48, justifyContent: 'center', alignItems: 'center',

@@ -39,7 +39,7 @@ const withQuery = (path: string, params?: RequestOptions['params']) => {
 
 // ─── Network logger ───────────────────────────────────────────────────────────
 
-const LOG_PREFIX = '[FreightFlex API]';
+const LOG_PREFIX = '[FlexiShift API]';
 const RESET  = '\x1b[0m';
 const CYAN   = '\x1b[36m';
 const GREEN  = '\x1b[32m';

@@ -1,6 +1,6 @@
 import enum
 from uuid import uuid4
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import String, Enum, DECIMAL, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,9 +24,9 @@ class Quote(Base):
     price:       Mapped[float]       = mapped_column(DECIMAL(12, 2), nullable=False)
     currency:    Mapped[str]         = mapped_column(String(3), nullable=False, default="INR")
     status:      Mapped[QuoteStatus] = mapped_column(Enum(QuoteStatus), nullable=False, default=QuoteStatus.ACTIVE)
-    created_at:  Mapped[datetime]    = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:  Mapped[datetime]    = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                     onupdate=lambda: datetime.now(timezone.utc))
+    created_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow,
+                                                     onupdate=datetime.utcnow)
 
     job:      Mapped["Job"]  = relationship("Job", back_populates="quotes")
     supplier: Mapped["User"] = relationship("User", back_populates="quotes")

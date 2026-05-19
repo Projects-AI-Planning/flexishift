@@ -38,10 +38,10 @@ class SupportTicket(Base):
     status: Mapped[SupportTicketStatus] = mapped_column(Enum(SupportTicketStatus), nullable=False, default=SupportTicketStatus.OPEN)
     assigned_admin_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

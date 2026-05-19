@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
-import Card from '../../components/common/Card';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
 
 interface DeliveryScreenProps {
   jobId: string;
@@ -47,6 +46,8 @@ function lineStyle(a: Point, b: Point) {
   };
 }
 
+const NODE_SIZE = 44;
+
 const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
   jobId: _jobId,
   jobReference,
@@ -56,12 +57,12 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 }) => {
   const [notes, setNotes] = useState('');
   const [receiverName, setReceiverName] = useState('');
-  const [photos, setPhotos] = useState<Record<string, Asset>>({});
+  const [deliveryPhotos, setDeliveryPhotos] = useState<Asset[]>([]);
   const [signatureStrokes, setSignatureStrokes] = useState<Stroke[]>([]);
   const [currentStroke, setCurrentStroke] = useState<Stroke>([]);
 
-  const handlePickPhoto = (type: string) => {
-    Alert.alert('Delivery Photo', 'Choose photo source', [
+  const addPhoto = () => {
+    Alert.alert('Add Delivery Photo', 'Choose photo source', [
       {
         text: '📷  Camera',
         onPress: () => {
@@ -70,9 +71,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
             response => {
               if (response.didCancel || response.errorCode) {return;}
               const asset = response.assets?.[0];
-              if (asset?.uri) {
-                setPhotos(prev => ({...prev, [type]: asset}));
-              }
+              if (asset?.uri) {setDeliveryPhotos(prev => [...prev, asset]);}
             },
           );
         },
@@ -80,17 +79,19 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
       {
         text: '🖼  Gallery',
         onPress: () => {
-          launchImageLibrary({mediaType: 'photo', quality: 0.8}, response => {
+          launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 0}, response => {
             if (response.didCancel || response.errorCode) {return;}
-            const asset = response.assets?.[0];
-            if (asset?.uri) {
-              setPhotos(prev => ({...prev, [type]: asset}));
-            }
+            const assets = (response.assets ?? []).filter(a => a?.uri);
+            if (assets.length) {setDeliveryPhotos(prev => [...prev, ...assets]);}
           });
         },
       },
       {text: 'Cancel', style: 'cancel'},
     ]);
+  };
+
+  const removePhoto = (index: number) => {
+    setDeliveryPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const clearSignature = () => {
@@ -105,34 +106,27 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt: GestureResponderEvent) => {
           const {locationX, locationY} = evt.nativeEvent;
-          const point = {x: locationX, y: locationY};
-          setCurrentStroke([point]);
+          setCurrentStroke([{x: locationX, y: locationY}]);
         },
         onPanResponderMove: (evt: GestureResponderEvent, _gesture: PanResponderGestureState) => {
           const {locationX, locationY} = evt.nativeEvent;
           const point = {x: locationX, y: locationY};
           setCurrentStroke(prev => {
             const last = prev[prev.length - 1];
-            if (last && dist(last, point) < 2) {
-              return prev;
-            }
+            if (last && dist(last, point) < 2) {return prev;}
             return [...prev, point];
           });
         },
         onPanResponderRelease: () => {
           setCurrentStroke(prev => {
-            if (!prev.length) {
-              return prev;
-            }
+            if (!prev.length) {return prev;}
             setSignatureStrokes(strokes => [...strokes, prev]);
             return [];
           });
         },
         onPanResponderTerminate: () => {
           setCurrentStroke(prev => {
-            if (!prev.length) {
-              return prev;
-            }
+            if (!prev.length) {return prev;}
             setSignatureStrokes(strokes => [...strokes, prev]);
             return [];
           });
@@ -148,66 +142,102 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 
   const isComplete =
     receiverName.length > 2 &&
-    Boolean(photos.delivery?.uri) &&
+    deliveryPhotos.length > 0 &&
     signatureSegments.length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topBar}>
-          <Text style={styles.brand}>LOGIFLOW</Text>
-        </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.stepper}>
-          <View style={styles.stepNodeDone}>
-            <Text style={styles.stepNodeDoneText}>{'\u2713'}</Text>
+        {/* ── Progress Stepper ─────────────────────────────────────────────── */}
+        <View style={styles.stepperRow}>
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeDone]}>
+              <Text style={styles.stepNodeDoneText}>✓</Text>
+            </View>
+            <Text style={styles.stepLabelDone}>Arrival</Text>
           </View>
           <View style={styles.stepLineDone} />
-          <View style={styles.stepNodeDone}>
-            <Text style={styles.stepNodeDoneText}>{'\u2713'}</Text>
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeDone]}>
+              <Text style={styles.stepNodeDoneText}>✓</Text>
+            </View>
+            <Text style={styles.stepLabelDone}>Handover</Text>
           </View>
-          <View style={styles.stepLineCurrent} />
-          <View style={styles.stepNodeCurrent}>
-            <Text style={styles.stepNodeCurrentText}>3</Text>
+          <View style={styles.stepLineDone} />
+          <View style={styles.stepCol}>
+            <View style={[styles.stepNode, styles.stepNodeActive]}>
+              <Text style={styles.stepNodeActiveText}>3</Text>
+            </View>
+            <Text style={styles.stepLabelActive}>Delivery</Text>
           </View>
-        </View>
-        <View style={styles.stepLabels}>
-          <Text style={styles.stepLabel}>Arrived</Text>
-          <Text style={styles.stepLabel}>Unload</Text>
-          <Text style={styles.stepLabelCurrent}>Delivery</Text>
         </View>
 
-        <View style={styles.refPill}>
-          <Text style={styles.refText}># {jobReference}</Text>
+        {/* ── Job Reference ─────────────────────────────────────────────────── */}
+        <View style={styles.refRow}>
+          <View style={styles.refPill}>
+            <Text style={styles.refText}>{jobReference}</Text>
+          </View>
+          <View style={styles.deliveryBadge}>
+            <Text style={styles.deliveryBadgeText}>DELIVERY</Text>
+          </View>
         </View>
 
-        <Card title="Upload Delivery Photo" variant="default">
-          <Pressable onPress={() => handlePickPhoto('delivery')} style={styles.photoBoxLarge}>
-            {photos.delivery?.uri ? (
-              <Image
-                source={{uri: photos.delivery.uri}}
-                style={{width: '100%', height: 260, borderRadius: 18, resizeMode: 'cover'}}
-              />
-            ) : (
-              <>
-                <Text style={styles.photoLargeIcon}>{'\uD83D\uDCF7'}</Text>
-                <Text style={styles.photoLargeTitle}>Upload Delivery Photo</Text>
-                <Text style={styles.photoLargeSubtitle}>Proof of cargo placement at site</Text>
-              </>
+        {/* ── Delivery Photos ───────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderIcon}>📷</Text>
+            <Text style={styles.cardHeaderTitle}>
+              Delivery Photos
+              {deliveryPhotos.length > 0 ? ` (${deliveryPhotos.length})` : ''}
+            </Text>
+            {deliveryPhotos.length > 0 && (
+              <Pressable onPress={addPhoto} style={styles.addMoreBtn}>
+                <Text style={styles.addMoreText}>+ Add</Text>
+              </Pressable>
             )}
-          </Pressable>
-        </Card>
+          </View>
 
-        <Card title="Recipient Signature" variant="default">
-          <View style={styles.signatureHeader}>
-            <Text style={styles.signatureTitle}>RECIPIENT SIGNATURE</Text>
+          {deliveryPhotos.length === 0 ? (
+            <Pressable onPress={addPhoto} style={styles.photoPlaceholder}>
+              <Text style={styles.cameraIcon}>📷</Text>
+              <Text style={styles.photoTitle}>Upload Delivery Photos</Text>
+              <Text style={styles.photoSubtitle}>
+                Tap to take or choose photos — you can add multiple
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.photoGrid}>
+              {deliveryPhotos.map((asset, index) => (
+                <View key={`${asset.uri}-${index}`} style={styles.photoTile}>
+                  <Image
+                    source={{uri: asset.uri!}}
+                    style={styles.photoTileImage}
+                    resizeMode="cover"
+                  />
+                  <Pressable
+                    onPress={() => removePhoto(index)}
+                    style={styles.photoRemoveBtn}
+                    hitSlop={6}>
+                    <Text style={styles.photoRemoveText}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ── Recipient Signature ───────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.sigHeader}>
+            <Text style={styles.sigTitle}>RECIPIENT SIGNATURE</Text>
             <Pressable onPress={clearSignature} disabled={!signaturePoints.length}>
               <Text style={[styles.clearText, !signaturePoints.length && styles.clearTextDisabled]}>
                 Clear
               </Text>
             </Pressable>
           </View>
-          <View style={styles.signatureBox} {...panResponder.panHandlers}>
+          <View style={styles.sigBox} {...panResponder.panHandlers}>
             {signatureSegments.length ? (
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 {signatureSegments.map((segment, idx) => (
@@ -215,39 +245,49 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
                 ))}
               </View>
             ) : (
-              <Text style={styles.signatureHint}>Sign here</Text>
+              <Text style={styles.sigHint}>Sign here</Text>
             )}
           </View>
-          <Text style={styles.signatureHintSub}>
+          <Text style={styles.sigHintSub}>
             Draw the recipient signature with your finger.
           </Text>
-        </Card>
+        </View>
 
-        <Card title="Recipient Name" variant="default">
+        {/* ── Recipient Name ────────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderTitle}>Recipient Name</Text>
+          </View>
           <AppInput
             placeholder="Full name of the receiver"
             value={receiverName}
             onChangeText={setReceiverName}
             containerStyle={{marginBottom: 0}}
           />
-        </Card>
+        </View>
 
-        <Card title="Delivery Notes (Optional)" variant="default">
+        {/* ── Delivery Notes ────────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderTitle}>Delivery Notes</Text>
+            <Text style={styles.optionalTag}>Optional</Text>
+          </View>
           <AppInput
-            placeholder="Add details about cargo condition, gate codes, or site access..."
+            placeholder="Cargo condition, gate codes, site access..."
             multiline
-            numberOfLines={5}
+            numberOfLines={4}
             value={notes}
             onChangeText={setNotes}
             containerStyle={{marginBottom: 0}}
           />
-        </Card>
+        </View>
 
-        <View style={styles.nextStepCard}>
-          <Text style={styles.nextStepLabel}>After submit</Text>
-          <Text style={styles.nextStepTitle}>Delivery review and payment release</Text>
-          <Text style={styles.nextStepText}>
-            Once the report is submitted, the haulier reviews the delivery and payment moves to the release stage.
+        {/* ── After Submit info ────────────────────────────────────────────── */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoLabel}>NEXT STEP</Text>
+          <Text style={styles.infoTitle}>Delivery review & payment release</Text>
+          <Text style={styles.infoText}>
+            Once submitted, the haulier reviews the delivery and payment moves to the release stage.
           </Text>
         </View>
 
@@ -256,18 +296,14 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
         <Pressable
           onPress={() =>
             onSubmit(
-              {
-                receiverName,
-                notes,
-                recipientSignature: signaturePoints,
-              },
-              Object.values(photos),
+              {receiverName, notes, recipientSignature: signaturePoints},
+              deliveryPhotos,
             )
           }
           disabled={loading || !isComplete}
-          style={[styles.primaryButton, (loading || !isComplete) && styles.disabledButton]}>
-          <Text style={styles.primaryButtonText}>
-            {'\u2713'} {loading ? 'Submitting...' : 'Complete Job & Submit Report'}
+          style={[styles.submitBtn, (loading || !isComplete) && styles.submitBtnDisabled]}>
+          <Text style={styles.submitBtnText}>
+            {loading ? 'Submitting…' : '✓  Complete Job & Submit Report'}
           </Text>
         </Pressable>
       </ScrollView>
@@ -276,149 +312,205 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F7FB'},
-  content: {padding: spacing.xl, paddingBottom: 120},
-  topBar: {flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl},
-  brand: {color: colors.navy, fontSize: 28, fontWeight: '900'},
-  stepper: {flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs},
-  stepNodeDone: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#1D2D44',
+  container: {flex: 1, backgroundColor: colors.bg},
+  content: {padding: 16, paddingBottom: 48},
+
+  /* Stepper */
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  stepCol: {alignItems: 'center', gap: 6},
+  stepNode: {
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepNodeDoneText: {color: colors.card, fontSize: 24, fontWeight: '900'},
-  stepLineDone: {flex: 1, height: 3, backgroundColor: '#1D2D44'},
-  stepLineCurrent: {flex: 1, height: 3, backgroundColor: colors.accent},
-  stepNodeCurrent: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+  stepNodeDone: {backgroundColor: '#2563EB'},
+  stepNodeDoneText: {color: '#fff', fontSize: 18, fontWeight: '900'},
+  stepNodeActive: {backgroundColor: colors.accent},
+  stepNodeActiveText: {color: '#fff', fontSize: 18, fontWeight: '900'},
+  stepLineDone: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#2563EB',
+    marginTop: NODE_SIZE / 2 - 1.5,
   },
-  stepNodeCurrentText: {color: colors.card, fontSize: 24, fontWeight: '900'},
-  stepLabels: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl},
-  stepLabel: {flex: 1, textAlign: 'center', color: '#364152', fontSize: 16, fontWeight: '700'},
-  stepLabelCurrent: {flex: 1, textAlign: 'center', color: colors.navy, fontSize: 16, fontWeight: '800'},
+  stepLabelDone: {fontSize: 13, color: '#4B5563', fontWeight: '500'},
+  stepLabelActive: {fontSize: 13, color: colors.navy, fontWeight: '800'},
+
+  /* Ref row */
+  refRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   refPill: {
-    alignSelf: 'flex-start',
     backgroundColor: '#E8EBF0',
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
-  refText: {color: '#1F2937', fontSize: 18, fontWeight: '800', letterSpacing: 1},
-  photoBoxLarge: {
-    borderWidth: 3,
+  refText: {color: '#1F2937', fontSize: 14, fontWeight: '800', letterSpacing: 0.5},
+  deliveryBadge: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  deliveryBadgeText: {color: colors.navy, fontSize: 10, fontWeight: '900'},
+
+  /* Card */
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E9F0',
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F6',
+  },
+  cardHeaderIcon: {fontSize: 16},
+  cardHeaderTitle: {flex: 1, fontSize: 15, fontWeight: '700', color: colors.navy},
+  optionalTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.inkSoft,
+    backgroundColor: '#F0F2F6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+
+  /* Photos */
+  addMoreBtn: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  addMoreText: {color: '#1066B1', fontSize: 12, fontWeight: '800'},
+  photoPlaceholder: {
+    borderWidth: 2,
     borderColor: '#CAD0DA',
     borderStyle: 'dashed',
-    borderRadius: 22,
-    minHeight: 300,
+    borderRadius: 14,
+    minHeight: 140,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
-    backgroundColor: colors.card,
+    gap: 8,
+    backgroundColor: '#FAFBFC',
   },
-  photoLargeIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#9ECBFB',
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    fontSize: 58,
-    marginBottom: spacing.md,
-    color: '#0B5CAD',
+  cameraIcon: {fontSize: 36},
+  photoTitle: {color: colors.navy, fontSize: 15, fontWeight: '800', textAlign: 'center'},
+  photoSubtitle: {color: colors.inkSoft, fontSize: 13, textAlign: 'center', paddingHorizontal: 16},
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  photoTile: {
+    width: '47.5%',
+    aspectRatio: 1,
+    borderRadius: 12,
     overflow: 'hidden',
-    lineHeight: 120,
+    backgroundColor: '#E8EEF6',
   },
-  photoLargeTitle: {color: '#1F2937', fontSize: 30, fontWeight: '900', textAlign: 'center'},
-  photoLargeSubtitle: {color: '#4B5563', fontSize: 18, textAlign: 'center', marginTop: spacing.sm},
-  signatureHeader: {
+  photoTileImage: {width: '100%', height: '100%'},
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoRemoveText: {color: '#fff', fontSize: 11, fontWeight: '900'},
+
+  /* Signature */
+  sigHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 10,
   },
-  signatureTitle: {
-    color: colors.navy,
-    fontSize: 18,
+  sigTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    textTransform: 'uppercase',
+    color: colors.navy,
+    letterSpacing: 0.5,
   },
-  clearText: {fontSize: 16, fontWeight: '700', color: '#B42318'},
+  clearText: {fontSize: 14, fontWeight: '700', color: '#2563EB'},
   clearTextDisabled: {opacity: 0.35},
-  signatureBox: {
+  sigBox: {
     borderWidth: 1,
-    borderColor: '#CAD1DB',
-    borderRadius: 16,
-    height: 220,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    height: 180,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBFCFE',
+    backgroundColor: '#F8FAFB',
     overflow: 'hidden',
   },
-  signatureHint: {color: '#94A3B8', fontSize: 26, fontWeight: '700'},
-  signatureHintSub: {marginTop: spacing.sm, color: colors.inkSoft, fontSize: 13},
-  input: {
-    backgroundColor: '#F8FAFD',
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    minHeight: 60,
-    fontSize: 16,
-    color: colors.ink,
-    borderWidth: 1,
-    borderColor: '#D6DCE5',
-  },
-  textArea: {
-    minHeight: 160,
-    textAlignVertical: 'top',
-    paddingTop: spacing.lg,
-  },
-  nextStepCard: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
+  sigHint: {color: '#94A3B8', fontSize: 18, fontWeight: '700', fontStyle: 'italic'},
+  sigHintSub: {marginTop: spacing.sm, color: colors.inkSoft, fontSize: 12},
+
+  /* Info card */
+  infoCard: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
     borderWidth: 1,
     borderRadius: radius.xl,
     padding: spacing.lg,
     gap: 4,
+    marginBottom: 16,
   },
-  nextStepLabel: {
-    color: '#16A34A',
+  infoLabel: {
+    color: '#1066B1',
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  nextStepTitle: {color: colors.navy, fontSize: 16, fontWeight: '900'},
-  nextStepText: {color: colors.inkSoft, fontSize: 12, lineHeight: 18},
+  infoTitle: {color: colors.navy, fontSize: 15, fontWeight: '800'},
+  infoText: {color: colors.inkSoft, fontSize: 12, lineHeight: 18},
+
+  /* Error */
   errorText: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 24,
-    minHeight: 72,
+
+  /* Submit button */
+  submitBtn: {
+    backgroundColor: '#1066B1',
+    borderRadius: 14,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xl,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 5,
   },
-  disabledButton: {opacity: 0.5},
-  primaryButtonText: {color: colors.card, fontSize: 24, fontWeight: '900'},
+  submitBtnDisabled: {opacity: 0.45},
+  submitBtnText: {color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2},
 });
 
 export default DeliveryScreen;

@@ -29,9 +29,9 @@ class Payment(Base):
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
     escrowed_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     released_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
-    created_at:         Mapped[datetime]      = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:         Mapped[datetime]      = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                               onupdate=lambda: datetime.now(timezone.utc))
+    created_at:         Mapped[datetime]      = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:         Mapped[datetime]      = mapped_column(DateTime, default=datetime.utcnow,
+                                                               onupdate=datetime.utcnow)
 
     job: Mapped["Job"] = relationship("Job", back_populates="payment")
 
@@ -42,4 +42,4 @@ class PaymentEvent(Base):
     id:               Mapped[str]      = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     gateway_event_id: Mapped[str]      = mapped_column(String(100), nullable=False, unique=True)
     event_type:       Mapped[str]      = mapped_column(String(100), nullable=False)
-    processed_at:     Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    processed_at:     Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

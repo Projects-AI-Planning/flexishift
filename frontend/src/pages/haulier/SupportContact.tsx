@@ -69,7 +69,7 @@ export default function HaulierSupportContactPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Haulier Support</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Support</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Contact Support</h1>
           <p className="text-on-surface-variant font-medium">Create a backend support ticket and track your recent requests.</p>
         </div>

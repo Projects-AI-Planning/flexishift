@@ -33,8 +33,8 @@ class Document(Base):
     reviewed_by:      Mapped[str]      = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     rejection_reason: Mapped[str]      = mapped_column(Text, nullable=True)
     reviewed_at:      Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at:       Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:       Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
+                                                        onupdate=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="documents")

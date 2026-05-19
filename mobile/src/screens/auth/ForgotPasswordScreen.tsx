@@ -87,7 +87,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   setEmail(v);
                   if (emailError) {setEmailError('');}
                 }}
-                placeholder="driver.77@freightflex.com"
+                placeholder="driver.77@flexishift.com"
                 value={email}
                 error={emailError || undefined}
                 containerStyle={styles.inputGroup}
@@ -158,7 +158,7 @@ const LockKeyIcon = () => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   },
   background: {
     flexGrow: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   topBar: {
     paddingHorizontal: spacing.xl,

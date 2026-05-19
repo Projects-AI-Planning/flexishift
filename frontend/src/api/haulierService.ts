@@ -63,7 +63,7 @@ const haulierService = {
   listAllBookings: (params?: Record<string, unknown>) => client.get('/bookings/list', { params }).then(res => res.data.data),
   cancelBooking: (bookingId: string, data: { reason: string }) => client.put(`/bookings/cancel/${bookingId}`, data).then(res => res.data),
   initiatePayment: (data: Record<string, unknown>) => client.post('/payments/initiate', data).then(res => res.data.data),
-  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+  verifyPayment: (data: { paymentIntentId: string }) =>
     client.post('/payments/verify', data).then(res => res.data.data),
   checkPaymentStatus: (paymentId: string) => client.get(`/payments/status/${paymentId}`).then(res => res.data.data),
   releasePayment: (bookingId: string, data: { approvalNote: string }) => client.post(`/payments/release/${bookingId}`, data).then(res => res.data),
@@ -136,6 +136,15 @@ const haulierService = {
   getHaulierHelpCenter: () => client.get('/support/haulier/help-center').then(res => res.data.data),
   listHaulierSupportTickets: (params?: Record<string, unknown>) => client.get('/support/haulier/tickets', { params }).then(res => res.data.data),
   createHaulierSupportTicket: (data: Record<string, unknown>) => client.post('/support/haulier/tickets', data).then(res => res.data.data),
+
+  // Shifts
+  createShift: (data: Record<string, unknown>) => client.post('/shifts/create', data).then(res => res.data.data),
+  listMyShifts: () => client.get('/shifts/list').then(res => res.data.data),
+  getShiftDetails: (shiftId: string) => client.get(`/shifts/${shiftId}`).then(res => res.data.data),
+  cancelShift: (shiftId: string) => client.put(`/shifts/cancel/${shiftId}`).then(res => res.data),
+  listShiftQuotes: (shiftId: string) => client.get(`/shifts/${shiftId}/quotes`).then(res => res.data.data),
+  acceptShiftQuote: (shiftId: string, quoteId: string) => client.post(`/shifts/${shiftId}/quotes/${quoteId}/accept`).then(res => res.data.data),
+  completeShiftDay: (shiftId: string) => client.post(`/shifts/${shiftId}/days/complete`).then(res => res.data.data),
 
   // File Management
   uploadFile: (formData: FormData) => client.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data),

@@ -35,11 +35,11 @@ class LocalUpload(Base):
     status: Mapped[LocalUploadStatus] = mapped_column(
         Enum(LocalUploadStatus), nullable=False, default=LocalUploadStatus.PENDING
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     user = relationship("User")

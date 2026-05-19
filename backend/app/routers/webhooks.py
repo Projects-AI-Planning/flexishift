@@ -1,58 +1,78 @@
+import stripe
 import structlog
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models.payment import Payment, PaymentStatus, PaymentEvent
-from app.services.payments import verify_razorpay_webhook_signature
 
 log = structlog.get_logger()
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
-@router.post("/razorpay", status_code=200)
-async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+@router.post("/stripe", status_code=200)
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     body = await request.body()
-    signature = request.headers.get("X-Razorpay-Signature", "")
+    sig_header = request.headers.get("stripe-signature", "")
 
-    if not verify_razorpay_webhook_signature(body, signature):
-        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    if settings.STRIPE_WEBHOOK_SECRET:
+        try:
+            event = stripe.Webhook.construct_event(
+                body, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        except stripe.error.SignatureVerificationError:
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    else:
+        import json
+        event = json.loads(body)
 
-    payload = await request.json()
-    event_id = payload.get("id") or payload.get("event", "unknown")
-    event_type = payload.get("event", "")
+    event_id = event.get("id", "unknown")
+    event_type = event.get("type", "")
 
     if db.query(PaymentEvent).filter(PaymentEvent.gateway_event_id == event_id).first():
         return {"received": True}
 
-    event = PaymentEvent(gateway_event_id=event_id, event_type=event_type)
-    db.add(event)
+    db.add(PaymentEvent(gateway_event_id=event_id, event_type=event_type))
 
     try:
-        entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
-        order_id = entity.get("order_id")
+        intent = event.get("data", {}).get("object", {})
+        intent_id = intent.get("id")
 
-        if event_type == "payment.captured" and order_id:
-            payment = db.query(Payment).filter(Payment.gateway_order_id == order_id).first()
+        if event_type == "payment_intent.amount_capturable_updated" and intent_id:
+            payment = db.query(Payment).filter(
+                Payment.gateway_order_id == intent_id
+            ).first()
             if payment and payment.status == PaymentStatus.PENDING:
+                from datetime import datetime
                 payment.status = PaymentStatus.ESCROWED
-                payment.gateway_payment_id = entity.get("id")
-                from datetime import datetime, timezone
-                payment.escrowed_at = datetime.now(timezone.utc)
+                payment.gateway_payment_id = intent_id
+                payment.escrowed_at = datetime.utcnow()
 
                 from app.models.job import Job, JobStatus
                 job = db.query(Job).filter(Job.id == payment.job_id).first()
                 if job:
                     job.status = JobStatus.PAYMENT_SECURED
 
-        elif event_type == "payment.failed" and order_id:
-            payment = db.query(Payment).filter(Payment.gateway_order_id == order_id).first()
+        elif event_type == "payment_intent.succeeded" and intent_id:
+            payment = db.query(Payment).filter(
+                Payment.gateway_payment_id == intent_id
+            ).first()
+            if payment and payment.status == PaymentStatus.ESCROWED:
+                from datetime import datetime
+                payment.status = PaymentStatus.RELEASED
+                payment.released_at = datetime.utcnow()
+
+        elif event_type == "payment_intent.payment_failed" and intent_id:
+            payment = db.query(Payment).filter(
+                Payment.gateway_order_id == intent_id
+            ).first()
             if payment:
                 payment.status = PaymentStatus.FAILED
 
     except Exception as exc:
-        log.error("webhook_processing_error", event=event_type, error=str(exc))
+        log.error("stripe_webhook_error", event=event_type, error=str(exc))
 
     db.commit()
     return {"received": True}

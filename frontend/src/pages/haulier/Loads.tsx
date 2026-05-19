@@ -211,7 +211,7 @@ const HaulierLoadsPage: React.FC = () => {
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.35),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(14,165,233,0.22),_transparent_30%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.25em] text-amber-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.25em] text-[#1066b1]/50">
               <span className="material-symbols-outlined text-[16px]">inventory_2</span>
               Load Management
             </div>
@@ -284,7 +284,7 @@ const HaulierLoadsPage: React.FC = () => {
         )}
         <button
           onClick={applyFilters}
-          className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-[#041627] transition-colors hover:bg-amber-400"
+          className="rounded-2xl bg-[#1066b1]/100 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#1066b1]"
         >
           Apply Filters
         </button>
@@ -375,7 +375,7 @@ const HaulierLoadsPage: React.FC = () => {
                           <p className="font-black text-[#041627]">{match.name ?? 'Unnamed supplier'}</p>
                           <p className="text-sm text-slate-500">{match.vehicleType ?? 'Vehicle N/A'} {match.vehicleRegistration ? `- ${match.vehicleRegistration}` : ''}</p>
                         </div>
-                        <p className="text-xs font-black text-amber-600">{match.distanceKm?.toFixed(1) ?? '0.0'} km</p>
+                        <p className="text-xs font-black text-[#0d55a0]">{match.distanceKm?.toFixed(1) ?? '0.0'} km</p>
                       </div>
                       <p className="mt-2 text-xs text-slate-500">{match.email ?? 'No email'} {match.phone ? `- ${match.phone}` : ''}</p>
                     </div>

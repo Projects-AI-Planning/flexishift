@@ -23,7 +23,7 @@ const TermsAndConditionsScreen: React.FC<TermsAndConditionsScreenProps> = ({onBa
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>1. Account Use</Text>
         <Text style={styles.body}>
-          Use your account only for authorized FreightFlex operations. Keep your login credentials private.
+          Use your account only for authorized FlexiShift operations. Keep your login credentials private.
         </Text>
       </View>
 
@@ -44,7 +44,7 @@ const TermsAndConditionsScreen: React.FC<TermsAndConditionsScreenProps> = ({onBa
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>4. Support and Conduct</Text>
         <Text style={styles.body}>
-          Report incidents, delays, and disputes through the app or support channels provided by FreightFlex.
+          Report incidents, delays, and disputes through the app or support channels provided by FlexiShift.
         </Text>
       </View>
     </ScrollView>

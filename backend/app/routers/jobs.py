@@ -18,6 +18,7 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
 def _job_dict(job: Job) -> dict:
+    payment = job.payment
     return {
         "jobId": job.id,
         "haulierId": job.haulier_id,
@@ -32,6 +33,7 @@ def _job_dict(job: Job) -> dict:
         "goodsType": job.goods_type,
         "weightKg": job.weight_kg,
         "vehicleTypeRequired": job.vehicle_type,
+        "driverRequirement": job.driver_requirement,
         "jobDate": job.job_date.isoformat() if job.job_date else None,
         "timeSlot": job.time_slot,
         "distanceKm": job.distance_km,
@@ -39,6 +41,8 @@ def _job_dict(job: Job) -> dict:
         "status": job.status.value,
         "selectedSupplierId": job.selected_supplier_id,
         "originalEta": job.original_eta.isoformat() if job.original_eta else None,
+        "agreedAmount": float(payment.amount) if payment else None,
+        "currency": payment.currency if payment else "INR",
         "invoiceUrl": job.invoice_url,
         "createdAt": job.created_at.isoformat() if job.created_at else None,
         "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
@@ -214,13 +218,13 @@ def cancel_job(
 # ── Quote sub-endpoints ────────────────────────────────────────────────────────
 
 @router.post("/{job_id}/quotes", status_code=201)
-def submit_quote_nested(
+async def submit_quote_nested(
     job_id: str,
     body: QuoteCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    quote = quotes_svc.submit_quote(db, job_id, current_user, body.price)
+    quote = await quotes_svc.submit_quote(db, job_id, current_user, body.price)
     return created(data=_quote_dict(quote), message="Quote submitted")
 
 

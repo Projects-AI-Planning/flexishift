@@ -69,7 +69,7 @@ const STATUS_CONFIG: Record<DocStatus, {label: string; bg: string; text: string;
   incomplete:   {label: 'INCOMPLETE',   bg: '#F1F5F9', text: '#475569', border: '#CBD5E1'},
   under_review: {label: 'UNDER REVIEW', bg: '#FEF9C3', text: '#854D0E', border: '#FDE047'},
   rejected:     {label: 'REJECTED',     bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5'},
-  verified:     {label: 'VERIFIED',     bg: '#DCFCE7', text: '#15803D', border: '#86EFAC'},
+  verified:     {label: 'VERIFIED',     bg: '#DBEAFE', text: '#1066B1', border: '#93C5FD'},
 };
 
 function resolveStatus(uploaded: any | undefined): DocStatus {
@@ -474,7 +474,7 @@ const DocumentUploadStepScreen: React.FC<DocumentUploadStepScreenProps> = ({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#FFFFFF'},
+  safe: {flex: 1, backgroundColor: colors.bg},
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#CBD5E1', borderStyle: 'dashed',
     justifyContent: 'center', alignItems: 'center',
   },
-  filePickerDone: {borderStyle: 'solid', borderColor: colors.mint, backgroundColor: '#F0FDF4'},
+  filePickerDone: {borderStyle: 'solid', borderColor: colors.mint, backgroundColor: '#EFF6FF'},
   filePickerInner: {alignItems: 'center', gap: 6},
   filePickerIcon: {fontSize: 32},
   filePickerName: {color: colors.navy, fontSize: 14, fontWeight: '800'},

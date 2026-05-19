@@ -10,8 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
-import Card from '../../components/common/Card';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
 
 interface RatingSubmissionScreenProps {
   jobId: string;
@@ -22,111 +21,125 @@ interface RatingSubmissionScreenProps {
   onCancel: () => void;
 }
 
-const labels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+const STAR_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+
+function StarRow({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <View style={styles.starRow}>
+      {[1, 2, 3, 4, 5].map(star => (
+        <Pressable
+          key={star}
+          onPress={() => onChange(star)}
+          hitSlop={6}
+          style={styles.starBtn}>
+          <Text style={[styles.star, value >= star && styles.starActive]}>
+            {value >= star ? '★' : '☆'}
+          </Text>
+        </Pressable>
+      ))}
+      {value > 0 && (
+        <Text style={styles.starLabel}>{STAR_LABELS[value]}</Text>
+      )}
+    </View>
+  );
+}
 
 const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
-  jobId,
   jobReference,
   onSubmit,
   loading,
   error,
   onCancel,
 }) => {
-  const [rating, setRating] = useState(0);
+  const [overallRating, setOverallRating] = useState(0);
+  const [communicationRating, setCommunicationRating] = useState(0);
+  const [professionalismRating, setProfessionalismRating] = useState(0);
   const [comment, setComment] = useState('');
+
+  const canSubmit = overallRating > 0;
+
+  const handleSubmit = () => {
+    const subRatings = [
+      communicationRating > 0 ? `Communication: ${communicationRating}/5` : null,
+      professionalismRating > 0 ? `Professionalism: ${professionalismRating}/5` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    const fullComment = [comment.trim(), subRatings].filter(Boolean).join(' | ');
+    onSubmit(overallRating, fullComment);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.topBar}>
-            <Pressable onPress={onCancel} style={styles.backBtn}>
-              <Text style={styles.backText}>{'\u2190'}</Text>
-            </Pressable>
-            <Text style={styles.orderText}>Order #TR-9422</Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+
+          {/* ── Header ─────────────────────────────────────────────────────── */}
+          <Text style={styles.screenTitle}>Rate Your Experience</Text>
+          <Text style={styles.screenSubtitle}>
+            Job <Text style={styles.jobRef}>{jobReference}</Text>
+          </Text>
+
+          {/* ── Overall Satisfaction ────────────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Overall Satisfaction</Text>
+            <Text style={styles.cardHint}>How was your overall experience with the haulier?</Text>
+            <StarRow value={overallRating} onChange={setOverallRating} />
           </View>
 
-          <View style={styles.summaryCard}>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileIcon}>{'\uD83D\uDC64'}</Text>
-            </View>
-            <Text style={styles.companyName}>Atlas Freight Systems</Text>
-            <Text style={styles.ratingLine}>
-              {'\u2B50'} <Text style={styles.ratingValue}>4.8</Text>{' '}
-              <Text style={styles.ratingMeta}>(1,240 reviews)</Text>
-            </Text>
-            <View style={styles.partnerPill}>
-              <Text style={styles.partnerText}>ELITE PARTNER</Text>
-            </View>
+          {/* ── Communication ───────────────────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Communication</Text>
+            <Text style={styles.cardHint}>Was the haulier responsive and clear?</Text>
+            <StarRow value={communicationRating} onChange={setCommunicationRating} />
           </View>
 
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeTitle}>Payment Released</Text>
-            <Text style={styles.noticeBody}>
-              Delivery confirmed. $1,420.00 has been added to your wallet.
-            </Text>
+          {/* ── Professionalism ─────────────────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Professionalism</Text>
+            <Text style={styles.cardHint}>Did they handle the job in a professional manner?</Text>
+            <StarRow value={professionalismRating} onChange={setProfessionalismRating} />
           </View>
 
-          <Card title="Overall Satisfaction" variant="default">
-            <View style={styles.ratingRow}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <Pressable key={star} onPress={() => setRating(star)}>
-                  <Text style={[styles.star, rating >= star && styles.starActive]}>
-                    {rating >= star ? '\u2B50' : '\u2606'}
-                  </Text>
-                </Pressable>
-              ))}
-              <Text style={styles.scoreText}>{rating ? rating.toFixed(1) : '4.0'}</Text>
-            </View>
-          </Card>
-
-          <Card title="Communication" variant="default">
-            <View style={styles.quickStars}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <Text key={star} style={styles.quickStar}>
-                  {'\u2B50'}
-                </Text>
-              ))}
-              <Text style={styles.quickLabel}>Great</Text>
-            </View>
-          </Card>
-
-          <Card title="Professionalism" variant="default">
-            <View style={styles.quickStars}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <Text key={star} style={styles.quickStarMuted}>
-                  {'\u2606'}
-                </Text>
-              ))}
-              <Text style={styles.quickLabel}>Select</Text>
-            </View>
-          </Card>
-
-          <Card title="Written Review (Optional)" variant="default">
+          {/* ── Written Review ───────────────────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Written Review</Text>
+            <Text style={styles.cardHint}>Optional — share any additional feedback</Text>
             <AppInput
-              placeholder="Tell us about the unloading experience, site access, or staff helpfulness..."
+              placeholder="Describe the experience, loading process, communication..."
               multiline
-              numberOfLines={6}
+              numberOfLines={5}
               value={comment}
               onChangeText={setComment}
-              containerStyle={{marginBottom: 0}}
+              containerStyle={{marginBottom: 0, marginTop: spacing.sm}}
             />
-          </Card>
+          </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+          {/* ── Actions ──────────────────────────────────────────────────────── */}
           <Pressable
-            onPress={() => onSubmit(rating, comment)}
-            disabled={loading || rating === 0}
-            style={[
-              styles.primaryButton,
-              (loading || rating === 0) && styles.disabledButton,
-            ]}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? 'Submitting...' : 'Submit Review'}
+            onPress={handleSubmit}
+            disabled={loading || !canSubmit}
+            style={[styles.submitBtn, (loading || !canSubmit) && styles.submitBtnDisabled]}>
+            <Text style={styles.submitBtnText}>
+              {loading ? 'Submitting…' : '✓  Submit Review'}
             </Text>
+          </Pressable>
+
+          <Pressable onPress={onCancel} style={styles.cancelBtn}>
+            <Text style={styles.cancelBtnText}>Skip for now</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -135,202 +148,102 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.xl,
-    paddingBottom: 120,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  backText: {
-    fontSize: 28,
-    color: colors.navy,
+  container: {flex: 1, backgroundColor: colors.bg},
+  flex: {flex: 1},
+  content: {padding: 16, paddingBottom: 48},
+
+  /* Header */
+  screenTitle: {
+    fontSize: 26,
     fontWeight: '900',
-  },
-  title: {
-    flex: 1,
     color: colors.navy,
-    fontSize: 24,
-    fontWeight: '900',
+    marginBottom: 4,
   },
-  orderText: {
-    color: colors.inkSoft,
+  screenSubtitle: {
     fontSize: 14,
-    fontWeight: '700',
-  },
-  summaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: spacing.xl,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 4,
-  },
-  profileCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#151A32',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  profileIcon: {
-    fontSize: 52,
-  },
-  companyName: {
-    color: colors.navy,
-    fontSize: 28,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  ratingLine: {
-    marginTop: spacing.sm,
-    fontSize: 22,
-    color: colors.accent,
-    fontWeight: '900',
-  },
-  ratingValue: {
-    color: colors.navy,
-  },
-  ratingMeta: {
     color: colors.inkSoft,
-    fontWeight: '700',
-    fontSize: 18,
+    marginBottom: 20,
   },
-  partnerPill: {
-    backgroundColor: '#B5C9E0',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-  },
-  partnerText: {
+  jobRef: {
+    fontWeight: '800',
     color: colors.navy,
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 1,
   },
-  noticeCard: {
-    marginBottom: spacing.lg,
-    backgroundColor: '#E7F1FF',
-    borderRadius: 18,
+
+  /* Card */
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#C7DCF7',
-    padding: spacing.xl,
+    borderColor: '#E5E9F0',
+    padding: 16,
+    marginBottom: 14,
   },
-  noticeTitle: {
-    color: '#1262B3',
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: spacing.xs,
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.navy,
+    marginBottom: 4,
   },
-  noticeBody: {
-    color: '#1262B3',
-    fontSize: 18,
-    lineHeight: 24,
+  cardHint: {
+    fontSize: 12,
+    color: colors.inkSoft,
+    marginBottom: 14,
+    lineHeight: 17,
   },
-  ratingRow: {
+
+  /* Stars */
+  starRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: 6,
+  },
+  starBtn: {
+    padding: 4,
   },
   star: {
-    fontSize: 42,
-    color: '#C7CDD8',
+    fontSize: 34,
+    color: '#D1D5DB',
   },
   starActive: {
     color: colors.accent,
   },
-  scoreText: {
-    marginLeft: 'auto',
-    color: colors.inkSoft,
-    fontSize: 32,
-    fontWeight: '900',
-  },
-  quickStars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  quickStar: {
-    fontSize: 38,
-    color: colors.accent,
-  },
-  quickStarMuted: {
-    fontSize: 38,
-    color: '#C7CDD8',
-  },
-  quickLabel: {
-    marginLeft: 'auto',
-    color: colors.inkSoft,
-    fontSize: 18,
+  starLabel: {
+    marginLeft: 8,
+    fontSize: 14,
     fontWeight: '800',
+    color: colors.navy,
   },
-  textArea: {
-    minHeight: 180,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E3E8F0',
-    backgroundColor: '#F8FAFD',
-    padding: spacing.lg,
-    textAlignVertical: 'top',
-    color: colors.ink,
-    fontSize: 16,
-  },
+
+  /* Error */
   errorText: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    marginTop: spacing.md,
     textAlign: 'center',
+    marginBottom: spacing.md,
   },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 24,
-    minHeight: 72,
+
+  /* Buttons */
+  submitBtn: {
+    backgroundColor: '#1066B1',
+    borderRadius: 14,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xl,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: 5,
+    marginBottom: 12,
   },
-  disabledButton: {
-    opacity: 0.5,
+  submitBtnDisabled: {opacity: 0.45},
+  submitBtnText: {color: '#fff', fontSize: 16, fontWeight: '800'},
+
+  cancelBtn: {
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E9F0',
   },
-  primaryButtonText: {
-    color: colors.card,
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
+  cancelBtnText: {color: colors.inkSoft, fontSize: 14, fontWeight: '700'},
 });
 
 export default RatingSubmissionScreen;

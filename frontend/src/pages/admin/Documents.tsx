@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
-import { useAdminVerifications } from '../../hooks/useAdmin';
+import React, { useCallback, useEffect, useState } from 'react';
 import adminService from '../../api/adminService';
-import type { Document, VerificationRequest } from '../../types';
 
-interface ExtendedDocument extends Document {
-  documentType: string;
-}
+const DOC_TYPE_LABELS: Record<string, string> = {
+  DRIVING_LICENCE: 'Driving Licence',
+  VEHICLE_REG: 'Vehicle Registration (RC)',
+  VEHICLE_INSURANCE: 'Vehicle Insurance',
+  COMPANY_REG: 'Company Registration',
+  FLEET_INSURANCE: 'Fleet Insurance',
+};
 
-interface ExtendedVerificationRequest extends VerificationRequest {
-  supplierId: string;
+interface PendingDoc {
+  documentId: string;
+  docType: string;
+  fileUrl: string;
+  status: string;
+  rejectionReason?: string;
+  createdAt?: string;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  userPhone?: string;
 }
 
 interface RejectModalProps {
@@ -90,24 +101,58 @@ const RejectModal: React.FC<RejectModalProps> = ({ docId, onClose, onSubmitted }
 };
 
 const DocumentsPage: React.FC = () => {
-  const [params] = useState({ page: 1 });
-  const { data, loading, error, refresh } = useAdminVerifications(params);
+  const [docs, setDocs] = useState<PendingDoc[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [rejectDocId, setRejectDocId] = useState<string | null>(null);
+
+  const fetchDocs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await adminService.listPendingDocuments({ page: 1, limit: 50 });
+      setDocs(result?.items ?? []);
+      setTotal(result?.total ?? 0);
+    } catch {
+      setError('Failed to load pending documents. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchDocs();
+  }, [fetchDocs]);
 
   const handleApprove = async (docId: string) => {
     try {
       await adminService.approveDocument(docId);
-      refresh();
+      void fetchDocs();
     } catch {
       alert('Failed to approve document');
     }
   };
 
-  const handleReject = (docId: string) => {
-    setRejectDocId(docId);
-  };
+  if (error) return (
+    <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl flex items-center gap-3">
+      <span className="material-symbols-outlined">error</span>
+      {error}
+      <button onClick={fetchDocs} className="ml-2 underline text-red-700">Retry</button>
+    </div>
+  );
 
-  if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
+  // Group documents by user
+  const byUser = docs.reduce<Record<string, { userName: string; userEmail: string; userRole: string; userPhone?: string; docs: PendingDoc[] }>>((acc, doc) => {
+    const key = doc.userEmail || doc.documentId;
+    if (!acc[key]) {
+      acc[key] = { userName: doc.userName, userEmail: doc.userEmail, userRole: doc.userRole, userPhone: doc.userPhone, docs: [] };
+    }
+    acc[key].docs.push(doc);
+    return acc;
+  }, {});
+
+  const userEntries = Object.entries(byUser);
 
   return (
     <div className="space-y-8 p-4 sm:p-6">
@@ -115,10 +160,11 @@ const DocumentsPage: React.FC = () => {
         <RejectModal
           docId={rejectDocId}
           onClose={() => setRejectDocId(null)}
-          onSubmitted={() => { setRejectDocId(null); refresh(); }}
+          onSubmitted={() => { setRejectDocId(null); void fetchDocs(); }}
         />
       )}
-      {/* Header Section */}
+
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl lg:text-3xl">Compliance & Verifications</h2>
@@ -127,13 +173,21 @@ const DocumentsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">error</span>
-            {data?.totalPending || 0} Pending Reviews
+            {total} Pending Reviews
           </div>
+          <button
+            onClick={fetchDocs}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+            Refresh
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left: Guidelines & Stats */}
+        {/* Left: Guidelines */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-primary text-white p-4 rounded-xl shadow-lg border border-slate-700/30 sm:p-6">
             <div className="flex items-center gap-3 mb-6">
@@ -157,56 +211,87 @@ const DocumentsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Pending Review List */}
+        {/* Right: Pending Documents */}
         <div className={`lg:col-span-8 space-y-6 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-          {(data?.pendingVerifications as ExtendedVerificationRequest[])?.map((request) => (
-            <div key={request.supplierId} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto">
+          {loading && docs.length === 0 && (
+            <div className="flex items-center justify-center py-16">
+              <span className="material-symbols-outlined text-4xl text-slate-300 animate-spin">progress_activity</span>
+            </div>
+          )}
+
+          {!loading && userEntries.length === 0 && (
+            <div className="bg-slate-50 p-8 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">inventory_2</span>
+              <p className="text-sm font-bold text-slate-400">No pending reviews</p>
+              <p className="text-xs text-slate-400 mt-1">All compliance requests have been processed.</p>
+            </div>
+          )}
+
+          {userEntries.map(([key, { userName, userEmail, userRole, docs: userDocs }]) => (
+            <div key={key} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto">
+              {/* User header */}
               <div className="px-4 py-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sm:px-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full border-2 border-amber-500 overflow-hidden bg-slate-100 flex items-center justify-center font-bold text-primary">
-                    {request.name.charAt(0)}
+                    {userName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-black text-primary">{request.name}</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{request.role} • Joined {request.joinedAt ? new Date(request.joinedAt).toLocaleDateString() : 'N/A'}</p>
+                    <h3 className="font-black text-primary">{userName}</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      {userRole} • {userEmail}
+                    </p>
                   </div>
                 </div>
+                <span className="text-xs font-black bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+                  {userDocs.length} doc{userDocs.length !== 1 ? 's' : ''}
+                </span>
               </div>
+
+              {/* Documents */}
               <div className="px-4 py-4 space-y-4 sm:px-6">
-                {(request.documents as ExtendedDocument[]).map((doc) => (
+                {userDocs.map((doc) => (
                   <div key={doc.documentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors gap-4">
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600`}>
+                      <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
                         <span className="material-symbols-outlined text-2xl">description</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-primary text-sm">{doc.documentType}</h4>
+                        <h4 className="font-bold text-primary text-sm">
+                          {DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
+                        </h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-[10px] font-black uppercase text-amber-600`}>
+                          <span className="text-[10px] font-black uppercase text-amber-600">
                             {doc.status}
                           </span>
+                          {doc.createdAt && (
+                            <span className="text-[10px] text-slate-400">
+                              · {new Date(doc.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <a 
-                        href={doc.fileUrl} 
-                        target="_blank" 
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a
+                        href={doc.fileUrl}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 md:flex-none px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-xs hover:bg-slate-50 transition-all flex items-center gap-2"
                       >
                         <span className="material-symbols-outlined text-sm">visibility</span>
                         View Document
                       </a>
-                      <button 
+                      <button
                         onClick={() => handleApprove(doc.documentId)}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Approve"
                       >
                         <span className="material-symbols-outlined">check_circle</span>
                       </button>
-                      <button 
-                        onClick={() => handleReject(doc.documentId)}
+                      <button
+                        onClick={() => setRejectDocId(doc.documentId)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Reject"
                       >
                         <span className="material-symbols-outlined">cancel</span>
                       </button>
@@ -216,14 +301,6 @@ const DocumentsPage: React.FC = () => {
               </div>
             </div>
           ))}
-
-          {(!data || data.pendingVerifications.length === 0) && !loading && (
-            <div className="bg-slate-50 p-8 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
-              <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">inventory_2</span>
-              <p className="text-sm font-bold text-slate-400">No more pending reviews</p>
-              <p className="text-xs text-slate-400 mt-1">You've caught up with all compliance requests.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

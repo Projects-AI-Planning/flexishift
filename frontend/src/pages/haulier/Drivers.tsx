@@ -73,7 +73,7 @@ type AssignmentsResponse = {
 const statusTone = (status: string) => {
   if (status === 'ACTIVE') return 'bg-emerald-100 text-emerald-700';
   if (status === 'SUSPENDED') return 'bg-red-100 text-red-700';
-  return 'bg-amber-100 text-amber-700';
+  return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
 const availabilityTone = (available: boolean) => (
@@ -301,11 +301,11 @@ const DriversPage: React.FC = () => {
         </div>
 
         {!!driver.schedule.blocks.length && (
-          <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-2">Blocks</p>
+          <div className="mt-4 rounded-xl bg-white border border-[#1066b1]/15 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#0d55a0] mb-2">Blocks</p>
             <div className="space-y-2">
               {driver.schedule.blocks.map((block) => (
-                <div key={`${driver.driverId}-${block.blockStart}`} className="text-xs text-amber-800 font-medium">
+                <div key={`${driver.driverId}-${block.blockStart}`} className="text-xs text-[#083d7a] font-medium">
                   {block.blockStart} to {block.blockEnd}{block.reason ? ` · ${block.reason}` : ''}
                 </div>
               ))}

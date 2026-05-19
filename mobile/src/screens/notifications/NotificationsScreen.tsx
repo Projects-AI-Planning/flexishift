@@ -6,9 +6,9 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
-import {colors, radius, shadow, spacing} from '../../theme';
+import {colors, radius, spacing} from '../../theme';
+import Icon, {IconName} from '../../components/common/Icon';
 
 interface NotificationsScreenProps {
   notifications: any[];
@@ -39,15 +39,22 @@ function getMessage(item: any): string {
 }
 
 function getCategory(item: any): FilterKey {
-  const haystack = `${normalize(item?.type)} ${normalize(item?.title)} ${normalize(getMessage(item))}`;
-  if (haystack.includes('payment') || haystack.includes('invoice') || haystack.includes('deposit')) {
+  const type = normalize(item?.type);
+  if (type.includes('document_approved') || type.includes('document_rejected')) {
+    return 'jobs';
+  }
+  const haystack = `${type} ${normalize(item?.title)} ${normalize(getMessage(item))}`;
+  if (
+    haystack.includes('payment') ||
+    haystack.includes('invoice') ||
+    haystack.includes('deposit')
+  ) {
     return 'payments';
   }
   if (
     haystack.includes('route') ||
     haystack.includes('tracking') ||
     haystack.includes('compliance') ||
-    haystack.includes('document') ||
     haystack.includes('bol') ||
     haystack.includes('delivery')
   ) {
@@ -56,78 +63,35 @@ function getCategory(item: any): FilterKey {
   return 'jobs';
 }
 
+function parseTimestamp(value: string): Date {
+  // Backend returns UTC without timezone suffix — append Z so JS parses correctly
+  if (!value.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(value)) {
+    return new Date(value + 'Z');
+  }
+  return new Date(value);
+}
+
 function getGroupKey(createdAt?: string | null): GroupKey {
-  if (!createdAt) {
-    return 'yesterday';
-  }
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) {
-    return 'yesterday';
-  }
+  if (!createdAt) return 'yesterday';
+  const date = parseTimestamp(createdAt);
+  if (Number.isNaN(date.getTime())) return 'yesterday';
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return date >= startOfToday ? 'today' : 'yesterday';
 }
 
 function formatRelativeTime(value?: string | null): string {
-  if (!value) {
-    return 'Recently';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Recently';
-  }
-  const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
-  if (diffMinutes < 1) {
-    return 'Now';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-  const hours = Math.round(diffMinutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  return 'Yesterday';
-}
-
-function resolveBadge(item: any): string | null {
-  const text = `${normalize(item?.type)} ${normalize(item?.title)} ${normalize(getMessage(item))}`;
-  if (text.includes('selected')) {
-    return 'NEW SELECTION';
-  }
-  if (text.includes('payment') || text.includes('invoice') || text.includes('deposit')) {
-    return 'PAYMENT PROCESSED';
-  }
-  if (text.includes('route') || text.includes('tracking') || text.includes('delivery')) {
-    return 'ROUTE UPDATE';
-  }
-  if (text.includes('document') || text.includes('bol')) {
-    return 'DOCUMENT UPDATE';
-  }
-  return null;
-}
-
-function resolveIcon(item: any): string {
-  const category = getCategory(item);
-  if (category === 'payments') {
-    return '\u{1F4B3}';
-  }
-  if (category === 'routes') {
-    return '\u{1F6E3}';
-  }
-  return '\u{1F3C5}';
-}
-
-function resolveAction(item: any): string {
-  const category = getCategory(item);
-  if (category === 'payments') {
-    return 'View invoice';
-  }
-  if (category === 'routes') {
-    return 'View route';
-  }
-  return 'View details';
+  if (!value) return 'Recently';
+  const date = parseTimestamp(value);
+  if (Number.isNaN(date.getTime())) return 'Recently';
+  const diffMin = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const hours = Math.floor(diffMin / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Yesterday';
+  return `${days}d ago`;
 }
 
 function extractJobRef(item: any): string | null {
@@ -143,28 +107,71 @@ function extractJobRef(item: any): string | null {
   return value ? String(value) : null;
 }
 
+interface IconStyle {
+  name: IconName;
+  bg: string;
+  color: string;
+}
+
+function resolveIconStyle(item: any): IconStyle {
+  const type = normalize(item?.type);
+  if (type.includes('document_approved')) {
+    return {name: 'check-circle', bg: '#EBF4FF', color: '#1066B1'};
+  }
+  if (type.includes('document_rejected')) {
+    return {name: 'x-circle', bg: '#FEF2F2', color: '#DC2626'};
+  }
+  if (type.includes('document')) {
+    return {name: 'file-text', bg: '#F5F3FF', color: '#7C3AED'};
+  }
+  const category = getCategory(item);
+  if (category === 'payments') {
+    return {name: 'credit-card', bg: '#EBF4FF', color: '#1066B1'};
+  }
+  if (category === 'routes') {
+    return {name: 'map', bg: '#FFFBEB', color: '#B45309'};
+  }
+  return {name: 'briefcase', bg: '#EBF4FF', color: '#1566C0'};
+}
+
+interface PillStyle {
+  label: string;
+  bg: string;
+  color: string;
+}
+
+function resolvePill(item: any): PillStyle {
+  const type = normalize(item?.type);
+  if (type.includes('document_approved')) {
+    return {label: 'Approved', bg: '#DBEAFE', color: '#1066B1'};
+  }
+  if (type.includes('document_rejected')) {
+    return {label: 'Rejected', bg: '#FEE2E2', color: '#B91C1C'};
+  }
+  if (type.includes('document')) {
+    return {label: 'Document', bg: '#EDE9FE', color: '#6D28D9'};
+  }
+  const category = getCategory(item);
+  if (category === 'payments') return {label: 'Payment', bg: '#DBEAFE', color: '#1066B1'};
+  if (category === 'routes') return {label: 'Route', bg: '#FEF3C7', color: '#92400E'};
+  return {label: 'Job', bg: '#DBEAFE', color: '#1E40AF'};
+}
+
 const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   notifications,
+  unreadCount,
   refreshing,
+  onMarkAllRead,
   onRefresh,
   onMarkRead,
   onOpenNotification,
 }) => {
-  const {width} = useWindowDimensions();
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
 
-  const contentWidth = Math.min(Math.max(0, width - spacing.lg * 2), 640);
-  const iconSize = Math.max(74, Math.min(92, Math.round(width * 0.2)));
-  const iconRadius = Math.round(iconSize * 0.2);
-
   const grouped = useMemo(() => {
-    const selected = (notifications ?? []).filter(item => {
-      if (activeFilter === 'all') {
-        return true;
-      }
-      return getCategory(item) === activeFilter;
-    });
-
+    const selected = (notifications ?? []).filter(item =>
+      activeFilter === 'all' ? true : getCategory(item) === activeFilter,
+    );
     const today: any[] = [];
     const yesterday: any[] = [];
     for (const item of selected) {
@@ -174,7 +181,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         yesterday.push(item);
       }
     }
-
     return {today, yesterday};
   }, [activeFilter, notifications]);
 
@@ -189,81 +195,74 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const renderCard = (item: any, group: GroupKey, index: number) => {
     const notificationId = String(item?.notificationId ?? item?.id ?? `${group}-${index}`);
     const isRead = Boolean(item?.isRead);
-    const isToday = group === 'today';
     const title = String(item?.title ?? 'Notification');
     const message = getMessage(item) || 'No additional details.';
-    const badge = !isRead && isToday && index === 0 ? resolveBadge(item) : null;
     const timeLabel = formatRelativeTime(item?.createdAt);
     const jobRef = extractJobRef(item);
-    const category = getCategory(item);
+    const icon = resolveIconStyle(item);
+    const pill = resolvePill(item);
 
     return (
       <Pressable
         key={notificationId}
         onPress={() => handlePress(item)}
         style={({pressed}) => [
-          styles.cardBase,
-          isToday ? styles.cardToday : styles.cardYesterday,
-          isRead ? styles.cardRead : styles.cardUnread,
-          pressed ? styles.cardPressed : null,
+          styles.card,
+          !isRead && styles.cardUnread,
+          pressed && styles.cardPressed,
         ]}>
-        <View
-          style={[
-            styles.iconBox,
-            isRead ? styles.iconBoxRead : styles.iconBoxUnread,
-            {width: iconSize, height: iconSize, borderRadius: iconRadius},
-          ]}>
-          <Text
-            style={[
-              styles.iconText,
-              isRead ? styles.iconTextRead : styles.iconTextUnread,
-              {fontSize: Math.round(iconSize * 0.3)},
-            ]}>
-            {resolveIcon(item)}
-          </Text>
+        <View style={styles.iconWrap}>
+          <View style={[styles.iconContainer, {backgroundColor: icon.bg}]}>
+            <Icon name={icon.name} size={20} color={icon.color} strokeWidth={1.8} />
+          </View>
+          {!isRead && <View style={styles.unreadDot} />}
         </View>
 
-        <View style={styles.cardContent}>
-          <View style={styles.cardTopRow}>
-            {badge ? (
-              <View style={styles.badgeWrap}>
-                <Text style={styles.badgeText}>{badge}</Text>
-              </View>
-            ) : (
-              <View style={styles.badgeSpacer} />
-            )}
+        <View style={styles.cardBody}>
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.titleText, isRead && styles.titleTextRead]}
+              numberOfLines={1}>
+              {title}
+            </Text>
             <Text style={styles.timeText}>{timeLabel}</Text>
           </View>
 
-          <Text style={styles.titleText} numberOfLines={2}>
-            {title}
-          </Text>
-
-          <Text style={styles.messageText} numberOfLines={3}>
+          <Text style={styles.messageText} numberOfLines={2}>
             {message}
           </Text>
 
-          <View style={styles.footerRow}>
-            <Text style={styles.actionText}>
-              {resolveAction(item)} <Text style={styles.actionArrow}>{'\u203A'}</Text>
-            </Text>
-            <Text style={styles.metaText}>
-              {jobRef ? `Job #${jobRef}` : String(item?.type ?? category).replace(/_/g, ' ')}
-            </Text>
+          <View style={styles.pillRow}>
+            <View style={[styles.categoryPill, {backgroundColor: pill.bg}]}>
+              <Text style={[styles.categoryPillText, {color: pill.color}]}>
+                {pill.label}
+              </Text>
+            </View>
+            {jobRef ? <Text style={styles.jobRefText}>#{jobRef}</Text> : null}
           </View>
         </View>
       </Pressable>
     );
   };
 
+  const hasAny = grouped.today.length > 0 || grouped.yesterday.length > 0;
+
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, {paddingHorizontal: spacing.lg}]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.inner, {maxWidth: contentWidth}]}>
+
+        {/* Filter bar + mark all read */}
+        <View style={styles.topBar}>
           <View style={styles.filterRow}>
             {FILTERS.map(filter => {
               const isActive = activeFilter === filter.key;
@@ -272,38 +271,55 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                   key={filter.key}
                   onPress={() => setActiveFilter(filter.key)}
                   style={[styles.filterPill, isActive && styles.filterPillActive]}>
-                  <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
+                  <Text
+                    style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
                     {filter.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-
-          {grouped.today.length ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>TODAY</Text>
-              {grouped.today.map((item, index) => renderCard(item, 'today', index))}
-            </View>
-          ) : null}
-
-          {grouped.yesterday.length ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>YESTERDAY</Text>
-              {grouped.yesterday.map((item, index) => renderCard(item, 'yesterday', index))}
-            </View>
-          ) : null}
-
-          {!grouped.today.length && !grouped.yesterday.length ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyIcon}>{'\u{1F514}'}</Text>
-              <Text style={styles.emptyTitle}>No notifications yet</Text>
-              <Text style={styles.emptyText}>
-                Updates about jobs, payments, routes, and compliance will appear here.
-              </Text>
-            </View>
-          ) : null}
+          {unreadCount > 0 && (
+            <Pressable onPress={onMarkAllRead} style={styles.markAllBtn}>
+              <Text style={styles.markAllText}>Mark all read</Text>
+            </Pressable>
+          )}
         </View>
+
+        {/* Today */}
+        {grouped.today.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>TODAY</Text>
+              <View style={styles.sectionLine} />
+            </View>
+            {grouped.today.map((item, i) => renderCard(item, 'today', i))}
+          </View>
+        )}
+
+        {/* Earlier */}
+        {grouped.yesterday.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>EARLIER</Text>
+              <View style={styles.sectionLine} />
+            </View>
+            {grouped.yesterday.map((item, i) => renderCard(item, 'yesterday', i))}
+          </View>
+        )}
+
+        {/* Empty state */}
+        {!hasAny && (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyIconCircle}>
+              <Icon name="bell" size={28} color="#9CA3AF" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.emptyTitle}>No notifications</Text>
+            <Text style={styles.emptyText}>
+              Updates about jobs, payments, routes, and compliance will appear here.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -318,193 +334,203 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: 120,
   },
-  inner: {
-    width: '100%',
-    alignSelf: 'center',
+
+  // ── Top bar ──────────────────────────────────────────────────────────────
+  topBar: {
+    marginBottom: spacing.lg,
   },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
     gap: spacing.sm,
-    marginBottom: spacing.xl,
   },
   filterPill: {
     flex: 1,
-    minWidth: 0,
-    height: 40,
-    borderRadius: radius.xl,
-    backgroundColor: '#ECECF0',
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: '#EEF2F7',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
   filterPillActive: {
-    backgroundColor: '#071A2D',
+    backgroundColor: '#1066B1',
   },
   filterLabel: {
-    color: '#4C535A',
+    color: '#6B7280',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   filterLabelActive: {
-    color: colors.card,
+    color: '#FFFFFF',
   },
+  markAllBtn: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.sm,
+    paddingVertical: 2,
+  },
+  markAllText: {
+    color: '#1066B1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // ── Section ──────────────────────────────────────────────────────────────
   section: {
     marginBottom: spacing.xl,
   },
-  sectionLabel: {
-    color: '#7C8087',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  cardBase: {
+  sectionLabel: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    flexShrink: 0,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+
+  // ── Card ─────────────────────────────────────────────────────────────────
+  card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    borderRadius: 24,
-    padding: spacing.md + 2,
-    marginBottom: spacing.md,
-  },
-  cardToday: {
     backgroundColor: colors.card,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: shadow.opacity,
-    shadowRadius: shadow.radius,
-    elevation: shadow.elevation,
-  },
-  cardYesterday: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: '#D2D7DE',
+    borderRadius: radius.lg,
+    padding: 14,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: '#0B1320',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardUnread: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-  },
-  cardRead: {
-    borderLeftWidth: 1,
-    borderLeftColor: '#DDE3EA',
+    backgroundColor: '#FAFCFF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   cardPressed: {
-    opacity: 0.94,
+    opacity: 0.9,
   },
-  iconBox: {
+
+  // ── Icon ─────────────────────────────────────────────────────────────────
+  iconWrap: {
+    flexShrink: 0,
+  },
+  iconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
-  iconBoxUnread: {
-    backgroundColor: colors.accent,
+  unreadDot: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#1066B1',
+    borderWidth: 2,
+    borderColor: colors.card,
   },
-  iconBoxRead: {
-    backgroundColor: '#F0F2F5',
-  },
-  iconText: {
-    fontWeight: '900',
-  },
-  iconTextUnread: {
-    color: colors.card,
-  },
-  iconTextRead: {
-    color: '#9298A1',
-  },
-  cardContent: {
+
+  // ── Card body ────────────────────────────────────────────────────────────
+  cardBody: {
     flex: 1,
-    paddingTop: 1,
+    minWidth: 0,
   },
-  cardTopRow: {
+  titleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 6,
-    gap: spacing.md,
-  },
-  badgeWrap: {
-    backgroundColor: '#156CC1',
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  badgeText: {
-    color: colors.card,
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  badgeSpacer: {
-    flex: 1,
-    minHeight: 24,
-  },
-  timeText: {
-    color: '#7A7F87',
-    fontSize: 12,
-    fontWeight: '700',
-    flexShrink: 0,
-    paddingTop: 2,
+    gap: 8,
+    marginBottom: 4,
   },
   titleText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
     color: colors.ink,
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '900',
+    lineHeight: 20,
+  },
+  titleTextRead: {
+    color: '#4B5563',
+    fontWeight: '700',
+  },
+  timeText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '600',
+    flexShrink: 0,
+    marginTop: 2,
   },
   messageText: {
-    marginTop: 6,
-    color: '#555A61',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 19,
+    fontWeight: '400',
   },
-  footerRow: {
-    marginTop: 12,
+  pillRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 8,
+    marginTop: 8,
   },
-  actionText: {
-    color: '#156CC1',
-    fontSize: 14,
-    fontWeight: '900',
+  categoryPill: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  actionArrow: {
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  metaText: {
-    color: '#7A7F87',
+  categoryPillText: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    flexShrink: 1,
-    textAlign: 'right',
+    letterSpacing: 0.3,
   },
+  jobRefText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+
+  // ── Empty state ──────────────────────────────────────────────────────────
   emptyWrap: {
     alignItems: 'center',
-    paddingVertical: 64,
+    paddingVertical: 72,
+    paddingHorizontal: spacing.xl,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   emptyTitle: {
     color: colors.ink,
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
   },
   emptyText: {
-    marginTop: spacing.sm,
-    color: colors.inkSoft,
+    color: '#9CA3AF',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     textAlign: 'center',
   },
 });

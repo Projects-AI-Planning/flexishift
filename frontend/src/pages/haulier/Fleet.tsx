@@ -92,7 +92,7 @@ const useFleet = () => {
         name: 'Sarah Richards',
         license: 'C+E (Class 1)',
         status: 'On Break',
-        statusColor: 'bg-amber-100 text-amber-700',
+        statusColor: 'bg-[#1066b1]/15 text-[#0a4a8f]',
         phone: '+44 7700 900456',
         avatar: 'https://i.pravatar.cc/150?u=sarah',
       },
@@ -114,7 +114,7 @@ const useFleet = () => {
 const EQUIPMENT_STATUS_STYLES: Record<string, string> = {
   AVAILABLE: 'bg-emerald-100 text-emerald-700',
   IN_USE: 'bg-blue-100 text-blue-700',
-  NEEDS_SERVICE: 'bg-amber-100 text-amber-700',
+  NEEDS_SERVICE: 'bg-[#1066b1]/15 text-[#0a4a8f]',
   OUT_OF_SERVICE: 'bg-red-100 text-red-700',
 };
 
@@ -297,7 +297,7 @@ const FleetPage: React.FC = () => {
             </div>
             <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Service Due</p>
-              <p className="text-3xl font-black text-amber-600">{equipmentLoading ? '...' : equipmentStats.serviceDue}</p>
+              <p className="text-3xl font-black text-[#0d55a0]">{equipmentLoading ? '...' : equipmentStats.serviceDue}</p>
             </div>
           </div>
 
@@ -464,7 +464,7 @@ const FleetPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-black text-[#041627] hover:bg-amber-400 transition-colors disabled:opacity-50"
+                    className="w-full rounded-xl bg-[#1066b1]/100 px-4 py-3 text-sm font-black text-white hover:bg-[#1066b1] transition-colors disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : editingId ? 'Update Equipment' : 'Create Equipment'}
                   </button>
@@ -542,7 +542,7 @@ const FleetPage: React.FC = () => {
                   <tr key={d.id} className="text-sm transition-colors hover:bg-slate-50/50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-amber-500">
+                        <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-[#1066b1]">
                           <img src={d.avatar} alt={d.name} />
                         </div>
                         <span className="font-black text-primary">{d.name}</span>

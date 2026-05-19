@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import {colors, radius, spacing} from '../../theme';
+import Icon from '../../components/common/Icon';
 
 interface VerifyScreenProps {
   verifyForm: {email: string; otp: string};
@@ -74,7 +75,7 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
       <View style={styles.content}>
         {/* Icon */}
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>✉</Text>
+          <Icon name="mail" size={32} color="#0B1320" strokeWidth={1.8} />
           <View style={styles.iconDot} />
         </View>
 
@@ -142,7 +143,7 @@ const VerifyScreen: React.FC<VerifyScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: {flex: 1, backgroundColor: colors.bg},
   flex: {flex: 1},
   scrollContent: {paddingBottom: 40},
   backBtn: {
@@ -165,7 +166,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 20, position: 'relative',
   },
-  iconText: {fontSize: 32, color: colors.navy},
   iconDot: {
     position: 'absolute', top: 10, right: 10,
     width: 14, height: 14, borderRadius: 7,

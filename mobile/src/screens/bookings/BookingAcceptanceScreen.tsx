@@ -199,7 +199,7 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#FFFFFF'},
+  container: {flex: 1, backgroundColor: colors.bg},
   content: {padding: spacing.xl, paddingBottom: 100, gap: spacing.lg},
 
   emptyWrap: {flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.lg},
@@ -213,12 +213,12 @@ const styles = StyleSheet.create({
 
   successBanner: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.lg,
-    backgroundColor: '#F0FDF4', borderRadius: radius.xl,
-    padding: spacing.xl, borderWidth: 1, borderColor: '#BBF7D0',
+    backgroundColor: '#EFF6FF', borderRadius: radius.xl,
+    padding: spacing.xl, borderWidth: 1, borderColor: '#BFDBFE',
   },
   successIcon: {fontSize: 36},
   successCopy: {flex: 1},
-  successTitle: {color: '#15803D', fontSize: 18, fontWeight: '900'},
+  successTitle: {color: '#1066B1', fontSize: 18, fontWeight: '900'},
   successSub: {color: '#166534', fontSize: 13, marginTop: 4},
 
   refRow: {
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   routeWrap: {gap: spacing.md},
   routePoint: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md},
   dot: {width: 12, height: 12, borderRadius: 6, marginTop: 4, flexShrink: 0},
-  dotGreen: {backgroundColor: '#34D399'},
+  dotGreen: {backgroundColor: '#1066B1'},
   dotBlue: {backgroundColor: colors.accent},
   routeText: {flex: 1},
   routeLabel: {color: colors.inkSoft, fontSize: 10, fontWeight: '800', textTransform: 'uppercase'},
@@ -277,12 +277,12 @@ const styles = StyleSheet.create({
   errorText: {color: colors.danger, fontSize: 13, fontWeight: '700'},
 
   acceptedState: {
-    alignItems: 'center', backgroundColor: '#F0FDF4',
+    alignItems: 'center', backgroundColor: '#EFF6FF',
     borderRadius: radius.xl, padding: spacing.xl,
-    borderWidth: 1, borderColor: '#BBF7D0', gap: spacing.md,
+    borderWidth: 1, borderColor: '#BFDBFE', gap: spacing.md,
   },
   acceptedStateIcon: {fontSize: 44},
-  acceptedStateText: {color: '#15803D', fontSize: 20, fontWeight: '900'},
+  acceptedStateText: {color: '#1066B1', fontSize: 20, fontWeight: '900'},
   acceptedStateSub: {color: '#166534', fontSize: 13, textAlign: 'center', lineHeight: 18},
   proceedBtn: {
     backgroundColor: '#1066B1', borderRadius: radius.lg,

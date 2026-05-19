@@ -10,12 +10,22 @@ import {
 import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing, shadow} from '../../theme';
 
+function formatDriverRequirement(value?: string | null): string {
+  switch ((value ?? '').toUpperCase()) {
+    case 'DRIVER_ONLY':      return 'Driver Only';
+    case 'TRUCK_ONLY':       return 'Truck Only';
+    case 'DRIVER_WITH_TRUCK':
+    default:                 return 'Driver with Truck';
+  }
+}
+
 interface JobDetailScreenProps {
   job: any;
   onSubmitQuote: (amount: string, notes: string) => void;
   onBack: () => void;
   loading: boolean;
   error: string | null;
+  isApplied?: boolean;
 }
 
 const InfoRow = ({label, value}: {label: string; value: string}) => (
@@ -31,6 +41,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   onBack,
   loading,
   error,
+  isApplied = false,
 }) => {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -82,46 +93,59 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
         <Text style={styles.sectionTitle}>Job Details</Text>
         <InfoRow label="Goods Type" value={goodsType} />
         <InfoRow label="Vehicle Required" value={vehicleType} />
+        <InfoRow label="Requirement" value={formatDriverRequirement(job?.driverRequirement)} />
         <InfoRow label="Job Date" value={jobDate} />
         <InfoRow label="Distance" value={distance} />
         <InfoRow label="Weight" value={weight} />
       </View>
 
-      {/* Bid form */}
-      <View style={styles.bidCard}>
-        <Text style={styles.sectionTitle}>Place Your Bid</Text>
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+      {/* Bid form / Applied status */}
+      {isApplied ? (
+        <View style={styles.appliedCard}>
+          <View style={styles.appliedIconCircle}>
+            <Text style={styles.appliedCheckmark}>✓</Text>
           </View>
-        ) : null}
-        <AppInput
-          label="Quote Amount"
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="Enter your price"
-          keyboardType="numeric"
-        />
-        <AppInput
-          label="Notes (optional)"
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Any notes for the haulier..."
-          multiline
-          numberOfLines={3}
-          containerStyle={{marginBottom: 0}}
-        />
-        <Pressable
-          onPress={() => onSubmitQuote(amount, notes)}
-          style={[styles.bidButton, (!amount || loading) && styles.bidButtonDisabled]}
-          disabled={!amount || loading}>
-          {loading ? (
-            <ActivityIndicator color={colors.navy} />
-          ) : (
-            <Text style={styles.bidButtonText}>Submit Quote →</Text>
-          )}
-        </Pressable>
-      </View>
+          <Text style={styles.appliedTitle}>Quote Already Submitted</Text>
+          <Text style={styles.appliedText}>
+            You have already placed a bid on this job. You can track its status in My Quotes.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.bidCard}>
+          <Text style={styles.sectionTitle}>Place Your Bid</Text>
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+          <AppInput
+            label="Quote Amount"
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="Enter your price"
+            keyboardType="numeric"
+          />
+          <AppInput
+            label="Notes (optional)"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Any notes for the haulier..."
+            multiline
+            numberOfLines={3}
+            containerStyle={{marginBottom: 0}}
+          />
+          <Pressable
+            onPress={() => onSubmitQuote(amount, notes)}
+            style={[styles.bidButton, (!amount || loading) && styles.bidButtonDisabled]}
+            disabled={!amount || loading}>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.bidButtonText}>Submit Quote →</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
 
     </ScrollView>
   );
@@ -130,7 +154,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   content: {
     padding: spacing.xl,
@@ -185,7 +209,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   dotGreen: {
-    backgroundColor: '#34D399',
+    backgroundColor: '#1066B1',
   },
   dotAccent: {
     backgroundColor: colors.accent,
@@ -286,6 +310,40 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     textAlignVertical: 'top',
   },
+  appliedCard: {
+    backgroundColor: '#EBF3FB',
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  appliedIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1066B1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appliedCheckmark: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  appliedTitle: {
+    color: '#1066B1',
+    fontSize: 17,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  appliedText: {
+    color: '#1E3A5F',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
   bidButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.lg,
@@ -303,7 +361,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   bidButtonText: {
-    color: colors.navy,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '900',
   },

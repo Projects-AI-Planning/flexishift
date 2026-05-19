@@ -11,6 +11,7 @@ const Register: React.FC = () => {
     email: '',
     phone: '',
     companyName: '',
+    address: '',
     password: '',
     confirmPassword: '',
   });
@@ -19,6 +20,23 @@ const Register: React.FC = () => {
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const getRegistrationError = (err: unknown) => {
+    if (!axios.isAxiosError(err)) {
+      return 'Registration failed. Please try again.';
+    }
+
+    const data = err.response?.data;
+    const fieldErrors = data?.data?.errors;
+    if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+      return fieldErrors
+        .map((item) => item?.message)
+        .filter(Boolean)
+        .join('. ');
+    }
+
+    return data?.message || data?.detail || 'Registration failed. Please try again.';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +50,14 @@ const Register: React.FC = () => {
       setError('Password must be at least 8 characters.');
       return;
     }
+    if (!/[A-Z]/.test(form.password)) {
+      setError('Password must contain an uppercase letter.');
+      return;
+    }
+    if (!/\d/.test(form.password)) {
+      setError('Password must contain a digit.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -40,18 +66,14 @@ const Register: React.FC = () => {
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim() || undefined,
         companyName: form.companyName.trim() || undefined,
+        address: form.address.trim() || undefined,
         password: form.password,
         role: 'HAULIER',
       });
       const email = form.email.trim().toLowerCase();
       navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.message || err.response?.data?.detail;
-        setError(msg || 'Registration failed. Please try again.');
-      } else {
-        setError('Registration failed. Please try again.');
-      }
+      setError(getRegistrationError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -62,7 +84,7 @@ const Register: React.FC = () => {
       <div className="bg-white p-5 sm:p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-lg">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-navy p-3 rounded-full mb-4">
-            <Truck className="text-amber" size={32} />
+            <Truck className="text-[#1066b1]" size={32} />
           </div>
           <h1 className="text-2xl font-bold text-navy">Create Haulier Account</h1>
           <p className="text-gray-500 text-sm mt-1">FreightFlex Logistics Portal</p>
@@ -76,7 +98,7 @@ const Register: React.FC = () => {
                 type="text"
                 value={form.name}
                 onChange={set('name')}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 placeholder="John Smith"
                 required
               />
@@ -87,7 +109,7 @@ const Register: React.FC = () => {
                 type="text"
                 value={form.companyName}
                 onChange={set('companyName')}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 placeholder="Smith Haulage Ltd"
               />
             </div>
@@ -99,7 +121,7 @@ const Register: React.FC = () => {
               type="email"
               value={form.email}
               onChange={set('email')}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
               placeholder="john@smithhaulage.com"
               required
             />
@@ -111,8 +133,20 @@ const Register: React.FC = () => {
               type="tel"
               value={form.phone}
               onChange={set('phone')}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
               placeholder="+44 7700 900000"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-navy mb-2">Address</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={set('address')}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
+              placeholder="123 Logistics Park, Manchester, M1 1AB"
+              required
             />
           </div>
 
@@ -123,7 +157,7 @@ const Register: React.FC = () => {
                 type="password"
                 value={form.password}
                 onChange={set('password')}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 placeholder="Min. 8 characters"
                 required
               />
@@ -134,7 +168,7 @@ const Register: React.FC = () => {
                 type="password"
                 value={form.confirmPassword}
                 onChange={set('confirmPassword')}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
                 placeholder="Repeat password"
                 required
               />

@@ -39,9 +39,9 @@ class User(Base):
     location_lng:     Mapped[float] = mapped_column(DECIMAL(10, 7), nullable=True)
     bank_account_id:  Mapped[str]   = mapped_column(String(100), nullable=True)
     push_token:       Mapped[str]   = mapped_column(String(500), nullable=True)
-    created_at:       Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:       Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
+                                                        onupdate=datetime.utcnow)
     deleted_at:       Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     profile:          Mapped["UserProfile"]        = relationship("UserProfile", back_populates="user", uselist=False)
@@ -68,9 +68,9 @@ class UserProfile(Base):
     driver_availability:  Mapped[str] = mapped_column(String(50), nullable=True)
     equipment_details:    Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     driver_assignments:   Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
-    created_at:           Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at:           Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc),
-                                                            onupdate=lambda: datetime.now(timezone.utc))
+    created_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
+                                                            onupdate=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="profile")
 
@@ -83,7 +83,7 @@ class EmailVerification(Base):
     token_hash: Mapped[str]      = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     used_at:    Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class PasswordReset(Base):
@@ -94,4 +94,15 @@ class PasswordReset(Base):
     token_hash: Mapped[str]      = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     used_at:    Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id:         Mapped[str]      = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id:    Mapped[str]      = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash: Mapped[str]      = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revoked:    Mapped[bool]     = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -89,7 +89,7 @@ export default function HaulierRevenuePage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Reports & Analytics</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Reports & Analytics</p>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Revenue Analytics</h1>
           <p className="text-on-surface-variant font-medium">Backend-driven earnings, released payments, and monthly revenue view.</p>
         </div>
@@ -148,7 +148,7 @@ export default function HaulierRevenuePage() {
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Escrowed</p>
-          <h3 className="mt-2 text-3xl font-black text-amber-700">{fmt(summary.escrowedRevenue ?? 0)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedRevenue ?? 0)}</h3>
           <p className="mt-2 text-xs text-slate-500">Payments waiting in escrow.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
