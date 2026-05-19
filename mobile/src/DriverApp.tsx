@@ -438,6 +438,7 @@ function DriverApp(): React.JSX.Element {
   // Shifts
   const [availableShifts, setAvailableShifts] = useState<Array<Record<string, unknown>>>([]);
   const [myShifts, setMyShifts] = useState<Array<Record<string, unknown>>>([]);
+  const [myShiftQuotes, setMyShiftQuotes] = useState<Array<Record<string, unknown>>>([]);
 
   const [trackingEta, setTrackingEta] = useState<Record<
     string,
@@ -626,9 +627,7 @@ function DriverApp(): React.JSX.Element {
   }, []);
 
   const loadTracking = useCallback(async () => {
-    const overview =
-      dashboardRef.current ??
-      cast<DashboardOverview>(await driverApi.dashboard.getOverview());
+    const overview = cast<DashboardOverview>(await driverApi.dashboard.getOverview());
     setDashboard(overview);
     if (overview.activeJob?.jobId) {
       const [etaResult, complianceResult, liveResult] = await Promise.allSettled([
@@ -733,15 +732,19 @@ function DriverApp(): React.JSX.Element {
   }, []);
 
   const loadShifts = useCallback(async () => {
-    const [available, mine] = await Promise.allSettled([
+    const [available, mine, myQuotesRes] = await Promise.allSettled([
       driverApi.shifts.listAvailable(),
       driverApi.shifts.listMine(),
+      driverApi.shifts.listMyQuotes(),
     ]);
     if (available.status === 'fulfilled') {
       setAvailableShifts((available.value.items as Array<Record<string, unknown>>) ?? []);
     }
     if (mine.status === 'fulfilled') {
       setMyShifts((mine.value.items as Array<Record<string, unknown>>) ?? []);
+    }
+    if (myQuotesRes.status === 'fulfilled') {
+      setMyShiftQuotes((myQuotesRes.value.items as Array<Record<string, unknown>>) ?? []);
     }
   }, []);
 
@@ -1379,8 +1382,15 @@ function DriverApp(): React.JSX.Element {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      await driverApi.auth.forgotPassword(email);
+      const result = await driverApi.auth.forgotPassword(email);
       setAuthMode('reset');
+      if (result && !result.emailSent && result.devOtp) {
+        Alert.alert(
+          'Dev Mode — OTP',
+          `No email provider is configured.\n\nYour reset code is:\n\n${result.devOtp}\n\nEnter this code on the next screen.`,
+          [{text: 'Got it'}],
+        );
+      }
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : 'Forgot password failed.',
@@ -1450,8 +1460,20 @@ function DriverApp(): React.JSX.Element {
         // Treat "already active quote" as success — the goal (applying) was achieved
         if (err instanceof Error && err.message.toLowerCase().includes('already have an active quote')) {
           navigate('jobs', 'jobs.myQuotes');
-          setSuccessBanner('You have already applied for this job. Track your bid in My Quotes.');
+          setSuccessBanner('You have already applied for this job. Track your quote in My Quotes.');
           loadMyQuotes().catch(() => undefined);
+          return;
+        }
+        // Job was booked by another driver while this list was stale — remove it and refresh
+        if (err instanceof Error && (
+          err.message.toLowerCase().includes('not open') ||
+          err.message.toLowerCase().includes('already booked') ||
+          err.message.toLowerCase().includes('not available')
+        )) {
+          setAvailableJobs(prev => prev.filter(j => String(j.jobId) !== jobId));
+          navigate('jobs', 'jobs.available');
+          setErrorBanner('This job has already been filled. Your list has been refreshed.');
+          loadJobs().catch(() => undefined);
           return;
         }
         throw err;
@@ -1655,7 +1677,7 @@ function DriverApp(): React.JSX.Element {
         'Handover complete. Trip started — live tracking is active!',
       );
       navigate('tracking', 'tracking.active');
-      await refreshActiveView();
+      await loadTracking();
     } catch (err) {
       setErrorBanner(err instanceof Error ? err.message : 'Handover failed.');
     } finally {
@@ -2382,10 +2404,25 @@ function DriverApp(): React.JSX.Element {
 
     // ── SHIFTS TAB ─────────────────────────────────────────────────────────────
     if (activeTab === 'shifts' || activeRoute.startsWith('shifts.')) {
+      const shiftProfileComplete = isDriverProfileComplete(profile);
+      const shiftDocsApproved = areDriverDocumentsApproved(verificationStatus, documents);
+      const shiftDocState = hasDriverUploadedDocuments(verificationStatus, documents)
+        ? hasRejectedDriverDocuments(documents) ? 'rejected' : 'pending'
+        : 'missing';
+      const canBrowseShifts = !docsChecked || shiftDocsApproved;
+
+      const goToShiftDocuments = () => {
+        navigate('profile', shiftDocState === 'pending' ? 'documents.status' : 'documents.upload');
+        loadProfile().catch(() => undefined);
+        driverApi.documents.getStatus().then(s => setVerificationStatus(cast<Record<string, unknown>>(s))).catch(() => undefined);
+        driverApi.documents.list().then(d => setDocuments(mapDocumentItems(d as Record<string, unknown>))).catch(() => undefined);
+      };
+
       return (
         <ShiftsScreen
           availableShifts={availableShifts as any}
           myShifts={myShifts as any}
+          myShiftQuotes={myShiftQuotes as any}
           loading={contentLoading}
           actionLoading={actionLoading}
           error={errorBanner}
@@ -2398,6 +2435,11 @@ function DriverApp(): React.JSX.Element {
           onSubmitQuote={handleShiftQuoteSubmit}
           onWithdrawQuote={handleShiftQuoteWithdraw}
           onCancelShift={handleShiftCancel}
+          canBrowse={canBrowseShifts}
+          documentState={shiftDocState}
+          profileComplete={shiftProfileComplete}
+          onGoToDocuments={goToShiftDocuments}
+          onGoToProfile={() => navigate('profile', 'profile.edit')}
         />
       );
     }
@@ -2553,7 +2595,7 @@ function DriverApp(): React.JSX.Element {
           ? 'rejected'
           : 'pending'
         : 'missing';
-      const isJobSearchAllowed = profileComplete && documentsApproved;
+      const isJobSearchAllowed = documentsApproved;
 
       const goToDocuments = () => {
         navigate(
@@ -3377,7 +3419,7 @@ function DriverApp(): React.JSX.Element {
               route === 'jobs.available'
                 ? 'Find Jobs'
                 : route === 'jobs.myQuotes'
-                ? 'My Bids'
+                ? 'My Quotes'
                 : route === 'jobs.upcoming'
                 ? 'My Jobs'
                 : 'History';
@@ -3471,6 +3513,7 @@ function DriverApp(): React.JSX.Element {
               )}
             </View>
             <Text
+              numberOfLines={1}
               style={[
                 styles.bottomTabLabel,
                 activeTab === tab.key ? styles.bottomTabLabelActive : null,
@@ -3597,9 +3640,9 @@ const styles = StyleSheet.create({
   bottomTabIconActive: {},
   bottomTabLabel: {
     color: '#374151',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.2,
     marginTop: 4,
     textTransform: 'uppercase',
   },

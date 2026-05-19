@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
+import Icon from '../../components/common/Icon';
 import {colors, radius, spacing} from '../../theme';
 
 interface ResetPasswordScreenProps {
@@ -88,7 +89,7 @@ const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>🔒</Text>
+            <Icon name="lock" size={32} color={colors.ink} strokeWidth={1.6} />
           </View>
 
           <Text style={styles.subtitle}>
@@ -186,10 +187,10 @@ const styles = StyleSheet.create({
   },
   iconCircle: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#EEF5FB', alignSelf: 'center',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+    backgroundColor: '#D6E9F8', borderWidth: 2, borderColor: '#A8CDEF',
+    alignSelf: 'center', justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20,
   },
-  iconText: {fontSize: 32},
   title: {
     color: colors.navy, fontSize: 26, fontWeight: '900',
     textAlign: 'center', marginBottom: 12,

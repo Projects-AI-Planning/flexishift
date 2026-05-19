@@ -58,7 +58,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
 
           <Text style={styles.headingAccepted}>Quote Accepted</Text>
           <Text style={styles.subAccepted}>
-            Haulier has confirmed your bid for shipment{' '}
+            Haulier has confirmed your quote for shipment{' '}
             <Text style={styles.jobRefText}>{jobRef}</Text>.
           </Text>
 
@@ -216,7 +216,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
         </View>
 
         <Pressable onPress={onDismiss} style={styles.dismissBtn}>
-          <Text style={styles.dismissBtnText}>Back to My Bids</Text>
+          <Text style={styles.dismissBtnText}>Back to My Quotes</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

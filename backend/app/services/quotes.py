@@ -15,8 +15,6 @@ def _has_admin_approved_documents(db: Session, user_id: str) -> bool:
 async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
     if supplier.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
-    if not supplier.profile_complete:
-        raise HTTPException(status_code=403, detail="Complete your profile before submitting quotes")
     if not supplier.verified:
         raise HTTPException(status_code=403, detail="Your account must be verified before submitting quotes")
     if not _has_admin_approved_documents(db, supplier.id):

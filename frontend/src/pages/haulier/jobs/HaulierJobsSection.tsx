@@ -58,7 +58,6 @@ type SectionMeta = {
   title: string;
   description: string;
   icon: string;
-  accent: string;
   tone: string;
 };
 
@@ -69,7 +68,6 @@ const SECTIONS: SectionMeta[] = [
     title: 'Open Jobs',
     description: 'Jobs waiting to be reviewed, quoted, or booked.',
     icon: 'inventory_2',
-    accent: 'from-blue-600 via-sky-600 to-cyan-500',
     tone: 'bg-blue-50 text-blue-700 border-blue-100',
   },
   {
@@ -78,7 +76,6 @@ const SECTIONS: SectionMeta[] = [
     title: 'Booked Jobs',
     description: 'Jobs that have been reserved and are moving through the workflow.',
     icon: 'event_available',
-    accent: 'from-indigo-600 via-violet-600 to-fuchsia-500',
     tone: 'bg-indigo-50 text-indigo-700 border-indigo-100',
   },
   {
@@ -87,7 +84,6 @@ const SECTIONS: SectionMeta[] = [
     title: 'Active Trip',
     description: 'Jobs currently moving with active handover or live tracking.',
     icon: 'local_shipping',
-    accent: 'from-emerald-600 via-teal-600 to-cyan-500',
     tone: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   },
   {
@@ -96,7 +92,6 @@ const SECTIONS: SectionMeta[] = [
     title: 'Completed Jobs',
     description: 'Jobs that have been delivered and closed out.',
     icon: 'check_circle',
-    accent: 'from-[#1066b1]/100 via-[#1066b1] to-rose-500',
     tone: 'bg-[#1066b1]/10 text-[#0a4a8f] border-[#1066b1]/15',
   },
 ];
@@ -680,27 +675,24 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
         />
       )}
 
-      {/* Hero header */}
-      <section className={`relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br ${activeSection.accent} px-4 py-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.18)] sm:px-6 md:px-8 sm:py-7`}>
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.45) 1px, transparent 0)', backgroundSize: '18px 18px' }} />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#1066b1]/50">My Jobs</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl md:text-4xl lg:text-5xl">{activeSection.title}</h1>
-            <p className="mt-3 max-w-xl text-sm font-medium text-white/80 md:text-base">{activeSection.description}</p>
+      {/* Page header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">My Jobs</p>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#041627]">{activeSection.title}</h1>
+          <p className="text-sm font-medium text-slate-500">{activeSection.description}</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
+            <p className="mt-1 text-2xl font-black text-[#041627]">{String(data?.total ?? jobs.length).padStart(2, '0')}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm lg:w-[420px]">
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70">Visible</p>
-              <p className="mt-1 text-lg font-black">{String(data?.total ?? jobs.length).padStart(2, '0')}</p>
-            </div>
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70">Page</p>
-              <p className="mt-1 text-lg font-black">{page} / {totalPages}</p>
-            </div>
+          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
+            <p className="mt-1 text-2xl font-black text-[#041627]">{page} / {totalPages}</p>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* ── Signature required banner ── */}
       {activeStatus === 'IN_TRANSIT' && pendingSignCount > 0 && (
@@ -798,7 +790,9 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
+                {activeStatus !== 'OPEN' && (
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
+                )}
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
@@ -856,12 +850,14 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                       <p className="text-[10px] text-slate-300 my-1">▼</p>
                       <p className="text-sm text-slate-500 truncate">{job.dropLocation ?? job.dropAddress ?? 'N/A'}</p>
                     </td>
-                    <td className="px-6 py-5">
-                      <p className="text-sm font-black text-[#1066b1]">
-                        {job.currency === 'INR' || !job.currency ? '₹' : job.currency} {Number(job.agreedAmount ?? 0).toLocaleString('en-IN')}
-                      </p>
-                      <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
-                    </td>
+                    {activeStatus !== 'OPEN' && (
+                      <td className="px-6 py-5">
+                        <p className="text-sm font-black text-[#1066b1]">
+                          {job.currency === 'INR' || !job.currency ? '₹' : job.currency} {Number(job.agreedAmount ?? 0).toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
+                      </td>
+                    )}
                     <td className="px-6 py-5">
                       <p className="text-sm font-bold text-[#041627]">{job.vehicleType ?? 'N/A'}</p>
                       {job.distanceKm != null && <p className="text-xs text-slate-400">{job.distanceKm} km</p>}

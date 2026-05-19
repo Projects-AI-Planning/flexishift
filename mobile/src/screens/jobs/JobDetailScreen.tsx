@@ -107,12 +107,12 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
           </View>
           <Text style={styles.appliedTitle}>Quote Already Submitted</Text>
           <Text style={styles.appliedText}>
-            You have already placed a bid on this job. You can track its status in My Quotes.
+            You have already placed a quote on this job. You can track its status in My Quotes.
           </Text>
         </View>
       ) : (
         <View style={styles.bidCard}>
-          <Text style={styles.sectionTitle}>Place Your Bid</Text>
+          <Text style={styles.sectionTitle}>Place Your Quote</Text>
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>

@@ -11,7 +11,7 @@ export const driverApi = {
         body: jsonBody(payload),
       }),
     forgotPassword: (email: string) =>
-      request<{email: string; resetLinkExpiresAt?: string}>(
+      request<{emailSent: boolean; devOtp?: string}>(
         '/auth/forgot-password',
         {
           method: 'POST',
@@ -330,6 +330,8 @@ export const driverApi = {
       request<Record<string, unknown>>('/shifts/available'),
     listMine: () =>
       request<Record<string, unknown>>('/shifts/my-shifts'),
+    listMyQuotes: () =>
+      request<Record<string, unknown>>('/shifts/my-quotes'),
     getDetails: (shiftId: string) =>
       request<Record<string, unknown>>(`/shifts/${shiftId}`),
     submitQuote: (shiftId: string, payload: {amountPerDay: number; notes?: string}) =>
