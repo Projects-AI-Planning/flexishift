@@ -87,6 +87,22 @@ def _quote_snippet(quote: Quote) -> dict:
     }
 
 
+def _dispute_evidence(record: Optional[ComplianceRecord]) -> list[str]:
+    if not record or not isinstance(record.checklist_data, dict):
+        return []
+    photos = record.checklist_data.get("incidentPhotos")
+    if isinstance(photos, list):
+        return [str(url) for url in photos if url]
+    reports = record.checklist_data.get("incidentReports")
+    if isinstance(reports, list):
+        urls: list[str] = []
+        for report in reports:
+            if isinstance(report, dict) and isinstance(report.get("photos"), list):
+                urls.extend(str(url) for url in report["photos"] if url)
+        return urls
+    return []
+
+
 def _job_load_snippet(job: Job) -> dict:
     supplier = job.supplier
     payment = job.payment
@@ -555,6 +571,56 @@ def haulier_pending_approval(
     return ok(
         data={"jobs": jobs, "totalPending": total, "page": page, "limit": limit},
         message="Jobs pending approval fetched successfully.",
+    )
+
+
+@router.get("/haulier/disputes")
+def haulier_disputes(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = (
+        db.query(Job)
+        .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Job.status == JobStatus.DISPUTED,
+            ComplianceRecord.disputed_at.isnot(None),
+            Job.deleted_at.is_(None),
+        )
+    )
+    total = q.count()
+    items = q.order_by(ComplianceRecord.disputed_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    disputes = []
+    for job in items:
+        record = job.compliance
+        supplier = job.supplier
+        payment = job.payment
+        disputes.append({
+            "disputeId": record.id if record else job.id,
+            "jobId": job.id,
+            "jobReference": job.job_ref,
+            "status": "under_review",
+            "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
+            "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "paymentOnHold": float(payment.amount) if payment else None,
+            "currency": "INR",
+            "pickupLocation": job.pickup_address,
+            "dropLocation": job.drop_address,
+            "driver": {
+                "name": supplier.full_name if supplier else None,
+                "phone": supplier.phone if supplier else None,
+                "vehicleNumber": supplier.profile.vehicle_registration if supplier and supplier.profile else None,
+            },
+        })
+
+    return ok(
+        data={"items": disputes, "total": total, "page": page, "limit": limit},
+        message="Haulier disputes fetched successfully.",
     )
 
 
@@ -1564,21 +1630,36 @@ def admin_pending_verifications(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    q = db.query(User).join(Document, Document.user_id == User.id).filter(
-        Document.status == DocStatus.PENDING,
-        User.deleted_at.is_(None),
-    ).distinct()
+    latest_pending = (
+        db.query(
+            Document.user_id.label("user_id"),
+            func.max(Document.updated_at).label("latest_pending_at"),
+        )
+        .filter(Document.status == DocStatus.PENDING)
+        .group_by(Document.user_id)
+        .subquery()
+    )
+    q = (
+        db.query(User, latest_pending.c.latest_pending_at)
+        .join(latest_pending, latest_pending.c.user_id == User.id)
+        .filter(User.deleted_at.is_(None))
+    )
     if role:
         try:
             q = q.filter(User.role == Role(role.upper()))
         except ValueError:
             pass
     total = q.count()
-    users = q.order_by(User.created_at.asc()).offset((page - 1) * limit).limit(limit).all()
+    rows = q.order_by(latest_pending.c.latest_pending_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
     pending = []
-    for u in users:
-        docs = db.query(Document).filter(Document.user_id == u.id, Document.status == DocStatus.PENDING).all()
+    for u, _latest_pending_at in rows:
+        docs = (
+            db.query(Document)
+            .filter(Document.user_id == u.id, Document.status == DocStatus.PENDING)
+            .order_by(Document.updated_at.desc(), Document.created_at.desc())
+            .all()
+        )
         pending.append({
             "supplierId": u.id,
             "name": u.full_name,
@@ -1593,6 +1674,9 @@ def admin_pending_verifications(
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "uploadedAt": d.created_at.isoformat() if d.created_at else None,
+                    "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
+                    "rejectionReason": d.rejection_reason,
+                    "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
                 }
                 for d in docs
             ],
@@ -1924,6 +2008,7 @@ def admin_disputes(
                 "phone": supplier.phone if supplier else None,
             },
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
             "currency": "INR",
             "status": "under_review",
@@ -2043,6 +2128,7 @@ def admin_active_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
             "currency": "INR",
             "status": "under_review",
@@ -2092,6 +2178,7 @@ def admin_resolved_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
             "currency": "INR",
             "status": "resolved",
@@ -2145,6 +2232,7 @@ def admin_escalated_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
             "currency": "INR",
             "status": "escalated",

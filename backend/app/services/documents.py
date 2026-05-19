@@ -19,11 +19,14 @@ def upsert_document(db: Session, user_id: str, doc_type: str, file_url: str) -> 
         Document.user_id == user_id, Document.doc_type == DocType(doc_type)
     ).first()
     if doc:
+        was_rejected = doc.status == DocStatus.REJECTED or bool(doc.rejection_reason)
         doc.file_url = file_url
         doc.status = DocStatus.PENDING
         doc.reviewed_at = None
         doc.reviewed_by = None
-        doc.rejection_reason = None
+        if not was_rejected:
+            doc.rejection_reason = None
+        doc.updated_at = datetime.utcnow()
     else:
         doc = Document(user_id=user_id, doc_type=DocType(doc_type), file_url=file_url)
         db.add(doc)
@@ -44,7 +47,7 @@ def review_document(db: Session, doc_id: str, admin: User, status: str, rejectio
     doc.status = DocStatus(status)
     doc.reviewed_by = admin.id
     doc.reviewed_at = datetime.utcnow()
-    doc.rejection_reason = rejection_reason
+    doc.rejection_reason = rejection_reason if status == "REJECTED" else None
     db.commit()
     db.refresh(doc)
     return doc
@@ -55,5 +58,5 @@ def list_pending_documents(db: Session, page: int = 1, per_page: int = 20, doc_t
     if doc_type:
         q = q.filter(Document.doc_type == DocType(doc_type.upper()))
     total = q.count()
-    items = q.order_by(Document.created_at.asc()).offset((page - 1) * per_page).limit(per_page).all()
+    items = q.order_by(Document.updated_at.desc(), Document.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return {"items": items, "total": total}

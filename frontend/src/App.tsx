@@ -57,6 +57,7 @@ import HaulierTrackingPage from './pages/haulier/Tracking';
 import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
 import HaulierShiftsPage from './pages/haulier/Shifts';
+import HaulierDisputesPage from './pages/haulier/Disputes';
 
 // Auth Pages
 import RegisterPage from './pages/haulier/Register';
@@ -164,6 +165,8 @@ function AppRoutes() {
               <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
               <Route path="jobs/*" element={<HaulierJobsPage />} />
+              <Route path="disputes" element={<HaulierDisputesPage />} />
+              <Route path="disputes/*" element={<HaulierDisputesPage />} />
               <Route path="payments/*" element={<HaulierPaymentsPage />} />
               <Route path="fleet/*" element={<FleetPage />} />
               <Route path="drivers/*" element={<HaulierDriversPage />} />

@@ -102,6 +102,9 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
       normalizeDocType(d.documentType ?? d.docType ?? d.type) === normalKey,
     );
 
+  const uploadedCount = visibleDocs.filter(def => !!getUploadedDoc(def.normalKey)).length;
+  const canSubmit = uploadedCount >= visibleDocs.length;
+
   const openUploadForm = (normalKey: string) => {
     setExpandedCard(normalKey);
     setUploadForms(prev => ({...prev, [normalKey]: {file: null, expiry: ''}}));
@@ -347,7 +350,18 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
         ) : null}
 
         {/* ── Submit ─────────────────────────────────────────────────────── */}
-        <Pressable onPress={onSubmit} style={styles.submitBtn}>
+        {!canSubmit && (
+          <View style={styles.submitHint}>
+            <Text style={styles.submitHintText}>
+              Upload all {visibleDocs.length} document{visibleDocs.length !== 1 ? 's' : ''} to continue
+              {uploadedCount > 0 ? ` · ${uploadedCount}/${visibleDocs.length} uploaded` : ''}
+            </Text>
+          </View>
+        )}
+        <Pressable
+          onPress={canSubmit ? onSubmit : undefined}
+          disabled={!canSubmit}
+          style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}>
           <Text style={styles.submitArrow}>▷</Text>
           <Text style={styles.submitText}>Submit</Text>
         </Pressable>
@@ -712,9 +726,26 @@ const styles = StyleSheet.create({
   errorBoxText: {color: '#B91C1C', fontSize: 13, fontWeight: '700'},
 
   // Submit
+  submitHint: {
+    marginHorizontal: 14,
+    marginTop: 16,
+    backgroundColor: '#FEF9C3',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE047',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  submitHintText: {
+    color: '#854D0E',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   submitBtn: {
     marginHorizontal: 14,
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: '#1A5FAF',
     borderRadius: 14,
     height: 62,
@@ -722,6 +753,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 14,
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.6,
   },
   submitArrow: {color: '#FFFFFF', fontSize: 22},
   submitText: {

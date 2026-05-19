@@ -41,6 +41,7 @@ type ApiDispute = {
   jobReference?: string | null;
   disputeReason?: string | null;
   paymentOnHold?: number | null;
+  evidencePhotos?: string[] | null;
   raisedAt?: string | null;
   driver?: { name?: string | null } | null;
   haulier?: { name?: string | null } | null;
@@ -132,7 +133,7 @@ const mapDisputesResponse = (data: {
     reason: dispute.disputeReason ?? '',
     description: dispute.disputeReason ?? '',
     status: 'under_review',
-    evidencePhotos: [],
+    evidencePhotos: dispute.evidencePhotos ?? [],
     createdAt: dispute.raisedAt ?? new Date().toISOString(),
     jobReference: dispute.jobReference ?? '',
     disputeReason: dispute.disputeReason ?? '',
@@ -148,6 +149,7 @@ type ApiRichDispute = {
   jobReference?: string | null;
   disputeReason?: string | null;
   paymentOnHold?: number | null;
+  evidencePhotos?: string[] | null;
   raisedAt?: string | null;
   resolvedAt?: string | null;
   hoursOpen?: number | null;
@@ -170,7 +172,7 @@ const mapRichDisputesResponse = (
     reason: d.disputeReason ?? '',
     description: d.disputeReason ?? '',
     status: (d.status as Dispute['status']) ?? defaultStatus,
-    evidencePhotos: [],
+    evidencePhotos: d.evidencePhotos ?? [],
     createdAt: d.raisedAt ?? new Date().toISOString(),
     jobReference: d.jobReference ?? '',
     disputeReason: d.disputeReason ?? '',

@@ -164,6 +164,25 @@ export default function ActiveDisputesPage() {
               </div>
             )}
 
+            {!!selected.evidencePhotos?.length && (
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Images</p>
+                <div className="flex flex-wrap gap-2">
+                  {selected.evidencePhotos.map((url, index) => (
+                    <a
+                      key={`${selected.disputeId}-${url}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-20 w-20 overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+                    >
+                      <img src={url} alt={`Issue evidence ${index + 1}`} className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Resolution Type</label>
               <select

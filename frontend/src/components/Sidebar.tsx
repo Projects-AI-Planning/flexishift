@@ -215,6 +215,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     { to: '/haulier/post-job', icon: 'add_circle', label: 'Post Job' },
     { to: '/haulier/shifts', icon: 'event_available', label: 'Schedule Shift' },
     { to: '/haulier/jobs', icon: 'local_shipping', label: 'My Jobs' },
+    { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     {
       icon: 'forklift',

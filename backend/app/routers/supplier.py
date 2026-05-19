@@ -29,6 +29,8 @@ def _doc_dict(d: Document) -> dict:
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
+        "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
+        "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
     }
 
 
@@ -93,7 +95,12 @@ def list_my_documents(
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    items = db.query(Document).filter(Document.user_id == current_user.id).all()
+    items = (
+        db.query(Document)
+        .filter(Document.user_id == current_user.id)
+        .order_by(Document.updated_at.desc(), Document.created_at.desc())
+        .all()
+    )
     return ok(data={"items": [_doc_dict(d) for d in items], "total": len(items)}, message="Documents retrieved")
 
 
@@ -102,7 +109,7 @@ def get_verification_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    docs = db.query(Document).filter(Document.user_id == current_user.id).all()
+    docs = db.query(Document).filter(Document.user_id == current_user.id).order_by(Document.updated_at.desc()).all()
     summary = {doc.doc_type.value: doc.status.value for doc in docs}
     all_approved = all(d.status == DocStatus.APPROVED for d in docs) if docs else False
     return ok(

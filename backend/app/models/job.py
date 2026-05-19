@@ -24,6 +24,7 @@ class TimeSlot(str, enum.Enum):
     MORNING = "MORNING"
     AFTERNOON = "AFTERNOON"
     EVENING = "EVENING"
+    NIGHT = "NIGHT"
     FULL_DAY = "FULL_DAY"
 
 

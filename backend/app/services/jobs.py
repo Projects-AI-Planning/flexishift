@@ -20,7 +20,7 @@ def _gen_load_code() -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
-_SLOT_END_HOURS = {'MORNING': 12, 'AFTERNOON': 18, 'EVENING': 22, 'FULL_DAY': 22}
+_SLOT_END_HOURS = {'MORNING': 12, 'AFTERNOON': 18, 'EVENING': 22, 'NIGHT': 30, 'FULL_DAY': 30}
 
 
 async def create_job(db: Session, haulier: User, data: dict) -> Job:

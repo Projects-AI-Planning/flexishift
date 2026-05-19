@@ -111,6 +111,25 @@ const DisputesPage: React.FC = () => {
             <h3 className="text-2xl font-black text-primary mb-2">Resolve Dispute</h3>
             <p className="text-on-surface-variant font-medium mb-8">Job: {selectedDispute.jobReference} | Amount: £{selectedDispute.totalAmount}</p>
 
+            {!!selectedDispute.evidencePhotos?.length && (
+              <div className="mb-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Issue Images</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDispute.evidencePhotos.map((url, index) => (
+                    <a
+                      key={`${selectedDispute.disputeId}-${url}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-20 w-20 overflow-hidden rounded-lg border border-slate-200 bg-white"
+                    >
+                      <img src={url} alt={`Issue evidence ${index + 1}`} className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Resolution Type</label>

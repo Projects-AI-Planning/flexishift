@@ -87,9 +87,10 @@ class TimeSlot(str, Enum):
     Available time slots for a freight job.
     """
     MORNING   = "MORNING"       # 06:00 – 12:00
-    AFTERNOON = "AFTERNOON"     # 12:00 – 17:00
-    EVENING   = "EVENING"       # 17:00 – 22:00
-    FULL_DAY  = "FULL_DAY"      # 06:00 – 22:00
+    AFTERNOON = "AFTERNOON"     # 12:00 – 18:00
+    EVENING   = "EVENING"       # 18:00 – 22:00
+    NIGHT     = "NIGHT"         # 22:00 – 06:00
+    FULL_DAY  = "FULL_DAY"      # 00:00 – 24:00
 
 
 class VehicleType(str, Enum):

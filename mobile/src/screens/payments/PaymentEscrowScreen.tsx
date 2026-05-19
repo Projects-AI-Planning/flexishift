@@ -126,32 +126,54 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }>
 
-        {/* Escrow icon + heading */}
-        <View style={styles.iconWrap}>
-          <View style={[styles.iconCircle, isAuthorised && styles.iconCircleGreen]}>
-            <Text style={styles.iconEmoji}>🤝</Text>
+        {/* Job details */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Job Details</Text>
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>JOB REFERENCE</Text>
+            <Text style={[styles.rowValue, styles.accent]}>{details.jobRef}</Text>
+          </View>
+          {details.pickupAddress ? (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>PICKUP</Text>
+                <Text style={[styles.rowValue, styles.addressValue]}>{details.pickupAddress}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>DROP-OFF</Text>
+                <Text style={[styles.rowValue, styles.addressValue]}>{details.dropAddress}</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        {/* Escrow handshake */}
+        <View style={styles.handshakeCard}>
+          <View style={styles.iconWrap}>
+            <View style={[styles.iconCircle, isAuthorised && styles.iconCircleGreen]}>
+              <Text style={styles.iconEmoji}>🤝</Text>
+            </View>
+          </View>
+          <Text style={styles.heading}>
+            {isAuthorised ? 'Payment in Escrow' : 'Payment Pending'}
+          </Text>
+          <Text style={styles.subheading}>
+            {isAuthorised
+              ? 'The haulier has authorised payment for your job. Funds are securely held and will be released once the job is complete.'
+              : 'The haulier has initiated a Stripe payment for this job. Awaiting authorisation.'}
+          </Text>
+          <View style={styles.amountBanner}>
+            <Text style={styles.amountLabel}>ESCROWED AMOUNT</Text>
+            <Text style={styles.amountValue}>
+              {details.currency} {details.amount.toLocaleString('en-GB', {minimumFractionDigits: 2})}
+            </Text>
           </View>
         </View>
-        <Text style={styles.heading}>
-          {isAuthorised ? 'Payment in Escrow' : 'Payment Pending'}
-        </Text>
-        <Text style={styles.subheading}>
-          {isAuthorised
-            ? 'The haulier has authorised payment for your job. Funds are securely held and will be released once the job is complete.'
-            : 'The haulier has initiated a Stripe payment for this job. Awaiting authorisation.'}
-        </Text>
 
-        {/* Amount banner */}
-        <View style={styles.amountBanner}>
-          <Text style={styles.amountLabel}>ESCROWED AMOUNT</Text>
-          <Text style={styles.amountValue}>
-            {details.currency} {details.amount.toLocaleString('en-GB', {minimumFractionDigits: 2})}
-          </Text>
-        </View>
-
-        {/* Stripe handshake details */}
+        {/* Payment details */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Stripe Payment Details</Text>
+          <Text style={styles.cardTitle}>Payment Details</Text>
           <View style={styles.divider} />
 
           <View style={styles.row}>
@@ -174,28 +196,6 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
             <Text style={styles.rowLabel}>CURRENCY</Text>
             <Text style={styles.rowValue}>{details.currency}</Text>
           </View>
-        </View>
-
-        {/* Job details */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Job Details</Text>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>JOB REFERENCE</Text>
-            <Text style={[styles.rowValue, styles.accent]}>{details.jobRef}</Text>
-          </View>
-          {details.pickupAddress ? (
-            <>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>PICKUP</Text>
-                <Text style={[styles.rowValue, {flex: 1, textAlign: 'right'}]}>{details.pickupAddress}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>DROP-OFF</Text>
-                <Text style={[styles.rowValue, {flex: 1, textAlign: 'right'}]}>{details.dropAddress}</Text>
-              </View>
-            </>
-          ) : null}
         </View>
 
         {/* What happens next */}
@@ -263,7 +263,12 @@ const styles = StyleSheet.create({
 
   content: {padding: spacing.xl, paddingBottom: 48},
 
-  iconWrap: {alignItems: 'center', marginTop: 16, marginBottom: 16},
+  handshakeCard: {
+    backgroundColor: '#fff', borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.xl, marginBottom: 14,
+  },
+  iconWrap: {alignItems: 'center', marginBottom: 16},
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: '#F0F4FF', justifyContent: 'center', alignItems: 'center',
@@ -284,7 +289,7 @@ const styles = StyleSheet.create({
   amountBanner: {
     backgroundColor: '#F0F4FF', borderRadius: radius.lg,
     borderWidth: 1, borderColor: '#C7D7F8',
-    padding: spacing.xl, alignItems: 'center', marginBottom: 16,
+    padding: spacing.xl, alignItems: 'center',
   },
   amountLabel: {color: colors.inkSoft, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 6},
   amountValue: {color: colors.navy, fontSize: 32, fontWeight: '900'},
@@ -303,6 +308,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: {color: colors.inkSoft, fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   rowValue: {color: colors.navy, fontSize: 13, fontWeight: '800'},
+  addressValue: {flex: 1, textAlign: 'right'},
   mono: {fontFamily: 'monospace', fontSize: 12},
   accent: {color: colors.accent},
 

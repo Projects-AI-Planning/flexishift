@@ -31,7 +31,38 @@ def _doc_dict(d: Document) -> dict:
         "rejectionReason": d.rejection_reason,
         "expiryDate": d.expiry_date.isoformat() if hasattr(d, "expiry_date") and d.expiry_date else None,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
+        "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
+        "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
     }
+
+
+def _rejected_doc_history(db: Session, user_id: str) -> list[dict]:
+    docs = (
+        db.query(Document)
+        .filter(
+            Document.user_id == user_id,
+            (
+                (Document.status == DocStatus.REJECTED)
+                | ((Document.status == DocStatus.PENDING) & Document.rejection_reason.isnot(None))
+            ),
+        )
+        .order_by(Document.updated_at.desc(), Document.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "documentId": doc.id,
+            "docType": doc.doc_type.value,
+            "fileUrl": doc.file_url,
+            "status": doc.status.value,
+            "rejectionReason": doc.rejection_reason,
+            "createdAt": doc.created_at.isoformat() if doc.created_at else None,
+            "updatedAt": doc.updated_at.isoformat() if doc.updated_at else None,
+            "reviewedAt": doc.reviewed_at.isoformat() if doc.reviewed_at else None,
+            "isReapproval": doc.status == DocStatus.PENDING and bool(doc.rejection_reason),
+        }
+        for doc in docs
+    ]
 
 
 @router.get("/stats")
@@ -162,6 +193,7 @@ def list_pending_documents(
             "userEmail": owner.email if owner else "",
             "userRole": owner.role.value if owner else "",
             "userPhone": owner.phone if owner else "",
+            "rejectedDocuments": _rejected_doc_history(db, d.user_id),
         })
     return ok(
         data={

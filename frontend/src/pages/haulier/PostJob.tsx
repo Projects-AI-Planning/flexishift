@@ -19,11 +19,14 @@ const TIME_SLOTS = [
   { value: 'MORNING',   label: 'Morning',   sub: '06:00 – 12:00', icon: 'wb_sunny' },
   { value: 'AFTERNOON', label: 'Afternoon', sub: '12:00 – 18:00', icon: 'light_mode' },
   { value: 'EVENING',   label: 'Evening',   sub: '18:00 – 22:00', icon: 'nights_stay' },
-  { value: 'FULL_DAY',  label: 'Full Day',  sub: '06:00 – 22:00', icon: 'schedule' },
+  { value: 'NIGHT',     label: 'Night',     sub: '22:00 – 06:00', icon: 'dark_mode' },
+  { value: 'FULL_DAY',  label: 'All Day',   sub: '00:00 – 24:00', icon: 'schedule' },
 ];
 
 const SLOT_END_HOURS: Record<string, number> = {
-  MORNING: 12, AFTERNOON: 18, EVENING: 22, FULL_DAY: 22,
+  MORNING: 12, AFTERNOON: 18, EVENING: 22,
+  NIGHT: 30,   // 30 = 06:00 next day — never expires within current-day hours (0–23)
+  FULL_DAY: 30,
 };
 
 const DRIVER_REQUIREMENTS = [

@@ -112,10 +112,11 @@ export const driverApi = {
       request<Record<string, unknown>>('/bookings/list', {params}),
   },
   incidents: {
-    report: (payload: Record<string, unknown>) =>
+    report: (payload: Record<string, unknown> | FormData) =>
       request<Record<string, unknown>>('/tracking/incident', {
         method: 'POST',
-        body: jsonBody(payload),
+        body: payload instanceof FormData ? payload : jsonBody(payload),
+        isFormData: payload instanceof FormData,
       }),
   },
   compliance: {

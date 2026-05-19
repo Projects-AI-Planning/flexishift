@@ -471,12 +471,17 @@ function DriverApp(): React.JSX.Element {
 
   // Payment released data
   const [paymentReleasedData, setPaymentReleasedData] = useState<{
+    jobId: string;
     jobReference: string;
+    haulierId?: string;
     amount: number;
     currency: string;
     completionDate?: string;
     invoiceUrl?: string;
   } | null>(null);
+
+  // Job held for haulier rating after payment is released
+  const [pendingRatingJob, setPendingRatingJob] = useState<{jobId: string; jobReference: string; haulierId?: string} | null>(null);
 
   // Payment escrow data (driver notification)
   const [escrowJobId, setEscrowJobId] = useState<string | null>(null);
@@ -1743,7 +1748,9 @@ function DriverApp(): React.JSX.Element {
       // Fetch job details to get the final agreed amount and invoice URL
       const jobDetails = await driverApi.jobs.getDetails(jobId);
       setPaymentReleasedData({
+        jobId: String(jobId),
         jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
+        haulierId: jobDetails?.haulierId ? String(jobDetails.haulierId) : undefined,
         amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
         currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? '₹'),
         completionDate: new Date().toISOString(),
@@ -1798,17 +1805,27 @@ function DriverApp(): React.JSX.Element {
     }
   };
 
-  const handleIncidentReport = async (type: string, description: string) => {
+  const handleIncidentReport = async (type: string, description: string, photos: any[] = []) => {
     const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
     if (!jobId) {
       return;
     }
     await runAction(async () => {
-      await driverApi.incidents.report({
-        jobId,
-        incidentType: type,
-        description,
-      });
+      const formData = new FormData();
+      formData.append('jobId', jobId);
+      formData.append('incidentType', type);
+      formData.append('description', description);
+      photos
+        .filter((photo: any) => photo?.uri)
+        .slice(0, 10)
+        .forEach((photo: any, index: number) => {
+          formData.append('photos', {
+            uri: photo.uri,
+            name: photo.fileName ?? `issue_${index}.jpg`,
+            type: photo.type ?? 'image/jpeg',
+          } as any);
+        });
+      await driverApi.incidents.report(formData);
       setSuccessBanner('Haulier notified of the incident.');
       navigate('tracking', 'tracking.active');
     });
@@ -1918,12 +1935,24 @@ function DriverApp(): React.JSX.Element {
   // ─── Ratings ──────────────────────────────────────────────────────────────────
 
   const handleRatingSubmit = async (rating: number, comment: string) => {
-    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId ?? pendingRatingJob?.jobId;
     if (!jobId) {
       return;
     }
+    const ratedUserId = pendingRatingJob?.haulierId
+      ?? (await driverApi.jobs.getDetails(jobId).catch(() => null))?.haulierId as string | undefined;
+    if (!ratedUserId) {
+      setErrorBanner('Unable to identify haulier for this job. Please try again.');
+      return;
+    }
     await runAction(async () => {
-      await driverApi.ratings.submit({jobId, rating, comment});
+      await driverApi.ratings.submit({
+        jobId,
+        ratedUserId,
+        starRating: rating,
+        review: comment || undefined,
+      });
+      setPendingRatingJob(null);
       setSuccessBanner('Rating submitted! Thank you.');
       navigate('profile', 'ratings.received');
     });
@@ -2031,7 +2060,9 @@ function DriverApp(): React.JSX.Element {
       if (jobId) {
         driverApi.jobs.getDetails(jobId).then(job => {
           setPaymentReleasedData({
+            jobId: String(jobId),
             jobReference: String(job?.jobReference ?? jobId),
+            haulierId: job?.haulierId ? String(job.haulierId) : undefined,
             amount: Number(job?.agreedAmount ?? 0),
             currency: String(job?.currency ?? '₹'),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
@@ -2782,6 +2813,13 @@ function DriverApp(): React.JSX.Element {
               }
             }}
             onRate={() => {
+              if (paymentReleasedData) {
+                setPendingRatingJob({
+                  jobId: paymentReleasedData.jobId,
+                  jobReference: paymentReleasedData.jobReference,
+                  haulierId: paymentReleasedData.haulierId,
+                });
+              }
               setPaymentReleasedData(null);
               navigate('profile', 'ratings.given');
             }}
@@ -3015,16 +3053,22 @@ function DriverApp(): React.JSX.Element {
             }}
           />
         );
-      case 'ratings.given':
-        if (dashboard?.activeJob) {
+      case 'ratings.given': {
+        const ratingJob = dashboard?.activeJob
+          ? {jobId: dashboard.activeJob.jobId, jobReference: dashboard.activeJob.jobReference}
+          : pendingRatingJob;
+        if (ratingJob) {
           return (
             <RatingSubmissionScreen
-              jobId={dashboard.activeJob.jobId}
-              jobReference={dashboard.activeJob.jobReference}
+              jobId={ratingJob.jobId}
+              jobReference={ratingJob.jobReference}
               onSubmit={handleRatingSubmit}
               loading={actionLoading}
               error={errorBanner}
-              onCancel={() => navigate('profile', 'ratings.received')}
+              onCancel={() => {
+                setPendingRatingJob(null);
+                navigate('profile', 'ratings.received');
+              }}
             />
           );
         }
@@ -3039,6 +3083,7 @@ function DriverApp(): React.JSX.Element {
             }}
           />
         );
+      }
       case 'profile.password':
         return (
           <PasswordScreen

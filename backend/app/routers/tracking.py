@@ -1,18 +1,24 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import uuid4
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import List, Optional
 
 from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.job import Job, JobStatus
+from app.models.compliance import ComplianceRecord
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.models.tracking import TrackingPoint
 from app.models.user import User, Role
 from app.schemas.tracking import TrackingPointIn
 from app.services import tracking as track_svc
+from app.services import local_storage as local_svc
+from app.services import s3
 from app.services.eta import get_eta
+from app.config import settings
 
 # ── Flat /tracking/* router (Mobile spec paths) ───────────────────────────────
 
@@ -320,6 +326,108 @@ async def flat_delay_alert(
             "sentAt": now.isoformat(),
         },
         message="Delay alert sent to haulier successfully.",
+    )
+
+
+@flat.post("/incident", status_code=201)
+async def report_incident(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
+    job_id: str = Form(..., alias="jobId"),
+    incident_type: str = Form(..., alias="incidentType"),
+    description: str = Form(...),
+    photos: List[UploadFile] = File(default=[]),
+):
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+    if not job or job.selected_supplier_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found or forbidden")
+
+    record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job.id).first()
+    if not record:
+        record = ComplianceRecord(job_id=job.id)
+        db.add(record)
+        db.flush()
+
+    uploaded = []
+    for photo in photos[:10]:
+        suffix = {
+            "image/jpeg": "jpg", "image/jpg": "jpg",
+            "image/png": "png", "image/webp": "webp",
+        }.get(photo.content_type or "", "jpg")
+        key = f"compliance/{job.id}/issues/{uuid4()}.{suffix}"
+        contents = await photo.read()
+        if local_svc.azure_available():
+            s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, photo.content_type or "image/jpeg")
+            file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        else:
+            local_svc.ensure_local_upload_root()
+            file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(contents)
+            file_url = str(request.url_for("uploads", path=key))
+            upload_record = local_svc.create_pending_upload(
+                db,
+                user_id=current_user.id,
+                kind=LocalUploadKind.IMAGE,
+                original_name=photo.filename or f"issue.{suffix}",
+                content_type=photo.content_type or "image/jpeg",
+                storage_key=key,
+            )
+            upload_record.public_url = file_url
+            upload_record.status = LocalUploadStatus.STORED
+        uploaded.append({"key": key, "fileUrl": file_url})
+
+    now = datetime.utcnow()
+    incident_label = incident_type.strip().replace("_", " ").title()
+    clean_description = description.strip()
+    photo_urls = [item["fileUrl"] for item in uploaded]
+    record.dispute_reason = f"Driver reported {incident_label}: {clean_description}"
+    record.disputed_at = now
+    meta = record.checklist_data if isinstance(record.checklist_data, dict) else {}
+    incident_reports = list(meta.get("incidentReports") or [])
+    incident_reports.insert(0, {
+        "incidentType": incident_type,
+        "description": clean_description,
+        "photos": photo_urls,
+        "reportedAt": now.isoformat(),
+    })
+    meta["incidentReports"] = incident_reports
+    meta["incidentPhotos"] = photo_urls
+    record.checklist_data = meta
+    job.status = JobStatus.DISPUTED
+
+    from app.services.notifications import create_notification
+    await create_notification(
+        db,
+        job.haulier_id,
+        "DRIVER_ISSUE_REPORTED",
+        "Driver Reported an Issue",
+        f"Driver reported {incident_label} on job {job.job_ref}.",
+        data={
+            "job_id": job.id,
+            "job_ref": job.job_ref,
+            "incident_type": incident_type,
+            "dispute_id": record.id,
+        },
+    )
+    db.commit()
+    db.refresh(record)
+    return created(
+        data={
+            "incidentId": record.id,
+            "disputeId": record.id,
+            "jobId": job.id,
+            "jobReference": job.job_ref,
+            "incidentType": incident_type,
+            "description": clean_description,
+            "photos": uploaded,
+            "evidencePhotos": photo_urls,
+            "disputeReason": record.dispute_reason,
+            "reportedAt": record.disputed_at.isoformat() if record.disputed_at else None,
+            "status": "under_review",
+        },
+        message="Issue reported and dispute opened",
     )
 
 
