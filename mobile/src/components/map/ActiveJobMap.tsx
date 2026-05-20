@@ -1,7 +1,10 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
-import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
+import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import MapViewDirections, {MapDirectionsResponse} from 'react-native-maps-directions';
 import {colors, radius} from '../../theme';
+
+const GOOGLE_DIRECTIONS_API_KEY = 'AIzaSyCq6Gq02pkjgkB5KjcEnKKSgcTWeZr8mvA';
 
 interface ActiveJobMapProps {
   pickupLocation: string;
@@ -14,6 +17,11 @@ interface ActiveJobMapProps {
   liveMode?: boolean;
   /** Called with every GPS update so the parent can upload to the backend */
   onLocationUpdate?: (coords: {latitude: number; longitude: number}) => void;
+}
+
+interface LatLng {
+  latitude: number;
+  longitude: number;
 }
 
 interface Coords {
@@ -40,6 +48,21 @@ async function geocode(address: string): Promise<Coords | null> {
   }
 }
 
+function ptsToRegion(pts: LatLng[]) {
+  const lats = pts.map(p => p.latitude);
+  const lons = pts.map(p => p.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.02),
+    longitudeDelta: Math.max((maxLon - minLon) * 1.5, 0.02),
+  };
+}
+
 const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   pickupLocation,
   dropLocation,
@@ -50,15 +73,21 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   onLocationUpdate,
 }) => {
   const mapRef = useRef<MapView>(null);
+  const initialFitDoneRef = useRef(false);
+  const followingRef = useRef(false);
+
   const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
   const [dropCoords, setDropCoords] = useState<Coords | null>(null);
   const [loading, setLoading] = useState(true);
   const [noCoords, setNoCoords] = useState(false);
-  // Live driver position from device GPS (via onUserLocationChange)
-  const [driverCoords, setDriverCoords] = useState<{latitude: number; longitude: number} | null>(null);
-  const followingRef = useRef(false);
 
-  // Resolve pickup/drop coords from props or geocode
+  // Live GPS position from device (updated every 50 m via watchPosition)
+  const [driverCoords, setDriverCoords] = useState<LatLng | null>(null);
+  // Smoothed origin for MapViewDirections — only changes on significant movement
+  const [routeOrigin, setRouteOrigin] = useState<LatLng | null>(null);
+  const lastRouteOriginRef = useRef<LatLng | null>(null);
+
+  // ── Resolve pickup/drop coords ──────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -72,11 +101,10 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
 
     setLoading(true);
     setNoCoords(false);
-
     (async () => {
       const [pc, dc] = await Promise.all([geocode(pickupLocation), geocode(dropLocation)]);
       if (cancelled) {return;}
-      if (!pc || !dc) { setNoCoords(true); setLoading(false); return; }
+      if (!pc || !dc) {setNoCoords(true); setLoading(false); return;}
       setPickupCoords(pc);
       setDropCoords(dc);
       setLoading(false);
@@ -89,56 +117,93 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     dropCoordsProp?.latitude, dropCoordsProp?.longitude,
   ]);
 
-  // Initial fit to show full route when not yet following driver
-  useEffect(() => {
-    if (followingRef.current || !mapRef.current || loading) {return;}
-    const pts: {latitude: number; longitude: number}[] = [];
-    if (driverCoords ?? currentCoords) {pts.push((driverCoords ?? currentCoords)!);}
-    if (dropCoords) {pts.push({latitude: dropCoords.lat, longitude: dropCoords.lon});}
-    if (pickupCoords && pts.length === 0) {pts.push({latitude: pickupCoords.lat, longitude: pickupCoords.lon});}
-    if (pts.length >= 2) {
-      mapRef.current.fitToCoordinates(pts, {
-        edgePadding: {top: 80, right: 48, bottom: 48, left: 48},
-        animated: true,
-      });
-    }
-  }, [pickupCoords, dropCoords, loading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Called by MapView every time the device GPS position updates
+  // Called by MapView every time device GPS position updates (requires showsUserLocation)
   const handleUserLocationChange = useCallback(
     (event: any) => {
       const coord = event?.nativeEvent?.coordinate;
       if (!coord?.latitude || !coord?.longitude) {return;}
-
-      const coords = {latitude: coord.latitude, longitude: coord.longitude};
+      const coords: LatLng = {latitude: coord.latitude, longitude: coord.longitude};
       setDriverCoords(coords);
       onLocationUpdate?.(coords);
 
-      // Animate camera to follow driver (Uber-style)
+      // Camera follows driver (Uber-style)
       if (mapRef.current) {
         followingRef.current = true;
         mapRef.current.animateCamera(
           {center: coords, zoom: 16, heading: coord.heading ?? 0},
-          {duration: 800},
+          {duration: 700},
         );
+      }
+
+      // Update route origin only when moved > ~50 m (0.0005 deg ≈ 55 m)
+      const prev = lastRouteOriginRef.current;
+      if (
+        !prev ||
+        Math.abs(coord.latitude - prev.latitude) > 0.0005 ||
+        Math.abs(coord.longitude - prev.longitude) > 0.0005
+      ) {
+        lastRouteOriginRef.current = coords;
+        setRouteOrigin(coords);
       }
     },
     [onLocationUpdate],
   );
 
-  // The position shown on the map: prefer live device GPS, then server-polled, then nothing
+  // ── Fit map to show full route once coords are ready ────────────────────────
+  useEffect(() => {
+    if (loading || !dropCoords || initialFitDoneRef.current || followingRef.current) {return;}
+    const origin = driverCoords ?? currentCoords;
+    const startPt = origin
+      ? origin
+      : pickupCoords
+      ? {latitude: pickupCoords.lat, longitude: pickupCoords.lon}
+      : null;
+    if (!startPt || !mapRef.current) {return;}
+    initialFitDoneRef.current = true;
+    mapRef.current.animateToRegion(
+      ptsToRegion([startPt, {latitude: dropCoords.lat, longitude: dropCoords.lon}]),
+      800,
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupCoords, dropCoords, loading]);
+
+  // ── Sync routeOrigin from server-polled coords before GPS kicks in ──────────
+  useEffect(() => {
+    if (driverCoords || !liveMode) {return;}
+    const src = currentCoords;
+    if (!src) {return;}
+    const prev = lastRouteOriginRef.current;
+    if (!prev) {
+      lastRouteOriginRef.current = src;
+      setRouteOrigin(src);
+    }
+  }, [currentCoords, driverCoords, liveMode]);
+
+  // ── Derived values ──────────────────────────────────────────────────────────
   const livePos = driverCoords ?? currentCoords ?? null;
 
-  // Route line: live position → destination
-  const routeCoords: {latitude: number; longitude: number}[] = [];
-  if (livePos && dropCoords) {
-    routeCoords.push(livePos);
-    routeCoords.push({latitude: dropCoords.lat, longitude: dropCoords.lon});
-  } else if (pickupCoords && dropCoords) {
-    routeCoords.push({latitude: pickupCoords.lat, longitude: pickupCoords.lon});
-    routeCoords.push({latitude: dropCoords.lat, longitude: dropCoords.lon});
-  }
+  // Origin for Directions: driver's live GPS position → server-polled → pickup
+  const directionsOrigin: LatLng | null = liveMode
+    ? (routeOrigin ?? (pickupCoords ? {latitude: pickupCoords.lat, longitude: pickupCoords.lon} : null))
+    : pickupCoords
+    ? {latitude: pickupCoords.lat, longitude: pickupCoords.lon}
+    : null;
 
+  const directionsDestination: LatLng | null = dropCoords
+    ? {latitude: dropCoords.lat, longitude: dropCoords.lon}
+    : null;
+
+  const handleDirectionsReady = useCallback(
+    (result: MapDirectionsResponse) => {
+      // Fit map to show the route when first loaded (before driver starts moving)
+      if (!followingRef.current && mapRef.current && result.coordinates.length >= 2) {
+        mapRef.current.animateToRegion(ptsToRegion(result.coordinates), 800);
+      }
+    },
+    [],
+  );
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (noCoords && !loading) {
     return (
       <View style={[styles.wrapper, liveMode && styles.wrapperLive]}>
@@ -171,7 +236,6 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
             rotateEnabled
             pitchEnabled={false}
             toolbarEnabled={false}
-            // showsUserLocation renders the blue dot AND fires onUserLocationChange
             showsUserLocation={liveMode}
             showsMyLocationButton={false}
             onUserLocationChange={liveMode ? handleUserLocationChange : undefined}
@@ -186,17 +250,25 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
                 : undefined
             }>
 
-            {/* Blue route line from driver's current position to destination */}
-            {routeCoords.length >= 2 && (
-              <Polyline
-                coordinates={routeCoords}
-                strokeColor="#2563eb"
+            {/* Google Maps road route via Directions API */}
+            {directionsOrigin && directionsDestination && (
+              <MapViewDirections
+                origin={directionsOrigin}
+                destination={directionsDestination}
+                apikey={GOOGLE_DIRECTIONS_API_KEY}
+                mode="DRIVING"
                 strokeWidth={5}
-                lineDashPattern={livePos ? undefined : [10, 5]}
+                strokeColor="#2563eb"
+                precision="high"
+                resetOnChange={false}
+                onReady={handleDirectionsReady}
+                onError={(err: string) =>
+                  console.warn('Directions API error:', err)
+                }
               />
             )}
 
-            {/* Pickup marker — hidden once driver is in motion */}
+            {/* Pickup pin — shown before driver starts moving */}
             {pickupCoords && !livePos && (
               <Marker
                 coordinate={{latitude: pickupCoords.lat, longitude: pickupCoords.lon}}
@@ -206,7 +278,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
               />
             )}
 
-            {/* Destination marker */}
+            {/* Destination pin */}
             {dropCoords && (
               <Marker
                 coordinate={{latitude: dropCoords.lat, longitude: dropCoords.lon}}
@@ -216,18 +288,21 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
               />
             )}
 
-            {/* Server-polled position (shown only when device GPS hasn't fired yet) */}
-            {currentCoords && !driverCoords && (
+            {/* Live truck marker — driver's current position */}
+            {livePos && (
               <Marker
-                coordinate={currentCoords}
-                title="Driver"
-                description="Last known location"
-                pinColor="#1d4ed8"
-              />
+                coordinate={livePos}
+                anchor={{x: 0.5, y: 0.5}}
+                title="You"
+                description="Your current location">
+                <View style={styles.truckMarker}>
+                  <Text style={styles.truckIcon}>🚛</Text>
+                </View>
+              </Marker>
             )}
           </MapView>
 
-          {/* LIVE badge */}
+          {/* GPS status badge */}
           {liveMode && (
             <View style={styles.liveBadge} pointerEvents="none">
               <View style={[styles.liveDot, driverCoords && styles.liveDotActive]} />
@@ -245,13 +320,13 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
 const styles = StyleSheet.create({
   wrapper: {
     borderRadius: radius.lg,
-    height: 220,
+    height: 240,
     marginBottom: 12,
     overflow: 'hidden',
     backgroundColor: '#E8F1FA',
   },
   wrapperLive: {
-    height: 320,
+    height: 400,
   },
   map: {flex: 1},
   loadingOverlay: {
@@ -280,6 +355,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  truckMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    padding: 4,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+  },
+  truckIcon: {fontSize: 24},
   liveBadge: {
     position: 'absolute',
     top: 10,
@@ -287,7 +375,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,

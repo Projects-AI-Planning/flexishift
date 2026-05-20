@@ -636,14 +636,17 @@ function DriverApp(): React.JSX.Element {
     const overview = cast<DashboardOverview>(await driverApi.dashboard.getOverview());
     setDashboard(overview);
     if (overview.activeJob?.jobId) {
-      const [etaResult, complianceResult, liveResult] = await Promise.allSettled([
-        driverApi.tracking.getEta(overview.activeJob.jobId),
+      const jobStatus = String(overview.activeJob.status ?? '').toLowerCase();
+      const isInTransit = jobStatus === 'in_transit';
+
+      const [complianceResult, etaResult, liveResult] = await Promise.allSettled([
         driverApi.compliance.getFullStatus(overview.activeJob.jobId),
-        driverApi.tracking.getLive(overview.activeJob.jobId),
+        isInTransit ? driverApi.tracking.getEta(overview.activeJob.jobId) : Promise.resolve(null),
+        isInTransit ? driverApi.tracking.getLive(overview.activeJob.jobId) : Promise.resolve(null),
       ]);
 
       const eta =
-        etaResult.status === 'fulfilled'
+        etaResult.status === 'fulfilled' && etaResult.value
           ? normalizeTrackingEta(cast<Record<string, unknown>>(etaResult.value))
           : null;
       const compliance =
@@ -651,7 +654,7 @@ function DriverApp(): React.JSX.Element {
           ? cast<Record<string, unknown>>(complianceResult.value)
           : null;
       const live =
-        liveResult.status === 'fulfilled'
+        liveResult.status === 'fulfilled' && liveResult.value
           ? cast<Record<string, unknown>>(liveResult.value)
           : null;
 
