@@ -349,6 +349,12 @@ export const driverApi = {
         method: 'PUT',
       }),
   },
+  maps: {
+    getRoute: (originLat: number, originLng: number, destLat: number, destLng: number) =>
+      request<{coordinates: {latitude: number; longitude: number}[]}>('/maps/route', {
+        params: {origin_lat: originLat, origin_lng: originLng, dest_lat: destLat, dest_lng: destLng},
+      }),
+  },
   tracking: {
     getEta: (jobId: string) =>
       request<Record<string, unknown>>(`/tracking/eta/${jobId}`),

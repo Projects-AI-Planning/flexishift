@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import {colors, radius} from '../../theme';
+import {driverApi} from '../../api/driverApi';
 
 interface ActiveJobMapProps {
   pickupLocation: string;
@@ -42,15 +43,10 @@ async function fetchRoadRoute(
   destination: Coords,
 ): Promise<{latitude: number; longitude: number}[] | null> {
   try {
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${origin.lon},${origin.lat};${destination.lon},${destination.lat}` +
-      `?geometries=geojson&overview=full`;
-    const res = await fetch(url, {headers: {'User-Agent': 'FlexiShiftDriverApp/1.0'}});
-    const data = await res.json();
-    if (data.code !== 'Ok' || !data.routes?.[0]) {return null;}
-    const coords = data.routes[0].geometry.coordinates as [number, number][];
-    return coords.map(([lon, lat]) => ({latitude: lat, longitude: lon}));
+    const data = await driverApi.maps.getRoute(
+      origin.lat, origin.lon, destination.lat, destination.lon,
+    );
+    return data.coordinates ?? null;
   } catch {
     return null;
   }
