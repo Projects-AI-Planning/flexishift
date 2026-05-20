@@ -332,39 +332,65 @@ function DriverApp(): React.JSX.Element {
   const checkLocation = useCallback(async () => {
     if (Platform.OS === 'android') {
       try {
-        const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
         if (!hasPermission) {
-          const granted = await PermissionsAndroid.request(
+          const result = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
             {
               title: 'Location Permission Required',
-              message: 'FlexiShift requires mandatory location access for trip tracking and safety.',
+              message:
+                'FlexiShift requires mandatory location access for trip tracking and safety.',
               buttonPositive: 'Grant Permission',
             },
           );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (result !== PermissionsAndroid.RESULTS.GRANTED) {
             setLocationStatus('denied');
             return;
           }
         }
-      } catch (err) {
+        // Permission confirmed — verify the location toggle is actually on by
+        // requesting a quick network-accuracy position (faster than GPS, no
+        // cold-start delay). A timeout here means GPS is still warming up,
+        // not that location is off, so we treat it as granted.
+        Geolocation.getCurrentPosition(
+          () => setLocationStatus('granted'),
+          error => {
+            if (error.code === 1) {
+              // PERMISSION_DENIED (shouldn't reach here, but handle it)
+              setLocationStatus('denied');
+            } else if (error.code === 2) {
+              // POSITION_UNAVAILABLE — location toggle is genuinely off
+              setLocationStatus('disabled');
+            } else {
+              // TIMEOUT (code 3) — GPS warming up, permission already confirmed
+              setLocationStatus('granted');
+            }
+          },
+          {enableHighAccuracy: false, timeout: 10000, maximumAge: 60000},
+        );
+        return;
+      } catch {
         setLocationStatus('denied');
         return;
       }
     }
 
+    // iOS: getCurrentPosition handles the permission prompt implicitly
     Geolocation.getCurrentPosition(
-      () => {
-        setLocationStatus('granted');
-      },
-      (error) => {
+      () => setLocationStatus('granted'),
+      error => {
         if (error.code === 1) {
           setLocationStatus('denied');
-        } else {
+        } else if (error.code === 2) {
           setLocationStatus('disabled');
+        } else {
+          // Timeout — assume granted, GPS still acquiring
+          setLocationStatus('granted');
         }
       },
-      {enableHighAccuracy: true, timeout: 5000, maximumAge: 10000}
+      {enableHighAccuracy: false, timeout: 15000, maximumAge: 60000},
     );
   }, []);
 
