@@ -175,6 +175,7 @@ interface StripeModalProps {
 
 const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess, onCancel, onError }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const mountedCardRef = useRef<StripeCardElement | null>(null);
   const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
   const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -189,7 +190,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         if (!active) return;
         const stripe = window.Stripe!(order.publishableKey);
         setStripeInstance(stripe);
-        if (!isTest && cardRef.current) {
+        if (cardRef.current) {
           const elements = stripe.elements();
           const card = elements.create('card', {
             style: {
@@ -199,24 +200,29 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
           card.mount(cardRef.current);
           card.on('change', (e) => setCardError(e.error?.message ?? ''));
           setCardElement(card);
+          mountedCardRef.current = card;
         }
       } catch {
         onError('Failed to load payment SDK. Please refresh and try again.');
       }
     };
     void init();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      mountedCardRef.current?.unmount();
+      mountedCardRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleConfirm = async () => {
-    if (!stripeInstance) return;
+    if (!stripeInstance || !cardElement) return;
     setConfirming(true);
     setCardError('');
     try {
       const result = await stripeInstance.confirmCardPayment(
         order.clientSecret,
-        { payment_method: isTest ? 'pm_card_visa' : { card: cardElement! } },
+        { payment_method: { card: cardElement } },
       );
       if (result.error) {
         setCardError(result.error.message);
@@ -250,7 +256,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
           {[
             { label: 'Job', value: job.jobRef, mono: true },
-            { label: 'Amount', value: `£${order.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`, bold: true },
+            { label: 'Amount', value: `₹${order.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bold: true },
             { label: 'Currency', value: order.currency.toUpperCase() },
           ].map(({ label, value, mono, bold }) => (
             <div key={label} className="flex justify-between text-sm">
@@ -260,28 +266,28 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
           ))}
         </div>
 
-        {isTest ? (
+        {isTest && (
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
             <span className="material-symbols-outlined text-amber-500 text-base mt-0.5 shrink-0">science</span>
             <div className="text-xs text-amber-800">
               <p className="font-black mb-0.5">Test Mode</p>
-              <p className="font-medium">A Stripe test Visa card will be used. No real funds will be moved.</p>
+              <p className="font-medium">
+                Use card <span className="font-mono font-black">4242 4242 4242 4242</span>, any future expiry, any 3-digit CVC.
+              </p>
             </div>
           </div>
-        ) : (
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
-            <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
-            {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
-          </div>
         )}
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
+          <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
+          {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+        </div>
 
         <div className="flex items-start gap-2 text-xs text-slate-500">
           <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
           <span>Funds are held in escrow and released to the driver only after delivery is approved.</span>
         </div>
-
-        {cardError && isTest && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
 
         <div className="flex gap-3 pt-1">
           <button onClick={onCancel} disabled={confirming} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-[#44474C] hover:bg-slate-50 transition-colors disabled:opacity-50">
@@ -289,7 +295,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
           </button>
           <button
             onClick={() => void handleConfirm()}
-            disabled={confirming || !stripeInstance || (!isTest && !cardElement)}
+            disabled={confirming || !stripeInstance || !cardElement}
             className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>

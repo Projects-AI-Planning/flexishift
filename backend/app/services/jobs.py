@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.models.job import Job, JobStatus
 from app.models.document import Document, DocStatus
-from app.models.user import User, Role
+from app.models.user import User, UserProfile, Role
 from app.services.maps import get_route_info
 
 
@@ -101,9 +101,33 @@ def get_job(db: Session, job_id: str) -> Job:
     return job
 
 
+_REQUIRED_DOCS: dict[str, list] = {
+    'DRIVER_ONLY':       ['DRIVING_LICENCE'],
+    'TRUCK_ONLY':        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+    'DRIVER_WITH_TRUCK': ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+}
+
+
 def _has_admin_approved_documents(db: Session, user_id: str) -> bool:
     docs = db.query(Document).filter(Document.user_id == user_id).all()
     return bool(docs) and all(doc.status == DocStatus.APPROVED for doc in docs)
+
+
+def _has_required_docs_for_availability(db: Session, user_id: str, driver_avail: str | None) -> bool:
+    """Return True only when every document required for the driver's availability type
+    has been uploaded AND approved by admin."""
+    required_types = _REQUIRED_DOCS.get(driver_avail or '', [])
+    if not required_types:
+        return _has_admin_approved_documents(db, user_id)
+    for doc_type_str in required_types:
+        approved = db.query(Document).filter(
+            Document.user_id == user_id,
+            Document.doc_type == doc_type_str,
+            Document.status == DocStatus.APPROVED,
+        ).first()
+        if not approved:
+            return False
+    return True
 
 
 def list_jobs(
@@ -118,9 +142,16 @@ def list_jobs(
     if current_user.role == Role.HAULIER:
         q = q.filter(Job.haulier_id == current_user.id)
     elif current_user.role in (Role.DRIVER, Role.FIRM):
-        if not _has_admin_approved_documents(db, current_user.id):
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+        driver_avail = profile.driver_availability if profile else None
+        if not _has_required_docs_for_availability(db, current_user.id, driver_avail):
             return {"items": [], "total": 0, "page": page, "per_page": per_page}
         q = q.filter(Job.status == JobStatus.OPEN)
+        if driver_avail == 'DRIVER_ONLY':
+            q = q.filter(Job.driver_requirement.in_(['DRIVER_ONLY', None]))
+        elif driver_avail == 'TRUCK_ONLY':
+            q = q.filter(Job.driver_requirement.in_(['TRUCK_ONLY', None]))
+        # DRIVER_WITH_TRUCK sees all job requirement types — no additional filter
     # ADMIN sees all
 
     if status:
@@ -176,13 +207,18 @@ def list_available_jobs(
     per_page: int = 20,
     vehicle_type: str | None = None,
 ) -> dict:
-    if current_user.role in (Role.DRIVER, Role.FIRM) and not _has_admin_approved_documents(db, current_user.id):
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    driver_avail = profile.driver_availability if profile else None
+    if current_user.role in (Role.DRIVER, Role.FIRM) and not _has_required_docs_for_availability(db, current_user.id, driver_avail):
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
     q = db.query(Job).filter(Job.status == JobStatus.OPEN, Job.deleted_at.is_(None))
     if vehicle_type:
         q = q.filter(Job.vehicle_type == vehicle_type)
-    if getattr(current_user, 'driver_availability', None):
-        q = q.filter(Job.driver_requirement == current_user.driver_availability)
+    if driver_avail == 'DRIVER_ONLY':
+        q = q.filter(Job.driver_requirement.in_(['DRIVER_ONLY', None]))
+    elif driver_avail == 'TRUCK_ONLY':
+        q = q.filter(Job.driver_requirement.in_(['TRUCK_ONLY', None]))
+    # DRIVER_WITH_TRUCK sees all job requirement types — no additional filter
     total = q.count()
     items = q.order_by(Job.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return {"items": items, "total": total, "page": page, "per_page": per_page}

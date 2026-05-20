@@ -93,7 +93,7 @@ const AdminDashboard = () => {
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400">Admin Dashboard</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-4xl md:text-5xl">Operational overview for FreightFlex</h1>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">Operational overview for FlexiShift</h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
               A clean snapshot of platform activity based entirely on the backend stats payload. No placeholder records, no invented entries.
             </p>

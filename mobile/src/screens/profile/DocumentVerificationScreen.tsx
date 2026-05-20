@@ -1,7 +1,9 @@
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import React, {useState} from 'react';
 import {
   Alert,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -10,7 +12,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {colors, fonts} from '../../theme';
 
@@ -20,6 +21,7 @@ export interface DocumentVerificationScreenProps {
   documents: any[];
   verificationStatus: any;
   driverAvailability?: string;
+  extraDocs?: {name: string; docNumber: string}[];
   refreshing: boolean;
   onRefresh: () => void;
   onUpload: (documentType: string, expiryDate: string, file: any) => Promise<void>;
@@ -85,6 +87,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
   documents,
   verificationStatus: _verificationStatus,
   driverAvailability,
+  extraDocs = [],
   refreshing,
   onRefresh,
   onUpload,
@@ -94,15 +97,33 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 }) => {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [uploadForms, setUploadForms] = useState<Record<string, UploadForm>>({});
+  const [showPickerFor, setShowPickerFor] = useState<string | null>(null);
+  const [pickerDate, setPickerDate] = useState(new Date(Date.now() + 86400000));
 
   const visibleDocs = getVisibleDocs(driverAvailability);
+
+  // Extra docs added by driver — use label as the backendKey sent to the API
+  const extraDocCards = extraDocs.map(doc => ({
+    backendKey: doc.name,
+    normalKey: `extra_${doc.name.toLowerCase().replace(/\s+/g, '_')}`,
+    label: doc.name,
+    icon: '📄',
+    subtitle: doc.docNumber ? `No. ${doc.docNumber}` : 'Additional document · Optional',
+    isExtra: true,
+  }));
 
   const getUploadedDoc = (normalKey: string) =>
     documents.find(d =>
       normalizeDocType(d.documentType ?? d.docType ?? d.type) === normalKey,
     );
 
+  const getUploadedExtraDoc = (name: string) =>
+    documents.find(d =>
+      String(d.documentType ?? d.docType ?? d.type) === name,
+    );
+
   const uploadedCount = visibleDocs.filter(def => !!getUploadedDoc(def.normalKey)).length;
+  // canSubmit only requires the standard required docs; extra docs are optional
   const canSubmit = uploadedCount >= visibleDocs.length;
 
   const openUploadForm = (normalKey: string) => {
@@ -141,6 +162,30 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
       },
       {text: 'Cancel', style: 'cancel'},
     ]);
+  };
+
+  const openDatePicker = (normalKey: string) => {
+    const existing = uploadForms[normalKey]?.expiry;
+    if (existing) {
+      const parts = existing.split('-');
+      if (parts.length === 3) {
+        const parsed = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        if (!isNaN(parsed.getTime())) {setPickerDate(parsed);}
+      }
+    } else {
+      setPickerDate(new Date(Date.now() + 86400000));
+    }
+    setShowPickerFor(normalKey);
+  };
+
+  const onDateChange = (normalKey: string) => (_event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {setShowPickerFor(null);}
+    if (!selected) {return;}
+    setPickerDate(selected);
+    const yyyy = selected.getFullYear();
+    const mm = String(selected.getMonth() + 1).padStart(2, '0');
+    const dd = String(selected.getDate()).padStart(2, '0');
+    patchForm(normalKey, {expiry: `${yyyy}-${mm}-${dd}`});
   };
 
   const handleUpload = async (backendKey: string, normalKey: string) => {
@@ -281,13 +326,23 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                     )}
                   </Pressable>
 
-                  <AppInput
-                    placeholder="Expiry date  YYYY-MM-DD"
-                    value={form?.expiry ?? ''}
-                    onChangeText={v => patchForm(def.normalKey, {expiry: v})}
-                    keyboardType="numeric"
-                    containerStyle={{marginBottom: 0}}
-                  />
+                  <Pressable
+                    onPress={() => openDatePicker(def.normalKey)}
+                    style={styles.dateTrigger}>
+                    <Text style={form?.expiry ? styles.dateTriggerValue : styles.dateTriggerPlaceholder}>
+                      {form?.expiry || 'Select expiry date'}
+                    </Text>
+                    <Text style={styles.dateTriggerIcon}>📅</Text>
+                  </Pressable>
+                  {showPickerFor === def.normalKey && (
+                    <DateTimePicker
+                      value={pickerDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={new Date(Date.now() + 86400000)}
+                      onChange={onDateChange(def.normalKey)}
+                    />
+                  )}
 
                   <View style={styles.formActions}>
                     <Pressable onPress={() => setExpandedCard(null)} style={styles.cancelBtn}>
@@ -333,6 +388,114 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                     <Pressable
                       onPress={() => openUploadForm(def.normalKey)}
                       style={styles.outlineBtn}>
+                      <Text style={styles.outlineBtnText}>Upload Document</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
+          );
+        })}
+
+        {/* ── Extra Document Cards ───────────────────────────────────────── */}
+        {extraDocCards.map(def => {
+          const doc = getUploadedExtraDoc(def.backendKey);
+          const status = doc?.status?.toLowerCase();
+          const isVerified  = status === 'approved' || status === 'verified';
+          const isPending   = status === 'pending'  || status === 'under_review';
+          const isRejected  = status === 'rejected';
+          const hasDoc      = isVerified || isPending || isRejected;
+          const isExpanded  = expandedCard === def.normalKey;
+          const form        = uploadForms[def.normalKey];
+
+          return (
+            <View
+              key={def.normalKey}
+              style={[styles.docCard, isRejected && styles.docCardRejected]}>
+
+              <View style={styles.docRow}>
+                <View style={styles.docIconBox}>
+                  <Text style={styles.docIconText}>{def.icon}</Text>
+                </View>
+                <View style={styles.docMeta}>
+                  <Text style={styles.docName}>{def.label}</Text>
+                  <Text style={styles.docSubtitle}>Additional document · Optional</Text>
+                </View>
+                {isVerified && (
+                  <View style={styles.badgeVerified}>
+                    <Text style={styles.badgeVerifiedText}>VERIFIED</Text>
+                  </View>
+                )}
+                {isPending && (
+                  <View style={styles.badgePending}>
+                    <Text style={styles.badgePendingText}>PENDING REVIEW</Text>
+                  </View>
+                )}
+              </View>
+
+              {isExpanded && (
+                <View style={styles.uploadForm}>
+                  <Pressable
+                    onPress={() => pickFile(def.normalKey)}
+                    style={[styles.filePicker, form?.file && styles.filePickerReady]}>
+                    {form?.file ? (
+                      <View style={styles.filePickerInner}>
+                        <Text style={styles.fpIcon}>📄</Text>
+                        <Text style={styles.fpName} numberOfLines={1}>{form.file.fileName}</Text>
+                        <Text style={styles.fpRetap}>Tap to change</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.filePickerInner}>
+                        <Text style={styles.fpIcon}>📷</Text>
+                        <Text style={styles.fpPrompt}>Tap to select document</Text>
+                        <Text style={styles.fpHint}>JPG, PNG or PDF · Max 10MB</Text>
+                      </View>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => openDatePicker(def.normalKey)}
+                    style={styles.dateTrigger}>
+                    <Text style={form?.expiry ? styles.dateTriggerValue : styles.dateTriggerPlaceholder}>
+                      {form?.expiry || 'Select expiry date'}
+                    </Text>
+                    <Text style={styles.dateTriggerIcon}>📅</Text>
+                  </Pressable>
+                  {showPickerFor === def.normalKey && (
+                    <DateTimePicker
+                      value={pickerDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={new Date(Date.now() + 86400000)}
+                      onChange={onDateChange(def.normalKey)}
+                    />
+                  )}
+
+                  <View style={styles.formActions}>
+                    <Pressable onPress={() => setExpandedCard(null)} style={styles.cancelBtn}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleUpload(def.backendKey, def.normalKey)}
+                      disabled={uploadLoading}
+                      style={[styles.uploadBtn, uploadLoading && {opacity: 0.5}]}>
+                      <Text style={styles.uploadBtnText}>
+                        {uploadLoading ? 'Uploading…' : 'Upload'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {!isExpanded && (
+                <>
+                  {(isVerified || isRejected) && (
+                    <Pressable onPress={() => openUploadForm(def.normalKey)} style={styles.outlineBtn}>
+                      <Text style={styles.outlineBtnText}>{isRejected ? 'Upload New' : 'Replace'}</Text>
+                    </Pressable>
+                  )}
+                  {!hasDoc && (
+                    <Pressable onPress={() => openUploadForm(def.normalKey)} style={styles.outlineBtn}>
                       <Text style={styles.outlineBtnText}>Upload Document</Text>
                     </Pressable>
                   )}
@@ -677,17 +840,29 @@ const styles = StyleSheet.create({
   fpPrompt: {color: '#475569', fontSize: 13, fontWeight: '700'},
   fpHint: {color: '#94A3B8', fontSize: 11},
 
-  expiryInput: {
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#CBD5E1',
     borderRadius: 10,
     paddingHorizontal: 14,
-    height: 50,
-    fontSize: 14,
-    color: '#0F172A',
+    height: 52,
     backgroundColor: '#F8FAFC',
+  },
+  dateTriggerValue: {
+    fontSize: 15,
+    color: '#0F172A',
+    fontFamily: fonts.medium,
+    fontWeight: '600',
+  },
+  dateTriggerPlaceholder: {
+    fontSize: 14,
+    color: '#94A3B8',
     fontFamily: fonts.regular,
   },
+  dateTriggerIcon: {fontSize: 18},
 
   formActions: {flexDirection: 'row', gap: 10},
   cancelBtn: {

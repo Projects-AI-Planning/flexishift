@@ -462,6 +462,7 @@ function DriverApp(): React.JSX.Element {
   // Post-login setup flow
   const [setupStep, setSetupStep] = useState<SetupStep>(null);
   const [setupAvailability, setSetupAvailability] = useState<string>('');
+  const [setupExtraDocs, setSetupExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
 
   // Quote accepted/rejected notification
   const [quoteStatusData, setQuoteStatusData] = useState<{
@@ -1260,6 +1261,7 @@ function DriverApp(): React.JSX.Element {
     vehicleType: string;
     vehicleRegistration: string;
     photoFile?: {uri: string; fileName: string; type: string};
+    extraDocs: {name: string; docNumber: string}[];
   }) => {
     setActionLoading(true);
     setErrorBanner(null);
@@ -1282,6 +1284,7 @@ function DriverApp(): React.JSX.Element {
         vehicleRegistration: data.vehicleRegistration,
       });
       setSetupAvailability(data.driverAvailability);
+      setSetupExtraDocs(data.extraDocs ?? []);
       // Load existing documents and skip the documents step if already all approved
       try {
         const docs = await driverApi.documents.list();
@@ -3300,6 +3303,7 @@ function DriverApp(): React.JSX.Element {
           documents={documents}
           verificationStatus={verificationStatus}
           driverAvailability={setupAvailability}
+          extraDocs={setupExtraDocs}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);

@@ -189,6 +189,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [photoUploading, setPhotoUploading] = useState(false);
   const [availDropdownOpen, setAvailDropdownOpen] = useState(false);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
+  const [extraDocNameInput, setExtraDocNameInput] = useState('');
+  const [extraDocNumberInput, setExtraDocNumberInput] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
   const documentsSectionY = useRef<number | null>(null);
 
@@ -348,6 +351,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     ? 'all approved'
     : effectiveVerification?.profileComplete
       ? 'profile complete'
+      : effectiveDocuments.length === 0
+      ? 'not started'
       : 'in progress';
 
   const findDoc = (type: string) =>
@@ -782,6 +787,62 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
+        {/* ── Extra document names ─────────────────────────────────────── */}
+        <View style={extraDocStyles.wrap}>
+          <View style={extraDocStyles.headingRow}>
+            <Text style={extraDocStyles.label}>ADDITIONAL DOCUMENTS</Text>
+            <Text style={extraDocStyles.optionalTag}>OPTIONAL</Text>
+          </View>
+
+          {extraDocs.map((doc, idx) => (
+            <View key={idx} style={extraDocStyles.card}>
+              <View style={extraDocStyles.cardIcon}>
+                <Icon name="file" size={17} color={colors.accent} strokeWidth={2} />
+              </View>
+              <View style={extraDocStyles.cardBody}>
+                <Text style={extraDocStyles.cardName}>{doc.name}</Text>
+                {doc.docNumber ? <Text style={extraDocStyles.cardNumber}>{doc.docNumber}</Text> : null}
+              </View>
+              <Pressable
+                onPress={() => setExtraDocs(prev => prev.filter((_, i) => i !== idx))}
+                style={extraDocStyles.cardRemove}
+                hitSlop={8}>
+                <Text style={extraDocStyles.cardRemoveText}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+
+          <View style={extraDocStyles.inputBlock}>
+            <AppInput
+              label="Document Name"
+              placeholder="e.g. Car Insurance, Aadhar Card"
+              value={extraDocNameInput}
+              onChangeText={setExtraDocNameInput}
+              autoCapitalize="words"
+              containerStyle={{marginBottom: 12}}
+            />
+            <AppInput
+              label="Document Number"
+              placeholder="e.g. POL-2024-98765"
+              value={extraDocNumberInput}
+              onChangeText={setExtraDocNumberInput}
+              autoCapitalize="characters"
+              containerStyle={{marginBottom: 12}}
+            />
+            <Pressable
+              style={[extraDocStyles.addBtn, !extraDocNameInput.trim() && extraDocStyles.addBtnDisabled]}
+              onPress={() => {
+                const trimmedName = extraDocNameInput.trim();
+                if (!trimmedName) {return;}
+                setExtraDocs(prev => [...prev, {name: trimmedName, docNumber: extraDocNumberInput.trim()}]);
+                setExtraDocNameInput('');
+                setExtraDocNumberInput('');
+              }}>
+              <Text style={extraDocStyles.addBtnText}>＋  Add Document</Text>
+            </Pressable>
+          </View>
+        </View>
+
         <Pressable
           style={styles.manageDocsBtn}
           onPress={() => setDocManageModalVisible(true)}>
@@ -888,6 +949,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Standard required documents */}
               {visibleDocuments.map((doc, idx, arr) => {
                 const status = docStatus[doc.key];
                 const uploadedDoc = findDoc(doc.key);
@@ -974,6 +1036,66 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       )}
                     </View>
 
+                  </View>
+                );
+              })}
+
+              {/* Extra documents added by driver */}
+              {extraDocs.map((doc, idx) => {
+                const extraDoc = {
+                  key: `extra_${doc.name}`,
+                  backendKey: doc.name,
+                  icon: 'file' as const,
+                  label: doc.name,
+                };
+                const uploadedExtraDoc = localDocuments.find(
+                  d => String(d.documentType ?? d.docType ?? d.type) === doc.name,
+                );
+                const extraStatus = uploadedExtraDoc?.status?.toLowerCase();
+                const isExtraApproved = extraStatus === 'approved' || extraStatus === 'verified';
+                const isExtraReview = extraStatus === 'pending' || extraStatus === 'under_review';
+                const isExtraNotUploaded = !uploadedExtraDoc;
+                const cExtra = isExtraApproved
+                  ? {bg: '#DBEAFE', text: '#1066B1'}
+                  : isExtraReview
+                  ? {bg: '#FEF9C3', text: '#854D0E'}
+                  : {bg: '#F1F5F9', text: '#64748B'};
+                const extraLabelText = isExtraApproved ? 'ACTIVE' : isExtraReview ? 'UNDER REVIEW' : 'NOT UPLOADED';
+
+                return (
+                  <View
+                    key={idx}
+                    style={[styles.manageDocItem, styles.manageDocItemBorder]}>
+                    <View style={styles.docRow}>
+                      <View style={styles.docIcon}>
+                        <Icon name={extraDoc.icon} size={18} color="#000000" strokeWidth={2} />
+                      </View>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.docLabel}>{extraDoc.label}</Text>
+                        {doc.docNumber ? <Text style={styles.docSubNumber}>{doc.docNumber}</Text> : null}
+                      </View>
+                      <View style={[styles.docBadge, {backgroundColor: cExtra.bg}]}>
+                        <Text style={[styles.docBadgeText, {color: cExtra.text}]}>{extraLabelText}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.manageDocActions}>
+                      {isExtraNotUploaded && (
+                        <Pressable
+                          style={styles.manageUploadBtn}
+                          onPress={() => openUploadFromManage(extraDoc)}>
+                          <Icon name="upload" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageUploadBtnText}>  Upload</Text>
+                        </Pressable>
+                      )}
+                      {isExtraReview && (
+                        <Pressable
+                          style={styles.manageReuploadBtn}
+                          onPress={() => openUploadFromManage(extraDoc)}>
+                          <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
                 );
               })}
@@ -1277,7 +1399,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   docIcon: {width: 28, alignItems: 'center', justifyContent: 'center'},
-  docLabel: {flex: 1, fontSize: 14, fontWeight: '600', color: '#111827'},
+  docLabel: {fontSize: 14, fontWeight: '600', color: '#111827'},
+  docSubNumber: {fontSize: 11, color: '#6B7280', marginTop: 1},
   docBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
   docBadgeText: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
   docRejectBox: {
@@ -1501,6 +1624,42 @@ const daStyles = StyleSheet.create({
   dropItemLabelActive: {color: '#1066B1'},
   dropItemDesc: {fontSize: 11, color: '#6B7280', marginTop: 2},
   dropItemTick: {fontSize: 15, color: '#1066B1', fontWeight: '900'},
+});
+
+const extraDocStyles = StyleSheet.create({
+  wrap: {gap: 8},
+  headingRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  label: {fontSize: 11, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5},
+  optionalTag: {fontSize: 10, fontWeight: '600', color: '#9CA3AF'},
+  card: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D1E4F9',
+    borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 12,
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  cardIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#EAF3FD', justifyContent: 'center', alignItems: 'center', marginRight: 10,
+  },
+  cardBody: {flex: 1},
+  cardName: {fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 1},
+  cardNumber: {fontSize: 11, color: '#6B7280'},
+  cardRemove: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#FFF1EF', justifyContent: 'center', alignItems: 'center',
+  },
+  cardRemoveText: {fontSize: 11, color: '#DC2626', fontWeight: '700'},
+  inputBlock: {
+    backgroundColor: '#F8FAFC', borderWidth: 1.5, borderColor: '#E5EAF0',
+    borderRadius: radius.md, padding: 14, marginTop: 4,
+  },
+  addBtn: {
+    backgroundColor: '#1066B1', borderRadius: radius.md,
+    minHeight: 46, justifyContent: 'center', alignItems: 'center',
+  },
+  addBtnDisabled: {opacity: 0.4},
+  addBtnText: {color: '#fff', fontSize: 14, fontWeight: '700'},
 });
 
 export default ProfileScreen;

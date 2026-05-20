@@ -16,6 +16,36 @@ from app.models.user import UserProfile
 from app.services import documents as doc_svc
 from app.services.notifications import create_notification
 
+_REQUIRED_DOCS_BY_AVAIL: dict[str, list[str]] = {
+    'DRIVER_ONLY':       ['DRIVING_LICENCE'],
+    'TRUCK_ONLY':        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+    'DRIVER_WITH_TRUCK': ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+}
+
+
+def _refresh_driver_profile_complete(db: Session, user_id: str) -> None:
+    """Recompute profile_complete for a driver after a document status change."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != Role.DRIVER:
+        return
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile:
+        return
+    driver_avail = profile.driver_availability or ''
+    required = _REQUIRED_DOCS_BY_AVAIL.get(driver_avail, [])
+    if not required:
+        user.profile_complete = False
+    else:
+        user.profile_complete = all(
+            db.query(Document).filter(
+                Document.user_id == user_id,
+                Document.doc_type == dt,
+                Document.status == DocStatus.APPROVED,
+            ).first() is not None
+            for dt in required
+        )
+    db.flush()
+
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 AdminDep = require_role(Role.ADMIN)
@@ -215,6 +245,7 @@ async def review_document(
 ):
     doc = doc_svc.review_document(db, doc_id, admin, body.status, body.rejection_reason)
     doc_label = doc.doc_type.replace("_", " ").title()
+    _refresh_driver_profile_complete(db, doc.user_id)
     if body.status == "APPROVED":
         await create_notification(
             db, doc.user_id, "DOCUMENT_APPROVED",
@@ -243,6 +274,7 @@ async def approve_document(
 ):
     doc = doc_svc.review_document(db, doc_id, admin, "APPROVED", body.remarks)
     doc_label = doc.doc_type.replace("_", " ").title()
+    _refresh_driver_profile_complete(db, doc.user_id)
     await create_notification(
         db, doc.user_id, "DOCUMENT_APPROVED",
         "Document Approved",

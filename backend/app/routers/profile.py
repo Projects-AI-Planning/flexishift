@@ -44,22 +44,39 @@ def _apply_updates(current_user: User, updates: dict, db: Session) -> None:
         for k, v in profile_updates.items():
             setattr(current_user.profile, k, v)
 
-    _check_profile_complete(current_user)
+    _check_profile_complete(current_user, db)
     db.commit()
     db.refresh(current_user)
 
 
-def _check_profile_complete(user: User) -> None:
+_REQUIRED_DOCS_BY_AVAIL: dict[str, list[str]] = {
+    'DRIVER_ONLY':       ['DRIVING_LICENCE'],
+    'TRUCK_ONLY':        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+    'DRIVER_WITH_TRUCK': ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+}
+
+
+def _check_profile_complete(user: User, db=None) -> None:
     from app.models.user import Role
+    from app.models.document import Document, DocStatus
     p = user.profile
     if not p:
         return
     if user.role == Role.DRIVER:
-        # Match the mobile onboarding flow: the driver finishes setup after
-        # providing licence number and vehicle type. Vehicle registration can
-        # still be completed later from the profile editor.
-        if p.licence_number and p.vehicle_type:
-            user.profile_complete = True
+        driver_avail = p.driver_availability or ''
+        required_doc_types = _REQUIRED_DOCS_BY_AVAIL.get(driver_avail, [])
+        if not driver_avail or not required_doc_types or not db:
+            # No availability set yet — not complete
+            user.profile_complete = False
+            return
+        user.profile_complete = all(
+            db.query(Document).filter(
+                Document.user_id == user.id,
+                Document.doc_type == dt,
+                Document.status == DocStatus.APPROVED,
+            ).first() is not None
+            for dt in required_doc_types
+        )
     elif user.role in (Role.HAULIER, Role.FIRM):
         if p.company_name and p.company_address:
             user.profile_complete = True

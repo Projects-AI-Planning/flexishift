@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.shift import Shift, ShiftQuote, ShiftStatus, ShiftQuoteStatus, RequirementType
-from app.models.user import User
+from app.models.user import User, UserProfile
 
 
 def create_shift(db: Session, haulier: User, data: dict) -> Shift:
@@ -49,13 +49,21 @@ def list_haulier_shifts(db: Session, haulier_id: str) -> list[Shift]:
     )
 
 
-def list_available_shifts(db: Session) -> list[Shift]:
-    return (
-        db.query(Shift)
-        .filter(Shift.status == ShiftStatus.OPEN)
-        .order_by(Shift.start_date.asc())
-        .all()
-    )
+def list_available_shifts(db: Session, current_user: User | None = None) -> list[Shift]:
+    q = db.query(Shift).filter(Shift.status == ShiftStatus.OPEN)
+
+    driver_avail = None
+    if current_user:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+        driver_avail = profile.driver_availability if profile else None
+
+    if driver_avail == 'DRIVER_ONLY':
+        q = q.filter(Shift.requirement_type == RequirementType.DRIVER_ONLY)
+    elif driver_avail == 'TRUCK_ONLY':
+        q = q.filter(Shift.requirement_type == RequirementType.TRUCK_ONLY)
+    # DRIVER_WITH_TRUCK sees all shift requirement types — no additional filter
+
+    return q.order_by(Shift.start_date.asc()).all()
 
 
 def get_shift(db: Session, shift_id: str) -> Shift:

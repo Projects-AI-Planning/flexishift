@@ -41,7 +41,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     client = _stripe_client()
     intent = client.PaymentIntent.create(
         amount=amount_minor,
-        currency="gbp",
+        currency="inr",
         capture_method="manual",          # escrow: authorise now, capture later
         metadata={
             "job_id": job_id,
@@ -64,7 +64,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
             job_id=job_id,
             gateway_order_id=intent["id"],
             amount=selected_quote.price,
-            currency="GBP",
+            currency="INR",
             status=PaymentStatus.PENDING,
         )
         db.add(payment)

@@ -86,6 +86,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   const currentStep = resolveStep(complianceStatus, activeJob);
   const isInTransit = currentStep === 'in_transit';
 
+  // Fake progress animation while in transit
   useEffect(() => {
     if (!isInTransit) return;
     const interval = setInterval(() => {
@@ -93,6 +94,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
     }, 1500);
     return () => clearInterval(interval);
   }, [isInTransit]);
+
 
   const etaValue = trackingEta?.estimatedArrival ?? activeJob?.eta ?? activeJob?.originalEta;
   const distanceValue =
@@ -117,8 +119,10 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
     activeJob?.dropLat != null && activeJob?.dropLng != null
       ? {latitude: Number(activeJob.dropLat), longitude: Number(activeJob.dropLng)}
       : null;
+
+  // Server-polled fallback location (device GPS is handled inside ActiveJobMap)
   const liveCoords =
-    trackingLiveLocation?.latitude != null && trackingLiveLocation?.longitude != null
+    (trackingLiveLocation?.latitude != null && trackingLiveLocation?.longitude != null
       ? {
           latitude: Number(trackingLiveLocation.latitude),
           longitude: Number(trackingLiveLocation.longitude),
@@ -128,7 +132,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           latitude: Number(activeJob.currentLocation.latitude),
           longitude: Number(activeJob.currentLocation.longitude),
         }
-      : null;
+      : null);
 
   if (!activeJob) {
     return (
@@ -179,12 +183,16 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           pickupCoords={pickupCoords}
           dropCoords={dropCoords}
           currentCoords={liveCoords}
+          liveMode={isInTransit}
+          onLocationUpdate={isInTransit ? onUpdateLocation : undefined}
         />
         <View style={styles.mapMetaRow}>
           <Text style={styles.mapMetaText}>
             {distanceLabel === '—' ? '— km remaining' : `${distanceLabel} remaining`}
           </Text>
-          <Text style={styles.mapMetaText}>Updated live from backend</Text>
+          <Text style={[styles.mapMetaText, isInTransit && styles.mapMetaLive]}>
+            {isInTransit ? '● GPS tracking on' : 'Updated from backend'}
+          </Text>
         </View>
       </View>
 
@@ -286,6 +294,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   mapMetaText: {color: colors.inkSoft, fontSize: 12, fontWeight: '700'},
+  mapMetaLive: {color: '#16a34a'},
   sheet: {flex: 1},
   sheetContent: {padding: spacing.md, paddingBottom: 100},
   sheetHandle: {

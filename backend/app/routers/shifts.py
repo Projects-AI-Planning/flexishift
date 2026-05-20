@@ -108,9 +108,9 @@ def list_my_shifts(
 @router.get("/available")
 def list_available_shifts(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    items = shifts_svc.list_available_shifts(db)
+    items = shifts_svc.list_available_shifts(db, current_user)
     return ok({"items": [_shift_dict(s) for s in items], "total": len(items)})
 
 

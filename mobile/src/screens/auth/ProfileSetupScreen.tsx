@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
-import Icon, {IconName} from '../../components/common/Icon';
+import Icon from '../../components/common/Icon';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
 
@@ -26,21 +26,12 @@ interface ProfileSetupScreenProps {
     vehicleRegistration: string;
     truckCapacity?: string;
     photoFile?: {uri: string; fileName: string; type: string};
+    extraDocs: {name: string; docNumber: string}[];
   }) => void;
   onSkip: () => void;
   loading: boolean;
   error: string | null;
 }
-
-const VEHICLES: {icon: IconName; key: string; label: string}[] = [
-  {icon: 'truck',     key: 'FLATBED',      label: 'Flatbed'},
-  {icon: 'snowflake', key: 'REFRIGERATED', label: 'Refrigerated'},
-  {icon: 'package',   key: 'BOX_TRUCK',    label: 'Box Truck'},
-  {icon: 'truck',     key: 'HGV',          label: 'HGV'},
-  {icon: 'van',       key: 'VAN',          label: 'Van'},
-  {icon: 'scale',     key: 'TANKER',       label: 'Tanker'},
-  {icon: 'pen',       key: 'OTHER',        label: 'Other'},
-];
 
 const DRIVER_MODES = [
   {key: 'DRIVER_ONLY',       label: 'Only Driver',       desc: 'Available as driver only — no truck'},
@@ -61,7 +52,6 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [licenceNumber, setLicenceNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('');
-  const [otherVehicleType, setOtherVehicleType] = useState('');
   const [truckCapacity, setTruckCapacity] = useState('');
   const [vehicleRegistration, setVehicleRegistration] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -69,6 +59,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     {uri: string; fileName: string; type: string} | undefined
   >();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
+  const [docNameInput, setDocNameInput] = useState('');
+  const [docNumberInput, setDocNumberInput] = useState('');
 
   const showDriverSection = driverAvailability === 'DRIVER_ONLY' || driverAvailability === 'DRIVER_WITH_TRUCK';
   const showTruckSection  = driverAvailability === 'TRUCK_ONLY'  || driverAvailability === 'DRIVER_WITH_TRUCK';
@@ -117,11 +110,8 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     if (showDriverSection && (!licenceNumber.trim() || licenceNumber.trim().length < 4)) {
       e.licenceNumber = 'A valid driving licence number is required.';
     }
-    if (showTruckSection && !vehicleType) {
-      e.vehicleType = 'Please select a vehicle category.';
-    }
-    if (showTruckSection && vehicleType === 'OTHER' && !otherVehicleType.trim()) {
-      e.otherVehicleType = 'Please specify your vehicle category.';
+    if (showTruckSection && !vehicleType.trim()) {
+      e.vehicleType = 'Please enter your vehicle category.';
     }
     return e;
   };
@@ -137,10 +127,11 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
       name,
       driverAvailability,
       licenceNumber,
-      vehicleType: vehicleType === 'OTHER' ? otherVehicleType.trim() : vehicleType,
+      vehicleType: vehicleType.trim(),
       vehicleRegistration,
       truckCapacity: truckCapacity.trim() || undefined,
       photoFile,
+      extraDocs,
     });
   };
 
@@ -261,40 +252,15 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             </View>
 
             {/* Vehicle Category */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>VEHICLE CATEGORY</Text>
-              <View style={styles.vehicleGrid}>
-                {VEHICLES.map(v => (
-                  <Pressable
-                    key={v.key}
-                    onPress={() => { setVehicleType(v.key); clearErr('vehicleType'); clearErr('otherVehicleType'); }}
-                    style={[styles.vehicleChip, vehicleType === v.key && styles.vehicleChipActive]}>
-                    <Icon
-                      name={v.icon}
-                      size={22}
-                      color={vehicleType === v.key ? colors.accent : '#6B7280'}
-                      strokeWidth={1.8}
-                    />
-                    <Text style={[styles.vehicleLabel, vehicleType === v.key && styles.vehicleLabelActive]}>
-                      {v.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {fieldErrors.vehicleType
-                ? <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
-                : null}
-              {vehicleType === 'OTHER' && (
-                <AppInput
-                  autoCapitalize="words"
-                  onChangeText={v => { setOtherVehicleType(v); clearErr('otherVehicleType'); }}
-                  placeholder="Specify your vehicle type"
-                  value={otherVehicleType}
-                  error={fieldErrors.otherVehicleType}
-                  containerStyle={styles.otherInputWrap}
-                />
-              )}
-            </View>
+            <AppInput
+              label="Vehicle Category"
+              autoCapitalize="words"
+              onChangeText={v => { setVehicleType(v); clearErr('vehicleType'); }}
+              placeholder="e.g. Flatbed, HGV, Van, Tanker"
+              value={vehicleType}
+              error={fieldErrors.vehicleType}
+              containerStyle={styles.fieldGroup}
+            />
 
             {/* Truck Capacity (Optional) */}
             <AppInput
@@ -317,6 +283,69 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             />
           </View>
         )}
+
+        {/* ── Extra Documents ─────────────────────────────────────────────── */}
+        {driverAvailability ? (
+          <View style={styles.extraDocSection}>
+            <View style={styles.sectionHeadingRow}>
+              <Icon name="file" size={15} color="#374151" strokeWidth={2.2} />
+              <Text style={styles.sectionHeading}>Additional Documents</Text>
+              <Text style={styles.optionalTag}>  OPTIONAL</Text>
+            </View>
+
+            {/* Added doc cards */}
+            {extraDocs.map((doc, idx) => (
+              <View key={idx} style={styles.extraDocCard}>
+                <View style={styles.extraDocCardIcon}>
+                  <Icon name="file" size={18} color={colors.accent} strokeWidth={2} />
+                </View>
+                <View style={styles.extraDocCardBody}>
+                  <Text style={styles.extraDocCardName}>{doc.name}</Text>
+                  {doc.docNumber ? (
+                    <Text style={styles.extraDocCardNumber}>{doc.docNumber}</Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  onPress={() => setExtraDocs(prev => prev.filter((_, i) => i !== idx))}
+                  style={styles.extraDocCardRemove}
+                  hitSlop={8}>
+                  <Text style={styles.extraDocCardRemoveText}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+
+            {/* Inputs */}
+            <View style={styles.extraDocInputBlock}>
+              <AppInput
+                label="Document Name"
+                placeholder="e.g. Car Insurance, Aadhar Card"
+                value={docNameInput}
+                onChangeText={setDocNameInput}
+                autoCapitalize="words"
+                containerStyle={{marginBottom: 12}}
+              />
+              <AppInput
+                label="Document Number"
+                placeholder="e.g. POL-2024-98765"
+                value={docNumberInput}
+                onChangeText={setDocNumberInput}
+                autoCapitalize="characters"
+                containerStyle={{marginBottom: 12}}
+              />
+              <Pressable
+                style={[styles.extraDocAddBtn, !docNameInput.trim() && styles.extraDocAddBtnDisabled]}
+                onPress={() => {
+                  const name = docNameInput.trim();
+                  if (!name) {return;}
+                  setExtraDocs(prev => [...prev, {name, docNumber: docNumberInput.trim()}]);
+                  setDocNameInput('');
+                  setDocNumberInput('');
+                }}>
+                <Text style={styles.extraDocAddBtnText}>＋  Add Document</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         {/* ── Common Document Verification info (shown once any option is selected) ── */}
         {driverAvailability ? (
@@ -427,18 +456,39 @@ const styles = StyleSheet.create({
   sectionDividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
   sectionDividerLabel: {fontSize: 13, fontWeight: '800', color: '#374151'},
 
-  // Vehicle grid
-  vehicleGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
-  vehicleChip: {
-    flexBasis: '30%', flexGrow: 1, backgroundColor: '#FFFFFF',
-    borderColor: '#C9D0DB', borderWidth: 1.5, borderRadius: radius.md,
-    paddingVertical: 14, alignItems: 'center', gap: 4,
-  },
-  vehicleChipActive: {backgroundColor: '#EAF3FD', borderColor: colors.accent, borderWidth: 2},
-  vehicleLabel: {color: colors.inkSoft, fontSize: 12, fontWeight: '700'},
-  vehicleLabelActive: {color: colors.accent, fontWeight: '900'},
-  otherInputWrap: {marginTop: 12},
   optionalTag: {color: colors.inkSoft, fontSize: 10, fontWeight: '600'},
+
+  // Extra documents
+  extraDocSection: {marginBottom: 20},
+  extraDocCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D1E4F9',
+    borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10,
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  extraDocCardIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#EAF3FD', justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  extraDocCardBody: {flex: 1},
+  extraDocCardName: {fontSize: 14, fontWeight: '700', color: colors.ink, marginBottom: 2},
+  extraDocCardNumber: {fontSize: 12, color: colors.inkSoft},
+  extraDocCardRemove: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#FFF1EF', justifyContent: 'center', alignItems: 'center',
+  },
+  extraDocCardRemoveText: {fontSize: 12, color: colors.danger, fontWeight: '700'},
+  extraDocInputBlock: {
+    backgroundColor: '#F8FAFC', borderWidth: 1.5, borderColor: '#E5EAF0',
+    borderRadius: radius.md, padding: 16, marginTop: 4,
+  },
+  extraDocAddBtn: {
+    backgroundColor: colors.accent, borderRadius: radius.md,
+    minHeight: 48, justifyContent: 'center', alignItems: 'center',
+  },
+  extraDocAddBtnDisabled: {opacity: 0.4},
+  extraDocAddBtnText: {color: '#fff', fontSize: 15, fontWeight: '700'},
 
   // Info box
   infoBox: {
