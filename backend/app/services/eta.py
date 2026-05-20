@@ -22,13 +22,27 @@ async def get_eta(db: Session, job_id: str) -> dict:
         .order_by(TrackingPoint.recorded_at.desc())
         .first()
     )
-    origin_lat = float(last_point.lat) if last_point else float(job.pickup_lat)
-    origin_lng = float(last_point.lng) if last_point else float(job.pickup_lng)
 
-    route = await get_route_info(
-        origin_lat, origin_lng,
-        float(job.drop_lat), float(job.drop_lng),
-    )
+    # Safeguard coordinates
+    try:
+        origin_lat = float(last_point.lat) if last_point else float(job.pickup_lat or 0.0)
+        origin_lng = float(last_point.lng) if last_point else float(job.pickup_lng or 0.0)
+        dest_lat = float(job.drop_lat or 0.0)
+        dest_lng = float(job.drop_lng or 0.0)
+    except (TypeError, ValueError):
+        origin_lat, origin_lng, dest_lat, dest_lng = 0.0, 0.0, 0.0, 0.0
+
+    if origin_lat == 0.0 or dest_lat == 0.0:
+        # Cannot calculate without coords
+        return {
+            "job_id": job_id,
+            "eta": job.original_eta.isoformat() if job.original_eta else None,
+            "remaining_distance_km": 0,
+            "remaining_duration_min": 0,
+            "error": "Missing coordinates for calculation"
+        }
+
+    route = await get_route_info(origin_lat, origin_lng, dest_lat, dest_lng)
 
     now = datetime.now(timezone.utc)
     eta_dt = now + timedelta(minutes=route["duration_min"])

@@ -64,6 +64,21 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 async def get_route_info(
     origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float
 ) -> dict:
+    # Prefer OSRM as requested (no key required)
+    try:
+        url = f"https://router.project-osrm.org/route/v1/driving/{origin_lng},{origin_lat};{dest_lng},{dest_lat}?overview=false"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=10)
+            data = resp.json()
+        if data.get("code") == "Ok" and data.get("routes"):
+            route = data["routes"][0]
+            return {
+                "distance_km": round(route["distance"] / 1000, 2),
+                "duration_min": int(route["duration"] / 60),
+            }
+    except Exception as exc:
+        log.warning("osrm_api_error", error=str(exc))
+
     if not settings.GOOGLE_MAPS_API_KEY:
         distance = haversine_km(origin_lat, origin_lng, dest_lat, dest_lng)
         return {"distance_km": round(distance, 2), "duration_min": int(distance * 1.5)}

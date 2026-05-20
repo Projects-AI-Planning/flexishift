@@ -1,9 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
-import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import MapViewDirections, {MapDirectionsResponse} from 'react-native-maps-directions';
+import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import {colors, radius} from '../../theme';
-import {GOOGLE_MAPS_API_KEY} from '../../config/env';
 
 interface ActiveJobMapProps {
   pickupLocation: string;
@@ -13,6 +11,7 @@ interface ActiveJobMapProps {
   currentCoords?: {latitude: number; longitude: number} | null;
   liveMode?: boolean;
   onLocationUpdate?: (coords: {latitude: number; longitude: number}) => void;
+  onRouteInfoUpdate?: (info: {distanceKm: number; durationMin: number}) => void;
 }
 
 interface LatLng {
@@ -23,6 +22,20 @@ interface LatLng {
 interface Coords {
   lat: number;
   lon: number;
+}
+
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 async function geocode(address: string): Promise<Coords | null> {
@@ -67,6 +80,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   currentCoords = null,
   liveMode = false,
   onLocationUpdate,
+  onRouteInfoUpdate,
 }) => {
   const mapRef = useRef<MapView>(null);
   const initialFitDoneRef = useRef(false);
@@ -77,12 +91,27 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   const [loading, setLoading] = useState(true);
   const [noCoords, setNoCoords] = useState(false);
   const [routeReady, setRouteReady] = useState(false);
+  const [routeError, setRouteError] = useState(false);
+  const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
 
   // Live GPS position from device
   const [driverCoords, setDriverCoords] = useState<LatLng | null>(null);
-  // Throttled origin for MapViewDirections — only changes when driver moves > ~50 m
+  // Throttled origin for routing updates
   const [routeOrigin, setRouteOrigin] = useState<LatLng | null>(null);
   const lastRouteOriginRef = useRef<LatLng | null>(null);
+
+  // Safety timeout for route loading
+  useEffect(() => {
+    if (!routeReady && !loading && !noCoords) {
+      const timer = setTimeout(() => {
+        if (!routeReady) {
+          console.log('Map route timeout reached, forcing ready state');
+          setRouteReady(true);
+        }
+      }, 8000); // 8 seconds safety
+      return () => clearTimeout(timer);
+    }
+  }, [routeReady, loading, noCoords]);
 
   // ── Resolve pickup/drop coords ──────────────────────────────────────────────
   useEffect(() => {
@@ -185,15 +214,57 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     ? {latitude: dropCoords.lat, longitude: dropCoords.lon}
     : null;
 
-  const handleDirectionsReady = useCallback(
-    (result: MapDirectionsResponse) => {
-      setRouteReady(true);
-      if (!followingRef.current && mapRef.current && result.coordinates.length >= 2) {
-        mapRef.current.animateToRegion(ptsToRegion(result.coordinates), 800);
+  // ── OSRM Routing & ETA Logic ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!directionsOrigin || !directionsDestination) {return;}
+
+    setRouteReady(false);
+    setRouteError(false);
+
+    (async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${directionsOrigin.longitude},${directionsOrigin.latitude};${directionsDestination.longitude},${directionsDestination.latitude}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates.map((c: any) => ({
+            latitude: c[1],
+            longitude: c[0],
+          }));
+          setRouteCoords(coords);
+          setRouteReady(true);
+
+          // Notify parent about route info
+          onRouteInfoUpdate?.({
+            distanceKm: route.distance / 1000,
+            durationMin: Math.round(route.duration / 60),
+          });
+
+          if (!followingRef.current && mapRef.current && coords.length >= 2) {
+            mapRef.current.animateToRegion(ptsToRegion(coords), 800);
+          }
+        } else {
+          throw new Error('Invalid OSRM response');
+        }
+      } catch (err) {
+        console.warn('OSRM error:', err);
+        setRouteError(true);
+        setRouteReady(true);
+        
+        // Fallback: Haversine distance if OSRM fails
+        const dist = haversine(
+          directionsOrigin.latitude, directionsOrigin.longitude,
+          directionsDestination.latitude, directionsDestination.longitude
+        );
+        onRouteInfoUpdate?.({
+          distanceKm: dist,
+          durationMin: Math.round(dist * 1.5), // Rough estimate: 40 km/h average
+        });
       }
-    },
-    [],
-  );
+    })();
+  }, [directionsOrigin?.latitude, directionsOrigin?.longitude, directionsDestination?.latitude, directionsDestination?.longitude, onRouteInfoUpdate]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (noCoords && !loading) {
@@ -243,19 +314,12 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
                 : undefined
             }>
 
-            {/* Google Maps road route via Directions API */}
-            {directionsOrigin && directionsDestination && (
-              <MapViewDirections
-                origin={directionsOrigin}
-                destination={directionsDestination}
-                apikey={GOOGLE_MAPS_API_KEY}
-                mode="DRIVING"
+            {/* OSRM Polyline */}
+            {routeReady && routeCoords.length > 0 && (
+              <Polyline
+                coordinates={routeCoords}
                 strokeWidth={5}
                 strokeColor="#1d6fd8"
-                precision="high"
-                resetOnChange={false}
-                onReady={handleDirectionsReady}
-                onError={(err: string) => console.warn('Directions API error:', err)}
               />
             )}
 
@@ -298,7 +362,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
           </MapView>
 
           {/* Route loading indicator */}
-          {!routeReady && !loading && (
+          {!routeReady && !loading && directionsOrigin && directionsDestination && (
             <View style={styles.routeLoadingBadge} pointerEvents="none">
               <ActivityIndicator color="#fff" size="small" />
               <Text style={styles.routeLoadingText}>Loading route…</Text>

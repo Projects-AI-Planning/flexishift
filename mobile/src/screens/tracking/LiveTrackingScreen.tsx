@@ -83,6 +83,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   onReportIncident,
 }) => {
   const [progress, setProgress] = useState(14);
+  const [realtimeInfo, setRealtimeInfo] = useState<{distanceKm: number; durationMin: number} | null>(null);
   const currentStep = resolveStep(complianceStatus, activeJob);
   const isInTransit = currentStep === 'in_transit';
 
@@ -96,17 +97,24 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   }, [isInTransit]);
 
 
-  const etaValue = trackingEta?.estimatedArrival ?? activeJob?.eta ?? activeJob?.originalEta;
-  const distanceValue =
-    trackingEta?.distanceRemaining ??
-    activeJob?.distanceRemaining ??
-    activeJob?.distanceKm ??
-    activeJob?.distance;
-  const durationValue =
-    trackingEta?.estimatedDuration ??
-    activeJob?.estimatedDuration ??
-    activeJob?.durationMin ??
-    activeJob?.timeLeft;
+  const etaValue = realtimeInfo
+    ? new Date(Date.now() + realtimeInfo.durationMin * 60000).toISOString()
+    : trackingEta?.estimatedArrival ?? activeJob?.eta ?? activeJob?.originalEta;
+
+  const distanceValue = realtimeInfo
+    ? `${realtimeInfo.distanceKm.toFixed(1)} km`
+    : trackingEta?.distanceRemaining ??
+      activeJob?.distanceRemaining ??
+      activeJob?.distanceKm ??
+      activeJob?.distance;
+
+  const durationValue = realtimeInfo
+    ? realtimeInfo.durationMin
+    : trackingEta?.estimatedDuration ??
+      activeJob?.estimatedDuration ??
+      activeJob?.durationMin ??
+      activeJob?.timeLeft;
+
   const etaLabel = formatEta(etaValue);
   const distanceLabel = formatDistance(distanceValue);
   const durationLabel = formatDuration(durationValue);
@@ -185,6 +193,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           currentCoords={liveCoords}
           liveMode={isInTransit}
           onLocationUpdate={isInTransit ? onUpdateLocation : undefined}
+          onRouteInfoUpdate={isInTransit ? setRealtimeInfo : undefined}
         />
         <View style={styles.mapMetaRow}>
           <Text style={styles.mapMetaText}>

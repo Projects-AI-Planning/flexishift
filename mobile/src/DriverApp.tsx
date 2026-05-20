@@ -1,11 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Geolocation from '@react-native-community/geolocation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
   Image,
   Linking,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -322,6 +326,58 @@ function DriverApp(): React.JSX.Element {
   const [initializing, setInitializing] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<DriverSession | null>(null);
+
+  const [locationStatus, setLocationStatus] = useState<'checking' | 'granted' | 'denied' | 'disabled'>('checking');
+
+  const checkLocation = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        if (!hasPermission) {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'Location Permission Required',
+              message: 'FlexiShift requires mandatory location access for trip tracking and safety.',
+              buttonPositive: 'Grant Permission',
+            },
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            setLocationStatus('denied');
+            return;
+          }
+        }
+      } catch (err) {
+        setLocationStatus('denied');
+        return;
+      }
+    }
+
+    Geolocation.getCurrentPosition(
+      () => {
+        setLocationStatus('granted');
+      },
+      (error) => {
+        if (error.code === 1) {
+          setLocationStatus('denied');
+        } else {
+          setLocationStatus('disabled');
+        }
+      },
+      {enableHighAccuracy: true, timeout: 5000, maximumAge: 10000}
+    );
+  }, []);
+
+  useEffect(() => {
+    checkLocation();
+
+    const sub = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        checkLocation();
+      }
+    });
+    return () => sub.remove();
+  }, [checkLocation]);
 
   // Navigation
   const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
@@ -3178,6 +3234,43 @@ function DriverApp(): React.JSX.Element {
   // Show blank nav-colour screen while restoring session from storage
   if (initializing) {
     return <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}} />;
+  }
+
+  if (locationStatus === 'denied' || locationStatus === 'disabled') {
+    return (
+      <SafeAreaView style={styles.blockingOverlay}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={styles.blockingContent}>
+          <View style={styles.blockingIconCircle}>
+            <Text style={styles.blockingIcon}>{locationStatus === 'denied' ? '🚫' : '📍'}</Text>
+          </View>
+          <Text style={styles.blockingTitle}>
+            {locationStatus === 'denied' ? 'Permission Required' : 'Location is Off'}
+          </Text>
+          <Text style={styles.blockingText}>
+            FlexiShift requires mandatory location access to operate. This is required for trip tracking, safety, and regulatory compliance.
+          </Text>
+          <Pressable
+            style={styles.blockingBtn}
+            onPress={() => {
+              if (locationStatus === 'denied') {
+                Linking.openSettings();
+              } else {
+                checkLocation();
+              }
+            }}>
+            <Text style={styles.blockingBtnText}>
+              {locationStatus === 'denied' ? 'Open App Settings' : 'Check Again'}
+            </Text>
+          </Pressable>
+          {locationStatus === 'disabled' && (
+            <Text style={styles.blockingHint}>
+              Please turn on your phone's GPS (Location) toggle.
+            </Text>
+          )}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (showSplash) {
