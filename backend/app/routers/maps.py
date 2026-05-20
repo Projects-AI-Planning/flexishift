@@ -1,6 +1,6 @@
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.response import ok
@@ -11,6 +11,58 @@ from app.services.maps import get_route_info
 
 log = structlog.get_logger()
 router = APIRouter(prefix="/maps", tags=["Maps"])
+
+
+def _decode_polyline(encoded: str) -> list[dict]:
+    """Decode Google Maps encoded polyline string to lat/lng coordinate list."""
+    coords: list[dict] = []
+    index = 0
+    lat = 0
+    lng = 0
+    length = len(encoded)
+    while index < length:
+        result = shift = 0
+        while True:
+            b = ord(encoded[index]) - 63
+            index += 1
+            result |= (b & 0x1F) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lat += (~(result >> 1) if result & 1 else result >> 1)
+        result = shift = 0
+        while True:
+            b = ord(encoded[index]) - 63
+            index += 1
+            result |= (b & 0x1F) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        lng += (~(result >> 1) if result & 1 else result >> 1)
+        coords.append({"latitude": lat / 1e5, "longitude": lng / 1e5})
+    return coords
+
+
+async def _road_route_osrm(
+    origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float
+) -> list[dict]:
+    """OSRM open-source routing fallback — no API key required."""
+    url = (
+        f"https://router.project-osrm.org/route/v1/driving/"
+        f"{origin_lng},{origin_lat};{dest_lng},{dest_lat}"
+        "?geometries=geojson&overview=full"
+    )
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            url, headers={"User-Agent": "FreightFlex/1.0"}, timeout=15
+        )
+    data = resp.json()
+    if data.get("code") != "Ok" or not data.get("routes"):
+        return []
+    return [
+        {"latitude": lat, "longitude": lon}
+        for lon, lat in data["routes"][0]["geometry"]["coordinates"]
+    ]
 
 GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
@@ -160,3 +212,49 @@ async def calculate_route(
         },
         message="Route calculated",
     )
+
+
+@router.get("/route")
+async def get_road_route(
+    origin_lat: float = Query(...),
+    origin_lng: float = Query(...),
+    dest_lat: float = Query(...),
+    dest_lng: float = Query(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Return road-following polyline coordinates between two lat/lng points.
+
+    Tries Google Maps Directions API first (if GOOGLE_MAPS_API_KEY is set),
+    then falls back to the public OSRM demo server.
+    """
+    if settings.GOOGLE_MAPS_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    "https://maps.googleapis.com/maps/api/directions/json",
+                    params={
+                        "origin": f"{origin_lat},{origin_lng}",
+                        "destination": f"{dest_lat},{dest_lng}",
+                        "mode": "driving",
+                        "key": settings.GOOGLE_MAPS_API_KEY,
+                    },
+                    timeout=15,
+                )
+            data = resp.json()
+            if data.get("status") == "OK" and data.get("routes"):
+                encoded = data["routes"][0]["overview_polyline"]["points"]
+                coordinates = _decode_polyline(encoded)
+                return ok(data={"coordinates": coordinates}, message="Route fetched")
+            log.warning("google_directions_non_ok", status=data.get("status"))
+        except Exception as exc:
+            log.warning("google_directions_error", error=str(exc))
+
+    # OSRM fallback
+    try:
+        coordinates = await _road_route_osrm(origin_lat, origin_lng, dest_lat, dest_lng)
+        if coordinates:
+            return ok(data={"coordinates": coordinates}, message="Route fetched via fallback")
+    except Exception as exc:
+        log.warning("osrm_fallback_error", error=str(exc))
+
+    raise HTTPException(status_code=503, detail="Route service unavailable")
