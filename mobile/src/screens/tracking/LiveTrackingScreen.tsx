@@ -85,7 +85,8 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
   const [progress, setProgress] = useState(14);
   const [realtimeInfo, setRealtimeInfo] = useState<{distanceKm: number; durationMin: number} | null>(null);
   const currentStep = resolveStep(complianceStatus, activeJob);
-  const isInTransit = currentStep === 'in_transit';
+  // No dedicated "in transit" screen — GPS live tracking is on for any active step
+  const isInTransit = currentStep !== 'done';
 
   // Fake progress animation while in transit
   useEffect(() => {
