@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import {colors, radius} from '../../theme';
-import {driverApi} from '../../api/driverApi';
+import {GOOGLE_MAPS_API_KEY} from '../../config/env';
 
 interface ActiveJobMapProps {
   pickupLocation: string;
@@ -38,15 +38,38 @@ async function geocode(address: string): Promise<Coords | null> {
   }
 }
 
+function decodePolyline(encoded: string): {latitude: number; longitude: number}[] {
+  const pts: {latitude: number; longitude: number}[] = [];
+  let i = 0, lat = 0, lng = 0;
+  while (i < encoded.length) {
+    let b: number, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    shift = result = 0;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    pts.push({latitude: lat / 1e5, longitude: lng / 1e5});
+  }
+  return pts;
+}
+
 async function fetchRoadRoute(
   origin: Coords,
   destination: Coords,
 ): Promise<{latitude: number; longitude: number}[] | null> {
   try {
-    const data = await driverApi.maps.getRoute(
-      origin.lat, origin.lon, destination.lat, destination.lon,
+    const params = new URLSearchParams({
+      origin: `${origin.lat},${origin.lon}`,
+      destination: `${destination.lat},${destination.lon}`,
+      mode: 'driving',
+      key: GOOGLE_MAPS_API_KEY,
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/directions/json?${params}`,
     );
-    return data.coordinates ?? null;
+    const data = await res.json();
+    if (data.status !== 'OK' || !data.routes?.[0]) {return null;}
+    return decodePolyline(data.routes[0].overview_polyline.points);
   } catch {
     return null;
   }
