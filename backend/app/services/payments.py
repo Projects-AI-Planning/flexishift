@@ -39,18 +39,23 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     amount_minor = int(amount * 100)
 
     client = _stripe_client()
-    intent = client.PaymentIntent.create(
-        amount=amount_minor,
-        currency="inr",
-        capture_method="manual",          # escrow: authorise now, capture later
-        metadata={
-            "job_id": job_id,
-            "job_ref": job.job_ref,
-            "haulier_id": haulier_id,
-            "driver_id": str(job.selected_supplier_id or ""),
-        },
-        description=f"FreightFlex job {job.job_ref}",
-    )
+    try:
+        intent = client.PaymentIntent.create(
+            amount=amount_minor,
+            currency="gbp",
+            capture_method="manual",          # escrow: authorise now, capture later
+            metadata={
+                "job_id": job_id,
+                "job_ref": job.job_ref,
+                "haulier_id": haulier_id,
+                "driver_id": str(job.selected_supplier_id or ""),
+            },
+            description=f"FreightFlex job {job.job_ref}",
+        )
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Payment gateway error: {e.user_message or str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
     if existing:
         existing.gateway_order_id = intent["id"]
@@ -96,8 +101,10 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
     client = _stripe_client()
     try:
         intent = client.PaymentIntent.retrieve(payment_intent_id)
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
     allowed = {"requires_capture", "succeeded"}
     if intent["status"] not in allowed:
@@ -112,6 +119,8 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
     payment.escrowed_at = datetime.utcnow()
 
     job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
     job.status = JobStatus.PAYMENT_SECURED
 
     db.commit()
