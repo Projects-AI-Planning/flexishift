@@ -56,8 +56,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     job.status = JobStatus.PAYMENT_SECURED
 
         elif event_type == "payment_intent.succeeded" and intent_id:
+            from sqlalchemy import or_
             payment = db.query(Payment).filter(
-                Payment.gateway_payment_id == intent_id
+                or_(Payment.gateway_payment_id == intent_id, Payment.gateway_order_id == intent_id)
             ).first()
             if payment and payment.status == PaymentStatus.ESCROWED:
                 from datetime import datetime

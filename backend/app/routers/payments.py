@@ -215,7 +215,7 @@ def get_payment_status(
 def release_escrow(
     booking_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
 ):
     p = pay_svc.release_payment(db, booking_id)
     return ok(data=_payment_dict(p), message="Payment released")

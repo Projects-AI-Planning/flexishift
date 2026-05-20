@@ -51,6 +51,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
                 "driver_id": str(job.selected_supplier_id or ""),
             },
             description=f"FreightFlex job {job.job_ref}",
+            idempotency_key=f"pay-{job_id}",
         )
     except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=f"Payment gateway error: {e.user_message or str(e)}")
