@@ -39,7 +39,6 @@ import ResolvedSupportTicketsPage from './pages/admin/ResolvedSupportTickets';
 
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
-import FleetPage from './pages/haulier/Fleet';
 import HaulierDriversPage from './pages/haulier/Drivers';
 import HaulierLoadsPage from './pages/haulier/Loads';
 import HaulierCostsPage from './pages/haulier/Costs';
@@ -168,8 +167,7 @@ function AppRoutes() {
               <Route path="disputes" element={<HaulierDisputesPage />} />
               <Route path="disputes/*" element={<HaulierDisputesPage />} />
               <Route path="payments/*" element={<HaulierPaymentsPage />} />
-              <Route path="fleet/*" element={<FleetPage />} />
-              <Route path="drivers/*" element={<HaulierDriversPage />} />
+<Route path="drivers/*" element={<HaulierDriversPage />} />
               <Route path="loads/*" element={<HaulierLoadsPage />} />
               <Route path="analytics/revenue" element={<HaulierRevenuePage />} />
               <Route path="analytics/performance" element={<HaulierPerformancePage />} />

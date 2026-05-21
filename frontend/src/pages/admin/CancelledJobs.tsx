@@ -94,7 +94,7 @@ const CancelledJobsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-slate-500 line-through">
-                        {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString()}` : '—'}
+                        {job.agreedAmount != null ? `$${job.agreedAmount.toLocaleString()}` : '—'}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 font-medium whitespace-nowrap">

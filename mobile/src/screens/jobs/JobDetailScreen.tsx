@@ -54,6 +54,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   const jobDate = job?.jobDate ?? '';
   const distance = job?.distanceKm ? `${job.distanceKm} km` : '';
   const weight = job?.weightKg ? `${job.weightKg} kg` : '';
+  const stops: Array<{address: string; order: number}> = Array.isArray(job?.stops) ? job.stops : [];
 
   return (
     <ScrollView
@@ -72,15 +73,29 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
         <View style={styles.routeRow}>
           <View style={styles.routePoint}>
             <View style={[styles.dot, styles.dotGreen]} />
-            <View>
+            <View style={styles.routeTextWrap}>
               <Text style={styles.routeLabel}>PICKUP</Text>
               <Text style={styles.routeValue}>{pickup}</Text>
             </View>
           </View>
+          {stops.map((stop, idx) => (
+            <React.Fragment key={stop.order ?? idx}>
+              <View style={styles.routeLine} />
+              <View style={styles.routePoint}>
+                <View style={[styles.dot, styles.dotStop]}>
+                  <Text style={styles.stopNumber}>{idx + 1}</Text>
+                </View>
+                <View style={styles.routeTextWrap}>
+                  <Text style={styles.routeLabel}>STOP {idx + 1}</Text>
+                  <Text style={styles.routeValue}>{stop.address}</Text>
+                </View>
+              </View>
+            </React.Fragment>
+          ))}
           <View style={styles.routeLine} />
           <View style={styles.routePoint}>
             <View style={[styles.dot, styles.dotAccent]} />
-            <View>
+            <View style={styles.routeTextWrap}>
               <Text style={styles.routeLabel}>DROP-OFF</Text>
               <Text style={styles.routeValue}>{drop}</Text>
             </View>
@@ -201,18 +216,35 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
+  routeTextWrap: {
+    flex: 1,
+  },
   dot: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginTop: 4,
     flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dotGreen: {
     backgroundColor: '#1066B1',
   },
   dotAccent: {
     backgroundColor: colors.accent,
+  },
+  dotStop: {
+    backgroundColor: '#F59E0B',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  stopNumber: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
   },
   routeLine: {
     width: 2,

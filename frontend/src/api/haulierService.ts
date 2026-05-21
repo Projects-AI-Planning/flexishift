@@ -51,6 +51,15 @@ const haulierService = {
   validateAddress: (address: string) => client.post('/maps/validate-address', { address }).then(res => res.data.data),
   calculateRoute: (data: Record<string, unknown>) => client.post('/maps/calculate-route', data).then(res => res.data.data),
   addressAutocomplete: (query: string) => client.get(`/maps/autocomplete`, { params: { input: query } }).then(res => res.data.data),
+  getPlaceDetails: (placeId: string) => client.get('/maps/place-details', { params: { place_id: placeId } }).then(res => res.data.data),
+  getRoute: (originLat: number, originLng: number, destLat: number, destLng: number, waypoints?: Array<{ lat: number; lng: number }>) =>
+    client.get('/maps/route', { params: {
+      origin_lat: originLat, origin_lng: originLng,
+      dest_lat: destLat, dest_lng: destLng,
+      ...(waypoints?.length ? { waypoints: JSON.stringify(waypoints) } : {}),
+    }}).then(res => res.data.data),
+  getRouteSuggestions: (pickupAddress: string, dropAddress: string, maxStops = 3) =>
+    client.get('/maps/route-stops', { params: { pickupAddress, dropAddress, maxStops } }).then(res => res.data.data),
   matchSuppliers: (jobId: string) => client.get(`/jobs/match-suppliers/${jobId}`).then(res => res.data.data),
   listQuotesForJob: (jobId: string, params?: Record<string, unknown>) => client.get(`/quotes/list/${jobId}`, { params }).then(res => res.data.data),
   getSingleQuote: (quoteId: string) => client.get(`/quotes/${quoteId}`).then(res => res.data.data),
@@ -77,7 +86,6 @@ const haulierService = {
 
   // EPIC 5: Compliance Workflow
   getLoadCodeStatus: (jobId: string) => client.get(`/compliance/load-code/status/${jobId}`).then(res => res.data.data),
-  resendLoadCode: (data: { jobId: string, bookingId: string }) => client.post('/compliance/load-code/resend', data).then(res => res.data),
   viewHandoverPhotos: (jobId: string) => client.get(`/compliance/handover/photos/list/${jobId}`).then(res => res.data.data),
   submitDigitalSignature: (data: Record<string, unknown>) => client.post('/compliance/handover/sign/haulier', data).then(res => res.data),
   getHandoverStatus: (jobId: string) => client.get(`/compliance/handover/status/${jobId}`).then(res => res.data.data),

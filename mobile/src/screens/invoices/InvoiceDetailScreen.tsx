@@ -35,8 +35,8 @@ const InvoiceDetailScreen: React.FC<InvoiceDetailScreenProps> = ({
     invoice?.reference ??
     invoice?.invoiceNumber ??
     'Invoice';
-  const amount = invoice?.amount != null ? `Rs ${invoice.amount}` : '—';
-  const currency = invoice?.currency ?? 'INR';
+  const amount = invoice?.amount != null ? `$${invoice.amount}` : '—';
+  const currency = invoice?.currency ?? 'USD';
   const status = String(invoice?.status ?? 'issued').toUpperCase();
 
   return (

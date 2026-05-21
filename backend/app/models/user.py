@@ -62,6 +62,7 @@ class UserProfile(Base):
     licence_number:       Mapped[str] = mapped_column(String(50), nullable=True)
     vehicle_type:         Mapped[str] = mapped_column(String(50), nullable=True)
     vehicle_registration: Mapped[str] = mapped_column(String(20), nullable=True)
+    truck_capacity:       Mapped[str] = mapped_column(String(100), nullable=True)
     company_name:         Mapped[str] = mapped_column(String(200), nullable=True)
     company_address:      Mapped[str] = mapped_column(String(500), nullable=True)
     coverage_area:        Mapped[str] = mapped_column(String(500), nullable=True)

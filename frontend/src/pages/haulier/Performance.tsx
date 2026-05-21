@@ -46,8 +46,8 @@ type PerformanceReport = {
 };
 
 const pct = (value?: number) => `${(value ?? 0).toFixed(1)}%`;
-const fmt = (value: number, currency = 'INR') =>
-  new Intl.NumberFormat('en-IN', {
+const fmt = (value: number, currency = 'USD') =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,

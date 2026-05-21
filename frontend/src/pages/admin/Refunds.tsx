@@ -3,8 +3,8 @@ import { useAdminPayments } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur === 'INR' ? 'INR' : 'GBP' }).format(val);
+const fmt = (val: number, cur = 'USD') =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
 const EMPTY_FORM = { refundAmount: '', reason: '', refundTo: '' };
 
@@ -196,7 +196,7 @@ const RefundsPage: React.FC = () => {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Refund Amount</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">£</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
                   <input
                     required
                     type="number"

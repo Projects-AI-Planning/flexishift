@@ -22,7 +22,7 @@ LOCAL_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "static" / "uploads"
 _USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id"}
 _PROFILE_FIELDS = {
     "photo_url", "licence_number", "vehicle_type",
-    "vehicle_registration", "company_name", "company_address", "coverage_area",
+    "vehicle_registration", "truck_capacity", "company_name", "company_address", "coverage_area",
     "driver_availability",
     "equipment_details",
     "driver_assignments",
@@ -142,6 +142,7 @@ def _user_data(user: User) -> dict:
             "licenceNumber": profile.licence_number if profile else None,
             "vehicleType": profile.vehicle_type if profile else None,
             "vehicleRegistration": profile.vehicle_registration if profile else None,
+            "truckCapacity": profile.truck_capacity if profile else None,
             "companyName": profile.company_name if profile else None,
             "companyAddress": profile.company_address if profile else None,
             "coverageArea": profile.coverage_area if profile else None,

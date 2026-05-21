@@ -131,7 +131,7 @@ const BidsPanel: React.FC<{ jobId: string; jobRef: string; onClose: () => void }
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <p className="font-black text-primary text-base">
-                      {q.currency ?? '£'}{Number(q.quoteAmount).toLocaleString()}
+                      {q.currency ?? '$'}{Number(q.quoteAmount).toLocaleString()}
                     </p>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${bidStatusBadge(q.status)}`}>
                       {String(q.status).replace(/_/g, ' ')}
@@ -271,7 +271,7 @@ const AdminJobsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-primary">
-                        {job.agreedAmount != null ? `£${Number(job.agreedAmount).toLocaleString()}` : '—'}
+                        {job.agreedAmount != null ? `$${Number(job.agreedAmount).toLocaleString()}` : '—'}
                       </p>
                       {job.paymentStatus && (
                         <p className="text-[10px] text-slate-400 uppercase font-bold">{job.paymentStatus}</p>

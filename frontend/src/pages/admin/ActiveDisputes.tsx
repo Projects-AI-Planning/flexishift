@@ -4,7 +4,7 @@ import adminService from '../../api/adminService';
 import type { Dispute } from '../../types';
 
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 
 export default function ActiveDisputesPage() {
   const [search, setSearch] = useState('');
@@ -199,12 +199,12 @@ export default function ActiveDisputesPage() {
             {resolution.resolution === 'partial_refund' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier (₹)</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier ($)</label>
                   <input type="number" value={resolution.refundAmount} onChange={(e) => setResolution((r) => ({ ...r, refundAmount: Number(e.target.value) }))}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Release to Driver (₹)</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Release to Driver ($)</label>
                   <input type="number" value={resolution.releaseAmount} onChange={(e) => setResolution((r) => ({ ...r, releaseAmount: Number(e.target.value) }))}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>

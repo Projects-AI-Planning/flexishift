@@ -2,10 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { useAdminPayments, useAdminRevenue } from '../../hooks/useAdmin';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'INR') =>
-  new Intl.NumberFormat('en-GB', {
+const fmt = (val: number, cur = 'USD') =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: cur === 'INR' ? 'INR' : 'GBP',
+    currency: 'USD',
     maximumFractionDigits: 0,
   }).format(val);
 

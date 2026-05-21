@@ -427,7 +427,7 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
 
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-xl font-black text-[#1066b1]">
-              {quote.currency === 'INR' ? '₹' : quote.currency} {Number(quote.quoteAmount).toLocaleString('en-IN')}
+              {'$'} {Number(quote.quoteAmount).toLocaleString('en-US')}
             </p>
             {quote.createdAt && (
               <p className="text-[10px] text-slate-400">
@@ -853,7 +853,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                     {activeStatus !== 'OPEN' && (
                       <td className="px-6 py-5">
                         <p className="text-sm font-black text-[#1066b1]">
-                          {job.currency === 'INR' || !job.currency ? '₹' : job.currency} {Number(job.agreedAmount ?? 0).toLocaleString('en-IN')}
+                          {'$'} {Number(job.agreedAmount ?? 0).toLocaleString('en-US')}
                         </p>
                         <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
                       </td>
@@ -950,7 +950,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                               <span className="text-xs font-black text-emerald-700">Both signed</span>
                             </div>
                             <p className="text-[11px] text-slate-400">
-                              {handover.haulierSignedAt ? new Date(handover.haulierSignedAt).toLocaleString('en-IN') : ''}
+                              {handover.haulierSignedAt ? new Date(handover.haulierSignedAt).toLocaleString('en-US') : ''}
                             </p>
                           </div>
                         ) : (

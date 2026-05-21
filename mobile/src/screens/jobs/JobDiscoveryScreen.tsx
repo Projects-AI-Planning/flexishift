@@ -135,7 +135,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         <View style={styles.jobCardTop}>
           <Text style={styles.jobRef}>REF: {String(item.jobReference ?? item.jobId ?? '')}</Text>
           {amount ? (
-            <Text style={styles.jobAmount}>₹{Number(amount).toLocaleString('en-IN')}</Text>
+            <Text style={styles.jobAmount}>${Number(amount).toLocaleString('en-US')}</Text>
           ) : (
             <View style={styles.openBadge}>
               <Text style={styles.openBadgeText}>OPEN</Text>

@@ -36,10 +36,6 @@ class LoadCodeRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class ResendLoadCodeRequest(BaseModel):
-    job_id: str = Field(..., alias="jobId")
-    model_config = {"populate_by_name": True}
-
 
 @router.post("/load-code/verify")
 def verify_load_code(
@@ -77,39 +73,6 @@ def get_load_code_status(
         message="Load code status retrieved",
     )
 
-
-@router.post("/load-code/resend")
-async def resend_load_code(
-    body: ResendLoadCodeRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(HaulierDep),
-):
-    job = db.query(Job).filter(Job.id == body.job_id, Job.deleted_at.is_(None)).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if job.haulier_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if not job.selected_supplier_id:
-        raise HTTPException(status_code=422, detail="No supplier assigned to this job")
-    supplier = db.query(User).filter(User.id == job.selected_supplier_id).first()
-    from app.services.notifications import create_notification
-    await create_notification(
-        db,
-        job.selected_supplier_id,
-        "LOAD_CODE",
-        "Load Code Reminder",
-        f"Your load code for job {job.job_ref} is: {job.load_code}",
-        data={"job_id": job.id, "load_code": job.load_code},
-    )
-    db.commit()
-    return ok(
-        data={
-            "jobId": job.id,
-            "sentTo": job.selected_supplier_id,
-            "sentVia": "PUSH_NOTIFICATION",
-        },
-        message="Load code resent to supplier",
-    )
 
 
 # ── Handover (Step 1) ─────────────────────────────────────────────────────────

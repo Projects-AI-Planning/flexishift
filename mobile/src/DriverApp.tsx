@@ -156,7 +156,7 @@ const defaultRegister = {email: '', name: '', password: '', phone: ''};
 const defaultVerify = {email: '', otp: ''};
 const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
 const defaultQuoteForm = {
-  currency: 'INR',
+  currency: 'USD',
   jobId: '',
   notes: '',
   quoteAmount: '',
@@ -466,10 +466,12 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: '',
     vehicleType: '',
     vehicleRegistration: '',
+    truckCapacity: '',
     driverAvailability: '',
     companyName: '',
     companyAddress: '',
     coverageArea: '',
+    equipmentDetails: [] as any[],
   });
   const [passwordForm, setPasswordForm] = useState(defaultPasswordForm);
   const [notificationPrefs, setNotificationPrefs] = useState(
@@ -677,10 +679,12 @@ function DriverApp(): React.JSX.Element {
         licenceNumber: String(pd?.licenceNumber ?? ''),
         vehicleType: String(pd?.vehicleType ?? ''),
         vehicleRegistration: String(pd?.vehicleRegistration ?? ''),
+        truckCapacity: String(pd?.truckCapacity ?? ''),
         driverAvailability: String(pd?.driverAvailability ?? ''),
         companyName: String(pd?.companyName ?? ''),
         companyAddress: String(pd?.companyAddress ?? ''),
         coverageArea: String(pd?.coverageArea ?? ''),
+        equipmentDetails: (pd?.equipmentDetails ?? []) as any[],
       });
     }
 
@@ -809,10 +813,12 @@ function DriverApp(): React.JSX.Element {
       licenceNumber: String(nextProfileData?.licenceNumber ?? ''),
       vehicleType: String(nextProfileData?.vehicleType ?? ''),
       vehicleRegistration: String(nextProfileData?.vehicleRegistration ?? ''),
+      truckCapacity: String(nextProfileData?.truckCapacity ?? ''),
       driverAvailability: String(nextProfileData?.driverAvailability ?? ''),
       companyName: String(nextProfileData?.companyName ?? ''),
       companyAddress: String(nextProfileData?.companyAddress ?? ''),
       coverageArea: String(nextProfileData?.coverageArea ?? ''),
+      equipmentDetails: (nextProfileData?.equipmentDetails ?? []) as any[],
     });
     setRatings(ratingResult.status === 'fulfilled' && ratingResult.value ? cast<RatingSummary>(ratingResult.value) : null);
   }, [session?.userId]);
@@ -1345,6 +1351,7 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: string;
     vehicleType: string;
     vehicleRegistration: string;
+    compartments?: Array<{id: number; capacityLitres: string; fuelType: string}>;
     photoFile?: {uri: string; fileName: string; type: string};
     extraDocs: {name: string; docNumber: string}[];
   }) => {
@@ -1367,6 +1374,10 @@ function DriverApp(): React.JSX.Element {
         licenceNumber: data.licenceNumber,
         vehicleType: data.vehicleType,
         vehicleRegistration: data.vehicleRegistration,
+        ...(data.truckCapacity ? {truckCapacity: data.truckCapacity} : {}),
+        ...(data.compartments && data.compartments.length > 0
+          ? {equipmentDetails: data.compartments}
+          : {}),
       });
       setSetupAvailability(data.driverAvailability);
       setSetupExtraDocs(data.extraDocs ?? []);
@@ -1544,7 +1555,7 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       try {
         await driverApi.quotes.submit({
-          currency: 'INR',
+          currency: 'USD',
           jobId,
           notes,
           quoteAmount: Number(amount),
@@ -1577,7 +1588,7 @@ function DriverApp(): React.JSX.Element {
         jobId,
         jobReference: jobForQuote?.jobReference ?? jobForQuote?.jobRef ?? `Job #${jobId.slice(-6)}`,
         quoteAmount: Number(amount),
-        currency: 'INR',
+        currency: 'USD',
         notes,
         status: 'ACTIVE',
         createdAt: new Date().toISOString(),
@@ -1840,7 +1851,7 @@ function DriverApp(): React.JSX.Element {
         jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
         haulierId: jobDetails?.haulierId ? String(jobDetails.haulierId) : undefined,
         amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
-        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? '₹'),
+        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? 'USD'),
         completionDate: new Date().toISOString(),
         invoiceUrl: jobDetails?.invoiceUrl ? String(jobDetails.invoiceUrl) : undefined,
       });
@@ -2152,7 +2163,7 @@ function DriverApp(): React.JSX.Element {
             jobReference: String(job?.jobReference ?? jobId),
             haulierId: job?.haulierId ? String(job.haulierId) : undefined,
             amount: Number(job?.agreedAmount ?? 0),
-            currency: String(job?.currency ?? '₹'),
+            currency: String(job?.currency ?? 'USD'),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
             invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
           });
@@ -2305,8 +2316,8 @@ function DriverApp(): React.JSX.Element {
     const status = String(item.status ?? 'booked').toLowerCase();
     const paymentSecured = item.paymentSecured === true || status === 'payment_secured' || status === 'in_transit' || status === 'delivery_submitted' || status === 'completed';
     const canStart = !['completed', 'cancelled'].includes(status) && paymentSecured;
-    const currency = String(item.currency ?? 'INR');
-    const currencySymbol = currency === 'INR' ? '₹' : currency;
+    const currency = String(item.currency ?? 'USD');
+    const currencySymbol = '$';
     const matchedQuote = myQuotes.find(q => String(q.jobId) === String(item.jobId));
     const rawAmount = item.agreedAmount ?? item.amount ?? item.totalAmount
       ?? (matchedQuote as any)?.quoteAmount ?? (matchedQuote as any)?.amount;
@@ -2414,7 +2425,7 @@ function DriverApp(): React.JSX.Element {
             <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Agreed Amount</Text>
               <Text style={styles.detailValueCompact}>
-                {rawAmount ? Number(rawAmount).toLocaleString('en-IN') : 'N/A'}
+                {rawAmount ? Number(rawAmount).toLocaleString('en-US') : 'N/A'}
               </Text>
             </View>
             <View style={styles.detailRowCompact}>
@@ -2466,7 +2477,7 @@ function DriverApp(): React.JSX.Element {
         </Text>
         {item.agreedAmount || item.amount || item.totalAmount ? (
           <Text style={[styles.amountText, isHistoryView && styles.historyAmountText]}>
-            Rs {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
+            $ {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
           </Text>
         ) : null}
       </View>
@@ -2833,7 +2844,7 @@ function DriverApp(): React.JSX.Element {
                     pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
                     dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
                     amount: Number(d.amount ?? 0),
-                    currency: String(d.currency ?? 'GBP'),
+                    currency: String(d.currency ?? 'USD'),
                     status: String(d.status ?? ''),
                     stripeIntentId: d.stripeIntentId ? String(d.stripeIntentId) : undefined,
                     stripeStatus: d.stripeStatus ? String(d.stripeStatus) : undefined,
@@ -3081,7 +3092,7 @@ function DriverApp(): React.JSX.Element {
               )}
             </Text>
             <Text style={styles.sectionHint}>
-              Avg per job: Rs {String(earnings?.summary?.averagePerJob ?? 0)}
+              Avg per job: $ {String(earnings?.summary?.averagePerJob ?? 0)}
             </Text>
           </SectionCard>
         );

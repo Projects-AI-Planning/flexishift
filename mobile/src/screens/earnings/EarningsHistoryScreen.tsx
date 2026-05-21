@@ -46,7 +46,7 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
     <Card
       title={item.jobReference || 'Payment Received'}
       subtitle={item.paymentDate || 'Recently'}
-      rightLabel={`+ Rs ${item.amount}`}
+      rightLabel={`+ $${item.amount}`}
       variant="accent">
       <View style={styles.paymentDetails}>
         <View style={styles.detailRow}>
@@ -75,7 +75,7 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
       <View style={styles.header}>
         <View style={styles.totalBox}>
           <Text style={styles.totalLabel}>All Time Total</Text>
-          <Text style={styles.totalValue}>Rs {totalEarnings.toLocaleString()}</Text>
+          <Text style={styles.totalValue}>$ {totalEarnings.toLocaleString()}</Text>
         </View>
       </View>
 

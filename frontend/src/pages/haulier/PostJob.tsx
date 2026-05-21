@@ -1,53 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
+import RouteMapStep, { type RouteStepData } from './RouteMapStep';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 
-const VEHICLE_TYPES = [
-  { value: 'VAN',           label: 'Van',              icon: 'local_shipping' },
-  { value: '7.5T LORRY',    label: '7.5T Lorry',       icon: 'local_shipping' },
-  { value: '18T LORRY',     label: '18T Lorry',        icon: 'local_shipping' },
-  { value: 'ARTIC',         label: 'Articulated',      icon: 'local_shipping' },
-  { value: 'FLATBED',       label: 'Flatbed',          icon: 'local_shipping' },
-  { value: 'CURTAINSIDER',  label: 'Curtainsider',     icon: 'local_shipping' },
-  { value: 'TIPPER',        label: 'Tipper',           icon: 'local_shipping' },
-  { value: 'REFRIGERATED',  label: 'Refrigerated',     icon: 'ac_unit' },
-];
-
 const TIME_SLOTS = [
-  { value: 'MORNING',   label: 'Morning',   sub: '06:00 – 12:00', icon: 'wb_sunny' },
-  { value: 'AFTERNOON', label: 'Afternoon', sub: '12:00 – 18:00', icon: 'light_mode' },
+  { value: 'MORNING',   label: 'Morning',   sub: '06:00 – 12:00', icon: 'wb_sunny'    },
+  { value: 'AFTERNOON', label: 'Afternoon', sub: '12:00 – 18:00', icon: 'light_mode'  },
   { value: 'EVENING',   label: 'Evening',   sub: '18:00 – 22:00', icon: 'nights_stay' },
-  { value: 'NIGHT',     label: 'Night',     sub: '22:00 – 06:00', icon: 'dark_mode' },
-  { value: 'FULL_DAY',  label: 'All Day',   sub: '00:00 – 24:00', icon: 'schedule' },
+  { value: 'NIGHT',     label: 'Night',     sub: '22:00 – 06:00', icon: 'dark_mode'   },
+  { value: 'FULL_DAY',  label: 'All Day',   sub: '00:00 – 24:00', icon: 'schedule'    },
 ];
 
 const SLOT_END_HOURS: Record<string, number> = {
   MORNING: 12, AFTERNOON: 18, EVENING: 22,
-  NIGHT: 30,   // 30 = 06:00 next day — never expires within current-day hours (0–23)
-  FULL_DAY: 30,
+  NIGHT: 30, FULL_DAY: 30,
 };
 
 const DRIVER_REQUIREMENTS = [
-  {
-    value: 'DRIVER_ONLY',
-    label: 'Driver Only',
-    desc: 'Hire a driver — you provide the truck.',
-    icon: 'person',
-  },
-  {
-    value: 'DRIVER_WITH_TRUCK',
-    label: 'Truck with Driver',
-    desc: 'Hire a driver who brings their own truck.',
-    icon: 'local_shipping',
-  },
-  {
-    value: 'TRUCK_ONLY',
-    label: 'Truck Only',
-    desc: 'Hire a truck — no driver services needed.',
-    icon: 'garage',
-  },
+  { value: 'DRIVER_ONLY',       label: 'Driver Only',      desc: 'Hire a driver — you provide the truck.',          icon: 'person'         },
+  { value: 'DRIVER_WITH_TRUCK', label: 'Truck with Driver', desc: 'Hire a driver who brings their own truck.',       icon: 'local_shipping' },
+  { value: 'TRUCK_ONLY',        label: 'Truck Only',        desc: 'Hire a truck — no driver services needed.',       icon: 'garage'         },
 ];
 
 const GOODS_SUGGESTIONS = [
@@ -57,38 +31,47 @@ const GOODS_SUGGESTIONS = [
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
+interface StopEntry { id: string; address: string; lat?: number; lng?: number; }
+
 interface FormState {
-  pickupAddress: string;
-  dropAddress: string;
-  goodsType: string;
-  weightKg: string;
-  vehicleType: string;
-  jobDate: string;
-  timeSlot: string;
+  pickupAddress:       string;
+  dropAddress:         string;
+  goodsType:           string;
+  jobDate:             string;
+  timeSlot:            string;
   specialInstructions: string;
-  driverRequirement: string;
+  driverRequirement:   string;
+  loadCode:            string;
+}
+
+interface RouteCoords {
+  pickupLat?:  number;
+  pickupLng?:  number;
+  dropLat?:    number;
+  dropLng?:    number;
+  distanceKm?: number;
+  durationMin?: number;
 }
 
 interface CreatedJob {
-  jobRef: string;
-  loadCode?: string;
-  distanceKm?: number;
+  jobRef:       string;
+  loadCode?:    string;
+  distanceKm?:  number;
   durationMin?: number;
-  pickup: string;
-  drop: string;
-  jobId?: string;
+  pickup:       string;
+  drop:         string;
+  jobId?:       string;
 }
 
 const EMPTY: FormState = {
-  pickupAddress: '',
-  dropAddress: '',
-  goodsType: '',
-  weightKg: '',
-  vehicleType: 'VAN',
-  jobDate: '',
-  timeSlot: 'MORNING',
+  pickupAddress:       '',
+  dropAddress:         '',
+  goodsType:           '',
+  jobDate:             '',
+  timeSlot:            'MORNING',
   specialInstructions: '',
-  driverRequirement: 'DRIVER_WITH_TRUCK',
+  driverRequirement:   'DRIVER_WITH_TRUCK',
+  loadCode:            '',
 };
 
 /* ─── Shared styles ──────────────────────────────────────────────────────────── */
@@ -123,9 +106,7 @@ const StepBar: React.FC<{ current: number }> = ({ current }) => (
               ${done   ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-md' :
                 active ? 'bg-primary text-white shadow-primary/30 shadow-md ring-4 ring-primary/10' :
                          'bg-slate-100 text-slate-400'}`}>
-              {done
-                ? <span className="material-symbols-outlined text-base">check</span>
-                : n}
+              {done ? <span className="material-symbols-outlined text-base">check</span> : n}
             </div>
             <span className={`text-[10px] font-black uppercase tracking-wider whitespace-nowrap
               ${active ? 'text-primary' : done ? 'text-emerald-500' : 'text-slate-400'}`}>
@@ -146,19 +127,38 @@ const StepBar: React.FC<{ current: number }> = ({ current }) => (
 
 const PostJobPage: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormState>(EMPTY);
-  const [error, setError] = useState('');
+  const [step, setStep]           = useState(1);
+  const [form, setForm]           = useState<FormState>(EMPTY);
+  const [stops, setStops]         = useState<StopEntry[]>([]);
+  const [routeCoords, setRouteCoords] = useState<RouteCoords>({});
+  const [error, setError]         = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<CreatedJob | null>(null);
+  const [created, setCreated]     = useState<CreatedJob | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
-  const isSlotExpired = (slot: string): boolean => {
+  /* ── Route map callback ── */
+  const handleRouteChange = useCallback((data: RouteStepData) => {
+    setForm(f => ({
+      ...f,
+      pickupAddress: data.pickupAddress,
+      dropAddress:   data.dropAddress,
+    }));
+    setStops(data.stops);
+    setRouteCoords({
+      pickupLat:   data.pickupLat,
+      pickupLng:   data.pickupLng,
+      dropLat:     data.dropLat,
+      dropLng:     data.dropLng,
+      distanceKm:  data.distanceKm,
+      durationMin: data.durationMin,
+    });
+  }, []);
+
+  const isSlotExpired = (slot: string) => {
     const endHour = SLOT_END_HOURS[slot];
-    if (endHour === undefined) return false;
-    return new Date().getHours() >= endHour;
+    return endHour !== undefined && new Date().getHours() >= endHour;
   };
 
   const set = (k: keyof FormState) =>
@@ -167,22 +167,23 @@ const PostJobPage: React.FC = () => {
       setError('');
     };
 
-  /* validation per step */
+  /* ── Validation ── */
   const validate = (): string => {
     if (step === 1) {
-      if (!form.pickupAddress.trim()) return 'Pickup address is required.';
-      if (!form.dropAddress.trim())   return 'Drop-off address is required.';
-      if (form.pickupAddress.trim().length < 5) return 'Please enter a full pickup address.';
-      if (form.dropAddress.trim().length < 5)   return 'Please enter a full drop-off address.';
+      if (!form.pickupAddress.trim()) return 'Please select a pickup location on the map.';
+      if (!form.dropAddress.trim())   return 'Please select a drop-off location on the map.';
+      if (!routeCoords.pickupLat)     return 'Please choose a pickup address from the suggestions.';
+      if (!routeCoords.dropLat)       return 'Please choose a drop-off address from the suggestions.';
     }
     if (step === 2) {
-      if (!form.driverRequirement)                       return 'Please select a driver requirement.';
-      if (!form.goodsType.trim())                        return 'Goods type is required.';
-      if (!form.weightKg || Number(form.weightKg) <= 0)  return 'Enter a valid weight greater than 0.';
-      if (!form.jobDate)                                 return 'Job date is required.';
-      if (form.jobDate < today)                          return 'Job date cannot be in the past.';
+      if (!form.driverRequirement) return 'Please select a driver requirement.';
+      if (!form.goodsType.trim())  return 'Goods type is required.';
+      if (!form.jobDate)           return 'Job date is required.';
+      if (form.jobDate < today)    return 'Job date cannot be in the past.';
       if (form.jobDate === today && isSlotExpired(form.timeSlot))
         return 'The selected time slot has already passed for today. Please choose a later slot.';
+      if (!form.loadCode.trim())   return 'Load code is required.';
+      if (form.loadCode.trim().length < 4) return 'Load code must be at least 4 characters.';
     }
     return '';
   };
@@ -196,19 +197,24 @@ const PostJobPage: React.FC = () => {
 
   const back = () => { setError(''); setStep(s => s - 1); };
 
+  /* ── Submit ── */
   const submit = async () => {
     setSubmitting(true);
     setError('');
     try {
       const res = await haulierService.createJob({
         pickupAddress:     form.pickupAddress.trim(),
+        pickupLat:         routeCoords.pickupLat,
+        pickupLng:         routeCoords.pickupLng,
         dropAddress:       form.dropAddress.trim(),
+        dropLat:           routeCoords.dropLat,
+        dropLng:           routeCoords.dropLng,
         goodsType:         form.goodsType.trim(),
-        weightKg:          parseFloat(form.weightKg),
-        vehicleType:       form.vehicleType,
         jobDate:           form.jobDate,
         timeSlot:          form.timeSlot,
         driverRequirement: form.driverRequirement,
+        stops:             stops.map((s, i) => ({ address: s.address, lat: s.lat, lng: s.lng, order: i + 1 })),
+        loadCode:          form.loadCode.trim().toUpperCase(),
       }) as {
         jobId?: string; jobReference?: string; loadCode?: string;
         distanceKm?: number; durationMin?: number;
@@ -217,8 +223,8 @@ const PostJobPage: React.FC = () => {
       setCreated({
         jobRef:      res?.jobReference ?? 'N/A',
         loadCode:    res?.loadCode,
-        distanceKm:  res?.distanceKm,
-        durationMin: res?.durationMin,
+        distanceKm:  res?.distanceKm  ?? routeCoords.distanceKm,
+        durationMin: res?.durationMin ?? routeCoords.durationMin,
         pickup:      res?.pickupLocation ?? form.pickupAddress,
         drop:        res?.dropLocation   ?? form.dropAddress,
         jobId:       res?.jobId,
@@ -240,7 +246,6 @@ const PostJobPage: React.FC = () => {
   if (created) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-6 animate-in fade-in duration-700">
-        {/* Left: celebration card (Blue theme) */}
         <div className="bg-gradient-to-br from-[#1066b1] to-[#0a4a8f] rounded-3xl p-8 flex flex-col items-center text-center gap-6 shadow-[0_20px_50px_rgba(16,102,177,0.2)]">
           <div className="w-20 h-20 rounded-full bg-white/20 ring-8 ring-white/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-white text-4xl">check_circle</span>
@@ -282,7 +287,7 @@ const PostJobPage: React.FC = () => {
                 View Jobs
               </button>
               <button
-                onClick={() => { setCreated(null); setForm(EMPTY); setStep(1); setError(''); }}
+                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setRouteCoords({}); setStep(1); setError(''); }}
                 className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
               >
                 Post New
@@ -291,14 +296,11 @@ const PostJobPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: details */}
         <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 p-6 sm:p-8 space-y-6">
           <div>
             <h3 className="text-lg font-black text-[#041627]">Job Details</h3>
             <p className="text-sm text-slate-500 font-medium mt-1">Quotes typically arrive within 15 minutes. You'll be notified when drivers respond.</p>
           </div>
-
-          {/* route stats */}
           {(created.distanceKm != null || created.durationMin != null) && (
             <div className="flex gap-4">
               {created.distanceKm != null && (
@@ -321,11 +323,9 @@ const PostJobPage: React.FC = () => {
               )}
             </div>
           )}
-
-          {/* route */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <span className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-100 shrink-0 mt-1" />
                 <div>
@@ -342,8 +342,6 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* info */}
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
             <span className="material-symbols-outlined text-blue-500 shrink-0 text-base mt-0.5">notifications_active</span>
             <p className="text-xs text-blue-700 font-medium leading-relaxed">
@@ -359,7 +357,7 @@ const PostJobPage: React.FC = () => {
   return (
     <div className="space-y-6">
 
-      {/* page header + step bar */}
+      {/* Page header + step bar */}
       <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(26,43,60,0.06)] border border-slate-100 px-4 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl">Post a New Job</h2>
@@ -372,77 +370,28 @@ const PostJobPage: React.FC = () => {
         </div>
       </div>
 
-      {/* form card */}
+      {/* Form card */}
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 overflow-hidden">
 
-        {/* ── STEP 1: Route ── */}
+        {/* ── STEP 1: Route (Google Maps) ── */}
         {step === 1 && (
           <div>
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#1066b1] flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-sm">route</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-[#041627]">Route Details</h3>
-                  <p className="text-xs text-slate-500 font-medium">Enter pickup and drop-off addresses. We'll calculate the route automatically.</p>
+                  <h3 className="text-lg font-black text-[#041627]">Plan Your Route</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Search locations using Google Maps. Add stops between pickup and drop-off — route updates live.
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
-              {/* Pickup + Drop-off side by side on large screens */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Pickup */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-white text-xs">my_location</span>
-                    </span>
-                    <h4 className="font-black text-[#44474C]">Pickup Location</h4>
-                  </div>
-                  <div>
-                    <Label text="Pickup Address" required />
-                    <textarea
-                      className={`${inputCls} resize-none`}
-                      rows={4}
-                      placeholder="e.g. 14 Industrial Way, Manchester, M1 2AB, United Kingdom"
-                      value={form.pickupAddress}
-                      onChange={set('pickupAddress')}
-                    />
-                    <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
-                  </div>
-                </div>
-
-                {/* Drop-off */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-white text-xs">flag</span>
-                    </span>
-                    <h4 className="font-black text-[#44474C]">Drop-off Location</h4>
-                  </div>
-                  <div>
-                    <Label text="Drop-off Address" required />
-                    <textarea
-                      className={`${inputCls} resize-none`}
-                      rows={4}
-                      placeholder="e.g. Warehouse B, Leeds Distribution Park, Leeds, LS1 4AP"
-                      value={form.dropAddress}
-                      onChange={set('dropAddress')}
-                    />
-                    <p className="text-xs text-slate-400 mt-1.5 font-medium">Include street, city, and postcode for best results.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* info box */}
-              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
-                <span className="material-symbols-outlined text-blue-500 shrink-0 text-base mt-0.5">info</span>
-                <p className="text-xs text-blue-700 font-medium leading-relaxed">
-                  We automatically geocode your addresses using OpenStreetMap and calculate the exact driving distance and estimated duration. No manual coordinate entry needed.
-                </p>
-              </div>
+            <div className="px-4 sm:px-8 py-6 sm:py-8">
+              <RouteMapStep onChange={handleRouteChange} />
             </div>
           </div>
         )}
@@ -452,8 +401,8 @@ const PostJobPage: React.FC = () => {
           <div>
             <div className="bg-gradient-to-r from-[#1066b1]/10 to-[#1066b1]/10 px-4 sm:px-8 py-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#1066b1]/100 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[#041627] text-sm">inventory_2</span>
+                <div className="w-10 h-10 rounded-xl bg-[#1066b1] flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-white text-sm">inventory_2</span>
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-[#041627]">Cargo & Schedule</h3>
@@ -463,7 +412,6 @@ const PostJobPage: React.FC = () => {
             </div>
 
             <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-7">
-
               {/* Driver Requirement */}
               <div>
                 <Label text="Driver Requirement" required />
@@ -526,46 +474,24 @@ const PostJobPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Weight + Vehicle + Date — 3 columns on large screens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div>
-                  <Label text="Total Weight" required hint="(kg)" />
-                  <input
-                    className={inputCls}
-                    type="number"
-                    min="1"
-                    step="0.1"
-                    placeholder="e.g. 1200"
-                    value={form.weightKg}
-                    onChange={set('weightKg')}
-                  />
-                </div>
-                <div>
-                  <Label text="Vehicle Required" required />
-                  <select className={inputCls} value={form.vehicleType} onChange={set('vehicleType')}>
-                    {VEHICLE_TYPES.map(v => (
-                      <option key={v.value} value={v.value}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label text="Collection Date" required />
-                  <input
-                    className={inputCls}
-                    type="date"
-                    min={today}
-                    value={form.jobDate}
-                    onChange={set('jobDate')}
-                  />
-                </div>
+              {/* Collection Date */}
+              <div>
+                <Label text="Collection Date" required />
+                <input
+                  className={inputCls}
+                  type="date"
+                  min={today}
+                  value={form.jobDate}
+                  onChange={set('jobDate')}
+                />
               </div>
 
               {/* Time slot */}
               <div>
-                <Label text="Collection Time Slot" required />
+                <Label text="Deliver By" required />
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {TIME_SLOTS.map(t => {
-                    const expired = form.jobDate === today && isSlotExpired(t.value);
+                    const expired  = form.jobDate === today && isSlotExpired(t.value);
                     const selected = form.timeSlot === t.value;
                     return (
                       <button
@@ -574,11 +500,9 @@ const PostJobPage: React.FC = () => {
                         disabled={expired}
                         onClick={() => !expired && setForm(f => ({ ...f, timeSlot: t.value }))}
                         className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          expired
-                            ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
-                            : selected
-                            ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                          expired   ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' :
+                          selected  ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'    :
+                                      'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                       >
                         <span className={`material-symbols-outlined text-xl ${expired ? 'text-slate-300' : selected ? 'text-primary' : 'text-slate-400'}`}>
@@ -597,6 +521,21 @@ const PostJobPage: React.FC = () => {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Load code */}
+              <div>
+                <Label text="Load Code" required hint="The driver will enter this code at pickup to verify the job" />
+                <input
+                  className={`${inputCls} font-mono tracking-widest uppercase`}
+                  placeholder="e.g. ABC12345"
+                  value={form.loadCode}
+                  maxLength={20}
+                  onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
+                />
+                <p className="mt-1.5 text-[10px] text-slate-400">
+                  Keep this code private — share it only with the driver at the pickup point.
+                </p>
               </div>
 
               {/* Special instructions */}
@@ -630,38 +569,43 @@ const PostJobPage: React.FC = () => {
             </div>
 
             <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-5">
-              {/* Route + Cargo side by side on large screens */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Route */}
+                {/* Route section */}
                 <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
-                  <div className="space-y-3 flex-1 min-w-0 mb-3">
-                    <div className="flex items-start gap-3">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 shrink-0 mt-1" />
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pickup</p>
-                        <p className="text-sm font-bold text-[#44474C] leading-snug">{form.pickupAddress}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-200 shrink-0 mt-1" />
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Drop-off</p>
-                        <p className="text-sm font-bold text-[#44474C] leading-snug">{form.dropAddress}</p>
-                      </div>
-                    </div>
+                  <div className="space-y-3 mb-3">
+                    <RoutePoint color="bg-blue-500 ring-blue-200" label="Pickup"   value={form.pickupAddress} />
+                    {stops.map((s, i) => (
+                      <RoutePoint key={s.id} color="bg-amber-400 ring-amber-100" label={`Stop ${i + 1}`} value={s.address} />
+                    ))}
+                    <RoutePoint color="bg-red-500 ring-red-200"   label="Drop-off" value={form.dropAddress} />
                   </div>
+                  {(routeCoords.distanceKm || routeCoords.durationMin) && (
+                    <div className="flex gap-3 mb-3 pt-3 border-t border-slate-100">
+                      {routeCoords.distanceKm && (
+                        <div className="flex-1 text-center">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Distance</p>
+                          <p className="text-sm font-black text-[#1066b1]">{routeCoords.distanceKm} km</p>
+                        </div>
+                      )}
+                      {routeCoords.durationMin && (
+                        <div className="flex-1 text-center">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. Time</p>
+                          <p className="text-sm font-black text-[#1066b1]">{Math.round(routeCoords.durationMin / 60 * 10) / 10} hrs</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <button onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline">Edit Route</button>
                 </ReviewSection>
 
-                {/* Cargo summary */}
+                {/* Cargo section */}
                 <ReviewSection title="Cargo & Schedule" icon="inventory_2" iconBg="bg-[#1066b1]/10" iconColor="text-[#1066b1]">
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
                     <ReviewRow label="Requirement" value={DRIVER_REQUIREMENTS.find(r => r.value === form.driverRequirement)?.label ?? form.driverRequirement} />
                     <ReviewRow label="Goods Type"  value={form.goodsType} />
-                    <ReviewRow label="Weight"      value={`${form.weightKg} kg`} />
-                    <ReviewRow label="Vehicle"     value={VEHICLE_TYPES.find(v => v.value === form.vehicleType)?.label ?? form.vehicleType} />
                     <ReviewRow label="Date"        value={form.jobDate} />
-                    <ReviewRow label="Time Slot"   value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
+                    <ReviewRow label="Deliver By"  value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
+                    <ReviewRow label="Load Code"   value={form.loadCode} />
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">
@@ -673,7 +617,6 @@ const PostJobPage: React.FC = () => {
                 </ReviewSection>
               </div>
 
-              {/* notice */}
               <div className="bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4 flex items-start gap-3">
                 <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">bolt</span>
                 <p className="text-xs text-[#083d7a] font-medium leading-relaxed">
@@ -692,7 +635,7 @@ const PostJobPage: React.FC = () => {
           </div>
         )}
 
-        {/* Footer */}
+        {/* Footer nav */}
         <div className="px-4 sm:px-8 py-6 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center sm:gap-4">
           <button
             onClick={step === 1 ? () => navigate('/haulier') : back}
@@ -713,7 +656,7 @@ const PostJobPage: React.FC = () => {
             <button
               onClick={submit}
               disabled={submitting}
-              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-white bg-[#1066b1]/100 hover:bg-[#1066b1] transition-colors shadow-lg shadow-[#1066b1]/20 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl text-sm font-black text-white bg-[#1066b1] hover:bg-[#1066b1]/90 transition-colors shadow-lg shadow-[#1066b1]/20 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]"
             >
               {submitting
                 ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Posting…</>
@@ -727,7 +670,7 @@ const PostJobPage: React.FC = () => {
   );
 };
 
-/* ─── Review sub-components ──────────────────────────────────────────────────── */
+/* ─── Sub-components ─────────────────────────────────────────────────────────── */
 
 const ReviewSection: React.FC<{
   title: string; icon: string; iconBg: string; iconColor: string;
@@ -746,6 +689,16 @@ const ReviewRow: React.FC<{ label: string; value: string }> = ({ label, value })
   <div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
     <p className="text-sm font-bold text-[#44474C] mt-0.5">{value || '—'}</p>
+  </div>
+);
+
+const RoutePoint: React.FC<{ color: string; label: string; value: string }> = ({ color, label, value }) => (
+  <div className="flex items-start gap-3">
+    <span className={`w-2.5 h-2.5 rounded-full ring-2 shrink-0 mt-1 ${color}`} />
+    <div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-sm font-bold text-[#44474C] leading-snug">{value || '—'}</p>
+    </div>
   </div>
 );
 

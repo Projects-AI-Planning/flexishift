@@ -260,16 +260,16 @@ function ShiftCard({
         <View style={styles.quoteAmountBox}>
           <Text style={styles.quoteAmountLabel}>Your quote</Text>
           <View style={styles.quoteAmountRow}>
-            <Text style={styles.quoteAmount}>₹{myQuote.amountPerDay.toLocaleString()}/day</Text>
+            <Text style={styles.quoteAmount}>${myQuote.amountPerDay.toLocaleString()}/day</Text>
             <Text style={styles.quoteDivider}>·</Text>
-            <Text style={styles.quoteTotal}>Total ₹{myQuote.totalAmount.toLocaleString()}</Text>
+            <Text style={styles.quoteTotal}>Total ${myQuote.totalAmount.toLocaleString()}</Text>
           </View>
         </View>
       )}
 
       {/* Listed rate */}
       {shift.dailyRate && !myQuote ? (
-        <Text style={styles.listedRate}>Listed rate: ₹{shift.dailyRate.toLocaleString()}/day</Text>
+        <Text style={styles.listedRate}>Listed rate: ${shift.dailyRate.toLocaleString()}/day</Text>
       ) : null}
 
       {/* Progress bar for booked shifts */}
@@ -386,12 +386,12 @@ function QuoteCard({
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Daily Rate</Text>
-          <Text style={styles.statValue}>₹{quote.amountPerDay.toLocaleString()}</Text>
+          <Text style={styles.statValue}>${quote.amountPerDay.toLocaleString()}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Total Amount</Text>
-          <Text style={styles.statValue}>₹{quote.totalAmount.toLocaleString()}</Text>
+          <Text style={styles.statValue}>${quote.totalAmount.toLocaleString()}</Text>
         </View>
         {quote.totalDays ? (
           <>
@@ -466,7 +466,7 @@ function QuoteModal({
           <Text style={styles.modalTitle}>Submit Quote</Text>
           <Text style={styles.modalSub}>{shift.shiftRef} · {shift.totalDays} day(s)</Text>
 
-          <Text style={styles.inputLabel}>Daily Rate (₹)</Text>
+          <Text style={styles.inputLabel}>Daily Rate ($)</Text>
           <TextInput
             style={styles.input}
             value={amount}
@@ -477,7 +477,7 @@ function QuoteModal({
             autoFocus
           />
           {amount ? (
-            <Text style={styles.totalPreview}>Total: ₹{total} for {shift.totalDays} days</Text>
+            <Text style={styles.totalPreview}>Total: ${total} for {shift.totalDays} days</Text>
           ) : null}
 
           <Text style={styles.inputLabel}>Notes (optional)</Text>

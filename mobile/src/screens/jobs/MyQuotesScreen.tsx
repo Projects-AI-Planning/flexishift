@@ -123,7 +123,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Your Quote</Text>
             <Text style={styles.statValue}>
-              {item.currency ?? 'Rs'} {Number(item.quoteAmount ?? item.amount ?? 0).toLocaleString()}
+              {item.currency ?? '$'} {Number(item.quoteAmount ?? item.amount ?? 0).toLocaleString()}
             </Text>
           </View>
           <View style={styles.statDivider} />
@@ -161,7 +161,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
                 jobId,
                 item.jobReference ?? item.jobRef ?? undefined,
                 Number(item.quoteAmount ?? item.amount ?? 0) || undefined,
-                String(item.currency ?? 'Rs'),
+                String(item.currency ?? 'USD'),
               )}
               style={styles.complianceBtn}>
               <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>

@@ -25,10 +25,10 @@ const jobStatusStyle: Record<string, string> = {
   cancelled:            'text-red-500',
 };
 
-const fmt = (val: number, cur = 'INR') =>
-  new Intl.NumberFormat('en-GB', {
+const fmt = (val: number, cur = 'USD') =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: cur === 'INR' ? 'INR' : 'GBP',
+    currency: 'USD',
     maximumFractionDigits: 2,
   }).format(val);
 

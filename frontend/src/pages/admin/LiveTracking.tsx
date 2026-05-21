@@ -33,9 +33,9 @@ type LiveTrackingData = {
   deliveries: LiveDelivery[];
 };
 
-const currency = new Intl.NumberFormat('en-IN', {
+const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
-  currency: 'INR',
+  currency: 'USD',
   maximumFractionDigits: 0,
 });
 

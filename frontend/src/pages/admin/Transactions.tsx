@@ -19,8 +19,8 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   failed:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-const fmt = (val: number, cur = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur === 'INR' ? 'INR' : 'GBP' }).format(val);
+const fmt = (val: number, cur = 'USD') =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
 const TransactionsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });

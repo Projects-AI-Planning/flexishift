@@ -45,7 +45,7 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
               rightLabel={String(invoice.status || 'ISSUED').toUpperCase()}>
               <View style={styles.row}>
                 <Text style={styles.label}>Amount</Text>
-                <Text style={styles.value}>Rs {invoice.amount ?? '0'}</Text>
+                <Text style={styles.value}>$ {invoice.amount ?? '0'}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Trip</Text>

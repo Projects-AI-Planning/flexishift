@@ -174,7 +174,7 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
                     <Text style={styles.recRef}>{jRef}</Text>
                     {jAmount ? (
                       <Text style={styles.recAmount}>
-                        ₹{Number(jAmount).toLocaleString('en-IN')}
+                        ${Number(jAmount).toLocaleString('en-US')}
                       </Text>
                     ) : null}
                   </View>

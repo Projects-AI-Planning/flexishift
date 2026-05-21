@@ -12,11 +12,13 @@ class JobCreateRequest(BaseModel):
     drop_lat: Optional[float] = Field(None, alias="dropLat")
     drop_lng: Optional[float] = Field(None, alias="dropLng")
     goods_type: str = Field(..., alias="goodsType")
-    weight_kg: float = Field(..., alias="weightKg")
-    vehicle_type: str = Field(..., alias="vehicleType")
+    weight_kg: Optional[float] = Field(None, alias="weightKg")
+    vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")
     driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
+    stops: Optional[List[dict]] = Field(None, alias="stops")
+    load_code: str = Field(..., alias="loadCode")
 
     model_config = {"populate_by_name": True}
 
@@ -33,8 +35,8 @@ class JobOut(BaseModel):
     dropLat: float = Field(..., alias="drop_lat")
     dropLng: float = Field(..., alias="drop_lng")
     goodsType: str = Field(..., alias="goods_type")
-    weightKg: float = Field(..., alias="weight_kg")
-    vehicleType: str = Field(..., alias="vehicle_type")
+    weightKg: Optional[float] = Field(None, alias="weight_kg")
+    vehicleType: Optional[str] = Field(None, alias="vehicle_type")
     jobDate: date = Field(..., alias="job_date")
     timeSlot: str = Field(..., alias="time_slot")
     driverRequirement: Optional[str] = Field(None, alias="driver_requirement")
@@ -63,6 +65,7 @@ class JobUpdateRequest(BaseModel):
     job_date: Optional[date] = Field(None, alias="jobDate")
     time_slot: Optional[str] = Field(None, alias="timeSlot")
     driver_requirement: Optional[str] = Field(None, alias="driverRequirement")
+    stops: Optional[List[dict]] = Field(None, alias="stops")
 
     model_config = {"populate_by_name": True}
 

@@ -114,7 +114,7 @@ interface PaymentOrder {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmtMoney = (value?: number | null) =>
-  value != null ? `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
+  value != null ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
 
 const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -256,7 +256,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
           {[
             { label: 'Job', value: job.jobRef, mono: true },
-            { label: 'Amount', value: `₹${order.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bold: true },
+            { label: 'Amount', value: `$${order.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bold: true },
             { label: 'Currency', value: order.currency.toUpperCase() },
           ].map(({ label, value, mono, bold }) => (
             <div key={label} className="flex justify-between text-sm">

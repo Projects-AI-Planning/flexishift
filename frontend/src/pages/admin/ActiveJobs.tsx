@@ -136,7 +136,7 @@ const ActiveJobsPage: React.FC = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</p>
                     <p className="text-sm font-black text-primary">
-                      {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString()}` : '—'}
+                      {job.agreedAmount != null ? `$${job.agreedAmount.toLocaleString()}` : '—'}
                     </p>
                   </div>
                   <div className="text-right">

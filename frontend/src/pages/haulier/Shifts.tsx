@@ -559,9 +559,9 @@ const HaulierShiftsPage: React.FC = () => {
                                 <div className="min-w-0">
                                   <p className="text-sm font-bold text-[#041627] truncate">{q.driverName ?? 'Driver'}</p>
                                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                                    ₹{q.amountPerDay.toLocaleString()}/day
+                                    ${q.amountPerDay.toLocaleString()}/day
                                     <span className="text-slate-400 mx-1">·</span>
-                                    Total ₹{q.totalAmount.toLocaleString()}
+                                    Total ${q.totalAmount.toLocaleString()}
                                   </p>
                                   {q.notes && <p className="text-xs text-slate-400 mt-0.5">{q.notes}</p>}
                                 </div>

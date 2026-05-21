@@ -16,8 +16,6 @@ def _gen_job_ref() -> str:
     return f"FF-{suffix}"
 
 
-def _gen_load_code() -> str:
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
 _SLOT_END_HOURS = {'MORNING': 12, 'AFTERNOON': 18, 'EVENING': 22, 'NIGHT': 30, 'FULL_DAY': 30}
@@ -64,6 +62,32 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         data["drop_lat"], data["drop_lng"],
     )
 
+    # Geocode intermediate stops
+    raw_stops = data.get("stops") or []
+    geocoded_stops = []
+    for i, stop in enumerate(raw_stops):
+        addr = stop.get("address", "").strip()
+        if not addr:
+            continue
+        if stop.get("lat") and stop.get("lng"):
+            geocoded_stops.append({
+                "address": addr,
+                "lat": float(stop["lat"]),
+                "lng": float(stop["lng"]),
+                "order": i + 1,
+            })
+        else:
+            try:
+                geo = await geocode_address(addr)
+                geocoded_stops.append({
+                    "address": geo["formatted_address"],
+                    "lat": float(geo["lat"]),
+                    "lng": float(geo["lng"]),
+                    "order": i + 1,
+                })
+            except Exception:
+                geocoded_stops.append({"address": addr, "lat": None, "lng": None, "order": i + 1})
+
     job_ref = _gen_job_ref()
     while db.query(Job).filter(Job.job_ref == job_ref).first():
         job_ref = _gen_job_ref()
@@ -71,7 +95,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
     job = Job(
         haulier_id=haulier.id,
         job_ref=job_ref,
-        load_code=_gen_load_code(),
+        load_code=data.get("load_code", "").strip().upper(),
         pickup_address=data["pickup_address"],
         pickup_lat=data["pickup_lat"],
         pickup_lng=data["pickup_lng"],
@@ -79,11 +103,12 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         drop_lat=data["drop_lat"],
         drop_lng=data["drop_lng"],
         goods_type=data["goods_type"],
-        weight_kg=data["weight_kg"],
-        vehicle_type=data["vehicle_type"],
+        weight_kg=data.get("weight_kg"),
+        vehicle_type=data.get("vehicle_type"),
         job_date=data["job_date"],
         time_slot=data["time_slot"],
         driver_requirement=data.get("driver_requirement", "DRIVER_WITH_TRUCK"),
+        stops=geocoded_stops if geocoded_stops else None,
         distance_km=route["distance_km"],
         duration_min=route["duration_min"],
         status=JobStatus.OPEN,

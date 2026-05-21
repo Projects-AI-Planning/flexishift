@@ -3,8 +3,8 @@ import { useAdminPayments } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur === 'INR' ? 'INR' : 'GBP' }).format(val);
+const fmt = (val: number, cur = 'USD') =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
 const EscrowPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: 'ESCROWED', search: '', limit: 10 });

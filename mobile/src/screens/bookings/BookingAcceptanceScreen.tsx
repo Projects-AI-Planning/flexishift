@@ -116,7 +116,7 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
           <View style={styles.escrowCopy}>
             <Text style={styles.escrowTitle}>Payment Secured in Escrow</Text>
             <Text style={styles.escrowAmount}>
-              {escrow > 0 ? Number(escrow).toLocaleString('en-IN') : '—'}
+              {escrow > 0 ? Number(escrow).toLocaleString('en-US') : '—'}
             </Text>
             <Text style={styles.escrowNote}>
               Funds are held securely and released after delivery approval.

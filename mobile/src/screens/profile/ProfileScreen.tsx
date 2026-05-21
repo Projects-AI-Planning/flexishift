@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
@@ -19,6 +20,11 @@ import Icon from '../../components/common/Icon';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {driverApi} from '../../api/driverApi';
 import {colors, radius, spacing} from '../../theme';
+import TruckCompartmentVisual, {
+  FUEL_COLORS,
+  FUEL_TYPES,
+  TruckCompartment,
+} from '../../components/TruckCompartmentVisual';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,10 +46,12 @@ interface ProfileForm {
   licenceNumber: string;
   vehicleType: string;
   vehicleRegistration: string;
+  truckCapacity?: string;
   driverAvailability?: string;
   companyName?: string;
   companyAddress?: string;
   coverageArea?: string;
+  equipmentDetails?: any[];
 }
 
 interface ProfileScreenProps {
@@ -202,11 +210,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [vehicleSaving, setVehicleSaving] = useState(false);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
 
+  // ── Truck compartments ───────────────────────────────────────────────────
+  const [compartments, setCompartments] = useState<TruckCompartment[]>(() =>
+    ((profileForm.equipmentDetails ?? []) as any[])
+      .filter((c: any) => c?.capacityLitres)
+      .map((c: any, i: number) => ({
+        id: c.id ?? Date.now() + i,
+        capacityLitres: String(c.capacityLitres),
+        fuelType: c.fuelType ?? 'Other',
+      })),
+  );
+  const [cptCapacity, setCptCapacity] = useState('');
+  const [cptFuelType, setCptFuelType] = useState('Diesel');
+  const [fuelDropOpen, setFuelDropOpen] = useState(false);
+  const [cptError, setCptError] = useState('');
+
   const openVehicleModal = () => {
     setVehicleType(profileForm.vehicleType ?? '');
     setVehicleReg(profileForm.vehicleRegistration ?? '');
     setVehicleError(null);
     setVehicleModalVisible(true);
+  };
+
+  const updateCompartments = (next: TruckCompartment[]) => {
+    setCompartments(next);
+    onChange({equipmentDetails: next} as any);
   };
 
   const handleVehicleSave = async () => {
@@ -650,6 +678,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         ) : null}
 
+
         {/* Driver Availability dropdown */}
         {!isHaulier && (
           <View style={daStyles.wrap}>
@@ -723,6 +752,127 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               placeholder="e.g. FLATBED, VAN, HGV"
             />
             <InfoField
+              label="CAPACITY OF TRUCK"
+              value={profileForm.truckCapacity ?? ''}
+              onChange={v => onChange({truckCapacity: v})}
+              placeholder="e.g. 10 Tons, 20,000 kg"
+            />
+
+            {/* ── Truck Compartments ──────────────────────────────────── */}
+            <View style={cptStyles.block}>
+              <View style={cptStyles.heading}>
+                <Icon name="package" size={13} color="#374151" strokeWidth={2} />
+                <Text style={cptStyles.headingText}>TRUCK COMPARTMENTS</Text>
+              </View>
+
+              {/* Live truck diagram */}
+              {compartments.length > 0 && (
+                <TruckCompartmentVisual compartments={compartments} />
+              )}
+
+              {/* Compartment chips */}
+              {compartments.length > 0 && (
+                <View style={cptStyles.chipRow}>
+                  {compartments.map((cpt, idx) => {
+                    const color = FUEL_COLORS[cpt.fuelType] ?? FUEL_COLORS.Other;
+                    return (
+                      <View key={cpt.id} style={[cptStyles.chip, {borderColor: color + '60'}]}>
+                        <View style={[cptStyles.chipDot, {backgroundColor: color}]} />
+                        <Text style={cptStyles.chipLabel}>C{idx + 1}</Text>
+                        <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} L</Text>
+                        <Text style={cptStyles.chipFuel}>{cpt.fuelType}</Text>
+                        <Pressable
+                          onPress={() => updateCompartments(compartments.filter(c => c.id !== cpt.id))}
+                          style={cptStyles.chipRemove}
+                          hitSlop={6}>
+                          <Text style={cptStyles.chipRemoveText}>✕</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Add compartment form */}
+              <View style={cptStyles.formBox}>
+                <Text style={cptStyles.formTitle}>
+                  {compartments.length === 0 ? 'Add First Compartment' : 'Add Another Compartment'}
+                </Text>
+
+                <View style={cptStyles.inputRow}>
+                  {/* Capacity */}
+                  <View style={cptStyles.capacityWrap}>
+                    <Text style={cptStyles.inputLabel}>CAPACITY (L)</Text>
+                    <View style={cptStyles.capacityInput}>
+                      <TextInput
+                        style={cptStyles.capacityField}
+                        keyboardType="numeric"
+                        placeholder="e.g. 8000"
+                        placeholderTextColor="#9CA4B0"
+                        value={cptCapacity}
+                        onChangeText={v => { setCptCapacity(v.replace(/[^0-9]/g, '')); setCptError(''); }}
+                        returnKeyType="done"
+                      />
+                      <Text style={cptStyles.capacityUnit}>L</Text>
+                    </View>
+                  </View>
+
+                  {/* Fuel type */}
+                  <View style={cptStyles.fuelWrap}>
+                    <Text style={cptStyles.inputLabel}>FUEL TYPE</Text>
+                    <Pressable
+                      style={[cptStyles.fuelTrigger, {borderColor: (FUEL_COLORS[cptFuelType] ?? '#D1D5DB') + 'AA'}]}
+                      onPress={() => setFuelDropOpen(o => !o)}>
+                      <View style={[cptStyles.fuelDot, {backgroundColor: FUEL_COLORS[cptFuelType] ?? '#94A3B8'}]} />
+                      <Text style={cptStyles.fuelValue}>{cptFuelType}</Text>
+                      <Text style={[cptStyles.fuelChevron, fuelDropOpen && cptStyles.fuelChevronUp]}>▾</Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Fuel dropdown */}
+                {fuelDropOpen && (
+                  <View style={cptStyles.fuelDropList}>
+                    {FUEL_TYPES.map((ft, fi) => {
+                      const active = cptFuelType === ft;
+                      const isLast = fi === FUEL_TYPES.length - 1;
+                      return (
+                        <Pressable
+                          key={ft}
+                          onPress={() => { setCptFuelType(ft); setFuelDropOpen(false); }}
+                          style={[cptStyles.fuelDropItem, !isLast && cptStyles.fuelDropItemBorder, active && cptStyles.fuelDropItemActive]}>
+                          <View style={[cptStyles.fuelDropDot, {backgroundColor: FUEL_COLORS[ft] ?? '#94A3B8'}]} />
+                          <Text style={[cptStyles.fuelDropLabel, active && cptStyles.fuelDropLabelActive]}>{ft}</Text>
+                          {active && <Text style={cptStyles.fuelDropTick}>✓</Text>}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {cptError ? <Text style={cptStyles.error}>{cptError}</Text> : null}
+
+                <Pressable
+                  style={[cptStyles.addBtn, !cptCapacity.trim() && cptStyles.addBtnDisabled]}
+                  onPress={() => {
+                    const cap = cptCapacity.trim();
+                    if (!cap || parseFloat(cap) <= 0) {
+                      setCptError('Enter a valid capacity in litres.');
+                      return;
+                    }
+                    updateCompartments([
+                      ...compartments,
+                      {id: Date.now(), capacityLitres: cap, fuelType: cptFuelType},
+                    ]);
+                    setCptCapacity('');
+                    setCptError('');
+                  }}>
+                  <Text style={cptStyles.addBtnText}>＋  Add Compartment</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <InfoField
               label="VEHICLE REGISTRATION"
               value={profileForm.vehicleRegistration}
               onChange={v => onChange({vehicleRegistration: v})}
@@ -758,9 +908,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         ) : null}
 
-        <Pressable style={styles.addVehicleBtn} onPress={openVehicleModal}>
-          <Text style={styles.addVehicleBtnText}>＋  Add New Vehicle</Text>
-        </Pressable>
       </View>
 
       {/* ── Documents & Verification ──────────────────────────────────────── */}
@@ -1665,6 +1812,93 @@ const extraDocStyles = StyleSheet.create({
   },
   addBtnDisabled: {opacity: 0.4},
   addBtnText: {color: '#fff', fontSize: 14, fontWeight: '700'},
+});
+
+const cptStyles = StyleSheet.create({
+  block: {gap: 10, marginTop: 4},
+
+  heading: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  headingText: {
+    fontSize: 11, fontWeight: '800', color: '#374151',
+    letterSpacing: 0.8, textTransform: 'uppercase', flex: 1,
+  },
+  optionalTag: {fontSize: 10, fontWeight: '600', color: '#9CA3AF'},
+
+  // Chips
+  chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F8FAFC', borderWidth: 1.5,
+    borderRadius: 99, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  chipDot: {width: 8, height: 8, borderRadius: 4},
+  chipLabel: {fontSize: 11, fontWeight: '900', color: '#111827'},
+  chipCap: {fontSize: 12, fontWeight: '700', color: '#111827'},
+  chipFuel: {fontSize: 11, color: '#6B7280', fontWeight: '600'},
+  chipRemove: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center',
+  },
+  chipRemoveText: {fontSize: 9, color: '#DC2626', fontWeight: '900'},
+
+  // Form
+  formBox: {
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E5EAF0',
+    borderRadius: radius.md, padding: 14, gap: 10,
+  },
+  formTitle: {fontSize: 12, fontWeight: '800', color: '#374151', letterSpacing: 0.2},
+
+  inputRow: {flexDirection: 'row', gap: 10},
+  inputLabel: {
+    fontSize: 10, fontWeight: '800', color: '#6B7280',
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5,
+  },
+
+  capacityWrap: {flex: 1},
+  capacityInput: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D1D5DB',
+    borderRadius: radius.md, minHeight: 46, paddingHorizontal: 12,
+  },
+  capacityField: {flex: 1, fontSize: 15, color: '#111827', fontWeight: '600'},
+  capacityUnit: {fontSize: 13, fontWeight: '700', color: '#6B7280'},
+
+  fuelWrap: {flex: 1},
+  fuelTrigger: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5,
+    borderRadius: radius.md, minHeight: 46, paddingHorizontal: 12,
+  },
+  fuelDot: {width: 10, height: 10, borderRadius: 5},
+  fuelValue: {flex: 1, fontSize: 13, fontWeight: '700', color: '#111827'},
+  fuelChevron: {fontSize: 13, color: '#6B7280'},
+  fuelChevronUp: {transform: [{rotate: '180deg'}]},
+
+  fuelDropList: {
+    borderWidth: 1, borderColor: '#D1D5DB', borderRadius: radius.md,
+    backgroundColor: '#FFFFFF', overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 5,
+  },
+  fuelDropItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: 14, backgroundColor: '#FFFFFF',
+  },
+  fuelDropItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  fuelDropItemActive: {backgroundColor: '#EAF3FD'},
+  fuelDropDot: {width: 10, height: 10, borderRadius: 5},
+  fuelDropLabel: {flex: 1, fontSize: 13, fontWeight: '600', color: '#111827'},
+  fuelDropLabelActive: {color: '#1066B1', fontWeight: '700'},
+  fuelDropTick: {fontSize: 13, color: '#1066B1', fontWeight: '900'},
+
+  error: {fontSize: 12, fontWeight: '700', color: '#DC2626'},
+
+  addBtn: {
+    backgroundColor: '#1066B1', borderRadius: radius.md,
+    minHeight: 44, justifyContent: 'center', alignItems: 'center',
+  },
+  addBtnDisabled: {opacity: 0.4},
+  addBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
 });
 
 export default ProfileScreen;

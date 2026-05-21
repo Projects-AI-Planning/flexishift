@@ -153,7 +153,7 @@ type ActiveMapData = {
   deliveries: LiveDelivery[];
 };
 
-const formatCurrency = (value: number) => `£${value.toLocaleString('en-GB')}`;
+const formatCurrency = (value: number) => `$${value.toLocaleString('en-US')}`;
 
 const toneForStatus = (status?: string) => {
   if (!status) return 'bg-[#1066b1]/15 text-[#083d7a]';
@@ -462,7 +462,7 @@ const HaulierOverview: React.FC = () => {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#1066b1]">Haulier Dashboard</p>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Fleet Overview</h1>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Operations Overview</h1>
             <p className="mt-1 text-xs sm:text-sm font-medium text-slate-300">Real-time status of your logistics operations.</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -527,7 +527,7 @@ const HaulierOverview: React.FC = () => {
             </div>
             <span className="rounded-full bg-[#1066b1]/10 px-2 py-0.5 text-[10px] font-black text-[#0a4a8f]">Optimal</span>
           </div>
-          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Fleet Use</p>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">On Time Rate</p>
           <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{stats.fleetUtilization}%</h3>
         </article>
       </section>
@@ -541,7 +541,7 @@ const HaulierOverview: React.FC = () => {
                 <span className="material-symbols-outlined text-lg">map</span>
               </span>
               <div className="min-w-0">
-                <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627] truncate">Live Fleet Tracking</h3>
+                <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627] truncate">Live Tracking</h3>
                 <p className="hidden sm:block text-xs text-slate-500">Live map powered by active delivery coordinates.</p>
               </div>
             </div>
@@ -584,7 +584,7 @@ const HaulierOverview: React.FC = () => {
                       <div className="min-w-[180px] text-sm">
                         <p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p>
                         <p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p>
-                        <p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-IN') : 'No ping'}</p>
+                        <p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-US') : 'No ping'}</p>
                       </div>
                     </Popup>
                   </Marker>

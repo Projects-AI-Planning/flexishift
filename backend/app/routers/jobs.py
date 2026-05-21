@@ -34,6 +34,7 @@ def _job_dict(job: Job) -> dict:
         "weightKg": job.weight_kg,
         "vehicleTypeRequired": job.vehicle_type,
         "driverRequirement": job.driver_requirement,
+        "stops": job.stops or [],
         "jobDate": job.job_date.isoformat() if job.job_date else None,
         "timeSlot": job.time_slot,
         "distanceKm": job.distance_km,

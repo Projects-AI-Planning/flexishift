@@ -2,7 +2,7 @@ import enum
 from uuid import uuid4
 from datetime import datetime, date
 
-from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey
+from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -42,9 +42,10 @@ class Job(Base):
     drop_lat:             Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     drop_lng:             Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     goods_type:           Mapped[str]       = mapped_column(String(100), nullable=False)
-    weight_kg:            Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=False)
-    vehicle_type:         Mapped[str]       = mapped_column(String(50), nullable=False)
+    weight_kg:            Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
+    vehicle_type:         Mapped[str]       = mapped_column(String(50), nullable=True)
     driver_requirement:   Mapped[str]       = mapped_column(String(50), nullable=True, default="DRIVER_WITH_TRUCK")
+    stops:                Mapped[list]      = mapped_column(JSON, nullable=True)
     job_date:             Mapped[date]      = mapped_column(Date, nullable=False)
     time_slot:            Mapped[TimeSlot]  = mapped_column(Enum(TimeSlot), nullable=False)
     distance_km:          Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
