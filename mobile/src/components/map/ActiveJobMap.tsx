@@ -143,7 +143,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     dropCoordsProp?.latitude, dropCoordsProp?.longitude,
   ]);
 
-  // ── GPS handler (MapView fires this when showsUserLocation is true) ─────────
+  // ── GPS handler — fires whenever showsUserLocation updates ──────────────────
   const handleUserLocationChange = useCallback(
     (event: any) => {
       const coord = event?.nativeEvent?.coordinate;
@@ -152,8 +152,8 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
       setDriverCoords(coords);
       onLocationUpdate?.(coords);
 
-      // Camera follows driver (Uber-style)
-      if (mapRef.current) {
+      // In live mode: camera continuously follows driver (Uber-style)
+      if (liveMode && mapRef.current) {
         followingRef.current = true;
         mapRef.current.animateCamera(
           {center: coords, zoom: 16, heading: coord.heading ?? 0},
@@ -169,15 +169,15 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
         Math.abs(coord.longitude - prev.longitude) > 0.0005
       ) {
         lastRouteOriginRef.current = coords;
-        setRouteOrigin(coords);
+        if (liveMode) {setRouteOrigin(coords);}
       }
     },
-    [onLocationUpdate],
+    [liveMode, onLocationUpdate],
   );
 
-  // ── Fit map to show full route once coords are ready ────────────────────────
+  // ── Fit map to show route — re-runs when currentCoords arrives ──────────────
   useEffect(() => {
-    if (loading || !dropCoords || initialFitDoneRef.current || followingRef.current) {return;}
+    if (loading || !dropCoords || followingRef.current) {return;}
     const origin = driverCoords ?? currentCoords;
     const startPt = origin
       ? origin
@@ -185,13 +185,15 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
       ? {latitude: pickupCoords.lat, longitude: pickupCoords.lon}
       : null;
     if (!startPt || !mapRef.current) {return;}
+    // Allow re-fit when a real position arrives for the first time
+    if (initialFitDoneRef.current && !origin) {return;}
     initialFitDoneRef.current = true;
     mapRef.current.animateToRegion(
       ptsToRegion([startPt, {latitude: dropCoords.lat, longitude: dropCoords.lon}]),
       800,
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupCoords, dropCoords, loading]);
+  }, [pickupCoords, dropCoords, loading, currentCoords]);
 
   // ── Sync routeOrigin from server-polled coords before GPS kicks in ──────────
   useEffect(() => {
@@ -299,12 +301,19 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
             rotateEnabled
             pitchEnabled={false}
             toolbarEnabled={false}
-            showsUserLocation={liveMode}
+            showsUserLocation
             showsMyLocationButton={false}
             showsTraffic={liveMode}
-            onUserLocationChange={liveMode ? handleUserLocationChange : undefined}
+            onUserLocationChange={handleUserLocationChange}
             initialRegion={
-              pickupCoords
+              currentCoords
+                ? {
+                    latitude: currentCoords.latitude,
+                    longitude: currentCoords.longitude,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }
+                : pickupCoords
                 ? {
                     latitude: pickupCoords.lat,
                     longitude: pickupCoords.lon,

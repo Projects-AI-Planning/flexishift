@@ -1,4 +1,5 @@
 import stripe
+import structlog
 from datetime import datetime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -7,12 +8,21 @@ from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.config import settings
 
+log = structlog.get_logger()
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
+_STRIPE_CANCEL_REASONS = {"duplicate", "fraudulent", "requested_by_customer", "abandoned"}
+_STRIPE_REFUND_REASONS = {"duplicate", "fraudulent", "requested_by_customer"}
 
 
 def _stripe_client():
     stripe.api_key = settings.STRIPE_SECRET_KEY
     return stripe
+
+
+def _stripe_error_msg(e: stripe.StripeError) -> str:
+    return getattr(e, "user_message", None) or str(e)
 
 
 def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
@@ -35,22 +45,27 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         raise HTTPException(status_code=422, detail="No selected quote found")
 
     amount = float(selected_quote.price)
-    # Stripe uses smallest currency unit (pence/cents)
     amount_minor = int(amount * 100)
 
     client = _stripe_client()
-    intent = client.PaymentIntent.create(
-        amount=amount_minor,
-        currency="inr",
-        capture_method="manual",          # escrow: authorise now, capture later
-        metadata={
-            "job_id": job_id,
-            "job_ref": job.job_ref,
-            "haulier_id": haulier_id,
-            "driver_id": str(job.selected_supplier_id or ""),
-        },
-        description=f"FreightFlex job {job.job_ref}",
-    )
+    try:
+        intent = client.PaymentIntent.create(
+            amount=amount_minor,
+            currency="gbp",
+            capture_method="manual",
+            metadata={
+                "job_id": job_id,
+                "job_ref": job.job_ref,
+                "haulier_id": haulier_id,
+                "driver_id": str(job.selected_supplier_id or ""),
+            },
+            description=f"FreightFlex job {job.job_ref}",
+            idempotency_key=f"pay-{job_id}",
+        )
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Payment gateway error: {_stripe_error_msg(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
     if existing:
         existing.gateway_order_id = intent["id"]
@@ -64,7 +79,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
             job_id=job_id,
             gateway_order_id=intent["id"],
             amount=selected_quote.price,
-            currency="INR",
+            currency="GBP",
             status=PaymentStatus.PENDING,
         )
         db.add(payment)
@@ -85,10 +100,6 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
 
 def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) -> Payment:
-    """
-    Called after the haulier's frontend confirms the PaymentIntent.
-    Retrieves the intent from Stripe and marks it as ESCROWED (requires_capture = authorised).
-    """
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -96,8 +107,10 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
     client = _stripe_client()
     try:
         intent = client.PaymentIntent.retrieve(payment_intent_id)
-    except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
     allowed = {"requires_capture", "succeeded"}
     if intent["status"] not in allowed:
@@ -107,11 +120,22 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
                    "Complete card confirmation before verifying.",
         )
 
+    # Guard against amount tampering — intent pence must match the stored quote price
+    intent_amount = intent.get("amount", 0)
+    expected_amount = int(float(payment.amount) * 100)
+    if intent_amount != expected_amount:
+        log.error("payment_amount_mismatch",
+                  job_id=job_id, expected=expected_amount, got=intent_amount)
+        raise HTTPException(status_code=422,
+                            detail="Payment amount mismatch — contact support")
+
     payment.gateway_payment_id = payment_intent_id
     payment.status = PaymentStatus.ESCROWED
     payment.escrowed_at = datetime.utcnow()
 
     job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
     job.status = JobStatus.PAYMENT_SECURED
 
     db.commit()
@@ -120,12 +144,10 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
 
 
 def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
-    """Returns Stripe payment details for both haulier and driver."""
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Allow job owner or selected driver
     if job.haulier_id != user_id and job.selected_supplier_id != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -133,7 +155,7 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found for this job")
 
-    # Fetch live intent from Stripe for real-time status
+    # Live intent status is best-effort; DB status is authoritative
     intent_status = None
     if payment.gateway_payment_id or payment.gateway_order_id:
         client = _stripe_client()
@@ -157,6 +179,8 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "stripeStatus": intent_status,
         "escrowedAt": payment.escrowed_at.isoformat() if payment.escrowed_at else None,
         "releasedAt": payment.released_at.isoformat() if payment.released_at else None,
+        "failedAt": payment.failed_at.isoformat() if payment.failed_at else None,
+        "refundedAt": payment.refunded_at.isoformat() if payment.refunded_at else None,
         "publishableKey": settings.STRIPE_PUBLISHABLE_KEY,
     }
 
@@ -170,11 +194,18 @@ def release_payment(db: Session, job_id: str) -> Payment:
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
     try:
         client.PaymentIntent.capture(intent_id)
-    except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
     payment.status = PaymentStatus.RELEASED
     payment.released_at = datetime.utcnow()
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if job:
+        job.status = JobStatus.COMPLETED
+
     db.commit()
     db.refresh(payment)
     return payment
@@ -197,21 +228,38 @@ def refund_payment(
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    if payment.status not in (PaymentStatus.ESCROWED, PaymentStatus.PENDING):
+    if payment.status not in (PaymentStatus.ESCROWED, PaymentStatus.PENDING, PaymentStatus.RELEASED):
         raise HTTPException(status_code=422, detail="Payment cannot be refunded in current state")
 
     client = _stripe_client()
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
+
     if intent_id:
+        cancel_reason = reason if reason in _STRIPE_CANCEL_REASONS else "requested_by_customer"
+        refund_reason = reason if reason in _STRIPE_REFUND_REASONS else "requested_by_customer"
         try:
-            if payment.status == PaymentStatus.ESCROWED:
-                # Cancel the uncaptured PaymentIntent (reverses authorisation)
-                client.PaymentIntent.cancel(intent_id)
-            # If PENDING (not yet captured), just cancel
-        except Exception:
-            pass
+            if payment.status == PaymentStatus.RELEASED:
+                # Already captured — issue a Stripe Refund (supports partial amounts)
+                refund_params: dict = {
+                    "payment_intent": intent_id,
+                    "reason": refund_reason,
+                }
+                if amount is not None:
+                    refund_params["amount"] = int(amount * 100)
+                client.Refund.create(**refund_params)
+            else:
+                # ESCROWED or PENDING — cancel the uncaptured authorisation
+                client.PaymentIntent.cancel(intent_id, cancellation_reason=cancel_reason)
+        except stripe.StripeError as e:
+            raise HTTPException(status_code=400,
+                                detail=f"Stripe refund error: {_stripe_error_msg(e)}")
+        except Exception as e:
+            log.error("refund_payment_error", job_id=job_id, error=str(e))
+            raise HTTPException(status_code=502,
+                                detail=f"Could not process refund: {str(e)}")
 
     payment.status = PaymentStatus.REFUNDED
+    payment.refunded_at = datetime.utcnow()
     job.status = JobStatus.CANCELLED
     job.deleted_at = datetime.utcnow()
     db.commit()

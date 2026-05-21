@@ -3263,37 +3263,73 @@ function DriverApp(): React.JSX.Element {
   }
 
   if (locationStatus === 'denied' || locationStatus === 'disabled') {
+    const isDenied = locationStatus === 'denied';
     return (
-      <SafeAreaView style={styles.blockingOverlay}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View style={styles.blockingContent}>
-          <View style={styles.blockingIconCircle}>
-            <Text style={styles.blockingIcon}>{locationStatus === 'denied' ? '🚫' : '📍'}</Text>
+      <SafeAreaView style={styles.blockingShell}>
+        <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+        <View style={styles.blockingBody}>
+
+          {/* Icon badge */}
+          <View style={[styles.blockingBadge, isDenied ? styles.blockingBadgeDanger : styles.blockingBadgeWarning]}>
+            <Text style={styles.blockingBadgeIcon}>{isDenied ? '🔒' : '📍'}</Text>
           </View>
-          <Text style={styles.blockingTitle}>
-            {locationStatus === 'denied' ? 'Permission Required' : 'Location is Off'}
+
+          {/* Heading */}
+          <Text style={styles.blockingHeading}>
+            {isDenied ? 'Location Access\nDenied' : 'Location is\nTurned Off'}
           </Text>
-          <Text style={styles.blockingText}>
-            FlexiShift requires mandatory location access to operate. This is required for trip tracking, safety, and regulatory compliance.
+
+          {/* Description */}
+          <Text style={styles.blockingDesc}>
+            {isDenied
+              ? 'FlexiShift needs location permission to track your trips and ensure safety. Please enable it in your app settings.'
+              : 'FlexiShift needs your GPS to be on for trip tracking, safety, and compliance. Enable location in your phone settings.'}
           </Text>
+
+          {/* Steps card */}
+          <View style={styles.blockingStepsCard}>
+            {isDenied ? (
+              <>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>1</Text></View>
+                  <Text style={styles.blockingStepText}>Tap <Text style={styles.blockingStepBold}>Open Settings</Text> below</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>2</Text></View>
+                  <Text style={styles.blockingStepText}>Go to <Text style={styles.blockingStepBold}>Permissions → Location</Text></Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>3</Text></View>
+                  <Text style={styles.blockingStepText}>Select <Text style={styles.blockingStepBold}>Allow all the time</Text> or <Text style={styles.blockingStepBold}>While using</Text></Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>1</Text></View>
+                  <Text style={styles.blockingStepText}>Pull down the notification shade</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>2</Text></View>
+                  <Text style={styles.blockingStepText}>Tap the <Text style={styles.blockingStepBold}>Location</Text> tile to turn it on</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>3</Text></View>
+                  <Text style={styles.blockingStepText}>Return here and tap <Text style={styles.blockingStepBold}>Try Again</Text></Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Primary action button */}
           <Pressable
-            style={styles.blockingBtn}
-            onPress={() => {
-              if (locationStatus === 'denied') {
-                Linking.openSettings();
-              } else {
-                checkLocation();
-              }
-            }}>
-            <Text style={styles.blockingBtnText}>
-              {locationStatus === 'denied' ? 'Open App Settings' : 'Check Again'}
+            style={({pressed}) => [styles.blockingPrimaryBtn, pressed && styles.blockingPrimaryBtnPressed]}
+            onPress={() => isDenied ? Linking.openSettings() : checkLocation()}>
+            <Text style={styles.blockingPrimaryBtnText}>
+              {isDenied ? 'Open Settings' : 'Try Again'}
             </Text>
           </Pressable>
-          {locationStatus === 'disabled' && (
-            <Text style={styles.blockingHint}>
-              Please turn on your phone's GPS (Location) toggle.
-            </Text>
-          )}
+
         </View>
       </SafeAreaView>
     );
@@ -4167,6 +4203,108 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 10,
+  },
+
+  // ── Location blocking screen ─────────────────────────────────────────────────
+  blockingShell: {
+    flex: 1,
+    backgroundColor: palette.bg,
+  },
+  blockingBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 32,
+  },
+  blockingBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+  },
+  blockingBadgeDanger: {
+    backgroundColor: '#FEE2E2',
+  },
+  blockingBadgeWarning: {
+    backgroundColor: '#DBEAFE',
+  },
+  blockingBadgeIcon: {
+    fontSize: 44,
+  },
+  blockingHeading: {
+    color: palette.navy,
+    fontSize: 28,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 36,
+    marginBottom: 14,
+  },
+  blockingDesc: {
+    color: palette.inkSoft,
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+    marginBottom: 28,
+  },
+  blockingStepsCard: {
+    width: '100%',
+    backgroundColor: palette.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    gap: 14,
+    marginBottom: 28,
+  },
+  blockingStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  blockingStepNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: palette.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  blockingStepNumText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  blockingStepText: {
+    color: palette.ink,
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  blockingStepBold: {
+    fontWeight: '700',
+    color: palette.navy,
+  },
+  blockingPrimaryBtn: {
+    width: '100%',
+    backgroundColor: palette.accent,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockingPrimaryBtnPressed: {
+    opacity: 0.82,
+  },
+  blockingPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
 

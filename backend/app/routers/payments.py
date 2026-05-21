@@ -44,6 +44,8 @@ def _payment_dict(p: Payment) -> dict:
         "status": p.status.value,
         "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
         "releasedAt": p.released_at.isoformat() if p.released_at else None,
+        "failedAt": p.failed_at.isoformat() if p.failed_at else None,
+        "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
         "createdAt": p.created_at.isoformat() if p.created_at else None,
     }
 
@@ -215,7 +217,7 @@ def get_payment_status(
 def release_escrow(
     booking_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.ADMIN)),
 ):
     p = pay_svc.release_payment(db, booking_id)
     return ok(data=_payment_dict(p), message="Payment released")
@@ -243,7 +245,7 @@ def payment_history(
     current_user: User = Depends(get_current_user),
 ):
     from app.models.payment import PaymentStatus
-    q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
+    q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id).filter(Job.deleted_at.is_(None))
     if current_user.role.value in ("DRIVER", "FIRM"):
         q = q.filter(Job.selected_supplier_id == current_user.id)
     elif current_user.role.value == "HAULIER":
@@ -268,6 +270,8 @@ def payment_history(
             "status": p.status.value,
             "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
             "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "failedAt": p.failed_at.isoformat() if p.failed_at else None,
+            "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
         }
         for p, j in rows

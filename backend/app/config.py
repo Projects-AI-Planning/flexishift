@@ -42,8 +42,8 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
 
-    STRIPE_SECRET_KEY: str = "REDACTED"
-    STRIPE_PUBLISHABLE_KEY: str = "pk_test_51TZ8bu3kmUHlLh5uHZ7MMfAi5jP2FeE7siClC7Hkv2KRzd0Cy5tar3hFgNZb1LKKnpPwUVu6eZYFlTuCFtOEzvhJ00hQF0SWxf"
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
     SENDGRID_API_KEY: str = ""

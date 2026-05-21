@@ -484,9 +484,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         type: asset.type ?? 'image/jpeg',
       } as any);
       await driverApi.profile.uploadPhotoDirect(formData);
-      // Clear local state so that the refresh pulls the fresh backend URL from props
+      // Refresh profile FIRST so the new backend URL lands in state,
+      // then clear local so we swap seamlessly from local → backend URL.
+      await onRefresh();
       setLocalPhotoUrl(null);
-      await Promise.resolve(onRefresh());
     } catch (err) {
       setLocalPhotoUrl(null);
       Alert.alert('Photo upload failed', err instanceof Error ? err.message : 'Please try again.');
@@ -534,7 +535,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.avatarArea}>
           <Pressable onPress={uploadPhoto} style={styles.avatarCircle}>
             {photoUrl
-              ? <Image source={{uri: photoUrl}} style={styles.avatarImg} />
+              ? <Image
+                  source={{uri: photoUrl}}
+                  style={styles.avatarImg}
+                  onError={() => setLocalPhotoUrl(null)}
+                />
               : <Text style={styles.avatarInitials}>{initials}</Text>}
             <View style={styles.cameraOverlay}>
               {photoUploading
