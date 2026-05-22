@@ -284,43 +284,61 @@ def payment_history(
 
 # ── Payment Methods ─────────────────────────────────────────────────────────────
 
+# ── Haulier card management (Stripe SetupIntent flow) ─────────────────────────
+
+@flat.post("/setup-intent", status_code=201)
+def create_setup_intent(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """Create a Stripe SetupIntent so the haulier can save a card for future payments."""
+    from app.services.stripe_customer import create_setup_intent as _create
+    data = _create(db, current_user)
+    return created(data=data, message="Setup intent created")
+
+
+@flat.get("/saved-cards")
+def list_saved_cards(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """List all saved cards for this haulier."""
+    from app.services.stripe_customer import list_saved_cards as _list
+    cards = _list(db, current_user)
+    return ok(data={"cards": cards, "total": len(cards)}, message="Saved cards retrieved")
+
+
+@flat.delete("/saved-cards/{payment_method_id}")
+def detach_saved_card(
+    payment_method_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """Remove a saved card."""
+    from app.services.stripe_customer import detach_card as _detach
+    _detach(db, current_user, payment_method_id)
+    return ok(data=None, message="Card removed")
+
+
+# ── Legacy stubs kept for backward compatibility ───────────────────────────────
+
 @flat.post("/methods/add", status_code=201)
-def add_payment_method(
+def add_payment_method_legacy(
     body: PaymentMethodRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    fund_account_id = f"fa_{current_user.id[:8]}_{body.account_number[-4:]}"
-    current_user.bank_account_id = fund_account_id
-    db.commit()
-    return created(
-        data={
-            "methodId": fund_account_id,
-            "accountName": body.account_name,
-            "accountNumber": f"****{body.account_number[-4:]}",
-            "ifscCode": body.ifsc_code,
-            "accountType": body.account_type,
-        },
-        message="Payment method added",
-    )
+    """Deprecated — use POST /payments/setup-intent instead."""
+    return created(data={}, message="Use POST /payments/setup-intent to save a card via Stripe")
 
 
 @flat.get("/methods/list")
-def list_payment_methods(current_user: User = Depends(get_current_user)):
-    methods = []
-    if current_user.bank_account_id:
-        methods = [{"methodId": current_user.bank_account_id, "type": "bank_account"}]
-    return ok(data={"methods": methods, "total": len(methods)}, message="Payment methods retrieved")
+def list_payment_methods_legacy(current_user: User = Depends(get_current_user)):
+    """Deprecated — use GET /payments/saved-cards instead."""
+    return ok(data={"methods": [], "total": 0}, message="Use GET /payments/saved-cards")
 
 
 @flat.delete("/methods/delete/{method_id}")
-def delete_payment_method(
-    method_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.bank_account_id != method_id:
-        raise HTTPException(status_code=404, detail="Payment method not found")
-    current_user.bank_account_id = None
-    db.commit()
-    return ok(data=None, message="Payment method deleted")
+def delete_payment_method_legacy(method_id: str, current_user: User = Depends(get_current_user)):
+    """Deprecated — use DELETE /payments/saved-cards/{id} instead."""
+    return ok(data=None, message="Use DELETE /payments/saved-cards/{id}")

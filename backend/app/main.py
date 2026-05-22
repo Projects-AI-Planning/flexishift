@@ -30,6 +30,7 @@ from app.routers import (
     quotes,
     ratings,
     shifts,
+    stripe_connect,
     support,
     supplier,
     suppliers,
@@ -148,6 +149,7 @@ app.include_router(tracking.router, prefix=PREFIX)
 app.include_router(tracking.flat, prefix=PREFIX)
 app.include_router(ratings.router, prefix=PREFIX)
 app.include_router(shifts.router, prefix=PREFIX)
+app.include_router(stripe_connect.router, prefix=PREFIX)
 app.include_router(notifications.router, prefix=PREFIX)
 app.include_router(support.router, prefix=PREFIX)
 app.include_router(dashboard.router, prefix=PREFIX)

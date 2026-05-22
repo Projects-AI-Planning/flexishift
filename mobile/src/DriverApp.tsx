@@ -57,6 +57,7 @@ import InvoicesScreen from './screens/invoices/InvoicesScreen';
 import PasswordScreen from './screens/profile/PasswordScreen';
 import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
 import SettingsScreen from './screens/profile/SettingsScreen';
+import DriverPaymentsScreen from './screens/profile/DriverPaymentsScreen';
 import SupportScreen from './screens/support/SupportScreen';
 import BookingAcceptanceScreen from './screens/bookings/BookingAcceptanceScreen';
 import ShiftsScreen from './screens/shifts/ShiftsScreen';
@@ -424,6 +425,7 @@ function DriverApp(): React.JSX.Element {
   // Loading states
   const [contentLoading, setContentLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Data
@@ -915,6 +917,15 @@ function DriverApp(): React.JSX.Element {
             page: 1,
           });
           setPayments((hist.payments as Array<Record<string, unknown>>) ?? []);
+          break;
+        }
+        case 'profile.payments': {
+          const [hist, earningsData] = await Promise.all([
+            driverApi.payments.getHistory({limit: 50, page: 1}),
+            driverApi.dashboard.getEarnings().catch(() => null),
+          ]);
+          setPayments(((hist as any).payments ?? (hist as any).items ?? []) as Array<Record<string, unknown>>);
+          if (earningsData) {setEarnings(cast<EarningsResponse>(earningsData));}
           break;
         }
         case 'invoices.list': {
@@ -1970,6 +1981,23 @@ function DriverApp(): React.JSX.Element {
     });
   };
 
+  const handleStripeSetup = async () => {
+    setStripeConnectLoading(true);
+    try {
+      const result = await driverApi.stripeConnect.startOnboarding();
+      const url = (result as any)?.onboardingUrl as string | undefined;
+      if (url) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Could not get onboarding link. Please try again.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed to start Stripe onboarding.');
+    } finally {
+      setStripeConnectLoading(false);
+    }
+  };
+
   const handlePasswordChange = async () => {
     await runAction(async () => {
       await driverApi.auth.changePassword(passwordForm);
@@ -2975,6 +3003,8 @@ function DriverApp(): React.JSX.Element {
             await driverApi.profile.update({vehicleType, vehicleRegistration});
             await loadProfile();
           }}
+          onStripeSetup={handleStripeSetup}
+          stripeConnectLoading={stripeConnectLoading}
           loading={actionLoading}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -3031,6 +3061,8 @@ function DriverApp(): React.JSX.Element {
               await driverApi.profile.update({vehicleType, vehicleRegistration});
               await loadProfile();
             }}
+            onStripeSetup={handleStripeSetup}
+            stripeConnectLoading={stripeConnectLoading}
             loading={actionLoading}
             refreshing={refreshing}
             onRefresh={async () => {
@@ -3204,6 +3236,7 @@ function DriverApp(): React.JSX.Element {
       case 'profile.settings':
         return (
           <SettingsScreen
+            onPayments={() => navigate('profile', 'profile.payments')}
             onChangePassword={() => navigate('profile', 'profile.password')}
             onNotificationPreferences={() => navigate('profile', 'profile.preferences')}
             onAvailability={() => navigate('profile', 'availability.set')}
@@ -3230,6 +3263,33 @@ function DriverApp(): React.JSX.Element {
                 ],
               );
             }}
+          />
+        );
+      case 'profile.payments':
+        return (
+          <DriverPaymentsScreen
+            stripeConnect={(profile as any)?.stripeConnect ?? null}
+            onStripeSetup={handleStripeSetup}
+            stripeConnectLoading={stripeConnectLoading}
+            totalEarnings={earnings?.allTimeEarnings ?? earnings?.summary?.totalEarnings ?? 0}
+            totalJobs={earnings?.allTimeJobs ?? earnings?.summary?.totalJobs ?? 0}
+            payments={payments as any[]}
+            loading={actionLoading}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await Promise.all([
+                loadProfile(),
+                driverApi.payments.getHistory({limit: 50}).then(h => {
+                  setPayments((h as any).payments ?? (h as any).items ?? []);
+                }).catch(() => undefined),
+                driverApi.dashboard.getEarnings().then(d => {
+                  setEarnings(cast<EarningsResponse>(d));
+                }).catch(() => undefined),
+              ]);
+              setRefreshing(false);
+            }}
+            onBack={() => navigate('profile', 'profile.settings')}
           />
         );
       case 'availability.set':
@@ -3505,6 +3565,7 @@ function DriverApp(): React.JSX.Element {
     activeRoute === 'jobs.history' ||
     activeRoute === 'jobs.booking' ||
     activeRoute === 'profile.settings' ||
+    activeRoute === 'profile.payments' ||
     activeRoute === 'profile.password' ||
     activeRoute === 'profile.preferences' ||
     activeRoute === 'availability.set' ||

@@ -355,6 +355,14 @@ export const driverApi = {
         params: {origin_lat: originLat, origin_lng: originLng, dest_lat: destLat, dest_lng: destLng},
       }),
   },
+  stripeConnect: {
+    getStatus: () =>
+      request<{hasAccount: boolean; onboardingComplete: boolean; chargesEnabled: boolean; payoutsEnabled: boolean; requirementsDue: string[]}>('/stripe-connect/status'),
+    startOnboarding: () =>
+      request<{onboardingUrl: string; stripeAccountId: string}>('/stripe-connect/onboard', {method: 'POST'}),
+    refreshOnboardingLink: () =>
+      request<{onboardingUrl: string}>('/stripe-connect/onboard/refresh'),
+  },
   tracking: {
     getEta: (jobId: string) =>
       request<Record<string, unknown>>(`/tracking/eta/${jobId}`),

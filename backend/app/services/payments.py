@@ -186,9 +186,16 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
 
 
 def release_payment(db: Session, job_id: str) -> Payment:
+    from app.models.user import User
+    from app.services.stripe_connect import transfer_to_driver
+
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()
     if not payment or payment.status != PaymentStatus.ESCROWED:
         raise HTTPException(status_code=422, detail="Payment not in escrowed state")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
 
     client = _stripe_client()
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
@@ -199,12 +206,33 @@ def release_payment(db: Session, job_id: str) -> Payment:
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
+    # Transfer captured funds to the driver's Stripe Connect account
+    transfer_id = None
+    if job.selected_supplier_id:
+        driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
+        if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
+            amount_pence = int(float(payment.amount) * 100)
+            transfer_id = transfer_to_driver(
+                stripe_account_id=driver.stripe_account_id,
+                amount_pence=amount_pence,
+                currency=payment.currency,
+                payment_intent_id=intent_id,
+                job_ref=job.job_ref,
+            )
+        else:
+            log.warning(
+                "release_payment_no_stripe_account",
+                job_id=job_id,
+                driver_id=str(job.selected_supplier_id),
+                has_account=bool(driver and driver.stripe_account_id),
+            )
+
     payment.status = PaymentStatus.RELEASED
     payment.released_at = datetime.utcnow()
+    if transfer_id:
+        payment.gateway_payout_id = transfer_id
 
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if job:
-        job.status = JobStatus.COMPLETED
+    job.status = JobStatus.COMPLETED
 
     db.commit()
     db.refresh(payment)

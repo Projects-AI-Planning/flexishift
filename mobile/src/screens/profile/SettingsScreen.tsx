@@ -18,6 +18,7 @@ interface SettingsItem {
 }
 
 interface SettingsScreenProps {
+  onPayments: () => void;
   onChangePassword: () => void;
   onNotificationPreferences: () => void;
   onAvailability: () => void;
@@ -53,6 +54,7 @@ function SettingsRow({item}: {item: SettingsItem}) {
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({
+  onPayments,
   onChangePassword,
   onNotificationPreferences,
   onAvailability,
@@ -61,6 +63,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onDeactivate,
 }) => {
   const accountItems: SettingsItem[] = [
+    {
+      icon: 'credit-card',
+      label: 'Payments',
+      subtitle: 'Bank account, earnings & payouts',
+      onPress: onPayments,
+    },
     {
       icon: 'lock',
       label: 'Change Password',

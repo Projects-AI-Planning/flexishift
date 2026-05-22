@@ -66,6 +66,8 @@ interface ProfileScreenProps {
   onLogout: () => void;
   onSettings: () => void;
   onAddVehicle: (vehicleType: string, vehicleRegistration: string) => void;
+  onStripeSetup?: () => void;
+  stripeConnectLoading?: boolean;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -190,6 +192,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onSettings,
   onAddVehicle,
+  onStripeSetup,
+  stripeConnectLoading = false,
   loading,
   refreshing,
   onRefresh,
@@ -1015,6 +1019,39 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </>}
       </Pressable>
+
+      {/* ── Payment Setup (Stripe Connect) ────────────────────────────────── */}
+      {onStripeSetup !== undefined && (() => {
+        const sc = profile?.stripeConnect;
+        const complete = sc?.onboardingComplete === true;
+        return (
+          <View style={scStyles.card}>
+            <View style={scStyles.header}>
+              <Text style={scStyles.title}>💳  Payment Setup</Text>
+              <View style={[scStyles.badge, complete ? scStyles.badgeDone : scStyles.badgePending]}>
+                <Text style={[scStyles.badgeText, complete ? scStyles.badgeTextDone : scStyles.badgeTextPending]}>
+                  {complete ? 'Verified' : 'Required'}
+                </Text>
+              </View>
+            </View>
+            <Text style={scStyles.body}>
+              {complete
+                ? 'Your bank account is connected. Earnings will be transferred after each job is completed.'
+                : 'Connect your bank account to receive payments. You will need to provide bank details and ID proof via Stripe.'}
+            </Text>
+            {!complete && (
+              <Pressable
+                style={[scStyles.btn, stripeConnectLoading && scStyles.btnDisabled]}
+                onPress={onStripeSetup}
+                disabled={stripeConnectLoading}>
+                {stripeConnectLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={scStyles.btnText}>Set Up Bank Account →</Text>}
+              </Pressable>
+            )}
+          </View>
+        );
+      })()}
 
       {/* ── Settings + Log Out ────────────────────────────────────────────── */}
       <View style={styles.bottomRow}>
@@ -1899,6 +1936,40 @@ const cptStyles = StyleSheet.create({
   },
   addBtnDisabled: {opacity: 0.4},
   addBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+});
+
+const scStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8},
+  title: {fontSize: 15, fontWeight: '700', color: '#111827'},
+  badge: {paddingHorizontal: 10, paddingVertical: 3, borderRadius: 99},
+  badgePending: {backgroundColor: '#FEF3C7'},
+  badgeDone: {backgroundColor: '#D1FAE5'},
+  badgeText: {fontSize: 11, fontWeight: '700'},
+  badgeTextPending: {color: '#92400E'},
+  badgeTextDone: {color: '#065F46'},
+  body: {fontSize: 13, color: '#6B7280', lineHeight: 19, marginBottom: 14},
+  btn: {
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  btnDisabled: {opacity: 0.5},
+  btnText: {color: '#fff', fontSize: 14, fontWeight: '700'},
 });
 
 export default ProfileScreen;

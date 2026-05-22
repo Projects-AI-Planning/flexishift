@@ -33,6 +33,7 @@ export type DrawerRouteKey =
   | 'legal.terms'
   | 'legal.privacy'
   | 'profile.settings'
+  | 'profile.payments'
   | 'shifts.available'
   | 'shifts.myShifts'
   | 'payment.escrow';
@@ -138,6 +139,12 @@ export interface ProfileResponse {
     coverageArea?: string;
     equipmentDetails?: Array<Record<string, unknown>>;
     driverAssignments?: Array<Record<string, unknown>>;
+  } | null;
+  stripeConnect?: {
+    hasAccount: boolean;
+    onboardingComplete: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
   } | null;
   profileData?: Record<string, unknown>;
   rating?: number;

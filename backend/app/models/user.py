@@ -37,8 +37,11 @@ class User(Base):
     completed_jobs:   Mapped[int]   = mapped_column(Integer, default=0)
     location_lat:     Mapped[float] = mapped_column(DECIMAL(10, 7), nullable=True)
     location_lng:     Mapped[float] = mapped_column(DECIMAL(10, 7), nullable=True)
-    bank_account_id:  Mapped[str]   = mapped_column(String(100), nullable=True)
-    push_token:       Mapped[str]   = mapped_column(String(500), nullable=True)
+    bank_account_id:            Mapped[str]   = mapped_column(String(100), nullable=True)
+    stripe_account_id:          Mapped[str]   = mapped_column(String(100), nullable=True)
+    stripe_onboarding_complete: Mapped[bool]  = mapped_column(Boolean, nullable=False, default=False)
+    stripe_customer_id:         Mapped[str]   = mapped_column(String(100), nullable=True)
+    push_token:                 Mapped[str]   = mapped_column(String(500), nullable=True)
     created_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                         onupdate=datetime.utcnow)

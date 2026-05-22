@@ -152,7 +152,7 @@ const PAYMENT_TABS: { key: PaymentTab; label: string; icon: string }[] = [
   { key: 'escrow',   label: 'Escrow',   icon: 'security' },
   { key: 'history',  label: 'History',  icon: 'receipt_long' },
   { key: 'invoices', label: 'Invoices', icon: 'description' },
-  { key: 'methods',  label: 'Methods',  icon: 'account_balance' },
+  { key: 'methods',  label: 'Payment Setup',  icon: 'add_card' },
 ];
 
 const getTabFromPath = (pathname: string): PaymentTab => {
@@ -974,61 +974,123 @@ const InvoicesTab: React.FC = () => {
 
 // ── Methods Tab ──────────────────────────────────────────────────────────────
 
+// ── Saved card type ──────────────────────────────────────────────────────────
+
+interface SavedCard {
+  paymentMethodId: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  funding: string;
+}
+
+const CARD_BRAND_ICON: Record<string, string> = {
+  Visa: 'credit_card',
+  Mastercard: 'credit_card',
+  Amex: 'credit_card',
+  Discover: 'credit_card',
+};
+
 const MethodsTab: React.FC = () => {
-  const [methods, setMethods] = useState<PaymentMethodItem[]>([]);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mountedCardRef = useRef<StripeCardElement | null>(null);
+  const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
+  const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
+
+  const [cards, setCards] = useState<SavedCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [formError, setFormError] = useState('');
-  const [formSuccess, setFormSuccess] = useState('');
-  const [form, setForm] = useState<MethodFormState>({ accountName: '', accountNumber: '', ifscCode: '' });
+  const [cardError, setCardError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
 
-  const fetchMethods = useCallback(async () => {
+  const fetchCards = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await haulierService.listPaymentMethods() as { methods?: PaymentMethodItem[] };
-      setMethods(res.methods ?? []);
+      const res = await haulierService.listSavedCards() as { cards?: SavedCard[] };
+      setCards(res.cards ?? []);
     } catch {
-      setFormError('Failed to load payment methods.');
+      setError('Failed to load saved cards.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void fetchMethods(); }, [fetchMethods]);
+  useEffect(() => { void fetchCards(); }, [fetchCards]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
-    if (!form.accountName.trim() || !form.accountNumber.trim() || !form.ifscCode.trim()) {
-      setFormError('All three fields are required.');
+  // Mount Stripe card element when form opens
+  useEffect(() => {
+    if (!showForm) {
+      mountedCardRef.current?.unmount();
+      mountedCardRef.current = null;
+      setCardElement(null);
+      setStripeInstance(null);
+      setCardError('');
       return;
     }
+    let cancelled = false;
+    void (async () => {
+      try {
+        await loadStripeScript();
+        if (cancelled) return;
+        const intent = await haulierService.createSetupIntent() as { clientSecret: string; publishableKey: string };
+        if (cancelled || !cardRef.current) return;
+        const stripe = window.Stripe!(intent.publishableKey);
+        setStripeInstance(stripe);
+        // Store client_secret for confirmCardSetup
+        (cardRef.current as any).__clientSecret = intent.clientSecret;
+        const elements = stripe.elements();
+        const card = elements.create('card', {
+          style: { base: { fontSize: '15px', color: '#041627', fontFamily: 'inherit', '::placeholder': { color: '#94a3b8' } } },
+          hidePostalCode: true,
+        });
+        card.mount(cardRef.current);
+        card.on('change', (e) => setCardError(e.error?.message ?? ''));
+        setCardElement(card);
+        mountedCardRef.current = card;
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Failed to load card form.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showForm]);
+
+  const handleSaveCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripeInstance || !cardElement || !cardRef.current) return;
+    const clientSecret = (cardRef.current as any).__clientSecret as string;
     setSaving(true);
+    setCardError('');
+    setError('');
     try {
-      await haulierService.addPaymentMethod({
-        accountName: form.accountName.trim(),
-        accountNumber: form.accountNumber.trim(),
-        ifscCode: form.ifscCode.trim().toUpperCase(),
+      const result = await (stripeInstance as any).confirmCardSetup(clientSecret, {
+        payment_method: { card: cardElement },
       });
-      setForm({ accountName: '', accountNumber: '', ifscCode: '' });
-      setFormSuccess('Payment method added successfully.');
-      await fetchMethods();
+      if (result.error) {
+        setCardError(result.error.message ?? 'Card setup failed.');
+      } else {
+        setSuccess('Card saved successfully.');
+        setShowForm(false);
+        await fetchCards();
+      }
     } catch {
-      setFormError('Failed to add payment method.');
+      setCardError('An error occurred. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (methodId: string) => {
-    setDeleting(methodId);
+  const handleDelete = async (pmId: string) => {
+    setDeleting(pmId);
+    setError('');
     try {
-      await haulierService.deletePaymentMethod(methodId);
-      await fetchMethods();
+      await haulierService.deleteSavedCard(pmId);
+      await fetchCards();
     } catch {
-      setFormError('Failed to remove payment method.');
+      setError('Failed to remove card.');
     } finally {
       setDeleting(null);
     }
@@ -1036,52 +1098,92 @@ const MethodsTab: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* ── Header card ────────────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
-        <h3 className="text-lg font-black text-[#041627] mb-1">Add Bank Account</h3>
-        <p className="text-xs text-slate-500 mb-5">
-          Add a bank account to receive released payments after delivery approval.
-        </p>
-
-        <form onSubmit={(e) => void handleAdd(e)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { key: 'accountName' as const, label: 'Account Name', placeholder: 'Company / holder name' },
-              { key: 'accountNumber' as const, label: 'Account Number', placeholder: '1234567890' },
-              { key: 'ifscCode' as const, label: 'IFSC Code', placeholder: 'ABCD0123456' },
-            ].map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">{label}</label>
-                <input
-                  value={form[key]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-[#041627] placeholder:text-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-colors"
-                />
-              </div>
-            ))}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-lg font-black text-[#041627] mb-1">Payment Setup</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Save a card to pay for jobs. Your card details are encrypted and stored securely by Stripe — FreightFlex never sees your full card number.
+            </p>
           </div>
+          <div className="flex items-center gap-1.5 shrink-0 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+            <span className="material-symbols-outlined text-sm text-slate-400">lock</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stripe Secured</span>
+          </div>
+        </div>
 
-          {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
-          {formSuccess && <p className="text-xs font-semibold text-emerald-600">{formSuccess}</p>}
+        {success && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 mb-4">
+            <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+            <p className="text-xs font-semibold text-emerald-700">{success}</p>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 mb-4">
+            <span className="material-symbols-outlined text-sm text-red-500">error</span>
+            <p className="text-xs font-semibold text-red-600">{error}</p>
+          </div>
+        )}
 
+        {!showForm ? (
           <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-50"
+            onClick={() => { setSuccess(''); setError(''); setShowForm(true); }}
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity"
           >
-            <span className="material-symbols-outlined text-base">{saving ? 'hourglass_top' : 'add_circle'}</span>
-            {saving ? 'Saving…' : 'Add Account'}
+            <span className="material-symbols-outlined text-base">add_card</span>
+            Add New Card
           </button>
-        </form>
+        ) : (
+          <form onSubmit={(e) => void handleSaveCard(e)} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Card Details</label>
+              <div
+                ref={cardRef}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 min-h-[46px] transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10"
+              />
+              {cardError && <p className="mt-1.5 text-xs font-semibold text-red-600">{cardError}</p>}
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-medium">
+              Test card: <span className="font-mono font-black text-slate-600">4242 4242 4242 4242</span> · any future date · any 3-digit CVC
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving || !stripeInstance || !cardElement}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">{saving ? 'hourglass_top' : 'save'}</span>
+                {saving ? 'Saving…' : !stripeInstance ? 'Loading…' : 'Save Card'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-black text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
+      {/* ── Saved cards list ───────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black text-[#041627]">Saved Accounts</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{loading ? '…' : methods.length} bank account{methods.length !== 1 ? 's' : ''} linked</p>
+            <h3 className="text-lg font-black text-[#041627]">Saved Cards</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {loading ? '…' : `${cards.length} card${cards.length !== 1 ? 's' : ''} saved`}
+            </p>
           </div>
-          <button onClick={() => void fetchMethods()} disabled={loading} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50">
+          <button
+            onClick={() => void fetchCards()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50"
+          >
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
           </button>
@@ -1092,30 +1194,36 @@ const MethodsTab: React.FC = () => {
             <span className="material-symbols-outlined animate-spin">progress_activity</span>
             <span className="text-sm font-bold">Loading…</span>
           </div>
-        ) : methods.length === 0 ? (
-          <Empty icon="account_balance" title="No accounts linked" sub="Add a bank account above to receive payouts when jobs complete." />
+        ) : cards.length === 0 ? (
+          <Empty icon="credit_card" title="No cards saved" sub="Add a card above to pay for jobs quickly." />
         ) : (
           <div className="divide-y divide-slate-100">
-            {methods.map((method) => (
-              <div key={method.methodId} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+            {cards.map((card) => (
+              <div key={card.paymentMethodId} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                    <span className="material-symbols-outlined text-lg text-indigo-600">account_balance</span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <span className="material-symbols-outlined text-lg text-primary">
+                      {CARD_BRAND_ICON[card.brand] ?? 'credit_card'}
+                    </span>
                   </div>
                   <div>
-                    <p className="font-black text-[#041627] text-sm">**** **** {methodTail(method.methodId)}</p>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
-                      {(method.type || 'bank_account').replace('_', ' ')}
+                    <p className="font-black text-[#041627] text-sm">
+                      {card.brand} •••• {card.last4}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                      {card.funding} · Expires {String(card.expMonth).padStart(2, '0')}/{card.expYear}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => void handleDelete(method.methodId)}
-                  disabled={deleting === method.methodId}
+                  onClick={() => void handleDelete(card.paymentMethodId)}
+                  disabled={deleting === card.paymentMethodId}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                 >
-                  <span className="material-symbols-outlined text-sm">{deleting === method.methodId ? 'hourglass_top' : 'delete'}</span>
-                  {deleting === method.methodId ? 'Removing…' : 'Remove'}
+                  <span className="material-symbols-outlined text-sm">
+                    {deleting === card.paymentMethodId ? 'hourglass_top' : 'delete'}
+                  </span>
+                  {deleting === card.paymentMethodId ? 'Removing…' : 'Remove'}
                 </button>
               </div>
             ))}

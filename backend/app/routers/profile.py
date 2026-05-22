@@ -122,7 +122,16 @@ def _save_local_photo(request: Request, key: str, contents: bytes) -> str:
 
 
 def _user_data(user: User) -> dict:
+    from app.models.user import Role
     profile = user.profile
+    stripe_connect = None
+    if user.role in (Role.DRIVER, Role.FIRM):
+        stripe_connect = {
+            "hasAccount": bool(user.stripe_account_id),
+            "onboardingComplete": bool(user.stripe_onboarding_complete),
+            "chargesEnabled": bool(user.stripe_onboarding_complete),
+            "payoutsEnabled": bool(user.stripe_onboarding_complete),
+        }
     return {
         "userId": user.id,
         "name": user.full_name,
@@ -137,6 +146,7 @@ def _user_data(user: User) -> dict:
         "locationLat": user.location_lat,
         "locationLng": user.location_lng,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
+        "stripeConnect": stripe_connect,
         "profile": {
             "photoUrl": _presigned_photo_url(profile.photo_url if profile else None),
             "licenceNumber": profile.licence_number if profile else None,
