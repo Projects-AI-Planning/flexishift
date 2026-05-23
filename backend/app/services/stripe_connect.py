@@ -133,8 +133,12 @@ def get_account_status(db: Session, user: User) -> dict:
         log.error("stripe_connect_retrieve_failed", user_id=user.id, error=str(e))
         raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message or str(e)}")
 
-    # For drivers we only need payouts_enabled — they receive money, never charge cards
-    onboarding_complete = acct.get("payouts_enabled", False)
+    # details_submitted=True means the driver finished the Stripe onboarding form.
+    # payouts_enabled can stay False for days while Stripe verifies bank details,
+    # so we treat details_submitted as the completion signal for UX purposes.
+    details_submitted = acct.get("details_submitted", False)
+    payouts_enabled   = acct.get("payouts_enabled", False)
+    onboarding_complete = details_submitted or payouts_enabled
 
     if onboarding_complete and not user.stripe_onboarding_complete:
         user.stripe_onboarding_complete = True
@@ -143,9 +147,10 @@ def get_account_status(db: Session, user: User) -> dict:
     return {
         "hasAccount": True,
         "onboardingComplete": onboarding_complete,
+        "detailsSubmitted": details_submitted,
         "stripeAccountId": user.stripe_account_id,
         "chargesEnabled": acct.get("charges_enabled", False),
-        "payoutsEnabled": acct.get("payouts_enabled", False),
+        "payoutsEnabled": payouts_enabled,
         "requirementsDue": acct.get("requirements", {}).get("currently_due", []),
     }
 
