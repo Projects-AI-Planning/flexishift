@@ -19,7 +19,7 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   failed:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-const fmt = (val: number, cur = 'USD') =>
+const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
 const TransactionsPage: React.FC = () => {

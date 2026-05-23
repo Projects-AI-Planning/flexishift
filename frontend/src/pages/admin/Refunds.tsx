@@ -3,7 +3,7 @@ import { useAdminPayments } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'USD') =>
+const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
 const EMPTY_FORM = { refundAmount: '', reason: '', refundTo: '' };

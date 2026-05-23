@@ -134,7 +134,7 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
     try {
       const [history, methods, summary] = await Promise.all([
         haulierService.getPaymentHistory(params),
-        haulierService.listPaymentMethods(),
+        haulierService.listSavedCards(),
         haulierService.getSpendSummary(params)
       ]);
 

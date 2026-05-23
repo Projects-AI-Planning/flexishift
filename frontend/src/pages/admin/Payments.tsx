@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAdminPayments, useAdminRevenue } from '../../hooks/useAdmin';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'USD') =>
+const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',

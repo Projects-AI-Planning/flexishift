@@ -25,7 +25,7 @@ const jobStatusStyle: Record<string, string> = {
   cancelled:            'text-red-500',
 };
 
-const fmt = (val: number, cur = 'USD') =>
+const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',

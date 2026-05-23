@@ -69,21 +69,9 @@ interface InvoiceItem {
   currency: string;
 }
 
-interface PaymentMethodItem {
-  methodId: string;
-  type?: string;
-  accountNumber?: string;
-}
-
 interface SpendSummary {
   totalSpent?: number;
   period?: string;
-}
-
-interface MethodFormState {
-  accountName: string;
-  accountNumber: string;
-  ifscCode: string;
 }
 
 interface BookedJob {
@@ -118,12 +106,6 @@ const fmtMoney = (value?: number | null) =>
 
 const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-const methodTail = (methodId: string) => {
-  const parts = methodId.split('_');
-  const tail = parts[parts.length - 1] || methodId;
-  return tail.length > 4 ? tail.slice(-4) : tail;
-};
 
 const STATUS_STYLES: Record<string, string> = {
   ESCROWED: 'bg-indigo-100 text-indigo-700',
