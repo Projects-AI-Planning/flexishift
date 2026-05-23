@@ -164,8 +164,26 @@ def _user_data(user: User) -> dict:
 
 
 @router.get("/me")
-def get_my_profile(current_user: User = Depends(get_current_user)):
-    return ok(data=_user_data(current_user), message="Profile retrieved")
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = _user_data(current_user)
+    # If the driver has a Stripe account but onboarding isn't marked complete in
+    # the DB yet, hit Stripe live so we return the real status (and update the DB).
+    # Once complete the cached DB value is used — no extra Stripe call.
+    if (
+        current_user.stripe_account_id
+        and not current_user.stripe_onboarding_complete
+        and data.get("stripeConnect") is not None
+    ):
+        from app.services.stripe_connect import get_account_status
+        try:
+            live = get_account_status(db, current_user)
+            data["stripeConnect"] = live
+        except Exception:
+            pass
+    return ok(data=data, message="Profile retrieved")
 
 
 @router.get("/{user_id}")
