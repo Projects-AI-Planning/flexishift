@@ -77,13 +77,27 @@ def create_connect_account(db: Session, user: User) -> str:
     return account["id"]
 
 
-def get_onboarding_link(db: Session, user: User) -> str:
-    """Return a one-time Stripe Connect onboarding URL for the driver."""
+def get_onboarding_link(
+    db: Session,
+    user: User,
+    client_return_url: str | None = None,
+    client_refresh_url: str | None = None,
+) -> str:
+    """Return a one-time Stripe Connect onboarding URL for the driver.
+
+    Stripe requires HTTP/HTTPS return URLs — custom schemes (e.g. freightflex://)
+    are rejected.  We route through backend redirect endpoints that Stripe accepts,
+    passing the real destination (deep link or web URL) as a query param.
+    """
     if not user.stripe_account_id:
         create_connect_account(db, user)
 
-    return_url = f"{settings.FRONTEND_URL}/stripe-connect/return"
-    refresh_url = f"{settings.FRONTEND_URL}/stripe-connect/refresh"
+    from urllib.parse import quote
+    dest_return = client_return_url or f"{settings.FRONTEND_URL}/stripe-connect/return"
+    dest_refresh = client_refresh_url or f"{settings.FRONTEND_URL}/stripe-connect/refresh"
+
+    return_url = f"{settings.BACKEND_URL}/stripe-connect/return?redirect_to={quote(dest_return, safe='')}"
+    refresh_url = f"{settings.BACKEND_URL}/stripe-connect/refresh?redirect_to={quote(dest_refresh, safe='')}"
 
     client = _stripe()
     try:

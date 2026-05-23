@@ -359,9 +359,20 @@ export const driverApi = {
     getStatus: () =>
       request<{hasAccount: boolean; onboardingComplete: boolean; chargesEnabled: boolean; payoutsEnabled: boolean; requirementsDue: string[]}>('/stripe-connect/status'),
     startOnboarding: () =>
-      request<{onboardingUrl: string; stripeAccountId: string}>('/stripe-connect/onboard', {method: 'POST'}),
+      request<{onboardingUrl: string; stripeAccountId: string}>('/stripe-connect/onboard', {
+        method: 'POST',
+        body: jsonBody({
+          returnUrl: 'freightflex://stripe-connect/return',
+          refreshUrl: 'freightflex://stripe-connect/refresh',
+        }),
+      }),
     refreshOnboardingLink: () =>
-      request<{onboardingUrl: string}>('/stripe-connect/onboard/refresh'),
+      request<{onboardingUrl: string}>('/stripe-connect/onboard/refresh', {
+        params: {
+          return_url: 'freightflex://stripe-connect/return',
+          refresh_url: 'freightflex://stripe-connect/refresh',
+        },
+      }),
   },
   tracking: {
     getEta: (jobId: string) =>

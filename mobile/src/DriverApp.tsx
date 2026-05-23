@@ -1302,6 +1302,33 @@ function DriverApp(): React.JSX.Element {
     return () => sub.remove();
   }, [session, goBackOneStep]);
 
+  // Handle Stripe Connect deep link return (freightflex://stripe-connect/return|refresh)
+  useEffect(() => {
+    if (!session) return;
+
+    const handleStripeDeepLink = async (url: string) => {
+      if (!url.startsWith('freightflex://stripe-connect/')) return;
+      setActiveTab('profile');
+      setActiveRoute('profile.payments' as any);
+      try {
+        await loadProfile();
+        if (url.startsWith('freightflex://stripe-connect/return')) {
+          setSuccessBanner('Bank account setup updated. Check your payment details below.');
+        }
+      } catch {
+        /* user can pull to refresh */
+      }
+    };
+
+    Linking.getInitialURL()
+      .then(url => { if (url) handleStripeDeepLink(url); })
+      .catch(() => undefined);
+
+    const sub = Linking.addEventListener('url', ({url}) => { void handleStripeDeepLink(url); });
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   // ─── Action helpers ───────────────────────────────────────────────────────────
 
   const runAction = async (task: () => Promise<void>) => {
