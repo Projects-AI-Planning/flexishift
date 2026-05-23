@@ -923,6 +923,11 @@ function DriverApp(): React.JSX.Element {
           const [hist, earningsData] = await Promise.all([
             driverApi.payments.getHistory({limit: 50, page: 1}),
             driverApi.dashboard.getEarnings().catch(() => null),
+            // Sync live Stripe status into DB then reload profile so the
+            // payments screen always shows the real onboarding state.
+            driverApi.stripeConnect.getStatus()
+              .catch(() => undefined)
+              .then(() => loadProfile().catch(() => undefined)),
           ]);
           setPayments(((hist as any).payments ?? (hist as any).items ?? []) as Array<Record<string, unknown>>);
           if (earningsData) {setEarnings(cast<EarningsResponse>(earningsData));}
@@ -1311,9 +1316,12 @@ function DriverApp(): React.JSX.Element {
       setActiveTab('profile');
       setActiveRoute('profile.payments' as any);
       try {
+        // Fetch live status from Stripe first — this syncs stripe_onboarding_complete
+        // in the DB so the subsequent profile load reflects the real state.
+        await driverApi.stripeConnect.getStatus().catch(() => undefined);
         await loadProfile();
         if (url.startsWith('freightflex://stripe-connect/return')) {
-          setSuccessBanner('Bank account setup updated. Check your payment details below.');
+          setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
         }
       } catch {
         /* user can pull to refresh */
@@ -3305,6 +3313,7 @@ function DriverApp(): React.JSX.Element {
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
+              await driverApi.stripeConnect.getStatus().catch(() => undefined);
               await Promise.all([
                 loadProfile(),
                 driverApi.payments.getHistory({limit: 50}).then(h => {
