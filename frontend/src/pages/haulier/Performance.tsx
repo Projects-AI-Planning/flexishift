@@ -46,10 +46,10 @@ type PerformanceReport = {
 };
 
 const pct = (value?: number) => `${(value ?? 0).toFixed(1)}%`;
-const fmt = (value: number, currency = 'USD') =>
+const fmt = (value: number, _currency?: string) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value);
 

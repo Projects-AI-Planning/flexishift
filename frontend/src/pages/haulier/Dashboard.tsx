@@ -199,7 +199,26 @@ type HandoverInfo = {
   haulierSigned: boolean;
   driverSignedAt?: string | null;
   haulierSignedAt?: string | null;
+  checklistSubmitted?: boolean;
+  photoCount?: number;
   loading: boolean;
+};
+
+type PendingApprovalJob = {
+  jobId: string;
+  jobReference: string;
+  status?: string;
+  driver?: { name?: string; phone?: string } | null;
+  dropLocation?: string | null;
+  deliveryProof?: {
+    deliveryPhotoUrl?: string | null;
+    recipientSignatureUrl?: string | null;
+    deliveryNotes?: string | null;
+    submittedAt?: string | null;
+  } | null;
+  agreedAmount?: number | null;
+  currency?: string;
+  awaitingApprovalSince?: string | null;
 };
 
 const HaulierOverview: React.FC = () => {
@@ -211,6 +230,18 @@ const HaulierOverview: React.FC = () => {
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [handoverRows, setHandoverRows] = useState<HandoverInfo[]>([]);
   const [sigModalJob, setSigModalJob] = useState<{ jobId: string; jobReference: string } | null>(null);
+
+  // Pending delivery approval state
+  const [pendingApprovalJobs, setPendingApprovalJobs] = useState<PendingApprovalJob[]>([]);
+  const [pendingApprovalLoading, setPendingApprovalLoading] = useState(true);
+  const [approvingJobId, setApprovingJobId] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState<Record<string, string>>({});
+  const [disputeModal, setDisputeModal] = useState<PendingApprovalJob | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputingJobId, setDisputingJobId] = useState<string | null>(null);
+  const [disputeError, setDisputeError] = useState('');
+  const [showAllEscrow, setShowAllEscrow] = useState(false);
+  const [showAllHandover, setShowAllHandover] = useState(false);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
   const summary = dashboardData?.summary ?? {};
@@ -304,8 +335,19 @@ const HaulierOverview: React.FC = () => {
             haulierSigned?: boolean;
             driverSignedAt?: string | null;
             haulierSignedAt?: string | null;
+            checklistSubmitted?: boolean;
+            conditionPhotos?: string[];
           };
-          return { ...row, driverSigned: Boolean(s?.driverSigned), haulierSigned: Boolean(s?.haulierSigned), driverSignedAt: s?.driverSignedAt, haulierSignedAt: s?.haulierSignedAt, loading: false };
+          return {
+            ...row,
+            driverSigned: Boolean(s?.driverSigned),
+            haulierSigned: Boolean(s?.haulierSigned),
+            driverSignedAt: s?.driverSignedAt,
+            haulierSignedAt: s?.haulierSignedAt,
+            checklistSubmitted: Boolean(s?.checklistSubmitted),
+            photoCount: s?.conditionPhotos?.length ?? 0,
+            loading: false,
+          };
         } catch {
           return { ...row, loading: false };
         }
@@ -315,6 +357,53 @@ const HaulierOverview: React.FC = () => {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  // Fetch pending delivery approval jobs
+  const fetchPendingApproval = useCallback(async () => {
+    setPendingApprovalLoading(true);
+    try {
+      const res = await haulierService.getPendingApprovalJobs() as { jobs?: PendingApprovalJob[]; totalPending?: number };
+      setPendingApprovalJobs(res.jobs ?? []);
+    } catch {
+      // silently fail — not critical for dashboard load
+    } finally {
+      setPendingApprovalLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchPendingApproval(); }, [fetchPendingApproval]);
+
+  const handleApproveDelivery = async (job: PendingApprovalJob) => {
+    setApprovingJobId(job.jobId);
+    setApproveError((prev) => { const n = { ...prev }; delete n[job.jobId]; return n; });
+    try {
+      await haulierService.releasePayment(job.jobId, { approvalNote: 'Approved from dashboard' });
+      setPendingApprovalJobs((prev) => prev.filter((j) => j.jobId !== job.jobId));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; detail?: string } } };
+      const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to release payment.';
+      setApproveError((prev) => ({ ...prev, [job.jobId]: msg }));
+    } finally {
+      setApprovingJobId(null);
+    }
+  };
+
+  const handleDisputeSubmit = async () => {
+    if (!disputeModal || !disputeReason.trim()) return;
+    setDisputingJobId(disputeModal.jobId);
+    setDisputeError('');
+    try {
+      await haulierService.disputeDelivery(disputeModal.jobId, { disputeReason: disputeReason.trim() });
+      setPendingApprovalJobs((prev) => prev.filter((j) => j.jobId !== disputeModal.jobId));
+      setDisputeModal(null);
+      setDisputeReason('');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; detail?: string } } };
+      setDisputeError(e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to raise dispute.');
+    } finally {
+      setDisputingJobId(null);
+    }
+  };
 
   const deliveries = mapData?.deliveries ?? [];
   const selectedDelivery = deliveries.find((delivery) => delivery.jobId === selectedDeliveryId) ?? deliveries[0] ?? null;
@@ -387,6 +476,163 @@ const HaulierOverview: React.FC = () => {
         />
       )}
 
+      {/* ── Dispute Modal ──────────────────────────────────────────────────── */}
+      {disputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setDisputeModal(null); setDisputeReason(''); setDisputeError(''); } }}>
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-600">Raise Dispute</p>
+                <h2 className="text-xl font-black text-[#041627]">Dispute Delivery</h2>
+                <p className="text-sm text-slate-500">Job: <span className="font-bold">{disputeModal.jobReference}</span></p>
+              </div>
+              <button onClick={() => { setDisputeModal(null); setDisputeReason(''); setDisputeError(''); }} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="mb-3 text-sm text-[#44474C]">Explain why you are disputing this delivery. Payment will be held until the dispute is resolved by an admin.</p>
+            <textarea
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              placeholder="e.g. Goods were damaged, incorrect delivery location, missing items…"
+              rows={4}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[#041627] placeholder-slate-400 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100 resize-none"
+            />
+            {disputeError && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{disputeError}</div>}
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => { setDisputeModal(null); setDisputeReason(''); setDisputeError(''); }} disabled={disputingJobId !== null} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Cancel</button>
+              <button
+                onClick={() => void handleDisputeSubmit()}
+                disabled={!disputeReason.trim() || disputingJobId !== null}
+                className="flex-1 rounded-2xl bg-rose-600 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:opacity-40"
+              >
+                {disputingJobId ? 'Submitting…' : 'Raise Dispute'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pending Delivery Approval ───────────────────────────────────────── */}
+      {!pendingApprovalLoading && pendingApprovalJobs.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border-2 border-emerald-500 bg-white shadow-[0_12px_35px_rgba(16,185,129,0.12)]">
+          <div className="flex flex-wrap items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-3 sm:px-6 sm:py-4">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+              <span className="material-symbols-outlined text-sm">task_alt</span>
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-black text-emerald-900 text-base sm:text-lg">Jobs with Payment in Escrow</h2>
+              <p className="text-xs sm:text-sm text-emerald-700">Click "Release Payment" when you are satisfied the job is complete.</p>
+            </div>
+            <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-black text-white shrink-0 animate-pulse">
+              {pendingApprovalJobs.length} pending
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(showAllEscrow ? pendingApprovalJobs : pendingApprovalJobs.slice(0, 1)).map((job) => {
+              const photoCount = job.deliveryProof?.deliveryPhotoUrl ? (
+                (() => { try { const p = JSON.parse(job.deliveryProof!.deliveryPhotoUrl!); return Array.isArray(p) ? p.length : 1; } catch { return 1; } })()
+              ) : 0;
+              const submittedAt = job.deliveryProof?.submittedAt ?? job.awaitingApprovalSince;
+              const isApproving = approvingJobId === job.jobId;
+              return (
+                <div key={job.jobId} className="px-4 py-5 sm:px-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-base font-black text-[#041627]">{job.jobReference}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                          job.status === 'DELIVERY_SUBMITTED' ? 'bg-emerald-100 text-emerald-700' :
+                          job.status === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-700' :
+                          'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {job.status === 'DELIVERY_SUBMITTED' ? 'Delivery Submitted' : job.status === 'IN_TRANSIT' ? 'In Transit' : 'Payment Secured'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Driver</p>
+                          <p className="font-bold text-[#44474C]">{job.driver?.name ?? 'Unknown'}</p>
+                          {job.driver?.phone && <p className="text-slate-400">{job.driver.phone}</p>}
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Drop Location</p>
+                          <p className="font-bold text-[#44474C] truncate">{job.dropLocation ?? '—'}</p>
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Amount in Escrow</p>
+                          <p className="font-black text-emerald-700 text-sm">
+                            {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Submitted</p>
+                          <p className="font-bold text-[#44474C]">
+                            {submittedAt ? new Date(submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {photoCount > 0 && (
+                          <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                            <span className="material-symbols-outlined text-sm">photo_camera</span>
+                            {photoCount} delivery photo{photoCount > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {job.deliveryProof?.recipientSignatureUrl && (
+                          <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                            <span className="material-symbols-outlined text-sm">draw</span>
+                            Recipient signed
+                          </span>
+                        )}
+                        {job.deliveryProof?.deliveryNotes && (
+                          <span className="flex items-center gap-1 font-semibold text-slate-500">
+                            <span className="material-symbols-outlined text-sm">note</span>
+                            Notes: {job.deliveryProof.deliveryNotes}
+                          </span>
+                        )}
+                      </div>
+                      {approveError[job.jobId] && (
+                        <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{approveError[job.jobId]}</div>
+                      )}
+                    </div>
+                    <div className="flex flex-row sm:flex-col gap-2 shrink-0">
+                      <button
+                        onClick={() => void handleApproveDelivery(job)}
+                        disabled={isApproving || approvingJobId !== null}
+                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-base">
+                          {isApproving ? 'hourglass_top' : 'payments'}
+                        </span>
+                        {isApproving ? 'Releasing…' : 'Approve & Release'}
+                      </button>
+                      <button
+                        onClick={() => { setDisputeModal(job); setDisputeReason(''); setDisputeError(''); }}
+                        disabled={isApproving || approvingJobId !== null}
+                        className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-black text-rose-600 hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-base">flag</span>
+                        Dispute
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {pendingApprovalJobs.length > 1 && (
+            <button
+              onClick={() => setShowAllEscrow((v) => !v)}
+              className="flex w-full items-center justify-center gap-2 border-t border-slate-100 py-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">{showAllEscrow ? 'expand_less' : 'expand_more'}</span>
+              {showAllEscrow ? 'Show less' : `View ${pendingApprovalJobs.length - 1} more`}
+            </button>
+          )}
+        </section>
+      )}
+
       {/* ── Vehicle Handover Sign ───────────────────────────────────────────── */}
       {handoverRows.length > 0 && (
         <section className="overflow-hidden rounded-2xl border-2 border-[#1066b1] bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
@@ -405,7 +651,7 @@ const HaulierOverview: React.FC = () => {
             )}
           </div>
           <div className="divide-y divide-slate-100">
-            {handoverRows.map((row) => (
+            {(showAllHandover ? handoverRows : handoverRows.slice(0, 1)).map((row) => (
               <div key={row.jobId} className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6 ${!row.haulierSigned ? 'bg-[#1066b1]/10/30' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -418,15 +664,27 @@ const HaulierOverview: React.FC = () => {
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-slate-500 truncate">{row.route}</p>
-                  <div className="mt-1.5 flex gap-3 text-xs">
+                  <div className="mt-1.5 flex flex-wrap gap-3 text-xs">
                     <span className={`flex items-center gap-1 font-semibold ${row.driverSigned ? 'text-emerald-600' : 'text-slate-400'}`}>
                       <span className="material-symbols-outlined text-sm">{row.driverSigned ? 'check_circle' : 'radio_button_unchecked'}</span>
-                      Driver
+                      Driver signed
                     </span>
                     <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-[#1066b1]'}`}>
                       <span className="material-symbols-outlined text-sm">{row.haulierSigned ? 'check_circle' : 'pending'}</span>
                       You
                     </span>
+                    {row.checklistSubmitted && (
+                      <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                        <span className="material-symbols-outlined text-sm">fact_check</span>
+                        Checklist done
+                      </span>
+                    )}
+                    {(row.photoCount ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 font-semibold text-slate-500">
+                        <span className="material-symbols-outlined text-sm">photo_camera</span>
+                        {row.photoCount} photo{(row.photoCount ?? 0) > 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="shrink-0">
@@ -450,6 +708,15 @@ const HaulierOverview: React.FC = () => {
               </div>
             ))}
           </div>
+          {handoverRows.length > 1 && (
+            <button
+              onClick={() => setShowAllHandover((v) => !v)}
+              className="flex w-full items-center justify-center gap-2 border-t border-[#1066b1]/10 py-3 text-xs font-black text-[#1066b1] hover:bg-[#1066b1]/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">{showAllHandover ? 'expand_less' : 'expand_more'}</span>
+              {showAllHandover ? 'Show less' : `View ${handoverRows.length - 1} more`}
+            </button>
+          )}
         </section>
       )}
 

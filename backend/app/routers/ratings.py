@@ -225,6 +225,18 @@ def ratings_summary(
     )
     last5_avg = round(sum(r.stars for r in last5) / len(last5), 2) if last5 else 0.0
 
+    reviews = []
+    for r in last5:
+        rater = db.get(User, r.rater_id)
+        reviews.append({
+            "ratingId": r.id,
+            "raterName": rater.full_name if rater else "Anonymous",
+            "rating": r.stars,
+            "comment": r.review_text or "",
+            "jobReference": r.job.job_ref if r.job else None,
+            "createdAt": r.created_at.isoformat() if r.created_at else None,
+        })
+
     return ok(
         data={
             "userId": user_id,
@@ -234,6 +246,7 @@ def ratings_summary(
             "totalRatings": total,
             "ratingBreakdown": _rating_breakdown(db, user_id),
             "last5RatingsAverage": last5_avg,
+            "reviews": reviews,
         },
         message="Rating summary fetched successfully.",
     )

@@ -4,17 +4,48 @@ import axios from 'axios';
 import { Eye, EyeOff, Truck } from 'lucide-react';
 import haulierService from '../../api/haulierService';
 
+const DIAL_CODES = [
+  { flag: '🇬🇧', name: 'UK',           code: '+44'  },
+  { flag: '🇺🇸', name: 'US/CA',        code: '+1'   },
+  { flag: '🇮🇳', name: 'India',        code: '+91'  },
+  { flag: '🇵🇰', name: 'Pakistan',     code: '+92'  },
+  { flag: '🇧🇩', name: 'Bangladesh',   code: '+880' },
+  { flag: '🇳🇬', name: 'Nigeria',      code: '+234' },
+  { flag: '🇬🇭', name: 'Ghana',        code: '+233' },
+  { flag: '🇿🇦', name: 'South Africa', code: '+27'  },
+  { flag: '🇵🇱', name: 'Poland',       code: '+48'  },
+  { flag: '🇷🇴', name: 'Romania',      code: '+40'  },
+  { flag: '🇧🇬', name: 'Bulgaria',     code: '+359' },
+  { flag: '🇱🇹', name: 'Lithuania',    code: '+370' },
+  { flag: '🇱🇻', name: 'Latvia',       code: '+371' },
+  { flag: '🇩🇪', name: 'Germany',      code: '+49'  },
+  { flag: '🇫🇷', name: 'France',       code: '+33'  },
+  { flag: '🇮🇪', name: 'Ireland',      code: '+353' },
+  { flag: '🇳🇱', name: 'Netherlands',  code: '+31'  },
+  { flag: '🇧🇪', name: 'Belgium',      code: '+32'  },
+  { flag: '🇪🇸', name: 'Spain',        code: '+34'  },
+  { flag: '🇮🇹', name: 'Italy',        code: '+39'  },
+  { flag: '🇵🇹', name: 'Portugal',     code: '+351' },
+  { flag: '🇺🇦', name: 'Ukraine',      code: '+380' },
+  { flag: '🇵🇭', name: 'Philippines',  code: '+63'  },
+  { flag: '🇦🇺', name: 'Australia',    code: '+61'  },
+  { flag: '🇸🇬', name: 'Singapore',    code: '+65'  },
+  { flag: '🇦🇪', name: 'UAE',          code: '+971' },
+  { flag: '🇸🇦', name: 'Saudi Arabia', code: '+966' },
+];
+
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: '',
     email: '',
-    phone: '',
     companyName: '',
     address: '',
     password: '',
     confirmPassword: '',
   });
+  const [dialCode, setDialCode] = useState('+44');
+  const [localPhone, setLocalPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,6 +75,11 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    const phoneDigits = localPhone.replace(/\D/g, '');
+    if (phoneDigits.length < 6 || phoneDigits.length > 12) {
+      setError('Enter a valid local phone number (6–12 digits after the country code).');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -61,12 +97,14 @@ const Register: React.FC = () => {
       return;
     }
 
+    const fullPhone = `${dialCode}${phoneDigits}`;
+
     setIsSubmitting(true);
     try {
       await haulierService.register({
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
-        phone: form.phone.trim() || undefined,
+        phone: fullPhone,
         companyName: form.companyName.trim() || undefined,
         address: form.address.trim() || undefined,
         password: form.password,
@@ -89,7 +127,7 @@ const Register: React.FC = () => {
             <Truck className="text-[#1066b1]" size={32} />
           </div>
           <h1 className="text-2xl font-bold text-navy">Create Haulier Account</h1>
-          <p className="text-gray-500 text-sm mt-1">FreightFlex Logistics Portal</p>
+          <p className="text-gray-500 text-sm mt-1">FlexiShift Logistics Portal</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -130,14 +168,34 @@ const Register: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-navy mb-2">Phone Number <span className="text-gray-400 font-normal">(optional)</span></label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={set('phone')}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#1066b1] focus:ring-2 focus:ring-[#1066b1]/20 outline-none transition-all"
-              placeholder="+44 7700 900000"
-            />
+            <label className="block text-sm font-semibold text-navy mb-2">Phone Number</label>
+            <div className="flex rounded-lg border border-gray-200 focus-within:border-[#1066b1] focus-within:ring-2 focus-within:ring-[#1066b1]/20 transition-all overflow-hidden">
+              <select
+                value={dialCode}
+                onChange={e => setDialCode(e.target.value)}
+                className="bg-gray-50 border-r border-gray-200 px-3 py-3 text-sm font-semibold text-navy outline-none cursor-pointer shrink-0"
+                style={{minWidth: '120px'}}
+              >
+                {DIAL_CODES.map(c => (
+                  <option key={c.name + c.code} value={c.code}>
+                    {c.flag} {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                value={localPhone}
+                onChange={e => setLocalPhone(e.target.value.replace(/[^\d\s\-]/g, ''))}
+                className="flex-1 px-4 py-3 outline-none text-sm"
+                placeholder="Local number"
+                required
+              />
+            </div>
+            {localPhone.replace(/\D/g, '').length > 0 && (
+              <p className="text-xs text-[#1066b1] font-semibold mt-1 ml-1">
+                Full number: {dialCode}{localPhone.replace(/\D/g, '')}
+              </p>
+            )}
           </div>
 
           <div>

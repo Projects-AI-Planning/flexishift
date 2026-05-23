@@ -166,7 +166,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           <View style={styles.amountBanner}>
             <Text style={styles.amountLabel}>ESCROWED AMOUNT</Text>
             <Text style={styles.amountValue}>
-              {details.currency} {details.amount.toLocaleString('en-GB', {minimumFractionDigits: 2})}
+              $ {details.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
             </Text>
           </View>
         </View>
@@ -194,7 +194,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>CURRENCY</Text>
-            <Text style={styles.rowValue}>{details.currency}</Text>
+            <Text style={styles.rowValue}>USD</Text>
           </View>
         </View>
 

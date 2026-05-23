@@ -1,4 +1,4 @@
-# FreightFlex — The Story
+# FlexiShift — The Story
 
 > *"Freight should move as fast as the economy demands it — not as slowly as a phone call allows."*
 
@@ -10,7 +10,7 @@ It is 6:45 on a Tuesday morning. Arjun runs a mid-sized distribution company. Hi
 
 Across the city, Priya has been sitting in her truck since 7 a.m. waiting for a job. She is verified, insured, available, and the right vehicle type for exactly what Arjun needs. But Arjun doesn't know her number.
 
-This is the problem FreightFlex was built to solve.
+This is the problem FlexiShift was built to solve.
 
 ---
 
@@ -18,9 +18,9 @@ This is the problem FreightFlex was built to solve.
 
 ### Arjun Signs Up — The Haulier
 
-Arjun hears about FreightFlex from a logistics peer at a trade event. He opens the website on his laptop, fills in his company name, email and phone, and chooses *Haulier* from the role selector. Within two minutes, a verification email lands in his inbox. He clicks the link, and the platform activates his account.
+Arjun hears about FlexiShift from a logistics peer at a trade event. He opens the website on his laptop, fills in his company name, email and phone, and chooses *Haulier* from the role selector. Within two minutes, a verification email lands in his inbox. He clicks the link, and the platform activates his account.
 
-The system asks him to complete his company profile — registered address, contact details — before he can do anything else. It is a deliberate gate. FreightFlex believes that trust starts with identity. Arjun fills it in, hits Save, and the dashboard opens up for the first time.
+The system asks him to complete his company profile — registered address, contact details — before he can do anything else. It is a deliberate gate. FlexiShift believes that trust starts with identity. Arjun fills it in, hits Save, and the dashboard opens up for the first time.
 
 It is clean. One large button in the top corner: **Post New Job.**
 
@@ -32,7 +32,7 @@ Arjun smiles. This is already different.
 
 Priya has been driving an HGV for seven years. She has never missed a delivery window. But she gets jobs only through contacts — men who know men — and payment sometimes takes weeks.
 
-She downloads the FreightFlex mobile app, registers as a *Driver*, and verifies her email. The app walks her through a three-step onboarding wizard:
+She downloads the FlexiShift mobile app, registers as a *Driver*, and verifies her email. The app walks her through a three-step onboarding wizard:
 
 **Step 1 – Profile.** She fills in her driving licence number, her vehicle type (HGV), and her registration plate. She takes a photo with her phone's camera and it becomes her profile picture.
 
@@ -51,7 +51,7 @@ The app saves everything. Priya closes the app and goes to bed.
 
 The next morning, a push notification wakes her phone:
 
-> *"🎉 Your documents have been verified. You are now live on FreightFlex."*
+> *"🎉 Your documents have been verified. You are now live on FlexiShift."*
 
 She opens the app and sees the Jobs tab for the first time. There are open jobs listed — real jobs, with routes, goods types, weights, and vehicle requirements. Jobs she can actually do.
 
@@ -63,7 +63,7 @@ She feels something she hasn't felt in a while: like the work is coming to her.
 
 Behind every verified badge is a person.
 
-Meera works on the FreightFlex operations team. Every morning she opens the Admin Panel and sees a queue: supplier documents waiting for her review. She clicks the first one — a driving licence uploaded yesterday evening. She checks it against the national format, confirms the expiry date, verifies the name matches the registered profile.
+Meera works on the FlexiShift operations team. Every morning she opens the Admin Panel and sees a queue: supplier documents waiting for her review. She clicks the first one — a driving licence uploaded yesterday evening. She checks it against the national format, confirms the expiry date, verifies the name matches the registered profile.
 
 *Approved.*
 
@@ -135,7 +135,7 @@ The other two suppliers receive a polite notification that another supplier was 
 
 Arjun has been burned before. A driver he paid upfront disappeared two hours into the job. He never saw the money — or the goods — again for three days.
 
-FreightFlex shows him a payment screen. The agreed amount, the tax breakdown, the total. He selects UPI and approves the payment on his bank app.
+FlexiShift shows him a payment screen. The agreed amount, the tax breakdown, the total. He selects UPI and approves the payment on his bank app.
 
 The money does not go to Priya. Not yet.
 
@@ -241,13 +241,13 @@ Priya gives Arjun four stars:
 
 These ratings are permanent. They are public on each other's profiles. Every future haulier who considers booking Priya will see 67 completed jobs and a 4.8-star average. Every future driver who considers quoting for Arjun's jobs will see a haulier who pays on time and communicates well.
 
-Trust is not declared on FreightFlex. It is earned, recorded, and compounded.
+Trust is not declared on FlexiShift. It is earned, recorded, and compounded.
 
 ---
 
-## Epilogue: What FreightFlex Became
+## Epilogue: What FlexiShift Became
 
-Six months after launch, FreightFlex had:
+Six months after launch, FlexiShift had:
 
 - 847 verified drivers and transport firms on the platform
 - 312 registered hauliers posting jobs weekly
@@ -261,7 +261,7 @@ Priya has a calendar full of bookings. She earns more, disputes less, and sleeps
 
 Meera's verification queue gets shorter every week as the platform matures and the right suppliers stay.
 
-FreightFlex did not reinvent freight. It just removed the friction between the people who need it moved and the people who can move it — and made sure both sides could trust each other enough to get the work done.
+FlexiShift did not reinvent freight. It just removed the friction between the people who need it moved and the people who can move it — and made sure both sides could trust each other enough to get the work done.
 
 ---
 
@@ -303,4 +303,4 @@ Every moment in this story is powered by a deliberate technical choice:
 
 Every story in the backlog is real. Every feature serves a person. Every person deserves to have their freight move — and their payment arrive — without a phone call, a spreadsheet, or a prayer.
 
-That is FreightFlex.
+That is FlexiShift.

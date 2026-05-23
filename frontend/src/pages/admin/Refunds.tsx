@@ -63,7 +63,7 @@ const RefundsPage: React.FC = () => {
             {data?.total ?? 0} Refunds
           </div>
           <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-primary flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">currency_pound</span>
+            <span className="material-symbols-outlined text-sm">attach_money</span>
             {fmt(totalRefunded)} Refunded
           </div>
         </div>

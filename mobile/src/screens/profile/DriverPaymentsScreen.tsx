@@ -59,9 +59,8 @@ function fmtDate(iso?: string) {
   });
 }
 
-function fmtAmount(amount: number, currency: string) {
-  const sym = currency?.toUpperCase() === 'GBP' ? '£' : '$';
-  return `${sym}${amount.toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+function fmtAmount(amount: number, _currency?: string) {
+  return `$${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
 function statusColor(status: string): string {
@@ -117,7 +116,7 @@ function ConnectCard({
               ? 'Your account is verified. Earnings are transferred automatically after each job.'
               : hasAccount
               ? 'You started onboarding but haven\'t finished. Complete it to receive payments.'
-              : 'Connect your bank account so FreightFlex can transfer your earnings after each job is completed.'}
+              : 'Connect your bank account so FlexiShift can transfer your earnings after each job is completed.'}
           </Text>
         </View>
       </View>
@@ -186,7 +185,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
   const released = payments.filter(p => p.status?.toUpperCase() === 'RELEASED');
   const escrowed = payments.filter(p => p.status?.toUpperCase() === 'ESCROWED');
   const escrowedTotal = escrowed.reduce((sum, p) => sum + (p.amount ?? 0), 0);
-  const currency = payments[0]?.currency ?? 'GBP';
+  const currency = payments[0]?.currency ?? 'USD';
 
   return (
     <ScrollView

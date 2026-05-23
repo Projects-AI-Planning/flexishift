@@ -92,6 +92,7 @@ const haulierService = {
   getHandoverStatus: (jobId: string) => client.get(`/compliance/handover/status/${jobId}`).then(res => res.data.data),
   approveDelivery: (jobId: string, data: { bookingId: string, approvalNote: string }) => client.post(`/compliance/delivery/approve/${jobId}`, data).then(res => res.data),
   disputeDelivery: (jobId: string, data: Record<string, unknown>) => client.post(`/compliance/delivery/dispute/${jobId}`, data).then(res => res.data),
+  getDeliveryDetails: (jobId: string) => client.get(`/compliance/delivery/status/${jobId}`).then(res => res.data.data),
   getDeliveryStatus: (jobId: string) => client.get(`/compliance/delivery/status/${jobId}`).then(res => res.data.data),
   getFullComplianceStatus: (jobId: string) => client.get(`/compliance/full-status/${jobId}`).then(res => res.data.data),
   listMyDocuments: () => client.get('/users/me/documents').then(res => res.data.data),

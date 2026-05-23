@@ -116,10 +116,7 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
     db.commit()
 
     from app.services.payments import release_payment
-    try:
-        release_payment(db, job_id)
-    except HTTPException:
-        pass
+    release_payment(db, job_id)
 
     # Generate and upload invoice
     from app.services.invoice import generate_and_upload_invoice

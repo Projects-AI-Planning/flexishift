@@ -1,31 +1,153 @@
-import React, {useState} from 'react';
+import React, {useState, useMemo} from 'react';
 import {
+  FlatList,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon} from '../../components/common/FieldIcon';
 import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
 
-interface RegisterScreenProps {
-  registerForm: {email: string; name: string; password: string; phone: string};
-  setRegisterForm: (updater: (prev: any) => any) => void;
-  handleRegister: () => void;
-  authLoading: boolean;
-  authError: string | null;
-  setAuthMode: (mode: any) => void;
-  onViewTerms: () => void;
-  onViewPrivacy: () => void;
+// ─── Country list ─────────────────────────────────────────────────────────────
+
+interface Country {
+  flag: string;
+  name: string;
+  code: string; // e.g. "+44"
+  minDigits: number;
+  maxDigits: number;
 }
+
+const COUNTRIES: Country[] = [
+  {flag: '🇬🇧', name: 'United Kingdom',   code: '+44',  minDigits: 10, maxDigits: 10},
+  {flag: '🇺🇸', name: 'United States',    code: '+1',   minDigits: 10, maxDigits: 10},
+  {flag: '🇨🇦', name: 'Canada',           code: '+1',   minDigits: 10, maxDigits: 10},
+  {flag: '🇮🇳', name: 'India',            code: '+91',  minDigits: 10, maxDigits: 10},
+  {flag: '🇵🇰', name: 'Pakistan',         code: '+92',  minDigits: 10, maxDigits: 11},
+  {flag: '🇧🇩', name: 'Bangladesh',       code: '+880', minDigits: 10, maxDigits: 10},
+  {flag: '🇳🇬', name: 'Nigeria',          code: '+234', minDigits: 10, maxDigits: 10},
+  {flag: '🇬🇭', name: 'Ghana',            code: '+233', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇿🇦', name: 'South Africa',     code: '+27',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇵🇱', name: 'Poland',           code: '+48',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇷🇴', name: 'Romania',          code: '+40',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇧🇬', name: 'Bulgaria',         code: '+359', minDigits: 8,  maxDigits: 9 },
+  {flag: '🇱🇹', name: 'Lithuania',        code: '+370', minDigits: 8,  maxDigits: 8 },
+  {flag: '🇱🇻', name: 'Latvia',           code: '+371', minDigits: 8,  maxDigits: 8 },
+  {flag: '🇪🇪', name: 'Estonia',          code: '+372', minDigits: 7,  maxDigits: 8 },
+  {flag: '🇩🇪', name: 'Germany',          code: '+49',  minDigits: 10, maxDigits: 12},
+  {flag: '🇫🇷', name: 'France',           code: '+33',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇮🇪', name: 'Ireland',          code: '+353', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇳🇱', name: 'Netherlands',      code: '+31',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇧🇪', name: 'Belgium',          code: '+32',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇪🇸', name: 'Spain',            code: '+34',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇮🇹', name: 'Italy',            code: '+39',  minDigits: 9,  maxDigits: 10},
+  {flag: '🇵🇹', name: 'Portugal',         code: '+351', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇨🇿', name: 'Czech Republic',   code: '+420', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇸🇰', name: 'Slovakia',         code: '+421', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇭🇺', name: 'Hungary',          code: '+36',  minDigits: 8,  maxDigits: 9 },
+  {flag: '🇺🇦', name: 'Ukraine',          code: '+380', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇵🇭', name: 'Philippines',      code: '+63',  minDigits: 10, maxDigits: 10},
+  {flag: '🇦🇺', name: 'Australia',        code: '+61',  minDigits: 9,  maxDigits: 9 },
+  {flag: '🇳🇿', name: 'New Zealand',      code: '+64',  minDigits: 8,  maxDigits: 9 },
+  {flag: '🇸🇬', name: 'Singapore',        code: '+65',  minDigits: 8,  maxDigits: 8 },
+  {flag: '🇦🇪', name: 'UAE',              code: '+971', minDigits: 9,  maxDigits: 9 },
+  {flag: '🇸🇦', name: 'Saudi Arabia',     code: '+966', minDigits: 9,  maxDigits: 9 },
+];
+
+// ─── Country Picker Modal ────────────────────────────────────────────────────
+
+function CountryPickerModal({
+  visible,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  selected: Country;
+  onSelect: (c: Country) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return q
+      ? COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.code.includes(q))
+      : COUNTRIES;
+  }, [query]);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={ms.overlay}>
+        <View style={ms.sheet}>
+          <View style={ms.sheetHeader}>
+            <Text style={ms.sheetTitle}>Select Country Code</Text>
+            <Pressable onPress={onClose} hitSlop={8} style={ms.closeBtn}>
+              <Text style={ms.closeBtnText}>✕</Text>
+            </Pressable>
+          </View>
+
+          <View style={ms.searchWrap}>
+            <TextInput
+              style={ms.searchInput}
+              placeholder="Search country..."
+              placeholderTextColor="#9CA3AF"
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <FlatList
+            data={filtered}
+            keyExtractor={item => item.name}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({item}) => (
+              <Pressable
+                style={[ms.countryRow, item.code === selected.code && item.name === selected.name && ms.countryRowActive]}
+                onPress={() => { onSelect(item); onClose(); setQuery(''); }}>
+                <Text style={ms.countryFlag}>{item.flag}</Text>
+                <Text style={ms.countryName}>{item.name}</Text>
+                <Text style={ms.countryCode}>{item.code}</Text>
+                {item.code === selected.code && item.name === selected.name && (
+                  <Text style={ms.checkmark}>✓</Text>
+                )}
+              </Pressable>
+            )}
+            ItemSeparatorComponent={() => <View style={ms.sep} />}
+            contentContainerStyle={{paddingBottom: 32}}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Form validation ──────────────────────────────────────────────────────────
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function validatePhone(localNumber: string, country: Country): string | null {
+  const digits = localNumber.replace(/\D/g, '');
+  if (digits.length === 0) return 'Phone number is required.';
+  if (digits.length < country.minDigits) {
+    return `Enter a valid ${country.name} number (${country.minDigits} digits after country code).`;
+  }
+  if (digits.length > country.maxDigits) {
+    return `Number too long for ${country.name} (max ${country.maxDigits} digits).`;
+  }
+  return null;
+}
+
 function validate(
   form: {email: string; name: string; password: string; phone: string},
+  localPhone: string,
+  selectedCountry: Country,
   confirmPassword: string,
   agreed: boolean,
 ): Record<string, string> {
@@ -36,9 +158,8 @@ function validate(
   if (!EMAIL_RE.test(form.email.trim())) {
     e.email = 'Enter a valid email address.';
   }
-  if (form.phone.replace(/\D/g, '').length < 10) {
-    e.phone = 'Enter a valid phone number (min 10 digits).';
-  }
+  const phoneErr = validatePhone(localPhone, selectedCountry);
+  if (phoneErr) e.phone = phoneErr;
   if (form.password.length < 8) {
     e.password = 'Password must be at least 8 characters.';
   } else if (!/[A-Z]/.test(form.password)) {
@@ -57,6 +178,19 @@ function validate(
   return e;
 }
 
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
+interface RegisterScreenProps {
+  registerForm: {email: string; name: string; password: string; phone: string};
+  setRegisterForm: (updater: (prev: any) => any) => void;
+  handleRegister: () => void;
+  authLoading: boolean;
+  authError: string | null;
+  setAuthMode: (mode: any) => void;
+  onViewTerms: () => void;
+  onViewPrivacy: () => void;
+}
+
 const RegisterScreen: React.FC<RegisterScreenProps> = ({
   registerForm,
   setRegisterForm,
@@ -70,6 +204,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<Country>(COUNTRIES[0]);
+  const [localPhone, setLocalPhone] = useState('');
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
 
   const clearErr = (field: string) =>
     setFieldErrors(prev => {
@@ -83,13 +220,30 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
     clearErr(field);
   };
 
+  const handleLocalPhoneChange = (value: string) => {
+    // Allow digits, spaces, hyphens only
+    const sanitized = value.replace(/[^\d\s\-]/g, '');
+    setLocalPhone(sanitized);
+    const full = `${selectedCountry.code}${sanitized.replace(/\D/g, '')}`;
+    setRegisterForm((prev: any) => ({...prev, phone: full}));
+    clearErr('phone');
+  };
+
+  const handleCountrySelect = (country: Country) => {
+    setSelectedCountry(country);
+    const digits = localPhone.replace(/\D/g, '');
+    const full = `${country.code}${digits}`;
+    setRegisterForm((prev: any) => ({...prev, phone: full}));
+    clearErr('phone');
+  };
+
   const handleConfirmChange = (value: string) => {
     setConfirmPassword(value);
     clearErr('confirmPassword');
   };
 
   const onSubmit = () => {
-    const errs = validate(registerForm, confirmPassword, agreedToTerms);
+    const errs = validate(registerForm, localPhone, selectedCountry, confirmPassword, agreedToTerms);
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
       return;
@@ -162,16 +316,36 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
             containerStyle={{marginBottom: 0}}
           />
 
-          {/* Phone Number */}
-          <AppInput
-            leftIcon={<PhoneIcon size={20} color="#9CA4B0" />}
-            keyboardType="phone-pad"
-            onChangeText={update('phone')}
-            placeholder="Phone Number"
-            value={registerForm.phone}
-            error={fieldErrors.phone}
-            containerStyle={{marginBottom: 0}}
-          />
+          {/* Phone Number with country code picker */}
+          <View>
+            <View style={[styles.phoneRow, fieldErrors.phone ? styles.phoneRowError : null]}>
+              <PhoneIcon size={20} color="#9CA4B0" />
+              <Pressable
+                onPress={() => setCountryPickerVisible(true)}
+                style={styles.dialCodeBtn}
+                hitSlop={4}>
+                <Text style={styles.dialCodeFlag}>{selectedCountry.flag}</Text>
+                <Text style={styles.dialCodeText}>{selectedCountry.code}</Text>
+                <Text style={styles.dialCodeChevron}>▾</Text>
+              </Pressable>
+              <View style={styles.phoneDivider} />
+              <TextInput
+                style={styles.phoneInput}
+                keyboardType="phone-pad"
+                onChangeText={handleLocalPhoneChange}
+                placeholder={`Local number (${selectedCountry.minDigits} digits)`}
+                placeholderTextColor="#9CA4B0"
+                value={localPhone}
+              />
+            </View>
+            {fieldErrors.phone ? (
+              <Text style={styles.inlineError}>{fieldErrors.phone}</Text>
+            ) : localPhone.replace(/\D/g, '').length > 0 ? (
+              <Text style={styles.phonePreview}>
+                Full number: {selectedCountry.code}{localPhone.replace(/\D/g, '')}
+              </Text>
+            ) : null}
+          </View>
 
           {/* Password */}
           <AppInput
@@ -264,9 +438,19 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Country Picker Modal */}
+      <CountryPickerModal
+        visible={countryPickerVisible}
+        selected={selectedCountry}
+        onSelect={handleCountrySelect}
+        onClose={() => setCountryPickerVisible(false)}
+      />
     </SafeAreaView>
   );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: colors.bg},
@@ -277,7 +461,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
 
-  // Brand
   brandRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -300,12 +483,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Hero
   hero: {marginBottom: 24},
   title: {color: colors.ink, fontSize: 30, fontWeight: '400', letterSpacing: -0.3},
   subtitle: {color: '#525863', fontSize: 16, lineHeight: 24, marginTop: 8},
 
-  // API Error
   apiErrorBox: {
     alignItems: 'center',
     backgroundColor: '#FFF1EF',
@@ -328,9 +509,10 @@ const styles = StyleSheet.create({
   apiErrorDotText: {color: '#fff', fontSize: 16, fontWeight: '900'},
   apiErrorText: {color: colors.danger, flex: 1, fontSize: 14, fontWeight: '700', lineHeight: 20},
 
-  // Form
   form: {gap: 12},
-  fieldWrap: {
+
+  // Phone row
+  phoneRow: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#C9D0DB',
@@ -339,16 +521,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 58,
     paddingHorizontal: spacing.lg,
+    gap: 8,
   },
-  fieldWrapError: {borderColor: colors.danger},
-  fieldIcon: {marginRight: 10},
-  input: {color: colors.ink, flex: 1, fontSize: 16, paddingVertical: 0},
-  eyeBtn: {paddingLeft: 8},
+  phoneRowError: {borderColor: colors.danger},
+  dialCodeBtn: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  dialCodeFlag: {fontSize: 20},
+  dialCodeText: {color: colors.ink, fontSize: 15, fontWeight: '700'},
+  dialCodeChevron: {color: colors.inkSoft, fontSize: 10, marginTop: 1},
+  phoneDivider: {
+    backgroundColor: '#C9D0DB',
+    height: 22,
+    marginHorizontal: 2,
+    width: 1,
+  },
+  phoneInput: {
+    color: colors.ink,
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  phonePreview: {
+    color: '#1066B1',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+    marginTop: 4,
+  },
+
   inlineError: {color: colors.danger, fontSize: 12, marginLeft: 4, marginTop: 4},
   inlineErrorTerms: {marginLeft: 34},
   matchText: {color: '#1066B1', fontSize: 12, marginLeft: 4, marginTop: 4, fontWeight: '700'},
 
-  // Password strength
   strengthRow: {
     flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: -4,
   },
@@ -360,7 +568,6 @@ const styles = StyleSheet.create({
   strengthPillText: {fontSize: 11, fontWeight: '700', color: '#94A3B8'},
   strengthPillTextMet: {color: '#1066B1'},
 
-  // Terms
   termsBlock: {alignItems: 'flex-start', flexDirection: 'row', gap: 12, marginTop: 4},
   checkbox: {
     alignItems: 'center',
@@ -379,7 +586,6 @@ const styles = StyleSheet.create({
   termsText: {color: '#525863', flex: 1, fontSize: 14, lineHeight: 21},
   termsLink: {color: colors.accent, fontWeight: '700'},
 
-  // Sign Up
   signUpBtn: {
     alignItems: 'center',
     backgroundColor: colors.accent,
@@ -396,7 +602,6 @@ const styles = StyleSheet.create({
   signUpBtnDisabled: {opacity: 0.7},
   signUpBtnText: {color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.3},
 
-  // Footer
   footer: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -405,6 +610,71 @@ const styles = StyleSheet.create({
   },
   footerText: {color: colors.inkSoft, fontSize: 15},
   footerLink: {color: colors.accent, fontSize: 15, fontWeight: '800'},
+});
+
+// ─── Modal styles ─────────────────────────────────────────────────────────────
+
+const ms = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingTop: 8,
+  },
+  sheetHeader: {
+    alignItems: 'center',
+    borderBottomColor: '#F0F2F5',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  sheetTitle: {color: '#111827', fontSize: 17, fontWeight: '900'},
+  closeBtn: {
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  closeBtnText: {color: '#374151', fontSize: 14, fontWeight: '700'},
+  searchWrap: {
+    borderBottomColor: '#F0F2F5',
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    borderWidth: 1,
+    color: '#111827',
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  countryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  countryRowActive: {backgroundColor: '#EFF6FF'},
+  countryFlag: {fontSize: 24},
+  countryName: {color: '#111827', flex: 1, fontSize: 15, fontWeight: '600'},
+  countryCode: {color: '#6B7280', fontSize: 14, fontWeight: '700'},
+  checkmark: {color: '#1066B1', fontSize: 16, fontWeight: '900', marginLeft: 4},
+  sep: {backgroundColor: '#F3F4F6', height: 1, marginHorizontal: 20},
 });
 
 export default RegisterScreen;

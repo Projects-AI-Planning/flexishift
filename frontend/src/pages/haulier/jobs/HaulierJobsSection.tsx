@@ -21,6 +21,16 @@ type QuoteRow = {
   currency: string;
   status: string;
   createdAt?: string;
+  job?: {
+    pickupLocation?: string;
+    dropLocation?: string;
+    jobDate?: string;
+    goodsType?: string;
+    weightKg?: number | null;
+    vehicleType?: string;
+    timeSlot?: string;
+    distanceKm?: number | null;
+  } | null;
 };
 
 type HaulierJobRow = {
@@ -285,6 +295,9 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
   const activeQuotes = quotes.filter((q) => q.status.toUpperCase() === 'ACTIVE');
   const otherQuotes = quotes.filter((q) => q.status.toUpperCase() !== 'ACTIVE');
 
+  // Pull job details from the first quote (all quotes on this panel are for the same job)
+  const jobDetails = quotes.find((q) => q.job)?.job ?? null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
@@ -292,17 +305,67 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
     >
       <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Driver Bids</p>
-            <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
+        <div className="border-b border-slate-100 px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Driver Bids</p>
+              <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
+
+          {/* Job details card */}
+          {jobDetails && (
+            <div className="mt-4 rounded-2xl bg-[#041627] p-4 space-y-3">
+              {/* Route */}
+              {(jobDetails.pickupLocation || jobDetails.dropLocation) && (
+                <div className="space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#1066b1]" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
+                      <p className="text-sm font-bold text-white">{jobDetails.pickupLocation ?? '—'}</p>
+                    </div>
+                  </div>
+                  <div className="ml-[5px] h-4 w-px bg-white/20" />
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
+                      <p className="text-sm font-bold text-white">{jobDetails.dropLocation ?? '—'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Meta grid */}
+              <div className="grid grid-cols-4 gap-2 rounded-xl bg-white/8 p-3">
+                <div className="text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Cargo</p>
+                  <p className="text-[11px] font-black text-white">{jobDetails.goodsType ?? '—'}</p>
+                </div>
+                <div className="text-center border-x border-white/10">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Weight</p>
+                  <p className="text-[11px] font-black text-white">{jobDetails.weightKg != null ? `${jobDetails.weightKg} kg` : '—'}</p>
+                </div>
+                <div className="text-center border-r border-white/10">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Vehicle</p>
+                  <p className="text-[11px] font-black text-white">{jobDetails.vehicleType ?? '—'}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Date</p>
+                  <p className="text-[11px] font-black text-white">
+                    {jobDetails.jobDate ? new Date(jobDetails.jobDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -470,6 +533,327 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
   );
 };
 
+/* ── Delivery Review Panel ──────────────────────────────────────────────────── */
+
+type DeliveryDetails = {
+  jobId: string;
+  jobRef?: string;
+  pickupLocation?: string;
+  dropLocation?: string;
+  deliverySubmitted: boolean;
+  deliverySubmittedAt?: string;
+  deliveryPhotos?: string[];
+  deliveryNotes?: string;
+  step3Approved: boolean;
+  disputed: boolean;
+  driver?: {
+    name?: string;
+    phone?: string;
+    vehicleType?: string;
+    vehicleNumber?: string;
+  } | null;
+  payment?: {
+    amount?: number;
+    currency?: string;
+    status?: string;
+    escrowedAt?: string;
+  } | null;
+};
+
+interface DeliveryReviewPanelProps {
+  jobId: string;
+  jobRef: string;
+  onApprove: () => Promise<void>;
+  onDispute: (reason: string) => Promise<void>;
+  onClose: () => void;
+}
+
+const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
+  jobId, jobRef, onApprove, onDispute, onClose,
+}) => {
+  const [details, setDetails] = React.useState<DeliveryDetails | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+  const [approving, setApproving] = React.useState(false);
+  const [disputing, setDisputing] = React.useState(false);
+  const [disputeReason, setDisputeReason] = React.useState('');
+  const [showDisputeForm, setShowDisputeForm] = React.useState(false);
+  const [actionDone, setActionDone] = React.useState<'approved' | 'disputed' | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    haulierService.getDeliveryDetails(jobId)
+      .then((d) => setDetails(d as DeliveryDetails))
+      .catch(() => setError('Failed to load delivery details.'))
+      .finally(() => setLoading(false));
+  }, [jobId]);
+
+  const handleApprove = async () => {
+    setApproving(true);
+    setError('');
+    try {
+      await onApprove();
+      setActionDone('approved');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Failed to approve delivery.';
+      setError(msg);
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleDispute = async () => {
+    if (!disputeReason.trim()) { setError('Please enter a reason for the dispute.'); return; }
+    setDisputing(true);
+    setError('');
+    try {
+      await onDispute(disputeReason.trim());
+      setActionDone('disputed');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Failed to raise dispute.';
+      setError(msg);
+    } finally {
+      setDisputing(false);
+    }
+  };
+
+  const fmt = (iso?: string) =>
+    iso ? new Date(iso).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 shrink-0">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Delivery Review</p>
+            <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
+            </div>
+          )}
+
+          {!loading && error && !actionDone && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+          )}
+
+          {/* Success state — approved */}
+          {actionDone === 'approved' && (
+            <div className="flex flex-col items-center gap-4 py-16 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1066b1]/10">
+                <span className="material-symbols-outlined text-4xl text-[#1066b1]">verified</span>
+              </div>
+              <p className="text-xl font-black text-[#041627]">Delivery Approved</p>
+              <p className="text-sm text-slate-500">
+                Payment has been released from escrow and transferred to the driver's account.
+              </p>
+              <button onClick={onClose} className="mt-4 rounded-2xl bg-[#1066b1] px-8 py-3 text-sm font-black text-white">
+                Close
+              </button>
+            </div>
+          )}
+
+          {/* Success state — disputed */}
+          {actionDone === 'disputed' && (
+            <div className="flex flex-col items-center gap-4 py-16 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-50">
+                <span className="material-symbols-outlined text-4xl text-amber-500">report</span>
+              </div>
+              <p className="text-xl font-black text-[#041627]">Dispute Raised</p>
+              <p className="text-sm text-slate-500">
+                The admin team has been notified. Payment remains on hold pending review.
+              </p>
+              <button onClick={onClose} className="mt-4 rounded-2xl bg-slate-900 px-8 py-3 text-sm font-black text-white">
+                Close
+              </button>
+            </div>
+          )}
+
+          {!loading && details && !actionDone && (
+            <>
+              {/* Payment on hold card */}
+              {details.payment && (
+                <div className="rounded-2xl bg-[#041627] p-5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Payment On Hold</p>
+                  <p className="text-3xl font-black text-white">
+                    ${Number(details.payment.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black text-amber-300">
+                      <span className="material-symbols-outlined text-[12px]">lock</span>
+                      ESCROWED
+                    </span>
+                    {details.payment.escrowedAt && (
+                      <span className="text-[10px] text-white/40">since {fmt(details.payment.escrowedAt)}</span>
+                    )}
+                  </div>
+                  <div className="mt-3 h-px bg-white/10" />
+                  <div className="mt-3 flex gap-4 text-[11px] text-white/50">
+                    {details.pickupLocation && <span>From: <span className="text-white/80 font-semibold">{details.pickupLocation}</span></span>}
+                    {details.dropLocation && <span>To: <span className="text-white/80 font-semibold">{details.dropLocation}</span></span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Driver info */}
+              {details.driver && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Driver</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1066b1]/10 text-[#1066b1] font-black text-sm">
+                      {details.driver.name ? details.driver.name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div>
+                      <p className="font-black text-[#041627]">{details.driver.name ?? 'Unknown'}</p>
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                        {details.driver.vehicleType && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">local_shipping</span>
+                            {details.driver.vehicleType}
+                          </span>
+                        )}
+                        {details.driver.vehicleNumber && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">confirmation_number</span>
+                            {details.driver.vehicleNumber}
+                          </span>
+                        )}
+                        {details.driver.phone && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">phone</span>
+                            {details.driver.phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery info */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Delivery Submitted</p>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
+                  <span className="text-sm font-bold text-[#041627]">{fmt(details.deliverySubmittedAt)}</span>
+                </div>
+
+                {details.deliveryNotes && (
+                  <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Driver Notes</p>
+                    <p className="text-sm text-[#44474C]">{details.deliveryNotes}</p>
+                  </div>
+                )}
+
+                {/* Delivery photos */}
+                {details.deliveryPhotos && details.deliveryPhotos.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Delivery Photos</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {details.deliveryPhotos.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-xl border border-slate-200">
+                          <img
+                            src={url}
+                            alt={`Delivery photo ${i + 1}`}
+                            className="h-32 w-full object-cover transition group-hover:opacity-80"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <span className="material-symbols-outlined text-white drop-shadow text-2xl">open_in_new</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-400">
+                    <span className="material-symbols-outlined text-base">image_not_supported</span>
+                    No delivery photos uploaded
+                  </div>
+                )}
+              </div>
+
+              {/* Dispute form */}
+              {showDisputeForm && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <p className="text-sm font-black text-amber-800">Reason for Dispute</p>
+                  <textarea
+                    className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm outline-none resize-none focus:border-amber-400"
+                    rows={3}
+                    placeholder="Describe the issue with this delivery…"
+                    value={disputeReason}
+                    onChange={(e) => setDisputeReason(e.target.value)}
+                  />
+                  {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowDisputeForm(false); setDisputeReason(''); setError(''); }}
+                      className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-black text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDispute}
+                      disabled={disputing}
+                      className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
+                    >
+                      {disputing ? 'Submitting…' : 'Submit Dispute'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {error && !showDisputeForm && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        {!loading && details && !actionDone && !showDisputeForm && (
+          <div className="shrink-0 border-t border-slate-100 px-6 py-5 space-y-3">
+            <button
+              onClick={handleApprove}
+              disabled={approving}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1066b1] py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#0d55a0] disabled:opacity-50"
+            >
+              {approving ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <span className="material-symbols-outlined text-base">payments</span>
+              )}
+              {approving ? 'Processing…' : 'Approve & Release Payment'}
+            </button>
+            <button
+              onClick={() => { setShowDisputeForm(true); setError(''); }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-black text-red-700 transition hover:bg-red-100"
+            >
+              <span className="material-symbols-outlined text-base">report</span>
+              Raise a Dispute
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ── Main Component ─────────────────────────────────────────────────────────── */
 
 interface HaulierJobsSectionProps {
@@ -505,8 +889,9 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
   const [sigLoading, setSigLoading] = useState(false);
   const [sigError, setSigError] = useState('');
 
-  /* Approval state */
-  const [approvingJobId, setApprovingJobId] = useState<string | null>(null);
+  /* Delivery review panel state */
+  const [deliveryReviewJobId, setDeliveryReviewJobId] = useState<string | null>(null);
+  const [deliveryReviewJobRef, setDeliveryReviewJobRef] = useState('');
 
   /* Fetch handover status for every in-transit job */
   const fetchHandoverStatuses = useCallback(async (jobList: HaulierJobRow[]) => {
@@ -630,18 +1015,23 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
   };
 
   const handleApproveDelivery = async (jobId: string) => {
-    setApprovingJobId(jobId);
-    try {
-      await haulierService.approveDelivery(jobId, { bookingId: jobId, approvalNote: 'Delivery approved via dashboard.' });
-      refresh();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
-        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        ?? 'Failed to approve delivery. Please try again.';
-      alert(msg);
-    } finally {
-      setApprovingJobId(null);
-    }
+    await haulierService.approveDelivery(jobId, { bookingId: jobId, approvalNote: 'Delivery approved via dashboard.' });
+    refresh();
+  };
+
+  const handleDisputeDelivery = async (jobId: string, reason: string) => {
+    await haulierService.disputeDelivery(jobId, { disputeReason: reason });
+    refresh();
+  };
+
+  const openDeliveryReview = (jobId: string, jobRef: string) => {
+    setDeliveryReviewJobId(jobId);
+    setDeliveryReviewJobRef(jobRef);
+  };
+
+  const closeDeliveryReview = () => {
+    setDeliveryReviewJobId(null);
+    setDeliveryReviewJobRef('');
   };
 
   const openCount = jobs.filter((j) => j.status.toUpperCase() === 'OPEN').length;
@@ -672,6 +1062,17 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           onCancel={() => setSigningJobId(null)}
           loading={sigLoading}
           error={sigError}
+        />
+      )}
+
+      {/* Delivery review panel */}
+      {deliveryReviewJobId && (
+        <DeliveryReviewPanel
+          jobId={deliveryReviewJobId}
+          jobRef={deliveryReviewJobRef}
+          onApprove={() => handleApproveDelivery(deliveryReviewJobId)}
+          onDispute={(reason) => handleDisputeDelivery(deliveryReviewJobId, reason)}
+          onClose={closeDeliveryReview}
         />
       )}
 
@@ -923,18 +1324,19 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                     {activeStatus === 'IN_TRANSIT' && (
                       <td className="px-6 py-5 min-w-[180px]">
                         {isDelivered ? (
-                          <button
-                            onClick={() => handleApproveDelivery(job.jobId)}
-                            disabled={approvingJobId === job.jobId}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            {approvingJobId === job.jobId ? (
-                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            ) : (
-                              <span className="material-symbols-outlined text-sm">verified_user</span>
-                            )}
-                            Approve & Release
-                          </button>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 uppercase tracking-wider">
+                              <span className="material-symbols-outlined text-[13px]">local_shipping</span>
+                              Driver Delivered
+                            </div>
+                            <button
+                              onClick={() => openDeliveryReview(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-[#0d55a0]"
+                            >
+                              <span className="material-symbols-outlined text-sm">rate_review</span>
+                              Review & Release
+                            </button>
+                          </div>
                         ) : needsMySign ? (
                           <button
                             onClick={() => openSignModal(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}

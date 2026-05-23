@@ -48,7 +48,7 @@ async def _osrm_polyline(coords: list[tuple[float, float]]) -> list[dict]:
     coord_str = ";".join(f"{lng},{lat}" for lat, lng in coords)
     url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?geometries=geojson&overview=full"
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers={"User-Agent": "FreightFlex/1.0"}, timeout=15)
+        resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
     data = resp.json()
     if data.get("code") != "Ok" or not data.get("routes"):
         return []
@@ -64,7 +64,7 @@ async def _osrm_stats(coords: list[tuple[float, float]]) -> dict | None:
     url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?overview=false"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers={"User-Agent": "FreightFlex/1.0"}, timeout=15)
+            resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
         data = resp.json()
         if data.get("code") == "Ok" and data.get("routes"):
             r = data["routes"][0]
@@ -97,7 +97,7 @@ async def _geocode_nominatim(address: str) -> dict:
         resp = await client.get(
             "https://nominatim.openstreetmap.org/search",
             params={"q": address, "format": "json", "limit": 1, "addressdetails": 1},
-            headers={"User-Agent": "FreightFlex/1.0 (logistics-platform)"},
+            headers={"User-Agent": "FlexiShift/1.0 (logistics-platform)"},
             timeout=10,
         )
     results = resp.json()
@@ -158,7 +158,7 @@ async def _photon_autocomplete(query: str) -> list[dict]:
             resp = await client.get(
                 "https://photon.komoot.io/api/",
                 params={"q": query, "limit": 7, "lang": "en"},
-                headers={"User-Agent": "FreightFlex/1.0"},
+                headers={"User-Agent": "FlexiShift/1.0"},
                 timeout=10,
             )
         features = resp.json().get("features", [])
@@ -322,7 +322,7 @@ async def _reverse_geocode_nominatim(lat: float, lng: float) -> dict | None:
             resp = await client.get(
                 "https://nominatim.openstreetmap.org/reverse",
                 params={"lat": lat, "lon": lng, "format": "json", "zoom": 10, "addressdetails": 1},
-                headers={"User-Agent": "FreightFlex/1.0 (logistics-platform)"},
+                headers={"User-Agent": "FlexiShift/1.0 (logistics-platform)"},
                 timeout=8,
             )
         data = resp.json()
@@ -370,7 +370,7 @@ async def get_route_stops(
     )
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers={"User-Agent": "FreightFlex/1.0"}, timeout=15)
+            resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
         data = resp.json()
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Route service unavailable: {exc}")

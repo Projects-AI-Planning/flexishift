@@ -1,9 +1,9 @@
-# High-Level Design (HLD) – FreightFlex
+# High-Level Design (HLD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | High-Level Design (HLD) / System Architecture |
 | Version | 2.0 |
 | Date | 2026-04-25 |
@@ -12,7 +12,7 @@
 
 ## 2. Architecture Overview
 
-FreightFlex follows a **three-tier, service-modular monolith** architecture for Phase 1, designed to extract into microservices in Phase 2 without re-architecture.
+FlexiShift follows a **three-tier, service-modular monolith** architecture for Phase 1, designed to extract into microservices in Phase 2 without re-architecture.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

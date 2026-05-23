@@ -1,4 +1,4 @@
-# FreightFlex – Mobile App (Driver) API Request & Response
+# FlexiShift – Mobile App (Driver) API Request & Response
 
 ---
 
@@ -194,7 +194,7 @@ Content-Type: application/json
     "role": "driver",
     "isProfileComplete": true,
     "isVerified": true,
-    "profilePhoto": "https://cdn.freightflex.com/photos/usr_01J8K2X9P.jpg",
+    "profilePhoto": "https://cdn.flexishift.com/photos/usr_01J8K2X9P.jpg",
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...",
     "expiresIn": 3600
@@ -463,7 +463,7 @@ Content-Type: multipart/form-data
     "role": "driver",
     "profileData": {
       "name": "John Doe",
-      "photo": "https://cdn.freightflex.com/photos/usr_01J8K2X9P.jpg",
+      "photo": "https://cdn.flexishift.com/photos/usr_01J8K2X9P.jpg",
       "licenseNumber": "DL1420110012345",
       "licenseExpiry": "2028-06-30",
       "vehicleType": "truck",
@@ -559,7 +559,7 @@ Authorization: Bearer <driver-token>
     "isVerified": true,
     "isProfileComplete": true,
     "profileData": {
-      "photo": "https://cdn.freightflex.com/photos/usr_01J8K2X9P.jpg",
+      "photo": "https://cdn.flexishift.com/photos/usr_01J8K2X9P.jpg",
       "licenseNumber": "DL1420110012345",
       "licenseExpiry": "2028-06-30",
       "vehicleType": "truck",
@@ -599,7 +599,7 @@ photo: <image file>
   "code": 200,
   "message": "Profile photo uploaded successfully.",
   "data": {
-    "photoUrl": "https://cdn.freightflex.com/photos/usr_01J8K2X9P.jpg",
+    "photoUrl": "https://cdn.flexishift.com/photos/usr_01J8K2X9P.jpg",
     "uploadedAt": "2024-01-15T12:10:00Z"
   }
 }
@@ -645,7 +645,7 @@ expiryDate: "2028-06-30"
   "data": {
     "documentId": "doc_9X2K8P1L",
     "documentType": "driving_license",
-    "fileUrl": "https://cdn.freightflex.com/docs/doc_9X2K8P1L.pdf",
+    "fileUrl": "https://cdn.flexishift.com/docs/doc_9X2K8P1L.pdf",
     "status": "pending",
     "expiryDate": "2028-06-30",
     "uploadedAt": "2024-01-15T13:00:00Z"
@@ -685,7 +685,7 @@ Authorization: Bearer <driver-token>
       {
         "documentId": "doc_9X2K8P1L",
         "documentType": "driving_license",
-        "fileUrl": "https://cdn.freightflex.com/docs/doc_9X2K8P1L.pdf",
+        "fileUrl": "https://cdn.flexishift.com/docs/doc_9X2K8P1L.pdf",
         "status": "approved",
         "expiryDate": "2028-06-30",
         "uploadedAt": "2024-01-15T13:00:00Z"
@@ -693,7 +693,7 @@ Authorization: Bearer <driver-token>
       {
         "documentId": "doc_3M7N5Q2R",
         "documentType": "vehicle_registration",
-        "fileUrl": "https://cdn.freightflex.com/docs/doc_3M7N5Q2R.pdf",
+        "fileUrl": "https://cdn.flexishift.com/docs/doc_3M7N5Q2R.pdf",
         "status": "pending",
         "expiryDate": "2026-06-30",
         "uploadedAt": "2024-01-15T13:05:00Z"
@@ -701,7 +701,7 @@ Authorization: Bearer <driver-token>
       {
         "documentId": "doc_8K2P3N7X",
         "documentType": "insurance",
-        "fileUrl": "https://cdn.freightflex.com/docs/doc_8K2P3N7X.pdf",
+        "fileUrl": "https://cdn.flexishift.com/docs/doc_8K2P3N7X.pdf",
         "status": "rejected",
         "rejectionReason": "Document is expired",
         "expiryDate": "2023-12-31",
@@ -733,7 +733,7 @@ Authorization: Bearer <driver-token>
   "data": {
     "documentId": "doc_9X2K8P1L",
     "documentType": "driving_license",
-    "fileUrl": "https://cdn.freightflex.com/docs/doc_9X2K8P1L.pdf",
+    "fileUrl": "https://cdn.flexishift.com/docs/doc_9X2K8P1L.pdf",
     "status": "approved",
     "expiryDate": "2028-06-30",
     "reviewedBy": "admin_01",
@@ -1611,7 +1611,7 @@ Authorization: Bearer <driver-token>
   "data": {
     "invoiceId": "inv_3K9M2X7P",
     "invoiceNumber": "FF-INV-2024-00089",
-    "downloadUrl": "https://cdn.freightflex.com/invoices/FF-INV-2024-00089.pdf",
+    "downloadUrl": "https://cdn.flexishift.com/invoices/FF-INV-2024-00089.pdf",
     "urlExpiresAt": "2024-01-20T16:30:00Z"
   }
 }
@@ -1770,22 +1770,22 @@ photoLabels: ["front_view", "rear_view", "left_side", "right_side"]
       {
         "photoId": "ph_K2M9X3P7",
         "label": "front_view",
-        "url": "https://cdn.freightflex.com/handover/ph_K2M9X3P7.jpg"
+        "url": "https://cdn.flexishift.com/handover/ph_K2M9X3P7.jpg"
       },
       {
         "photoId": "ph_P7X3K9M2",
         "label": "rear_view",
-        "url": "https://cdn.freightflex.com/handover/ph_P7X3K9M2.jpg"
+        "url": "https://cdn.flexishift.com/handover/ph_P7X3K9M2.jpg"
       },
       {
         "photoId": "ph_M3X7P2K9",
         "label": "left_side",
-        "url": "https://cdn.freightflex.com/handover/ph_M3X7P2K9.jpg"
+        "url": "https://cdn.flexishift.com/handover/ph_M3X7P2K9.jpg"
       },
       {
         "photoId": "ph_X9K3M7P2",
         "label": "right_side",
-        "url": "https://cdn.freightflex.com/handover/ph_X9K3M7P2.jpg"
+        "url": "https://cdn.flexishift.com/handover/ph_X9K3M7P2.jpg"
       }
     ],
     "totalPhotos": 4,
@@ -1825,7 +1825,7 @@ Content-Type: application/json
     "signatureId": "sig_D9K3M7X2",
     "jobId": "job_4R8M2K9X",
     "signedBy": "driver",
-    "signatureUrl": "https://cdn.freightflex.com/signatures/sig_D9K3M7X2.png",
+    "signatureUrl": "https://cdn.flexishift.com/signatures/sig_D9K3M7X2.png",
     "signedAt": "2024-01-20T09:00:00Z",
     "waitingFor": "haulier_signature"
   }
@@ -1936,12 +1936,12 @@ photoLabels: ["goods_delivered", "drop_location"]
       {
         "photoId": "ph_DL7K3M9X",
         "label": "goods_delivered",
-        "url": "https://cdn.freightflex.com/delivery/ph_DL7K3M9X.jpg"
+        "url": "https://cdn.flexishift.com/delivery/ph_DL7K3M9X.jpg"
       },
       {
         "photoId": "ph_DL2P9K7M",
         "label": "drop_location",
-        "url": "https://cdn.freightflex.com/delivery/ph_DL2P9K7M.jpg"
+        "url": "https://cdn.flexishift.com/delivery/ph_DL2P9K7M.jpg"
       }
     ],
     "totalPhotos": 2,
@@ -2204,7 +2204,7 @@ Authorization: Bearer <driver-token>
   "data": {
     "driverId": "usr_01J8K2X9P",
     "name": "John Doe",
-    "photo": "https://cdn.freightflex.com/photos/usr_01J8K2X9P.jpg",
+    "photo": "https://cdn.flexishift.com/photos/usr_01J8K2X9P.jpg",
     "isAvailable": true,
     "isVerified": true,
     "rating": 4.5,
@@ -2816,7 +2816,7 @@ folder: "driver_docs"
     "fileType": "document",
     "mimeType": "application/pdf",
     "fileSize": "1.8 MB",
-    "fileUrl": "https://cdn.freightflex.com/driver_docs/fil_9K3M7X2P.pdf",
+    "fileUrl": "https://cdn.flexishift.com/driver_docs/fil_9K3M7X2P.pdf",
     "uploadedAt": "2024-01-20T18:20:00Z"
   }
 }
@@ -2860,19 +2860,19 @@ folder: "handover_photos"
       {
         "fileId": "fil_2P9K7M3X",
         "fileName": "front_view.jpg",
-        "fileUrl": "https://cdn.freightflex.com/handover_photos/fil_2P9K7M3X.jpg",
+        "fileUrl": "https://cdn.flexishift.com/handover_photos/fil_2P9K7M3X.jpg",
         "fileSize": "1.2 MB"
       },
       {
         "fileId": "fil_7M3X9K2P",
         "fileName": "rear_view.jpg",
-        "fileUrl": "https://cdn.freightflex.com/handover_photos/fil_7M3X9K2P.jpg",
+        "fileUrl": "https://cdn.flexishift.com/handover_photos/fil_7M3X9K2P.jpg",
         "fileSize": "1.1 MB"
       },
       {
         "fileId": "fil_3X2P9M7K",
         "fileName": "left_side.jpg",
-        "fileUrl": "https://cdn.freightflex.com/handover_photos/fil_3X2P9M7K.jpg",
+        "fileUrl": "https://cdn.flexishift.com/handover_photos/fil_3X2P9M7K.jpg",
         "fileSize": "0.9 MB"
       }
     ],
@@ -2902,7 +2902,7 @@ Authorization: Bearer <driver-token>
   "data": {
     "fileId": "fil_9K3M7X2P",
     "fileName": "insurance_document.pdf",
-    "signedUrl": "https://cdn.freightflex.com/driver_docs/fil_9K3M7X2P.pdf?signature=abc123&expires=1705766400",
+    "signedUrl": "https://cdn.flexishift.com/driver_docs/fil_9K3M7X2P.pdf?signature=abc123&expires=1705766400",
     "urlExpiresAt": "2024-01-20T19:20:00Z",
     "mimeType": "application/pdf",
     "fileSize": "1.8 MB"

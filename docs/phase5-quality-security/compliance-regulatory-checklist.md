@@ -1,9 +1,9 @@
-# Compliance & Regulatory Checklist – FreightFlex
+# Compliance & Regulatory Checklist – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Compliance / Regulatory Checklist |
 | Version | 1.0 |
 | Date | 2026-04-25 |
@@ -53,7 +53,7 @@ Each item must be marked **Done**, **In Progress**, or **Not Applicable** before
 | # | Requirement | Regulation | Status | Evidence | Owner |
 |---|---|---|---|---|---|
 | FN-01 | Payment aggregator with valid licence contracted (nodal/escrow account) | RBI PA Guidelines (India) / FCA (UK) | ☐ | Signed contract with Razorpay/Stripe | Legal / PM |
-| FN-02 | No card data stored on FreightFlex servers (PCI DSS scope minimisation) | PCI DSS | ☐ | Architecture review confirming tokenisation only | Dev Lead |
+| FN-02 | No card data stored on FlexiShift servers (PCI DSS scope minimisation) | PCI DSS | ☐ | Architecture review confirming tokenisation only | Dev Lead |
 | FN-03 | Payment gateway webhook signatures verified (HMAC) | PCI DSS / Best Practice | ☐ | Code review sign-off | Dev Lead |
 | FN-04 | Invoice includes required tax fields (GST/VAT number, tax breakdown) | GST Act / VAT Act | ☐ | Invoice template review | Legal / Dev |
 | FN-05 | GST / VAT registration obtained (if applicable) | Tax law | ☐ | Registration certificate | Finance / Legal |

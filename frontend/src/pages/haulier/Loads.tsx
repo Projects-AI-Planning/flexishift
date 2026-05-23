@@ -94,7 +94,7 @@ const sections: Array<{ key: Section; label: string; path: string; icon: string 
 ];
 
 const money = (value?: number | null) => (value == null ? 'N/A' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`);
-const prettyDate = (value?: string) => (value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
+const prettyDate = (value?: string) => (value ? new Date(value).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
 const badgeClass = (status: string) => {
   const key = status.toLowerCase();

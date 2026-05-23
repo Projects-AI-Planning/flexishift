@@ -279,7 +279,7 @@ const Login: React.FC = () => {
           <div className="bg-navy p-3 rounded-full mb-4">
             <Truck className="text-amber" size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-navy">FreightFlex Login</h1>
+          <h1 className="text-2xl font-bold text-navy">FlexiShift Login</h1>
           <p className="text-gray-500 text-sm">Logistics Management Portal</p>
         </div>
 
@@ -291,7 +291,7 @@ const Login: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
-              placeholder="admin@freightflex.com"
+              placeholder="admin@flexishift.com"
               required
             />
           </div>
@@ -361,7 +361,7 @@ const Login: React.FC = () => {
         </div>
 
         <div className="mt-6 text-center text-xs text-gray-400">
-          <p>FreightFlex Logistics Platform v1.0</p>
+          <p>FlexiShift Logistics Platform v1.0</p>
         </div>
       </div>
     </div>

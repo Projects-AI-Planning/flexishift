@@ -1,9 +1,9 @@
-# Business Requirements Document (BRD) – FreightFlex
+# Business Requirements Document (BRD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Business Requirements Document (BRD) |
 | Version | 1.0 |
 | Date | 2026-04-25 |

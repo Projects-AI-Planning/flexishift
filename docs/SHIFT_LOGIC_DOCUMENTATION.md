@@ -1,4 +1,4 @@
-# FreightFlex – Shift Booking Module
+# FlexiShift – Shift Booking Module
 ## Logic Documentation · Timeline · Costing
 **Prepared for: 1:30 PM Meeting — 19 May 2026**
 
@@ -626,4 +626,4 @@ Partial-day payment (e.g. 6 of 8 hours = 75% of daily rate) can be agreed betwee
 
 ---
 
-*FreightFlex Shift Module — Prepared 19 May 2026*
+*FlexiShift Shift Module — Prepared 19 May 2026*

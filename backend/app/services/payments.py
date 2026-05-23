@@ -26,6 +26,8 @@ def _stripe_error_msg(e: stripe.StripeError) -> str:
 
 
 def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
+    from app.models.user import User
+
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -45,23 +47,64 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         raise HTTPException(status_code=422, detail="No selected quote found")
 
     amount = float(selected_quote.price)
-    amount_minor = int(amount * 100)
+    amount_minor = int(round(amount * 100))
+    currency = (selected_quote.currency or settings.PAYMENT_CURRENCY).upper()
+
+    # Look up driver's Stripe Connect account to use destination charge model.
+    # Embedding transfer_data at creation means funds flow to the driver automatically
+    # on capture — no separate Transfer needed, no available-balance race condition.
+    driver_stripe_account: str | None = None
+    if job.selected_supplier_id:
+        driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
+        if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
+            driver_stripe_account = driver.stripe_account_id
 
     client = _stripe_client()
+
+    # If there's an existing PENDING payment with a Stripe intent, check if we can reuse it.
+    # If the intent is already confirmed (requires_capture), calling confirmCardPayment again
+    # would produce a "processing error" — cancel it and create a fresh intent instead.
+    if existing and existing.gateway_order_id:
+        try:
+            prev_intent = client.PaymentIntent.retrieve(existing.gateway_order_id)
+            if prev_intent["status"] == "requires_payment_method":
+                # Reuse — intent is still awaiting card details
+                return {
+                    "payment_id": existing.id,
+                    "gateway_order_id": prev_intent["id"],
+                    "client_secret": prev_intent["client_secret"],
+                    "amount": amount,
+                    "currency": existing.currency,
+                    "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+                }
+            # Intent is in a non-confirmable state; cancel it so we can create a fresh one
+            if prev_intent["status"] not in ("succeeded", "canceled"):
+                try:
+                    client.PaymentIntent.cancel(prev_intent["id"])
+                except stripe.StripeError:
+                    pass
+        except stripe.StripeError:
+            pass
+
+    intent_params: dict = {
+        "amount": amount_minor,
+        "currency": currency.lower(),
+        "capture_method": "manual",
+        "payment_method_types": ["card"],
+        "metadata": {
+            "job_id": job_id,
+            "job_ref": job.job_ref,
+            "haulier_id": haulier_id,
+            "driver_id": str(job.selected_supplier_id or ""),
+        },
+        "description": f"FlexiShift job {job.job_ref}",
+    }
+    if driver_stripe_account:
+        # Destination charge: on capture Stripe automatically moves funds to the driver
+        intent_params["transfer_data"] = {"destination": driver_stripe_account}
+
     try:
-        intent = client.PaymentIntent.create(
-            amount=amount_minor,
-            currency="gbp",
-            capture_method="manual",
-            metadata={
-                "job_id": job_id,
-                "job_ref": job.job_ref,
-                "haulier_id": haulier_id,
-                "driver_id": str(job.selected_supplier_id or ""),
-            },
-            description=f"FreightFlex job {job.job_ref}",
-            idempotency_key=f"pay-{job_id}",
-        )
+        intent = client.PaymentIntent.create(**intent_params)
     except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=f"Payment gateway error: {_stripe_error_msg(e)}")
     except Exception as e:
@@ -70,7 +113,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     if existing:
         existing.gateway_order_id = intent["id"]
         existing.amount = selected_quote.price
-        existing.currency = "GBP"
+        existing.currency = currency
         existing.status = PaymentStatus.PENDING
         db.commit()
         payment = existing
@@ -79,7 +122,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
             job_id=job_id,
             gateway_order_id=intent["id"],
             amount=selected_quote.price,
-            currency="GBP",
+            currency=currency,
             status=PaymentStatus.PENDING,
         )
         db.add(payment)
@@ -94,7 +137,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "gateway_order_id": intent["id"],
         "client_secret": intent["client_secret"],
         "amount": amount,
-        "currency": "GBP",
+        "currency": currency,
         "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
 
@@ -121,8 +164,8 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
         )
 
     # Guard against amount tampering — intent pence must match the stored quote price
-    intent_amount = intent.get("amount", 0)
-    expected_amount = int(float(payment.amount) * 100)
+    intent_amount = intent["amount"]
+    expected_amount = int(round(float(payment.amount) * 100))
     if intent_amount != expected_amount:
         log.error("payment_amount_mismatch",
                   job_id=job_id, expected=expected_amount, got=intent_amount)
@@ -200,21 +243,29 @@ def release_payment(db: Session, job_id: str) -> Payment:
     client = _stripe_client()
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
     try:
-        client.PaymentIntent.capture(intent_id)
+        captured_intent = client.PaymentIntent.capture(intent_id)
     except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
-    # Transfer captured funds to the driver's Stripe Connect account
+    # If the intent was created with transfer_data (destination charge), Stripe already
+    # moved the funds to the driver on capture — no separate Transfer needed.
+    # Fall back to manual Transfer only for older intents without transfer_data.
     transfer_id = None
-    if job.selected_supplier_id:
+    has_destination = bool(getattr(captured_intent, "transfer_data", None))
+
+    if has_destination:
+        # Destination charge: transfer happened automatically; record the transfer ID
+        transfer_id = getattr(captured_intent, "transfer", None)
+        log.info("release_payment_destination_charge", job_id=job_id, transfer=transfer_id)
+    elif job.selected_supplier_id:
         driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
         if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
-            amount_pence = int(float(payment.amount) * 100)
+            amount_minor = int(float(payment.amount) * 100)
             transfer_id = transfer_to_driver(
                 stripe_account_id=driver.stripe_account_id,
-                amount_pence=amount_pence,
+                amount_pence=amount_minor,
                 currency=payment.currency,
                 payment_intent_id=intent_id,
                 job_ref=job.job_ref,
@@ -230,7 +281,7 @@ def release_payment(db: Session, job_id: str) -> Payment:
     payment.status = PaymentStatus.RELEASED
     payment.released_at = datetime.utcnow()
     if transfer_id:
-        payment.gateway_payout_id = transfer_id
+        payment.gateway_payout_id = str(transfer_id)
 
     job.status = JobStatus.COMPLETED
 

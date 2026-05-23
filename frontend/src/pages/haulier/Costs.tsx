@@ -9,10 +9,10 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, currency = 'USD') =>
+const fmt = (value: number, _currency?: string) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value);
 
@@ -202,7 +202,7 @@ export default function HaulierCostsPage() {
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Currency</p>
-              <p className="mt-1 text-2xl font-black text-primary">{summary.currency ?? 'USD'}</p>
+              <p className="mt-1 text-2xl font-black text-primary">USD</p>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 """
-FreightFlex – Logging Middleware
+FlexiShift – Logging Middleware
 Logs every request and response with structured JSON
 Single Responsibility – only handles request/response logging
 """

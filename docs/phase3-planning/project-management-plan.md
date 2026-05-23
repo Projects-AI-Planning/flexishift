@@ -1,20 +1,20 @@
-# Project Management Plan – FreightFlex
+# Project Management Plan – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Project Management Plan (Master Plan) |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 
 ## 2. Purpose
-This document is the master plan governing how the FreightFlex project is planned, executed, monitored, and closed. All subsidiary plans (resource, risk, communications, WBS) are referenced herein.
+This document is the master plan governing how the FlexiShift project is planned, executed, monitored, and closed. All subsidiary plans (resource, risk, communications, WBS) are referenced herein.
 
 ## 3. Project Summary
 | Item | Detail |
 |---|---|
-| Objective | Build and launch the FreightFlex freight-marketplace platform |
+| Objective | Build and launch the FlexiShift freight-marketplace platform |
 | Duration | 20 weeks (approx. 5 months) |
 | Methodology | Agile Scrum (2-week sprints) |
 | Team Size | 6–10 people |

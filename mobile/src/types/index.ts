@@ -223,9 +223,20 @@ export interface BookingDetail {
   createdAt?: string;
 }
 
+export interface RatingReviewItem {
+  ratingId: string;
+  raterName: string;
+  rating: number;
+  comment: string;
+  jobReference?: string;
+  createdAt?: string;
+}
+
 export interface RatingSummary {
   averageRating?: number;
+  name?: string;
   ratings?: Array<Record<string, unknown>>;
+  reviews?: RatingReviewItem[];
   recentTrend?: string;
   topTags?: string[];
   totalRatings?: number;

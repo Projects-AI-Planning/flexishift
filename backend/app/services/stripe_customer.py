@@ -27,7 +27,7 @@ def get_or_create_customer(db: Session, user: User) -> str:
             email=user.email,
             name=user.full_name,
             phone=user.phone or None,
-            metadata={"user_id": user.id, "platform": "FreightFlex", "role": user.role.value},
+            metadata={"user_id": user.id, "platform": "FlexiShift", "role": user.role.value},
         )
     except stripe.StripeError as e:
         log.error("stripe_customer_create_failed", user_id=user.id, error=str(e))
@@ -78,16 +78,16 @@ def list_saved_cards(db: Session, user: User) -> list[dict]:
         raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message or str(e)}")
 
     cards = []
-    for pm in pms.get("data", []):
-        card = pm.get("card", {})
+    for pm in pms.data:
+        card = getattr(pm, "card", None) or {}
         cards.append({
             "paymentMethodId": pm["id"],
-            "brand": card.get("brand", "unknown").capitalize(),
-            "last4": card.get("last4", "****"),
-            "expMonth": card.get("exp_month"),
-            "expYear": card.get("exp_year"),
-            "funding": card.get("funding", "credit").capitalize(),
-            "createdAt": pm.get("created"),
+            "brand": (getattr(card, "brand", None) or "unknown").capitalize(),
+            "last4": getattr(card, "last4", None) or "****",
+            "expMonth": getattr(card, "exp_month", None),
+            "expYear": getattr(card, "exp_year", None),
+            "funding": (getattr(card, "funding", None) or "credit").capitalize(),
+            "createdAt": getattr(pm, "created", None),
         })
     return cards
 
@@ -100,7 +100,7 @@ def detach_card(db: Session, user: User, payment_method_id: str) -> None:
     client = _stripe()
     try:
         pm = client.PaymentMethod.retrieve(payment_method_id)
-        if pm.get("customer") != user.stripe_customer_id:
+        if getattr(pm, "customer", None) != user.stripe_customer_id:
             raise HTTPException(status_code=403, detail="Card does not belong to this account")
         client.PaymentMethod.detach(payment_method_id)
     except stripe.StripeError as e:

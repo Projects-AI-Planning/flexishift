@@ -1087,7 +1087,7 @@ const MethodsTab: React.FC = () => {
           <div>
             <h3 className="text-lg font-black text-[#041627] mb-1">Payment Setup</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Save a card to pay for jobs. Your card details are encrypted and stored securely by Stripe — FreightFlex never sees your full card number.
+              Save a card to pay for jobs. Your card details are encrypted and stored securely by Stripe — FlexiShift never sees your full card number.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">

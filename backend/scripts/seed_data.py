@@ -32,8 +32,8 @@ DEFAULT_DRIVER_EMAIL = "sonawanenavnath2026@gmail.com"
 DEFAULT_DRIVER_NAME = "Navnath Sonawane"
 DEFAULT_DRIVER_PHONE = "9552662931"
 
-DEFAULT_HAULIER_EMAIL = "demo-haulier@freightflex.local"
-DEFAULT_HAULIER_NAME = "FreightFlex Demo Haulier"
+DEFAULT_HAULIER_EMAIL = "demo-haulier@flexishift.local"
+DEFAULT_HAULIER_NAME = "FlexiShift Demo Haulier"
 DEFAULT_HAULIER_PHONE = "9000000000"
 DEFAULT_HAULIER_PASSWORD = "DemoHaulier123!"
 
@@ -108,7 +108,7 @@ def _ensure_demo_haulier(db: Session) -> User:
         haulier.status = UserStatus.ACTIVE
         haulier.verified = True
         haulier.profile_complete = True
-        profile.company_name = "FreightFlex Demo Logistics"
+        profile.company_name = "FlexiShift Demo Logistics"
         profile.company_address = "1 Demo Freight Yard, Mumbai, MH"
         return haulier
 
@@ -128,7 +128,7 @@ def _ensure_demo_haulier(db: Session) -> User:
     db.add(
         UserProfile(
             user_id=haulier.id,
-            company_name="FreightFlex Demo Logistics",
+            company_name="FlexiShift Demo Logistics",
             company_address="1 Demo Freight Yard, Mumbai, MH",
             coverage_area="Maharashtra",
         )

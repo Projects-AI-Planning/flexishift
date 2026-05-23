@@ -1,5 +1,5 @@
 """
-FreightFlex – Application Enums
+FlexiShift – Application Enums
 Centralised enum definitions – Single Responsibility Principle
 All enums used across models, schemas, and services defined here
 """

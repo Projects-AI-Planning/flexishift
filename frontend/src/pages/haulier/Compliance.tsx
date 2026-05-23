@@ -44,12 +44,15 @@ type LoadCodeStatus = {
 
 type HandoverStatus = {
   checklistSubmitted?: boolean;
+  checklistData?: Record<string, boolean> | null;
   driverSigned?: boolean;
   driverSignedAt?: string | null;
+  driverSignatureUrl?: string | null;
   haulierSigned?: boolean;
   haulierSignedAt?: string | null;
   step1Completed?: boolean;
   step1CompletedAt?: string | null;
+  conditionPhotos?: string[];
 };
 
 type DeliveryStatus = {
@@ -68,7 +71,7 @@ const badge = (ok: boolean) =>
   ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-[#44474C]';
 
 const formatDate = (value?: string | null) =>
-  value ? new Date(value).toLocaleString('en-IN') : 'N/A';
+  value ? new Date(value).toLocaleString('en-US') : 'N/A';
 
 const stepTone = (done?: boolean, active?: boolean) => {
   if (done) return 'bg-emerald-500 text-white';
@@ -595,43 +598,88 @@ export default function HaulierCompliancePage() {
               </div>
             </div>
 
-            {/* ── Evidence ── */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-black text-primary">Evidence</h3>
-              <p className="text-sm text-slate-500">Photos and proof linked to the selected job.</p>
-
-              <div className="mt-5 space-y-3">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Photos</p>
-                  <p className="mt-1 text-2xl font-black text-primary">{detail.photos.length}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Checklist</p>
-                  <p className="mt-1 text-2xl font-black text-primary">{detail.handover?.checklistSubmitted ? 'Yes' : 'No'}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Approval Notes</p>
-                  <p className="mt-1 text-sm font-semibold text-[#44474C]">
-                    {detail.delivery?.notes ?? 'No delivery notes saved'}
-                  </p>
-                </div>
+            {/* ── Handover Details submitted by driver ── */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-primary">Handover Details</h3>
+                <p className="text-sm text-slate-500">Vehicle condition checklist, photos and signature submitted by the driver.</p>
               </div>
 
-              <div className="mt-5 space-y-3">
-                {detailLoading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Loading compliance details...</div>
-                ) : detail.photos.length ? detail.photos.map((photo, index) => (
-                  <div key={`${photo.url ?? 'photo'}-${index}`} className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm font-black text-[#041627]">Photo {index + 1}</p>
-                    <p className="mt-1 break-all text-xs text-slate-500">{photo.url ?? 'No URL'}</p>
-                    <p className="mt-2 text-xs text-slate-500">{photo.note ?? 'No note'}</p>
-                  </div>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                    No evidence available yet.
-                  </div>
-                )}
-              </div>
+              {detailLoading ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Loading handover details...</div>
+              ) : !detail.handover?.checklistSubmitted && !(detail.handover?.conditionPhotos?.length) ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">
+                  Driver has not submitted handover details yet.
+                </div>
+              ) : (
+                <>
+                  {/* Checklist items */}
+                  {detail.handover?.checklistData && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Vehicle Condition Checklist</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {([
+                          { key: 'lightsSignals', label: 'Lights & Signals' },
+                          { key: 'tirePressure',  label: 'Tyre Pressure'   },
+                          { key: 'fluidLevels',   label: 'Fluid Levels'    },
+                          { key: 'bodyDamage',    label: 'Body Damage OK'  },
+                        ] as { key: string; label: string }[]).map(({ key, label }) => {
+                          const checked = Boolean(detail.handover?.checklistData?.[key]);
+                          return (
+                            <div key={key} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${checked ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                              <span className={`material-symbols-outlined text-base ${checked ? 'text-green-600' : 'text-red-500'}`}>
+                                {checked ? 'check_circle' : 'cancel'}
+                              </span>
+                              <span className={`text-sm font-bold ${checked ? 'text-green-800' : 'text-red-700'}`}>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Condition photos */}
+                  {(() => {
+                    const photos = detail.handover?.conditionPhotos?.length
+                      ? detail.handover.conditionPhotos
+                      : detail.photos.map(p => p.url).filter(Boolean) as string[];
+                    return photos.length > 0 ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Condition Photos ({photos.length})</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {photos.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-100 hover:opacity-90 transition-opacity">
+                              <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Driver signature */}
+                  {detail.handover?.driverSignatureUrl && !detail.handover.driverSignatureUrl.startsWith('driver_signed') && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Driver Signature</p>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 inline-block">
+                        {detail.handover.driverSignatureUrl.startsWith('data:image') ? (
+                          <img src={detail.handover.driverSignatureUrl} alt="Driver signature" className="max-h-24 max-w-xs" />
+                        ) : (
+                          <p className="text-sm font-bold text-slate-600">Signed digitally at {formatDate(detail.handover.driverSignedAt)}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delivery notes */}
+                  {detail.delivery?.notes && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Delivery Notes</p>
+                      <p className="text-sm font-semibold text-[#44474C] bg-slate-50 rounded-xl px-4 py-3">{detail.delivery.notes}</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </section>

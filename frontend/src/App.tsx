@@ -55,6 +55,7 @@ import HaulierSupportContactPage from './pages/haulier/SupportContact';
 import HaulierTrackingPage from './pages/haulier/Tracking';
 import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierHandoverPage from './pages/haulier/Handover';
 import HaulierShiftsPage from './pages/haulier/Shifts';
 import HaulierDisputesPage from './pages/haulier/Disputes';
 
@@ -73,7 +74,7 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode, role?: 
   const { user, isLoading } = useAuth();
   const userRole = normalizeRole(user?.role);
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FreightFlex...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FlexiShift...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (role && userRole !== role) return <Navigate to="/" replace />;
 
@@ -163,6 +164,7 @@ function AppRoutes() {
               <Route path="shifts" element={<HaulierShiftsPage />} />
               <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
+              <Route path="jobs/handover" element={<HaulierHandoverPage />} />
               <Route path="jobs/*" element={<HaulierJobsPage />} />
               <Route path="disputes" element={<HaulierDisputesPage />} />
               <Route path="disputes/*" element={<HaulierDisputesPage />} />

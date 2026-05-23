@@ -7,7 +7,7 @@ from app.config import settings
 log = structlog.get_logger()
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_HEADERS = {"User-Agent": "FreightFlex/1.0 (logistics-platform)"}
+NOMINATIM_HEADERS = {"User-Agent": "FlexiShift/1.0 (logistics-platform)"}
 GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 

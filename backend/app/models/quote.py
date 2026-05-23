@@ -22,7 +22,7 @@ class Quote(Base):
     job_id:      Mapped[str]         = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False)
     supplier_id: Mapped[str]         = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     price:       Mapped[float]       = mapped_column(DECIMAL(12, 2), nullable=False)
-    currency:    Mapped[str]         = mapped_column(String(3), nullable=False, default="INR")
+    currency:    Mapped[str]         = mapped_column(String(3), nullable=False, default="USD")
     status:      Mapped[QuoteStatus] = mapped_column(Enum(QuoteStatus), nullable=False, default=QuoteStatus.ACTIVE)
     created_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow,

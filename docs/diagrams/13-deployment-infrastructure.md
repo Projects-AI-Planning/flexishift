@@ -32,7 +32,7 @@ graph TB
         end
 
         subgraph STORAGE["STORAGE"]
-            BLOB["Azure Blob Storage\n• freightflex-docs\n• freightflex-photos\n• freightflex-invoices"]
+            BLOB["Azure Blob Storage\n• flexishift-docs\n• flexishift-photos\n• flexishift-invoices"]
         end
 
         subgraph SECURITY["SECURITY & OPS"]

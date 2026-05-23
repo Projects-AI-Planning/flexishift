@@ -119,7 +119,7 @@ const statusTone = (value?: string) => {
   return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
-const formatTime = (value?: string | null) => (value ? new Date(value).toLocaleString('en-IN') : 'N/A');
+const formatTime = (value?: string | null) => (value ? new Date(value).toLocaleString('en-US') : 'N/A');
 
 function FlyToCenter({ center }: { center: [number, number] | null }) {
   const map = useMap();
@@ -469,7 +469,7 @@ export default function HaulierTrackingPage() {
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">ETA</p>
-          <h3 className="mt-2 text-2xl font-black text-primary">{eta?.eta ? new Date(eta.eta).toLocaleString('en-IN') : 'N/A'}</h3>
+          <h3 className="mt-2 text-2xl font-black text-primary">{eta?.eta ? new Date(eta.eta).toLocaleString('en-US') : 'N/A'}</h3>
         </div>
       </section>
 
@@ -603,11 +603,11 @@ export default function HaulierTrackingPage() {
               <div className="mt-5 space-y-3">
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Estimated Arrival</p>
-                  <p className="mt-2 text-sm font-black text-primary">{eta?.eta ? new Date(eta.eta).toLocaleString('en-IN') : 'N/A'}</p>
+                  <p className="mt-2 text-sm font-black text-primary">{eta?.eta ? new Date(eta.eta).toLocaleString('en-US') : 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Original ETA</p>
-                  <p className="mt-2 text-sm font-black text-primary">{eta?.originalETA ? new Date(eta.originalETA).toLocaleString('en-IN') : 'N/A'}</p>
+                  <p className="mt-2 text-sm font-black text-primary">{eta?.originalETA ? new Date(eta.originalETA).toLocaleString('en-US') : 'N/A'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Delay Status</p>

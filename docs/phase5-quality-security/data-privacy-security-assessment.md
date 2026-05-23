@@ -1,9 +1,9 @@
-# Data Privacy & Security Assessment – FreightFlex
+# Data Privacy & Security Assessment – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Data Privacy & Security Assessment |
 | Version | 1.0 |
 | Date | 2026-04-25 |
@@ -125,7 +125,7 @@
 - Files stored in separate Azure Blob container with no public-read ACL.
 
 ### 5.6 Payment Security
-- No card data stored on FreightFlex servers (PCI DSS scope minimisation).
+- No card data stored on FlexiShift servers (PCI DSS scope minimisation).
 - All card processing handled by PCI DSS compliant gateway (Razorpay/Stripe).
 - Webhook signature verified (HMAC-SHA256) before processing any payment event.
 - Idempotency key used on all payment API calls to prevent double-processing.
@@ -168,7 +168,7 @@
 
 ## 7. Privacy Policy Requirements
 The Privacy Policy (to be drafted by Legal) must cover:
-- Identity of the Data Controller (FreightFlex / Company Name)
+- Identity of the Data Controller (FlexiShift / Company Name)
 - What personal data is collected and why
 - Legal basis for each processing activity
 - Third-party data sharing (Google Maps, payment gateway, FCM, SendGrid)

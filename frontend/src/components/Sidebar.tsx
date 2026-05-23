@@ -124,9 +124,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       label: 'User Management',
       children: [
         { to: '/admin/users/all', label: 'All Users' },
-        { to: '/admin/users/drivers', label: 'Drivers' },
-        { to: '/admin/users/hauliers', label: 'Hauliers' },
-        { to: '/admin/users/suspended', label: 'Suspended' },
       ],
     },
     {
@@ -214,7 +211,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     { to: '/haulier', icon: 'dashboard', label: 'Dashboard' },
     { to: '/haulier/post-job', icon: 'add_circle', label: 'Post Job' },
     { to: '/haulier/shifts', icon: 'event_available', label: 'Schedule Shift' },
-    { to: '/haulier/jobs', icon: 'local_shipping', label: 'My Jobs' },
+    {
+      icon: 'local_shipping',
+      label: 'My Jobs',
+      children: [
+        { to: '/haulier/jobs', label: 'All Jobs' },
+        { to: '/haulier/jobs/handover', label: 'Handover' },
+      ],
+    },
     { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     { to: '/haulier/drivers/all', icon: 'badge', label: 'Drivers' },
@@ -301,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
               </div>
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0">
-                  <h1 className="text-xl font-black tracking-tight text-white uppercase truncate">FreightFlex</h1>
+                  <h1 className="text-xl font-black tracking-tight text-white uppercase truncate">FlexiShift</h1>
                   <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold truncate">
                     {user?.role === 'ADMIN' ? 'Admin Panel' : 'Haulier Portal'}
                   </p>

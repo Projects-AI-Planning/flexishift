@@ -1,5 +1,5 @@
 """
-FreightFlex – Application Configuration
+FlexiShift – Application Configuration
 Pydantic Settings – Single Responsibility Principle
 All environment variables loaded from .env file
 """
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     """
 
     # ── Application ───────────────────────────────────────────────────────────
-    APP_NAME: str = "FreightFlex API"
+    APP_NAME: str = "FlexiShift API"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"        # development | staging | production
     DEBUG: bool = True
@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     # ── Database (MySQL 8.0) ──────────────────────────────────────────────────
     DB_HOST: str = "localhost"
     DB_PORT: int = 3306
-    DB_NAME: str = "freightflex"
-    DB_USER: str = "freightflex_user"
-    DB_PASSWORD: str = "freightflex_pass"
+    DB_NAME: str = "flexishift"
+    DB_USER: str = "flexishift_user"
+    DB_PASSWORD: str = "flexishift_pass"
     DB_CHARSET: str = "utf8mb4"
 
     # Pool settings
@@ -81,9 +81,9 @@ class Settings(BaseSettings):
     # ── Azure Blob Storage ────────────────────────────────────────────────────
     AZURE_STORAGE_ACCOUNT_NAME: str = ""
     AZURE_STORAGE_ACCOUNT_KEY: str = ""
-    AZURE_CONTAINER_DOCS: str = "freightflex-docs"
-    AZURE_CONTAINER_PHOTOS: str = "freightflex-photos"
-    AZURE_CONTAINER_INVOICES: str = "freightflex-invoices"
+    AZURE_CONTAINER_DOCS: str = "flexishift-docs"
+    AZURE_CONTAINER_PHOTOS: str = "flexishift-photos"
+    AZURE_CONTAINER_INVOICES: str = "flexishift-invoices"
     AZURE_SAS_EXPIRY_SECONDS: int = 604800      # 7 days
 
     # ── Google Maps Platform ──────────────────────────────────────────────────
@@ -94,12 +94,12 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
-    PAYMENT_CURRENCY: str = "INR"
+    PAYMENT_CURRENCY: str = "USD"
 
     # ── SendGrid (Email) ──────────────────────────────────────────────────────
     SENDGRID_API_KEY: str = ""
-    EMAIL_FROM: str = "noreply@freightflex.io"
-    EMAIL_FROM_NAME: str = "FreightFlex"
+    EMAIL_FROM: str = "noreply@flexishift.io"
+    EMAIL_FROM_NAME: str = "FlexiShift"
 
     # ── Firebase Cloud Messaging (Push Notifications) ─────────────────────────
     FCM_SERVER_KEY: str = ""

@@ -1,9 +1,9 @@
-# UI/UX Design Specs – FreightFlex
+# UI/UX Design Specs – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | UI/UX Design Specifications (Wireframes & Mockups) |
 | Version | 1.0 |
 | Date | 2026-04-25 |
@@ -97,7 +97,7 @@ Fields:
   - Password (show/hide)
   - "Forgot password?" link (right-aligned under password field)
   - Submit CTA: "Sign In" (full-width Primary)
-  - Register link: "New to FreightFlex? Create an account"
+  - Register link: "New to FlexiShift? Create an account"
 Error: Toast + red border on fields for wrong credentials
 ```
 

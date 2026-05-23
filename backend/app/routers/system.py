@@ -143,7 +143,7 @@ def get_system_logs(
     _: User = Depends(require_role(Role.ADMIN)),
 ):
     from uuid import uuid4
-    log_path = os.environ.get("LOG_FILE", "/tmp/freightflex.log")
+    log_path = os.environ.get("LOG_FILE", "/tmp/flexishift.log")
     raw_lines = []
     if os.path.exists(log_path):
         with open(log_path, "r") as f:

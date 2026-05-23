@@ -129,7 +129,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Job Date</Text>
-            <Text style={styles.statValue}>{item.jobDate ?? 'TBC'}</Text>
+            <Text style={styles.statValue}>{item.job?.jobDate ?? item.jobDate ?? 'TBC'}</Text>
           </View>
         </View>
 
@@ -149,13 +149,6 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
                 </Text>
               </View>
             </View>
-            {onViewQuoteStatus && (
-              <Pressable
-                onPress={() => onViewQuoteStatus(item)}
-                style={styles.viewNotifBtn}>
-                <Text style={styles.viewNotifText}>View Accepted Steps</Text>
-              </Pressable>
-            )}
             <Pressable
               onPress={() => onProceedToCompliance(
                 jobId,

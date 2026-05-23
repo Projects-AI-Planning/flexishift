@@ -1,8 +1,8 @@
-# FreightFlex – Epic & User Stories (Simple)
+# FlexiShift – Epic & User Stories (Simple)
 
 ## EPIC 1: USER MANAGEMENT
 **STORY 1.1 – Register**
-As a new user, I want to register on FreightFlex, So that I can access the platform.
+As a new user, I want to register on FlexiShift, So that I can access the platform.
 - Acceptance Criteria: Register with name, email, phone, password; Select role (Driver / Haulier / Firm); Email verification on signup; Duplicate email not allowed.
 
 **STORY 1.2 – Login**

@@ -1,15 +1,15 @@
-# Resource Management Plan – FreightFlex
+# Resource Management Plan – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Resource Management Plan |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 
 ## 2. Purpose
-Defines the human, technical, and material resources required to deliver FreightFlex, and describes how they will be acquired, allocated, managed, and released.
+Defines the human, technical, and material resources required to deliver FlexiShift, and describes how they will be acquired, allocated, managed, and released.
 
 ## 3. Human Resources
 

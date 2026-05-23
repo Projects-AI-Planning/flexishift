@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import adminService from '../../api/adminService';
 
+const BACKEND_ORIGIN = (import.meta.env.VITE_API_URL as string ?? 'http://localhost:8000/api/v1').replace(/\/api\/v1\/?$/, '');
+
+const resolveDocUrl = (fileUrl: string | undefined): string => {
+  if (!fileUrl) return '';
+  if (fileUrl.startsWith('http')) return fileUrl;
+  return `${BACKEND_ORIGIN}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+};
+
 const DOC_TYPE_LABELS: Record<string, string> = {
   DRIVING_LICENCE: 'Driving Licence',
   VEHICLE_REG: 'Vehicle Registration (RC)',
@@ -300,9 +308,9 @@ const DocumentsPage: React.FC = () => {
                             <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${history.isReapproval ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                               {history.isReapproval ? 'For reapproval' : 'Rejected'}
                             </span>
-                            {history.fileUrl && (
+                            {resolveDocUrl(history.fileUrl) && (
                               <a
-                                href={history.fileUrl}
+                                href={resolveDocUrl(history.fileUrl)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-primary ring-1 ring-slate-200 hover:bg-slate-100"
@@ -343,15 +351,22 @@ const DocumentsPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 md:flex-none px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-xs hover:bg-slate-50 transition-all flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">visibility</span>
-                        View Document
-                      </a>
+                      {resolveDocUrl(doc.fileUrl) ? (
+                        <a
+                          href={resolveDocUrl(doc.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 md:flex-none px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-xs hover:bg-slate-50 transition-all flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">visibility</span>
+                          View Document
+                        </a>
+                      ) : (
+                        <span className="flex-1 md:flex-none px-4 py-2 border border-slate-100 text-slate-400 font-bold rounded-lg text-xs flex items-center gap-2 cursor-not-allowed">
+                          <span className="material-symbols-outlined text-sm">visibility_off</span>
+                          No File
+                        </span>
+                      )}
                       <button
                         onClick={() => handleApprove(doc.documentId)}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"

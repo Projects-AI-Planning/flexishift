@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import adminService from '../api/adminService';
 import haulierService from '../api/haulierService';
@@ -9,6 +9,15 @@ interface HeaderProps {
   onOpenMobileSidebar: () => void;
   onToggleDesktopSidebar: () => void;
 }
+
+type SearchResult = {
+  id: string;
+  label: string;
+  sublabel: string;
+  icon: string;
+  iconTone: string;
+  href: string;
+};
 
 type NotifItem = {
   notificationId: string;
@@ -57,6 +66,80 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = user?.role === 'ADMIN';
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSearch = useCallback(async (q: string) => {
+    if (!isAdmin || !q.trim()) { setSearchResults([]); setSearchOpen(false); return; }
+    setSearchLoading(true);
+    try {
+      const [usersRes, jobsRes] = await Promise.allSettled([
+        adminService.listUsers({ search: q, limit: 5 }),
+        adminService.monitorJobs({ search: q, limit: 5 }),
+      ]);
+      const results: SearchResult[] = [];
+      if (usersRes.status === 'fulfilled') {
+        for (const u of usersRes.value.items.slice(0, 4)) {
+          const isDriver = u.role?.toUpperCase() === 'DRIVER';
+          results.push({
+            id: `user-${u.userId}`,
+            label: u.name || u.email,
+            sublabel: `${u.role} · ${u.email}`,
+            icon: isDriver ? 'person' : 'business',
+            iconTone: isDriver ? 'text-blue-600 bg-blue-50' : 'text-violet-600 bg-violet-50',
+            href: isDriver ? '/admin/users/drivers' : '/admin/users/hauliers',
+          });
+        }
+      }
+      if (jobsRes.status === 'fulfilled') {
+        for (const j of jobsRes.value.items.slice(0, 4)) {
+          results.push({
+            id: `job-${j.jobId}`,
+            label: j.jobRef || j.jobId,
+            sublabel: `${j.status} · ${j.pickupLocation ?? ''} → ${j.dropLocation ?? ''}`,
+            icon: 'local_shipping',
+            iconTone: 'text-amber-600 bg-amber-50',
+            href: '/admin/jobs/all',
+          });
+        }
+      }
+      setSearchResults(results);
+      setSearchOpen(results.length > 0);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [isAdmin]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!q.trim()) { setSearchResults([]); setSearchOpen(false); return; }
+    searchTimerRef.current = setTimeout(() => void runSearch(q), 350);
+  };
+
+  const handleSearchSelect = (href: string) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    navigate(href);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const loadNotifications = async () => {
     if (isAdmin) return;
@@ -158,13 +241,45 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
           </button>
         </div>
 
-        <div className="relative hidden sm:block w-full max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+        <div className={`relative hidden sm:block w-full max-w-md ${!isAdmin ? 'invisible pointer-events-none' : ''}`} ref={searchRef}>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+            {searchLoading ? 'progress_activity' : 'search'}
+          </span>
           <input
             className="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-amber-500 transition-all outline-none"
-            placeholder="Search shipments, fleet, or drivers..."
+            placeholder="Search users, jobs, shipments..."
             type="text"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
           />
+          {searchOpen && (
+            <div className="absolute left-0 top-full mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 z-50 overflow-hidden">
+              {searchResults.length === 0 ? (
+                <div className="py-6 text-center text-sm text-slate-400">No results found</div>
+              ) : (
+                <ul className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+                  {searchResults.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
+                        onClick={() => handleSearchSelect(r.href)}
+                      >
+                        <span className={`rounded-xl p-1.5 shrink-0 ${r.iconTone}`}>
+                          <span className="material-symbols-outlined text-sm">{r.icon}</span>
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#041627] truncate">{r.label}</p>
+                          <p className="text-xs text-slate-400 truncate">{r.sublabel}</p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

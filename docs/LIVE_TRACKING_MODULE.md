@@ -1,4 +1,4 @@
-# FreightFlex – Live Location Tracking Module
+# FlexiShift – Live Location Tracking Module
 ## Technical Reference
 
 ---
@@ -21,7 +21,7 @@
 
 ## 1. Overview
 
-The live location tracking system gives real-time GPS visibility of drivers during active freight jobs. It connects the **FreightFlex driver mobile app**, the **FastAPI backend**, and the **haulier web dashboard** into a single data pipeline that runs for the duration of a job's `IN_TRANSIT` phase.
+The live location tracking system gives real-time GPS visibility of drivers during active freight jobs. It connects the **FlexiShift driver mobile app**, the **FastAPI backend**, and the **haulier web dashboard** into a single data pipeline that runs for the duration of a job's `IN_TRANSIT` phase.
 
 **What it does:**
 - Receives GPS coordinates from the driver's device at regular intervals
@@ -599,7 +599,7 @@ POST /tracking/incident
 
 ## 10. Coupling & Dependencies
 
-The live tracking module is not a standalone service. It depends on and is tightly integrated with the following FreightFlex-specific systems:
+The live tracking module is not a standalone service. It depends on and is tightly integrated with the following FlexiShift-specific systems:
 
 ### 1. Job lifecycle state machine
 
@@ -616,7 +616,7 @@ Tracking operations check `job.status` on every request. This means the tracking
 
 ### 2. Supplier assignment model
 
-Every tracking write operation verifies `job.selected_supplier_id == current_user.id`. This is FreightFlex's supplier/haulier relationship model — a structural concept that would need to be re-implemented entirely in any other system.
+Every tracking write operation verifies `job.selected_supplier_id == current_user.id`. This is FlexiShift's supplier/haulier relationship model — a structural concept that would need to be re-implemented entirely in any other system.
 
 ### 3. JWT user roles
 
@@ -628,7 +628,7 @@ The mobile `LiveTrackingScreen` displays a 4-step compliance progress bar (Load 
 
 ### 5. Notification system
 
-Delay alerts, incident reports, and tracking start/stop all trigger push notifications via `ConnectionManager.push_to_user()`. The notification recipient is derived from `job.haulier_id` — a FreightFlex-specific field. Extracting tracking without the notification system removes core operational value.
+Delay alerts, incident reports, and tracking start/stop all trigger push notifications via `ConnectionManager.push_to_user()`. The notification recipient is derived from `job.haulier_id` — a FlexiShift-specific field. Extracting tracking without the notification system removes core operational value.
 
 ### 6. Google Maps API key
 
@@ -660,4 +660,4 @@ The ETA calculation calls the Google Distance Matrix API using `settings.GOOGLE_
 
 ---
 
-*Generated: 2026-05-17 — FreightFlex Driver Platform*
+*Generated: 2026-05-17 — FlexiShift Driver Platform*

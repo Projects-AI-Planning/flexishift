@@ -61,7 +61,7 @@ def _support_help_payload(user: User, db: Session) -> dict:
     return {
         "userId": user.id,
         "contactChannels": [
-            {"label": "Email Support", "value": "support@freightflex.com", "description": "Best for attachments and detailed questions."},
+            {"label": "Email Support", "value": "support@flexishift.com", "description": "Best for attachments and detailed questions."},
             {"label": "Phone Support", "value": "+91 1800 000 123", "description": "Use for urgent operational issues."},
             {"label": "Live Hours", "value": "24/7", "description": "Support team monitors urgent tickets continuously."},
         ],

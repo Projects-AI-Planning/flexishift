@@ -20,8 +20,8 @@ interface PaymentReleasedScreenProps {
 }
 
 function formatDate(iso?: string) {
-  if (!iso) {return new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'});}
-  return new Date(iso).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'});
+  if (!iso) {return new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'});}
+  return new Date(iso).toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'});
 }
 
 const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
@@ -87,7 +87,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Funds Released</Text>
               <Text style={styles.timelineTime}>
-                {now.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}, {now.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})}
+                {now.toLocaleDateString('en-US', {day: 'numeric', month: 'short'})}, {now.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
               </Text>
             </View>
           </View>
@@ -97,7 +97,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Job Approved</Text>
               <Text style={styles.timelineTime}>
-                {approvedDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}, {approvedDate.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})}
+                {approvedDate.toLocaleDateString('en-US', {day: 'numeric', month: 'short'})}, {approvedDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
               </Text>
             </View>
           </View>
@@ -107,7 +107,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Invoice Submitted</Text>
               <Text style={styles.timelineTime}>
-                {invoiceDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}, {invoiceDate.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})}
+                {invoiceDate.toLocaleDateString('en-US', {day: 'numeric', month: 'short'})}, {invoiceDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}
               </Text>
             </View>
           </View>
@@ -120,7 +120,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Amount</Text>
             <Text style={styles.amountValue}>
-              {currency} {amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+              $ {amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
             </Text>
           </View>
         </View>

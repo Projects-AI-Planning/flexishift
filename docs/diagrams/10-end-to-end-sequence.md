@@ -6,7 +6,7 @@
 sequenceDiagram
     actor Haulier
     participant HWeb as Haulier Web
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
     participant Maps as Google Maps
     participant GW as Payment Gateway
@@ -105,7 +105,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant FE as Web/App Frontend
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
     participant Email as SendGrid (Email)
 
@@ -152,7 +152,7 @@ sequenceDiagram
 sequenceDiagram
     actor Haulier
     participant HWeb as Haulier Web
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
     actor Driver
     participant DApp as Driver App

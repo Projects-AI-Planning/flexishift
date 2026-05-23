@@ -1,4 +1,4 @@
-# FreightFlex – Diagrams Index
+# FlexiShift – Diagrams Index
 
 All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively in GitHub, GitLab, and Notion.
 

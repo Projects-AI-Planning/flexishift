@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef, forwardRef, useImperativeHandle} from 'react';
+import React, {useEffect, useRef, useState, forwardRef, useImperativeHandle} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Image,
   PanResponder,
   GestureResponderEvent,
+  ActivityIndicator,
 } from 'react-native';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
@@ -23,6 +24,7 @@ interface HandoverScreenProps {
   jobId: string;
   jobReference: string;
   onSubmit: (checklist: any, photos: any[]) => Promise<void>;
+  onProceed: () => void;
   loading: boolean;
   error: string | null;
   vehicleUnit?: string;
@@ -169,6 +171,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   jobId,
   jobReference: _jobReference,
   onSubmit,
+  onProceed,
   loading,
   error,
   vehicleUnit = 'VOL-882',
@@ -183,6 +186,13 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   });
   const [photos, setPhotos] = useState<Record<string, Asset>>({});
   const [job, setJob] = useState<Record<string, unknown> | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const [driverSigned, setDriverSigned] = useState(false);
+  const [showDriverSigModal, setShowDriverSigModal] = useState(false);
+  const [driverHasSig, setDriverHasSig] = useState(false);
+
+  const driverSigRef = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
     if (!jobId) {return;}
@@ -191,16 +201,10 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
       .catch(() => setJob(null));
   }, [jobId]);
 
-  // Signature state
-  const [driverSigned, setDriverSigned] = useState(false);
-  const [haulierLocalSigned, setHaulierLocalSigned] = useState(haulierSignedProp);
-  const [showDriverSigModal, setShowDriverSigModal] = useState(false);
-  const [showHaulierSigModal, setShowHaulierSigModal] = useState(false);
-  const [driverHasSig, setDriverHasSig] = useState(false);
-  const [haulierHasSig, setHaulierHasSig] = useState(false);
-
-  const driverSigRef = useRef<SignaturePadHandle>(null);
-  const haulierSigRef = useRef<SignaturePadHandle>(null);
+  // Reset submitted state if an error occurs so the driver can retry
+  useEffect(() => {
+    if (error) {setSubmitted(false);}
+  }, [error]);
 
   const toggleItem = (key: ChecklistKey) => {
     setChecklist(prev => ({...prev, [key]: !prev[key]}));
@@ -243,10 +247,12 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
   };
 
-  const haulierSigned = haulierSignedProp || haulierLocalSigned;
-  const allChecked = Object.values(checklist).every(v => v);
-  const allPhotos = Object.keys(photos).length >= 4;
-  const isComplete = allChecked && allPhotos && driverSigned;
+  // Only the driver signature is required to submit
+  const isComplete = driverSigned;
+
+  const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
+  const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
+  const jobDate  = String(job?.jobDate         ?? '—');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -334,8 +340,9 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
           })}
         </View>
 
-        {/* ── Required Photo Evidence ────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Required Photo Evidence</Text>
+        {/* ── Photo Evidence ─────────────────────────────────────────────── */}
+        <Text style={styles.sectionHeading}>Photo Evidence</Text>
+        <Text style={styles.sectionSubtitle}>Add any photos you'd like to include as part of the handover record.</Text>
         <View style={styles.photoGrid}>
           {photoSlots.map(slot => {
             const asset = photos[slot.key];
@@ -400,59 +407,73 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
           </Text>
         </View>
 
-        {/* ── Haulier Signature ──────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={styles.sigHeader}>
-            <Text style={styles.sigTitle}>HAULIER SIGNATURE</Text>
-            {haulierSigned && (
-              <View style={styles.signedBadge}>
-                <Text style={styles.signedBadgeText}>✓ Signed</Text>
-              </View>
-            )}
-          </View>
-          {haulierSigned ? (
-            <View style={[styles.sigBox, styles.sigBoxSigned]}>
-              <Text style={styles.sigDoneText}>~ Authorised ~</Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => setShowHaulierSigModal(true)}
-              style={styles.sigBox}>
-              <Text style={styles.sigTapIcon}>✍</Text>
-              <Text style={styles.sigHint}>Tap to Sign</Text>
-            </Pressable>
-          )}
-          {haulierSigned && haulierSignedAt ? (
-            <Text style={styles.sigConfirmText}>
-              SIGNED AT {new Date(haulierSignedAt).toLocaleString()}
-            </Text>
-          ) : (
-            <Text style={styles.sigConfirmText}>
-              DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE.
-            </Text>
-          )}
-        </View>
-
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* ── Confirm Button ─────────────────────────────────────────────── */}
-        <Pressable
-          onPress={() => {
-            const sigSegments = driverSigRef.current?.getSegments() ?? [];
-            const driverSignatureData = sigSegments.length > 0
-              ? JSON.stringify(sigSegments)
-              : 'driver_signed';
-            onSubmit({...checklist, __driverSignature: driverSignatureData}, Object.values(photos));
-          }}
-          disabled={loading || !isComplete}
-          style={[
-            styles.confirmBtn,
-            (loading || !isComplete) && styles.confirmBtnDisabled,
-          ]}>
-          <Text style={styles.confirmBtnText}>
-            🔒{'  '}{loading ? 'Submitting...' : 'Confirm & Start Trip'}
-          </Text>
-        </Pressable>
+        {/* ── Submit / Waiting / Proceed ─────────────────────────────────── */}
+        {!submitted ? (
+          <Pressable
+            onPress={() => {
+              setSubmitted(true);
+              const sigSegments = driverSigRef.current?.getSegments() ?? [];
+              const driverSignatureData = sigSegments.length > 0
+                ? JSON.stringify(sigSegments)
+                : 'driver_signed';
+              onSubmit({...checklist, __driverSignature: driverSignatureData}, Object.values(photos));
+            }}
+            disabled={loading || !isComplete}
+            style={[
+              styles.confirmBtn,
+              (loading || !isComplete) && styles.confirmBtnDisabled,
+            ]}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.confirmBtnText}>
+                🔒{'  '}Submit Handover
+              </Text>
+            )}
+          </Pressable>
+        ) : loading ? (
+          <View style={styles.waitingCard}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.waitingTitle}>Submitting…</Text>
+          </View>
+        ) : haulierSignedProp ? (
+          <View style={styles.proceedCard}>
+            <View style={styles.proceedIconCircle}>
+              <Text style={styles.proceedIconText}>✓</Text>
+            </View>
+            <Text style={styles.proceedTitle}>Haulier Has Confirmed</Text>
+            <Text style={styles.proceedSub}>
+              The haulier signed at {haulierSignedAt ? new Date(haulierSignedAt).toLocaleString() : '—'}.
+              {'\n'}You can now start your trip.
+            </Text>
+            <Pressable onPress={onProceed} style={styles.proceedBtn}>
+              <Text style={styles.proceedBtnText}>Start Trip →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.waitingCard}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.waitingTitle}>Waiting for Haulier Signature</Text>
+            <Text style={styles.waitingSub}>
+              Your handover has been submitted.{'\n'}
+              The haulier will sign from their dashboard.{'\n'}
+              This screen updates automatically.
+            </Text>
+            <View style={styles.waitingInfoRow}>
+              <Text style={styles.waitingInfoDot}>●</Text>
+              <Text style={styles.waitingInfoText}>
+                Route: {pickup} → {drop}
+              </Text>
+            </View>
+            <View style={styles.waitingInfoRow}>
+              <Text style={styles.waitingInfoDot}>●</Text>
+              <Text style={styles.waitingInfoText}>Date: {jobDate}</Text>
+            </View>
+          </View>
+        )}
+
       </ScrollView>
 
       {/* ── Driver Signature Modal ────────────────────────────────────────── */}
@@ -494,52 +515,6 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
                   }
                 }}
                 disabled={!driverHasSig}>
-                <Text style={styles.sigModalConfirmText}>Confirm Signature</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Haulier Signature Modal ───────────────────────────────────────── */}
-      <Modal
-        visible={showHaulierSigModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowHaulierSigModal(false)}>
-        <View style={styles.sigModalOverlay}>
-          <View style={styles.sigModalCard}>
-            <View style={styles.sigModalHeader}>
-              <Text style={styles.sigModalTitle}>Haulier Signature</Text>
-              <Pressable onPress={() => haulierSigRef.current?.clear()}>
-                <Text style={styles.clearText}>Clear</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.sigModalHint}>
-              Haulier: draw your signature in the box below
-            </Text>
-            <SignaturePad ref={haulierSigRef} onSign={setHaulierHasSig} />
-            <View style={styles.sigModalActions}>
-              <Pressable
-                style={styles.sigModalCancel}
-                onPress={() => {
-                  haulierSigRef.current?.clear();
-                  setShowHaulierSigModal(false);
-                }}>
-                <Text style={styles.sigModalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.sigModalConfirm,
-                  !haulierHasSig && styles.sigModalConfirmDisabled,
-                ]}
-                onPress={() => {
-                  if (haulierHasSig) {
-                    setHaulierLocalSigned(true);
-                    setShowHaulierSigModal(false);
-                  }
-                }}
-                disabled={!haulierHasSig}>
                 <Text style={styles.sigModalConfirmText}>Confirm Signature</Text>
               </Pressable>
             </View>
@@ -674,6 +649,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#111827',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 12,
   },
   photoGrid: {
@@ -770,13 +750,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
-  signedBadge: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  signedBadgeText: {color: '#1066B1', fontSize: 12, fontWeight: '800'},
 
   /* Error */
   errorText: {
@@ -798,6 +771,88 @@ const styles = StyleSheet.create({
   },
   confirmBtnDisabled: {opacity: 0.45},
   confirmBtnText: {color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2},
+
+  /* Waiting card */
+  waitingCard: {
+    backgroundColor: '#F0F6FF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  waitingTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#1E3A5F',
+    textAlign: 'center',
+  },
+  waitingSub: {
+    fontSize: 13,
+    color: '#3B5E8C',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  waitingInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    alignSelf: 'stretch',
+    paddingHorizontal: 8,
+  },
+  waitingInfoDot: {fontSize: 8, color: '#6B9EC8', marginTop: 5},
+  waitingInfoText: {fontSize: 12, color: '#4A6FA5', flex: 1},
+
+  /* Proceed card */
+  proceedCard: {
+    backgroundColor: '#F0F6FF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#1066B1',
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  proceedIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#1066B1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  proceedIconText: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  proceedTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#1E3A5F',
+    textAlign: 'center',
+  },
+  proceedSub: {
+    fontSize: 13,
+    color: '#3B5E8C',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  proceedBtn: {
+    backgroundColor: '#1066B1',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 4,
+  },
+  proceedBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
 
   /* Signature Modal */
   sigModalOverlay: {

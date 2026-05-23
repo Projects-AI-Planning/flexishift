@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.response import ok, created
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.availability import AvailabilityBlock, AvailabilitySlot
@@ -199,7 +200,7 @@ def driver_overview(
             "durationMin": int(active_job.duration_min) if active_job.duration_min is not None else None,
             "originalEta": active_job.original_eta.isoformat() if active_job.original_eta else None,
             "agreedAmount": float(payment.amount) if payment else None,
-            "currency": payment.currency if payment else "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "currentLocation": {
                 "latitude": float(last_point.lat),
                 "longitude": float(last_point.lng),
@@ -217,7 +218,7 @@ def driver_overview(
             "todaySummary": {
                 "jobsCompleted": today_completed,
                 "todayEarnings": float(today_earnings),
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "upcomingJobs": upcoming,
             "rating": float(current_user.avg_rating) if current_user.avg_rating else 0.0,
@@ -280,7 +281,7 @@ def driver_earnings(
                 "totalEarnings": float(month_total),
                 "totalJobs": month_jobs,
                 "averagePerJob": avg,
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "recentPayments": recent_payments,
             "allTimeEarnings": float(all_time_total),
@@ -332,7 +333,7 @@ def driver_upcoming_jobs(
             "jobDate": j.job_date.isoformat() if j.job_date else None,
             "timeSlot": j.time_slot.value if j.time_slot else None,
             "agreedAmount": agreed_amount,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "haulier": {
                 "name": haulier.full_name if haulier else None,
                 "phone": haulier.phone if haulier else None,
@@ -382,7 +383,7 @@ def driver_jobs_history(
             "goodsType": j.goods_type,
             "jobDate": j.job_date.isoformat() if j.job_date else None,
             "agreedAmount": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "completedAt": j.updated_at.isoformat() if j.updated_at else None,
         })
 
@@ -474,7 +475,7 @@ def haulier_overview(
                 "openJobsWithQuotes": open_with_quotes,
                 "totalJobsThisMonth": month_jobs,
                 "totalSpentThisMonth": float(month_spend),
-                "currency": "INR",
+                "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             },
             "activeJobs": active_job_list,
             "quickActions": ["post_new_job", "view_active_map"],
@@ -539,10 +540,19 @@ def haulier_pending_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    q = db.query(Job).filter(
-        Job.haulier_id == current_user.id,
-        Job.status == JobStatus.DELIVERY_SUBMITTED,
-        Job.deleted_at.is_(None),
+    q = (
+        db.query(Job)
+        .join(Payment, Payment.job_id == Job.id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Job.status.in_([
+                JobStatus.PAYMENT_SECURED,
+                JobStatus.IN_TRANSIT,
+                JobStatus.DELIVERY_SUBMITTED,
+            ]),
+            Payment.status == PaymentStatus.ESCROWED,
+            Job.deleted_at.is_(None),
+        )
     )
     total = q.count()
     items = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
@@ -555,6 +565,7 @@ def haulier_pending_approval(
         jobs.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
+            "status": j.status.value,
             "driver": _driver_snippet(supplier),
             "dropLocation": j.drop_address,
             "deliveryProof": {
@@ -564,7 +575,7 @@ def haulier_pending_approval(
                 "submittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
             },
             "agreedAmount": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "awaitingApprovalSince": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else j.updated_at.isoformat() if j.updated_at else None,
         })
 
@@ -608,7 +619,7 @@ def haulier_disputes(
             "evidencePhotos": _dispute_evidence(record),
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "pickupLocation": job.pickup_address,
             "dropLocation": job.drop_address,
             "driver": {
@@ -665,7 +676,7 @@ def haulier_spend_summary(
                 "totalSpent": float(month_total),
                 "totalJobs": month_jobs,
                 "averagePerJob": avg,
-                "currency": "INR",
+                "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             },
             "allTimeSpent": float(all_time_total),
             "allTimeJobs": all_time_jobs,
@@ -738,7 +749,7 @@ def haulier_costs(
                 "netSpend": net_spend,
                 "averagePerJob": avg_per_job,
                 "loadsWithSpend": job_count,
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Escrowed", "value": escrowed},
@@ -829,7 +840,7 @@ def haulier_revenue(
                 "netRevenue": net_revenue,
                 "averagePerLoad": avg_per_load,
                 "completedJobs": completed_jobs,
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Released", "value": released},
@@ -944,7 +955,7 @@ def haulier_performance(
                 "verified": current_user.verified,
                 "profileComplete": current_user.profile_complete,
                 "releasedRevenue": float(released_revenue),
-                "currency": "INR",
+                "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Completed", "value": completed_jobs},
@@ -1492,7 +1503,7 @@ def admin_overview(
                 "totalRevenue": float(total_rev),
                 "revenueThisMonth": float(month_rev),
                 "revenueToday": float(today_rev),
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
                 "platformCommission": round(float(total_rev) * 0.05, 2),
             },
             "pendingActions": {
@@ -1967,7 +1978,7 @@ def admin_revenue(
                 "commissionRate": "5%",
                 "totalRefunds": float(refunded),
                 "netRevenue": round(commission - float(refunded), 2),
-                "currency": "INR",
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "allTimeRevenue": round(float(all_time_rev) * 0.05, 2),
             "allTimeTransactions": all_time_txns,
@@ -2010,7 +2021,7 @@ def admin_disputes(
             "disputeReason": record.dispute_reason if record else None,
             "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "status": "under_review",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
         })
@@ -2130,7 +2141,7 @@ def admin_active_disputes(
             "disputeReason": record.dispute_reason if record else None,
             "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "status": "under_review",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "pickupLocation": j.pickup_address,
@@ -2180,7 +2191,7 @@ def admin_resolved_disputes(
             "disputeReason": record.dispute_reason if record else None,
             "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "status": "resolved",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "resolvedAt": record.step3_approved_at.isoformat() if record and record.step3_approved_at else None,
@@ -2234,7 +2245,7 @@ def admin_escalated_disputes(
             "disputeReason": record.dispute_reason if record else None,
             "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
             "status": "escalated",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "hoursOpen": hours_open,

@@ -1,16 +1,16 @@
-# Functional Requirements Document (FRD) – FreightFlex
+# Functional Requirements Document (FRD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Functional Requirements Document (FRD) |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 | Author | Product Owner / Business Analyst |
 
 ## 2. Purpose
-The FRD describes the discrete functions the FreightFlex system must perform. Each requirement is traceable to a business requirement (BR) and a user story.
+The FRD describes the discrete functions the FlexiShift system must perform. Each requirement is traceable to a business requirement (BR) and a user story.
 
 ## 3. Functional Requirement Catalogue
 

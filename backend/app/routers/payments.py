@@ -117,8 +117,12 @@ def get_payment_details(
 def release_payment(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
+    if current_user.role not in (Role.ADMIN,):
+        job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+        if not job or job.haulier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
     p = pay_svc.release_payment(db, job_id)
     return ok(data=_payment_dict(p), message="Payment released to supplier")
 
@@ -217,8 +221,12 @@ def get_payment_status(
 def release_escrow(
     booking_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
+    if current_user.role not in (Role.ADMIN,):
+        job = db.query(Job).filter(Job.id == booking_id, Job.deleted_at.is_(None)).first()
+        if not job or job.haulier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
     p = pay_svc.release_payment(db, booking_id)
     return ok(data=_payment_dict(p), message="Payment released")
 

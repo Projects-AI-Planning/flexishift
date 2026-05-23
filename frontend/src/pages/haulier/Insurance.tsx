@@ -31,7 +31,7 @@ const statusClass = (status: string) => {
   return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
-const prettyDate = (value?: string | null) => (value ? new Date(value).toLocaleString('en-IN') : 'N/A');
+const prettyDate = (value?: string | null) => (value ? new Date(value).toLocaleString('en-US') : 'N/A');
 
 const InsurancePage = () => {
   const [documents, setDocuments] = useState<DocItem[]>([]);

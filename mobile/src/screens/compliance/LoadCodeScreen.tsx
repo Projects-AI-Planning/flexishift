@@ -114,7 +114,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           </View>
           <Text style={styles.mainTitle}>Load Code Confirmation</Text>
           <Text style={styles.subtitle}>
-            Enter the 8-character code provided by the warehouse or shipper at pickup.
+            Enter the load code provided by the haulier at pickup.
           </Text>
 
           {/* Job info card */}
@@ -179,12 +179,11 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
             <Text style={styles.codeLabel}>Enter Load Code</Text>
             <TextInput
               style={styles.codeInput}
-              placeholder="XXXXXXXX"
+              placeholder="Enter code"
               placeholderTextColor="#9AA4B2"
               keyboardType="default"
               autoCapitalize="characters"
               autoCorrect={false}
-              maxLength={8}
               value={code}
               onChangeText={text => setCode(text.toUpperCase())}
               autoFocus
@@ -199,7 +198,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 
           <Pressable
             onPress={() => onVerify(code)}
-            disabled={loading || code.length < 8}
+            disabled={loading || code.trim().length === 0}
             style={[styles.primaryButton, (loading || code.length < 8) && styles.disabledButton]}>
             {loading ? (
               <ActivityIndicator color={colors.card} />

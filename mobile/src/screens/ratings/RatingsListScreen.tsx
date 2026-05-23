@@ -9,63 +9,56 @@ import {
 } from 'react-native';
 import Card from '../../components/common/Card';
 import {colors, radius, spacing} from '../../theme';
+import {RatingSummary, RatingReviewItem} from '../../types';
 
 interface RatingsListScreenProps {
-  ratings: any;
+  ratings: RatingSummary | null;
   refreshing: boolean;
   onRefresh: () => void;
 }
+
+const renderRatingItem = ({item}: {item: RatingReviewItem}) => (
+  <Card
+    title={item.raterName || 'Haulier'}
+    subtitle={item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'}) : 'Recently'}
+    rightLabel={`${item.rating} ★`}
+    variant="default">
+    <Text style={styles.reviewText}>{item.comment || 'No comment provided.'}</Text>
+    {item.jobReference ? (
+      <Text style={styles.jobRef}>Job: {item.jobReference}</Text>
+    ) : null}
+  </Card>
+);
 
 const RatingsListScreen: React.FC<RatingsListScreenProps> = ({
   ratings,
   refreshing,
   onRefresh,
 }) => {
-  const renderRatingItem = ({item}: {item: any}) => (
-    <Card
-      title={item.raterName || 'Shipper'}
-      subtitle={item.createdAt || 'Recently'}
-      rightLabel={`${item.rating} ★`}
-      variant="default">
-      <Text style={styles.reviewText}>{item.comment || 'No comment provided.'}</Text>
-      {item.jobReference ? (
-        <Text style={styles.jobRef}>Job: {item.jobReference}</Text>
-      ) : null}
-    </Card>
-  );
+  const avgDisplay = ratings?.averageRating
+    ? ratings.averageRating.toFixed(1)
+    : '0.0';
+  const totalDisplay = ratings?.totalRatings ?? 0;
+  const reviewsList: RatingReviewItem[] = (ratings?.reviews as RatingReviewItem[]) ?? [];
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.orderText}>Order #TR-9422</Text>
-      </View>
-
       <View style={styles.summaryCard}>
         <View style={styles.profileCircle}>
-          <Text style={styles.profileIcon}>{'\uD83D\uDC64'}</Text>
-        </View>
-        <Text style={styles.companyName}>Atlas Freight Systems</Text>
-        <Text style={styles.ratingLine}>
-          {'\u2B50'} <Text style={styles.ratingValue}>{ratings?.averageRating || '4.8'}</Text>
-          <Text style={styles.ratingMeta}>
-            {' '}
-            ({ratings?.totalRatings || '1,240'} reviews)
+          <Text style={styles.profileInitial}>
+            {ratings?.name ? ratings.name.charAt(0).toUpperCase() : '👤'}
           </Text>
-        </Text>
-        <View style={styles.partnerPill}>
-          <Text style={styles.partnerText}>ELITE PARTNER</Text>
         </View>
-      </View>
-
-      <View style={styles.noticeCard}>
-        <Text style={styles.noticeTitle}>Payment Released</Text>
-        <Text style={styles.noticeBody}>
-          Delivery confirmed. $1,420.00 has been added to your wallet.
+        <Text style={styles.driverName}>{ratings?.name || 'My Profile'}</Text>
+        <Text style={styles.ratingLine}>
+          {'⭐'}{' '}
+          <Text style={styles.ratingValue}>{avgDisplay}</Text>
+          <Text style={styles.ratingMeta}> ({totalDisplay} {totalDisplay === 1 ? 'review' : 'reviews'})</Text>
         </Text>
       </View>
 
       <FlatList
-        data={ratings?.reviews || []}
+        data={reviewsList}
         renderItem={renderRatingItem}
         keyExtractor={item => item.ratingId || String(Math.random())}
         contentContainerStyle={styles.listContent}
@@ -74,10 +67,10 @@ const RatingsListScreen: React.FC<RatingsListScreenProps> = ({
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>{'\u2B50'}</Text>
+            <Text style={styles.emptyIcon}>{'⭐'}</Text>
             <Text style={styles.emptyTitle}>No Reviews Yet</Text>
             <Text style={styles.emptySubtitle}>
-              Completed jobs will appear here once shippers leave feedback.
+              Completed jobs will appear here once hauliers leave feedback.
             </Text>
           </View>
         }
@@ -90,25 +83,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  header: {
-    padding: spacing.xl,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.navy,
-  },
-  orderText: {
-    fontSize: 14,
-    color: colors.inkSoft,
-    fontWeight: '700',
   },
   summaryCard: {
     margin: spacing.xl,
@@ -123,26 +97,28 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   profileCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#151A32',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  profileIcon: {
-    fontSize: 52,
+  profileInitial: {
+    fontSize: 36,
+    color: '#fff',
+    fontWeight: '900',
   },
-  companyName: {
+  driverName: {
     color: colors.navy,
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   ratingLine: {
-    marginTop: spacing.sm,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.accent,
     fontWeight: '900',
   },
@@ -152,40 +128,7 @@ const styles = StyleSheet.create({
   ratingMeta: {
     color: colors.inkSoft,
     fontWeight: '700',
-    fontSize: 18,
-  },
-  partnerPill: {
-    backgroundColor: '#B5C9E0',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-  },
-  partnerText: {
-    color: colors.navy,
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  noticeCard: {
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.md,
-    backgroundColor: '#E7F1FF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#C7DCF7',
-    padding: spacing.xl,
-  },
-  noticeTitle: {
-    color: '#1262B3',
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: spacing.xs,
-  },
-  noticeBody: {
-    color: '#1262B3',
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 16,
   },
   listContent: {
     padding: spacing.xl,

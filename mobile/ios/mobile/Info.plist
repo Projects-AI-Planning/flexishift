@@ -48,5 +48,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>freightflex</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>freightflex</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -1,9 +1,9 @@
-# Work Breakdown Structure (WBS) – FreightFlex
+# Work Breakdown Structure (WBS) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Work Breakdown Structure (WBS) |
 | Version | 1.0 |
 | Date | 2026-04-25 |
@@ -13,7 +13,7 @@ The WBS decomposes the total project scope into manageable work packages. Each l
 
 ---
 
-### 1.0 FreightFlex Platform
+### 1.0 FlexiShift Platform
 
 #### 1.1 Project Management
 | WBS-ID | Work Package | Owner | Est. Effort |

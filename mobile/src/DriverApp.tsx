@@ -1309,17 +1309,39 @@ function DriverApp(): React.JSX.Element {
 
     const handleStripeDeepLink = async (url: string) => {
       if (!url.startsWith('freightflex://stripe-connect/')) return;
-      try {
-        // loadProfile now fetches live Stripe status from the backend when
-        // onboarding is not yet complete, so one call is enough.
-        await loadProfile().catch(() => undefined);
-        setActiveTab('profile');
-        setActiveRoute('profile.payments' as any);
-        if (url.startsWith('freightflex://stripe-connect/return')) {
-          setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
+
+      if (url.startsWith('freightflex://stripe-connect/refresh')) {
+        // Onboarding link expired — silently generate a fresh one and reopen.
+        setStripeConnectLoading(true);
+        try {
+          const result = await driverApi.stripeConnect.refreshOnboardingLink();
+          const freshUrl = (result as any)?.onboardingUrl as string | undefined;
+          if (freshUrl) {
+            await Linking.openURL(freshUrl);
+          } else {
+            setActiveTab('profile');
+            setActiveRoute('profile.payments' as any);
+            setErrorBanner('Session expired. Please tap "Connect Stripe" to try again.');
+          }
+        } catch {
+          setActiveTab('profile');
+          setActiveRoute('profile.payments' as any);
+          setErrorBanner('Session expired. Please tap "Connect Stripe" to try again.');
+        } finally {
+          setStripeConnectLoading(false);
         }
-      } catch {
-        /* user can pull to refresh */
+        return;
+      }
+
+      if (url.startsWith('freightflex://stripe-connect/return')) {
+        try {
+          await loadProfile().catch(() => undefined);
+          setActiveTab('profile');
+          setActiveRoute('profile.payments' as any);
+          setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
+        } catch {
+          /* user can pull to refresh */
+        }
       }
     };
 
@@ -1810,24 +1832,28 @@ function DriverApp(): React.JSX.Element {
         jobId,
         signatureData: driverSignature,
       });
-      // Start live tracking
-      try {
-        await driverApi.tracking.start(jobId, {
-          startedAt: new Date().toISOString(),
-        });
-      } catch {
-        /* tracking start may fail if already started */
-      }
-      setSuccessBanner(
-        'Handover complete. Trip started — live tracking is active!',
-      );
-      navigate('tracking', 'tracking.active');
-      await loadTracking();
+      // Stay on the handover screen and wait for the haulier to sign from their dashboard
+      setSuccessBanner('Handover submitted — waiting for haulier to confirm.');
     } catch (err) {
       setErrorBanner(err instanceof Error ? err.message : 'Handover failed.');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleProceedAfterHandover = async () => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    try {
+      await driverApi.tracking.start(jobId, {startedAt: new Date().toISOString()});
+    } catch {
+      /* tracking start may fail if already started */
+    }
+    setSuccessBanner('Trip started — live tracking is active!');
+    navigate('tracking', 'tracking.active');
+    await loadTracking();
+    setActionLoading(false);
   };
 
   const handleSubmitDelivery = async (proofData: any, photos: any[]) => {
@@ -2177,7 +2203,31 @@ function DriverApp(): React.JSX.Element {
     setEscrowLoading(true);
     try {
       const res = await driverApi.payments.getEscrowDetails(jobId);
-      setEscrowDetails(res as Record<string, unknown>);
+      const payStatus = String((res as any)?.status ?? '').toUpperCase();
+
+      if (payStatus === 'RELEASED' || payStatus === 'COMPLETED') {
+        // Haulier approved — payment captured. Refresh lists then transition to released screen.
+        driverApi.payments.getHistory({limit: 50, page: 1}).then(h => {
+          setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>);
+        }).catch(() => undefined);
+        driverApi.dashboard.getEarnings().then(d => {
+          setEarnings(cast<EarningsResponse>(d));
+        }).catch(() => undefined);
+        const job = await driverApi.jobs.getDetails(jobId).catch(() => null);
+        setPaymentReleasedData({
+          jobId: String(jobId),
+          jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? jobId),
+          haulierId: job?.haulierId ? String(job.haulierId) : undefined,
+          amount: Number((res as any)?.amount ?? (job as any)?.agreedAmount ?? 0),
+          currency: String((res as any)?.currency ?? (job as any)?.currency ?? 'USD'),
+          completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
+          invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
+        });
+        setEscrowJobId(null);
+        navigate('jobs', 'payments.released' as any);
+      } else {
+        setEscrowDetails(res as Record<string, unknown>);
+      }
     } catch {
       setEscrowDetails(null);
     } finally {
@@ -2213,6 +2263,14 @@ function DriverApp(): React.JSX.Element {
     }
 
     if (type.includes('PAYMENT_RELEASED')) {
+      // Refresh payments list and earnings so profile.payments shows RELEASED status immediately
+      driverApi.payments.getHistory({limit: 50, page: 1}).then(h => {
+        setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>);
+      }).catch(() => undefined);
+      driverApi.dashboard.getEarnings().then(d => {
+        setEarnings(cast<EarningsResponse>(d));
+      }).catch(() => undefined);
+
       const jobId = String(data.job_id ?? data.jobId ?? '');
       if (jobId) {
         driverApi.jobs.getDetails(jobId).then(job => {
@@ -2658,6 +2716,7 @@ function DriverApp(): React.JSX.Element {
           jobId={hoJobId}
           jobReference={hoJobRef}
           onSubmit={handleSubmitHandover}
+          onProceed={() => { void handleProceedAfterHandover(); }}
           loading={actionLoading}
           error={errorBanner}
           haulierSigned={handoverStatus?.haulierSigned ?? false}
@@ -2783,7 +2842,9 @@ function DriverApp(): React.JSX.Element {
           ? 'rejected'
           : 'pending'
         : 'missing';
-      const isJobSearchAllowed = documentsApproved;
+      // Pending (under review) → allow browsing, JobDiscoveryScreen shows the banner.
+      // Only hard-block when docs are missing or rejected.
+      const isJobSearchAllowed = documentsApproved || documentState === 'pending';
 
       const goToDocuments = () => {
         navigate(

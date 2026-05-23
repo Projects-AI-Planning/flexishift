@@ -1,16 +1,16 @@
-# Project Charter – FreightFlex
+# Project Charter – FlexiShift
 
 ## 1. Project Overview
 | Field | Detail |
 |---|---|
-| Project Name | FreightFlex |
+| Project Name | FlexiShift |
 | Document Type | Project Charter |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 | Prepared By | Project Sponsor / PMO |
 
 ## 2. Project Purpose
-FreightFlex is a digital freight-brokerage platform that connects Hauliers (freight buyers) with verified Drivers and Transport Firms (suppliers). The platform automates job posting, supplier matching, booking, escrow payment, compliance workflows, live tracking, and post-job ratings — replacing manual phone/email-based freight procurement.
+FlexiShift is a digital freight-brokerage platform that connects Hauliers (freight buyers) with verified Drivers and Transport Firms (suppliers). The platform automates job posting, supplier matching, booking, escrow payment, compliance workflows, live tracking, and post-job ratings — replacing manual phone/email-based freight procurement.
 
 ## 3. Project Objectives
 1. Launch a multi-role web + mobile platform within agreed timeline.

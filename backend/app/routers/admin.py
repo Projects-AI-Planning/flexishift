@@ -10,7 +10,7 @@ from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.document import Document, DocStatus
 from app.schemas.documents import DocumentReviewRequest
-from app.schemas.admin import AdminCreateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
+from app.schemas.admin import AdminCreateUserRequest, AdminUpdateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
 from app.core.security import hash_password
 from app.models.user import UserProfile
 from app.services import documents as doc_svc
@@ -201,6 +201,52 @@ def update_user_status(
     user.status = UserStatus(body.status)
     db.commit()
     return ok(data={"userId": user_id, "status": body.status}, message="User status updated")
+
+
+@router.put("/users/{user_id}")
+def update_user(
+    user_id: str,
+    body: AdminUpdateUserRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if body.full_name is not None:
+        user.full_name = body.full_name
+    if body.email is not None:
+        existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already in use")
+        user.email = body.email
+    if body.phone is not None:
+        user.phone = body.phone
+    if body.role is not None:
+        user.role = Role(body.role.upper())
+    if body.status is not None:
+        user.status = UserStatus(body.status.upper().replace("PENDING", "INACTIVE"))
+    db.commit()
+    return ok(
+        data={"userId": user.id, "name": user.full_name, "email": user.email, "role": user.role.value, "status": user.status.value},
+        message="User updated successfully",
+    )
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(AdminDep),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return ok(data={"userId": user_id}, message="User deleted successfully")
 
 
 @router.get("/documents/pending")

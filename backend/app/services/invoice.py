@@ -12,7 +12,7 @@ def generate_invoice_pdf(job, payment) -> bytes:
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 10, "FreightFlex", ln=True, align="C")
+    pdf.cell(0, 10, "FlexiShift", ln=True, align="C")
     pdf.set_font("Helvetica", size=12)
     pdf.cell(0, 6, "Tax Invoice", ln=True, align="C")
     pdf.ln(8)

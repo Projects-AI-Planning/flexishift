@@ -21,9 +21,11 @@ def _stripe():
 def create_connect_account(db: Session, user: User) -> str:
     """Create a Stripe Express account for a driver and persist the ID.
 
-    Drivers only need `transfers` capability — they receive payouts, they never
-    charge cards themselves.  Omitting `card_payments` removes all the business/
-    company questions from the Stripe onboarding flow.
+    GB accounts with only `transfers` capability require either the `recipient`
+    service agreement (which skips document verification) or both `card_payments`
+    + `transfers`.  We request both so Stripe's onboarding form includes the full
+    identity/document step while satisfying the GB capability requirement.
+    business_type=individual keeps the form personal — no business entity questions.
     """
     if user.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can connect a Stripe account")
@@ -43,11 +45,8 @@ def create_connect_account(db: Session, user: User) -> str:
             country="GB",
             email=user.email,
             capabilities={
+                "card_payments": {"requested": True},
                 "transfers": {"requested": True},
-            },
-            # recipient service agreement = payout-only account (no business questions)
-            tos_acceptance={
-                "service_agreement": "recipient",
             },
             business_type="individual",
             individual={
@@ -57,14 +56,14 @@ def create_connect_account(db: Session, user: User) -> str:
                 "phone": user.phone or None,
             },
             business_profile={
-                "product_description": "Freight delivery driver on the FreightFlex platform",
+                "product_description": "Freight delivery driver on the FlexiShift platform",
             },
             settings={
                 "payouts": {
                     "schedule": {"interval": "manual"},
                 }
             },
-            metadata={"user_id": user.id, "platform": "FreightFlex"},
+            metadata={"user_id": user.id, "platform": "FlexiShift"},
         )
     except stripe.StripeError as e:
         log.error("stripe_connect_create_failed", user_id=user.id, error=str(e))
@@ -136,22 +135,25 @@ def get_account_status(db: Session, user: User) -> dict:
     # details_submitted=True means the driver finished the Stripe onboarding form.
     # payouts_enabled can stay False for days while Stripe verifies bank details,
     # so we treat details_submitted as the completion signal for UX purposes.
-    details_submitted = acct.get("details_submitted", False)
-    payouts_enabled   = acct.get("payouts_enabled", False)
+    details_submitted = getattr(acct, "details_submitted", False)
+    payouts_enabled   = getattr(acct, "payouts_enabled", False)
     onboarding_complete = details_submitted or payouts_enabled
 
     if onboarding_complete and not user.stripe_onboarding_complete:
         user.stripe_onboarding_complete = True
         db.commit()
 
+    requirements = getattr(acct, "requirements", None)
+    requirements_due = getattr(requirements, "currently_due", []) if requirements else []
+
     return {
         "hasAccount": True,
         "onboardingComplete": onboarding_complete,
         "detailsSubmitted": details_submitted,
         "stripeAccountId": user.stripe_account_id,
-        "chargesEnabled": acct.get("charges_enabled", False),
+        "chargesEnabled": getattr(acct, "charges_enabled", False),
         "payoutsEnabled": payouts_enabled,
-        "requirementsDue": acct.get("requirements", {}).get("currently_due", []),
+        "requirementsDue": requirements_due,
     }
 
 

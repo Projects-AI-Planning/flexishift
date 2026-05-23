@@ -131,7 +131,7 @@ const BidsPanel: React.FC<{ jobId: string; jobRef: string; onClose: () => void }
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <p className="font-black text-primary text-base">
-                      {q.currency ?? '$'}{Number(q.quoteAmount).toLocaleString()}
+                      ${Number(q.quoteAmount).toLocaleString('en-US')}
                     </p>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${bidStatusBadge(q.status)}`}>
                       {String(q.status).replace(/_/g, ' ')}

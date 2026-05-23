@@ -168,6 +168,14 @@ async def upload_handover_photos_direct(
             record.status = LocalUploadStatus.STORED
             db.commit()
         uploaded.append({"key": key, "fileUrl": file_url})
+
+    # Persist photo URLs to the compliance record so haulier can view them
+    if uploaded:
+        record = comp_svc.get_or_create_compliance(db, job_id)
+        existing = record.condition_photo_urls or []
+        record.condition_photo_urls = existing + [u["fileUrl"] for u in uploaded]
+        db.commit()
+
     return ok(data={"uploads": uploaded, "photos": uploaded}, message="Handover photos uploaded")
 
 
@@ -258,12 +266,15 @@ def get_handover_status(
         data={
             "jobId": job_id,
             "checklistSubmitted": bool(record and record.checklist_data),
+            "checklistData": record.checklist_data if record else None,
             "driverSigned": bool(record and record.driver_signature_url),
             "driverSignedAt": record.driver_signed_at.isoformat() if record and record.driver_signed_at else None,
+            "driverSignatureUrl": record.driver_signature_url if record else None,
             "haulierSigned": bool(record and record.haulier_signature_url),
             "haulierSignedAt": record.haulier_signed_at.isoformat() if record and record.haulier_signed_at else None,
             "step1Completed": bool(record and record.step1_completed_at),
             "step1CompletedAt": record.step1_completed_at.isoformat() if record and record.step1_completed_at else None,
+            "conditionPhotos": record.condition_photo_urls or [] if record else [],
         },
         message="Handover status retrieved",
     )
@@ -416,17 +427,66 @@ def get_delivery_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.models.payment import Payment
     record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+
+    driver = None
+    if job and job.selected_supplier_id:
+        from app.models.user import User as UserModel
+        driver = db.query(UserModel).filter(UserModel.id == job.selected_supplier_id).first()
+
+    payment = db.query(Payment).filter(Payment.job_id == job_id).first() if job else None
+
+    driver_profile = getattr(driver, "profile", None) if driver else None
+
+    # Build list of delivery photos — handle both single URL and list formats
+    delivery_photos: list[str] = []
+    if record:
+        if record.delivery_photo_url:
+            import json as _json
+            try:
+                parsed = _json.loads(record.delivery_photo_url)
+                if isinstance(parsed, list):
+                    delivery_photos = parsed
+                else:
+                    delivery_photos = [str(parsed)]
+            except Exception:
+                delivery_photos = [record.delivery_photo_url]
+
     return ok(
         data={
             "jobId": job_id,
+            "jobRef": job.job_ref if job else None,
+            "pickupLocation": job.pickup_address if job else None,
+            "dropLocation": job.drop_address if job else None,
+            # Delivery step
             "deliverySubmitted": bool(record and record.step2_completed_at),
             "deliverySubmittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
+            "deliveryPhotos": delivery_photos,
+            "deliveryNotes": record.delivery_notes if record else None,
+            "recipientSignatureUrl": record.recipient_signature_url if record else None,
+            # Approval step
             "step3Approved": bool(record and record.step3_approved_at),
             "step3ApprovedAt": record.step3_approved_at.isoformat() if record and record.step3_approved_at else None,
+            # Dispute
             "disputed": bool(record and record.disputed_at),
             "disputeReason": record.dispute_reason if record else None,
             "paymentOnHold": bool(record and record.disputed_at and not record.step3_approved_at),
+            # Driver info
+            "driver": {
+                "name": driver.full_name if driver else None,
+                "phone": driver.phone if driver else None,
+                "vehicleType": driver_profile.vehicle_type if driver_profile else None,
+                "vehicleNumber": driver_profile.vehicle_registration if driver_profile else None,
+            } if driver else None,
+            # Payment on hold
+            "payment": {
+                "amount": float(payment.amount) if payment else None,
+                "currency": payment.currency if payment else None,
+                "status": payment.status.value if payment else None,
+                "escrowedAt": payment.escrowed_at.isoformat() if payment and payment.escrowed_at else None,
+            } if payment else None,
         },
         message="Delivery status retrieved",
     )

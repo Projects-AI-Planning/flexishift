@@ -59,7 +59,7 @@ const mapUsersResponse = (data: {
     email: user.email ?? '',
     phone: user.phone,
     role: user.role ?? '',
-    status: (user.status ?? user.accountStatus ?? '').toUpperCase(),
+    status: (user.status ?? user.accountStatus ?? '').toUpperCase().replace('INACTIVE', 'PENDING'),
     isVerified: user.isVerified,
     joinedAt: user.joinedAt,
   })),
@@ -249,12 +249,16 @@ const adminService = {
       params: {
         ...params,
         role: normalizeUppercaseQueryValue(params?.role),
-        status: normalizeUppercaseQueryValue(params?.status),
+        status: normalizeUppercaseQueryValue(params?.status)?.replace('PENDING', 'INACTIVE'),
         search: normalizeQueryValue(params?.search),
       },
     }).then((res) => mapUsersResponse(res.data.data)),
   createUser: (data: { fullName: string; email: string; phone: string; password: string; role: string; status: string }) =>
-    client.post('/admin/users', data).then((res) => res.data),
+    client.post('/admin/users', { ...data, status: data.status === 'PENDING' ? 'INACTIVE' : data.status }).then((res) => res.data),
+  updateUser: (userId: string, data: { fullName?: string; email?: string; phone?: string; role?: string; status?: string }) =>
+    client.put(`/admin/users/${userId}`, data).then((res) => res.data),
+  deleteUser: (userId: string) =>
+    client.delete(`/admin/users/${userId}`).then((res) => res.data),
   suspendUser: (userId: string, data: { reason: string; suspensionDuration: string; notifyUser: boolean }) =>
     client.put(`/dashboard/admin/users/suspend/${userId}`, data).then((res) => res.data),
   activateUser: (userId: string, data: { reason: string; notifyUser: boolean }) =>

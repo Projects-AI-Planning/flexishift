@@ -1,7 +1,7 @@
-# Business Case – FreightFlex
+# Business Case – FlexiShift
 
 ## 1. Executive Summary
-The freight industry in emerging markets relies heavily on fragmented, phone-based procurement. Hauliers waste hours finding available, verified drivers; suppliers have no guarantee of payment. FreightFlex solves both problems with a digital marketplace, escrow payment, and end-to-end compliance enforcement. The expected outcome is reduced booking time (from hours to minutes), zero payment disputes, and a scalable recurring-revenue business model.
+The freight industry in emerging markets relies heavily on fragmented, phone-based procurement. Hauliers waste hours finding available, verified drivers; suppliers have no guarantee of payment. FlexiShift solves both problems with a digital marketplace, escrow payment, and end-to-end compliance enforcement. The expected outcome is reduced booking time (from hours to minutes), zero payment disputes, and a scalable recurring-revenue business model.
 
 ## 2. Problem Statement
 | Pain Point | Affected Party |
@@ -20,7 +20,7 @@ A cloud-based SaaS platform (web + mobile) that:
 - Streams live GPS location of the active trip to hauliers
 
 ## 4. Strategic Alignment
-FreightFlex aligns with the following strategic goals:
+FlexiShift aligns with the following strategic goals:
 1. **Digital Transformation** – Replace manual freight procurement with an automated marketplace.
 2. **Revenue Diversification** – Commission-based model generates revenue on every completed job.
 3. **Market Expansion** – Scalable architecture supports multi-region rollout.
@@ -61,7 +61,7 @@ FreightFlex aligns with the following strategic goals:
 | Average Booking Time | < 10 minutes |
 
 ## 8. Recommendation
-Proceed with full in-house development of FreightFlex. The total addressable market, recurring revenue potential, and strategic IP value justify the investment. Risk is manageable with phased delivery and strict scope control.
+Proceed with full in-house development of FlexiShift. The total addressable market, recurring revenue potential, and strategic IP value justify the investment. Risk is manageable with phased delivery and strict scope control.
 
 ## 9. Approval
 | Name | Role | Decision | Date |

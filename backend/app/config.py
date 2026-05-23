@@ -12,12 +12,12 @@ class Settings(BaseSettings):
     )
 
     APP_ENV: str = "development"
-    APP_NAME: str = "FreightFlex API"
+    APP_NAME: str = "FlexiShift API"
 
     DATABASE_URL: str | None = None
     DB_HOST: str = "localhost"
     DB_PORT: int = 3306
-    DB_NAME: str = "freightflex"
+    DB_NAME: str = "flexishift"
     DB_USER: str = "root"
     DB_PASSWORD: str = ""
     DB_CHARSET: str = "utf8mb4"
@@ -33,8 +33,8 @@ class Settings(BaseSettings):
 
     AZURE_STORAGE_ACCOUNT_NAME: str = ""
     AZURE_STORAGE_ACCOUNT_KEY: str = ""
-    AZURE_CONTAINER_DOCS: str = "freightflex-docs"
-    AZURE_CONTAINER_INVOICES: str = "freightflex-invoices"
+    AZURE_CONTAINER_DOCS: str = "flexishift-docs"
+    AZURE_CONTAINER_INVOICES: str = "flexishift-invoices"
 
     GOOGLE_MAPS_API_KEY: str = ""
 
@@ -45,27 +45,28 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    PAYMENT_CURRENCY: str = "USD"
 
     SENDGRID_API_KEY: str = ""
-    SENDGRID_FROM_EMAIL: str = "noreply@freightflex.io"
+    SENDGRID_FROM_EMAIL: str = "noreply@flexishift.io"
     EMAIL_FROM: str = ""
 
     GMAIL_USER: str = ""
     GMAIL_APP_PASSWORD: str = ""
-    EMAIL_FROM_NAME: str = "FreightFlex"
+    EMAIL_FROM_NAME: str = "FlexiShift"
 
     FCM_SERVER_KEY: str = ""
     FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
     BACKEND_URL: str = "http://localhost:8000"
-    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://freightflex.vercel.app"
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://flexishift.vercel.app"
 
     CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
 
     @model_validator(mode="after")
     def populate_database_url(self) -> "Settings":
-        if self.EMAIL_FROM and self.SENDGRID_FROM_EMAIL == "noreply@freightflex.io":
+        if self.EMAIL_FROM and self.SENDGRID_FROM_EMAIL == "noreply@flexishift.io":
             self.SENDGRID_FROM_EMAIL = self.EMAIL_FROM
         if not self.DATABASE_URL:
             self.DATABASE_URL = (

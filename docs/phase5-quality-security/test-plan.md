@@ -1,9 +1,9 @@
-# Test Plan – FreightFlex
+# Test Plan – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Test Plan |
 | Version | 1.0 |
 | Date | 2026-04-25 |

@@ -1,12 +1,12 @@
-# Software Requirements Specification (SRS) – FreightFlex
+# Software Requirements Specification (SRS) – FlexiShift
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This SRS describes all functional and non-functional requirements for the FreightFlex platform. It is the primary reference for developers, QA engineers, and the product owner during design and development.
+This SRS describes all functional and non-functional requirements for the FlexiShift platform. It is the primary reference for developers, QA engineers, and the product owner during design and development.
 
 ### 1.2 Scope
-FreightFlex is a multi-role, cloud-based freight marketplace comprising:
+FlexiShift is a multi-role, cloud-based freight marketplace comprising:
 - A responsive web application (Haulier and Admin)
 - A mobile application (Driver, React Native)
 - A RESTful backend API
@@ -28,7 +28,7 @@ FreightFlex is a multi-role, cloud-based freight marketplace comprising:
 ## 2. Overall Description
 
 ### 2.1 System Perspective
-FreightFlex is a standalone SaaS product. It integrates with:
+FlexiShift is a standalone SaaS product. It integrates with:
 - **Google Maps Platform** (Geocoding, Directions, Distance Matrix)
 - **Payment Gateway** (Razorpay or Stripe with escrow/nodal support)
 - **Email Service** (SMTP / SendGrid for verification and notifications)
