@@ -79,6 +79,7 @@ const haulierService = {
   getPaymentHistory: (params?: Record<string, unknown>) => client.get('/payments/history', { params }).then(res => res.data.data),
   createSetupIntent: () => client.post('/payments/setup-intent').then(res => res.data.data),
   listSavedCards: () => client.get('/payments/saved-cards').then(res => res.data.data),
+  listPaymentMethods: () => client.get('/payments/saved-cards').then(res => res.data.data),
   deleteSavedCard: (paymentMethodId: string) => client.delete(`/payments/saved-cards/${paymentMethodId}`).then(res => res.data),
   getInvoiceDetails: (invoiceId: string) => client.get(`/invoices/${invoiceId}`).then(res => res.data.data),
   listInvoices: (params?: Record<string, unknown>) => client.get('/invoices/list', { params }).then(res => res.data.data),
