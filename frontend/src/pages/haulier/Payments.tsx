@@ -380,10 +380,11 @@ const CreatePaymentTab: React.FC = () => {
       const order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
       setActiveOrder({ job, order });
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string; detail?: string } } };
+      const axiosErr = err as { response?: { data?: { message?: string; detail?: string } }; message?: string };
       const detail =
         axiosErr?.response?.data?.message ||
         axiosErr?.response?.data?.detail ||
+        axiosErr?.message ||
         'Please try again.';
       setPayError(`Failed to initiate payment: ${detail}`);
     } finally {
