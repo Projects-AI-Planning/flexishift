@@ -475,6 +475,7 @@ def get_delivery_status(
             "paymentOnHold": bool(record and record.disputed_at and not record.step3_approved_at),
             # Driver info
             "driver": {
+                "userId": driver.id if driver else None,
                 "name": driver.full_name if driver else None,
                 "phone": driver.phone if driver else None,
                 "vehicleType": driver_profile.vehicle_type if driver_profile else None,

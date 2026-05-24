@@ -10,6 +10,7 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = None
     password: str
     role: str
+    currency: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 

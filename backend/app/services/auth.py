@@ -96,7 +96,7 @@ def _delete_pending(r, email: str) -> None:
         _pending_store.pop(email, None)
 
 
-async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None) -> dict:
+async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None) -> dict:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -107,6 +107,7 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
         "phone": phone or "",
         "password_hash": hash_password(password),
         "role": role,
+        "currency": currency or "GBP",
         "otp": otp,
     }
     _store_pending(r, email, pending)
@@ -132,6 +133,7 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                 phone=pending["phone"],
                 password_hash=pending["password_hash"],
                 role=Role(pending["role"]),
+                currency=pending.get("currency", "GBP"),
                 status=UserStatus.ACTIVE,
                 verified=True,
             )

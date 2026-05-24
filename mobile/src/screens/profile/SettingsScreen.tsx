@@ -21,7 +21,6 @@ interface SettingsScreenProps {
   onPayments: () => void;
   onChangePassword: () => void;
   onNotificationPreferences: () => void;
-  onAvailability: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
   onDeactivate: () => void;
@@ -57,7 +56,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onPayments,
   onChangePassword,
   onNotificationPreferences,
-  onAvailability,
   onTerms,
   onPrivacy,
   onDeactivate,
@@ -80,12 +78,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       label: 'Notification Preferences',
       subtitle: 'Manage push and SMS alerts',
       onPress: onNotificationPreferences,
-    },
-    {
-      icon: 'calendar',
-      label: 'Set Availability',
-      subtitle: 'Manage your working days & hours',
-      onPress: onAvailability,
     },
   ];
 

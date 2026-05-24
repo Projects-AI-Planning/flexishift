@@ -29,6 +29,12 @@ def create_rating(
     if existing:
         raise HTTPException(status_code=409, detail="Rating already submitted")
 
+    if stars <= 2 and not (review_text and review_text.strip()):
+        raise HTTPException(
+            status_code=422,
+            detail="A reason is required when giving a rating of 1 or 2 stars. Please explain what went wrong.",
+        )
+
     rating = Rating(job_id=job_id, rater_id=rater.id, rated_id=rated_id, stars=stars, review_text=review_text)
     db.add(rating)
     db.flush()

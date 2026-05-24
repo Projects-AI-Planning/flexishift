@@ -5,33 +5,33 @@ import { Eye, EyeOff, Truck } from 'lucide-react';
 import haulierService from '../../api/haulierService';
 
 const DIAL_CODES = [
-  { flag: '🇬🇧', name: 'UK',           code: '+44'  },
-  { flag: '🇺🇸', name: 'US/CA',        code: '+1'   },
-  { flag: '🇮🇳', name: 'India',        code: '+91'  },
-  { flag: '🇵🇰', name: 'Pakistan',     code: '+92'  },
-  { flag: '🇧🇩', name: 'Bangladesh',   code: '+880' },
-  { flag: '🇳🇬', name: 'Nigeria',      code: '+234' },
-  { flag: '🇬🇭', name: 'Ghana',        code: '+233' },
-  { flag: '🇿🇦', name: 'South Africa', code: '+27'  },
-  { flag: '🇵🇱', name: 'Poland',       code: '+48'  },
-  { flag: '🇷🇴', name: 'Romania',      code: '+40'  },
-  { flag: '🇧🇬', name: 'Bulgaria',     code: '+359' },
-  { flag: '🇱🇹', name: 'Lithuania',    code: '+370' },
-  { flag: '🇱🇻', name: 'Latvia',       code: '+371' },
-  { flag: '🇩🇪', name: 'Germany',      code: '+49'  },
-  { flag: '🇫🇷', name: 'France',       code: '+33'  },
-  { flag: '🇮🇪', name: 'Ireland',      code: '+353' },
-  { flag: '🇳🇱', name: 'Netherlands',  code: '+31'  },
-  { flag: '🇧🇪', name: 'Belgium',      code: '+32'  },
-  { flag: '🇪🇸', name: 'Spain',        code: '+34'  },
-  { flag: '🇮🇹', name: 'Italy',        code: '+39'  },
-  { flag: '🇵🇹', name: 'Portugal',     code: '+351' },
-  { flag: '🇺🇦', name: 'Ukraine',      code: '+380' },
-  { flag: '🇵🇭', name: 'Philippines',  code: '+63'  },
-  { flag: '🇦🇺', name: 'Australia',    code: '+61'  },
-  { flag: '🇸🇬', name: 'Singapore',    code: '+65'  },
-  { flag: '🇦🇪', name: 'UAE',          code: '+971' },
-  { flag: '🇸🇦', name: 'Saudi Arabia', code: '+966' },
+  { flag: '🇬🇧', name: 'UK',           code: '+44',  currency: 'GBP' },
+  { flag: '🇺🇸', name: 'US',           code: '+1',   currency: 'USD' },
+  { flag: '🇮🇳', name: 'India',        code: '+91',  currency: 'INR' },
+  { flag: '🇵🇰', name: 'Pakistan',     code: '+92',  currency: 'PKR' },
+  { flag: '🇧🇩', name: 'Bangladesh',   code: '+880', currency: 'BDT' },
+  { flag: '🇳🇬', name: 'Nigeria',      code: '+234', currency: 'NGN' },
+  { flag: '🇬🇭', name: 'Ghana',        code: '+233', currency: 'GHS' },
+  { flag: '🇿🇦', name: 'South Africa', code: '+27',  currency: 'ZAR' },
+  { flag: '🇵🇱', name: 'Poland',       code: '+48',  currency: 'PLN' },
+  { flag: '🇷🇴', name: 'Romania',      code: '+40',  currency: 'RON' },
+  { flag: '🇧🇬', name: 'Bulgaria',     code: '+359', currency: 'BGN' },
+  { flag: '🇱🇹', name: 'Lithuania',    code: '+370', currency: 'EUR' },
+  { flag: '🇱🇻', name: 'Latvia',       code: '+371', currency: 'EUR' },
+  { flag: '🇩🇪', name: 'Germany',      code: '+49',  currency: 'EUR' },
+  { flag: '🇫🇷', name: 'France',       code: '+33',  currency: 'EUR' },
+  { flag: '🇮🇪', name: 'Ireland',      code: '+353', currency: 'EUR' },
+  { flag: '🇳🇱', name: 'Netherlands',  code: '+31',  currency: 'EUR' },
+  { flag: '🇧🇪', name: 'Belgium',      code: '+32',  currency: 'EUR' },
+  { flag: '🇪🇸', name: 'Spain',        code: '+34',  currency: 'EUR' },
+  { flag: '🇮🇹', name: 'Italy',        code: '+39',  currency: 'EUR' },
+  { flag: '🇵🇹', name: 'Portugal',     code: '+351', currency: 'EUR' },
+  { flag: '🇺🇦', name: 'Ukraine',      code: '+380', currency: 'UAH' },
+  { flag: '🇵🇭', name: 'Philippines',  code: '+63',  currency: 'PHP' },
+  { flag: '🇦🇺', name: 'Australia',    code: '+61',  currency: 'AUD' },
+  { flag: '🇸🇬', name: 'Singapore',    code: '+65',  currency: 'SGD' },
+  { flag: '🇦🇪', name: 'UAE',          code: '+971', currency: 'AED' },
+  { flag: '🇸🇦', name: 'Saudi Arabia', code: '+966', currency: 'SAR' },
 ];
 
 const Register: React.FC = () => {
@@ -44,7 +44,8 @@ const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
-  const [dialCode, setDialCode] = useState('+44');
+  const [selectedDial, setSelectedDial] = useState(DIAL_CODES[0]);
+  const dialCode = selectedDial.code;
   const [localPhone, setLocalPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -105,6 +106,7 @@ const Register: React.FC = () => {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         phone: fullPhone,
+        currency: selectedDial.currency,
         companyName: form.companyName.trim() || undefined,
         address: form.address.trim() || undefined,
         password: form.password,
@@ -172,7 +174,10 @@ const Register: React.FC = () => {
             <div className="flex rounded-lg border border-gray-200 focus-within:border-[#1066b1] focus-within:ring-2 focus-within:ring-[#1066b1]/20 transition-all overflow-hidden">
               <select
                 value={dialCode}
-                onChange={e => setDialCode(e.target.value)}
+                onChange={e => {
+                  const found = DIAL_CODES.find(c => c.code === e.target.value) ?? DIAL_CODES[0];
+                  setSelectedDial(found);
+                }}
                 className="bg-gray-50 border-r border-gray-200 px-3 py-3 text-sm font-semibold text-navy outline-none cursor-pointer shrink-0"
                 style={{minWidth: '120px'}}
               >

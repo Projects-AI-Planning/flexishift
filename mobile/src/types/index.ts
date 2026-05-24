@@ -47,6 +47,7 @@ export interface ApiResponse<T> {
 
 export interface DriverSession {
   accessToken: string;
+  currency: string;
   email: string;
   expiresIn?: number;
   isProfileComplete?: boolean;

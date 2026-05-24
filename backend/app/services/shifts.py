@@ -78,7 +78,7 @@ def list_driver_shifts(db: Session, driver_id: str) -> list[Shift]:
         db.query(Shift)
         .filter(
             Shift.selected_driver_id == driver_id,
-            Shift.status.in_([ShiftStatus.BOOKED, ShiftStatus.IN_PROGRESS, ShiftStatus.COMPLETED]),
+            Shift.status.in_([ShiftStatus.BOOKED, ShiftStatus.IN_PROGRESS, ShiftStatus.COMPLETED, ShiftStatus.CANCELLED]),
         )
         .order_by(Shift.start_date.desc())
         .all()
@@ -95,12 +95,11 @@ def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day:
         .filter(
             ShiftQuote.shift_id == shift_id,
             ShiftQuote.driver_id == driver.id,
-            ShiftQuote.status == ShiftQuoteStatus.PENDING,
         )
         .first()
     )
     if existing:
-        raise HTTPException(status_code=422, detail="You already have a pending quote for this shift")
+        raise HTTPException(status_code=422, detail="You have already submitted a quote for this shift")
 
     total = round(amount_per_day * shift.total_days, 2)
     quote = ShiftQuote(

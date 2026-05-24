@@ -59,7 +59,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depen
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r)
+    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r, currency=body.currency)
     return created(
         data={
             "email": result["email"],
@@ -91,6 +91,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), 
             "name": user.full_name,
             "email": user.email,
             "phone": user.phone,
+            "currency": getattr(user, "currency", None) or "GBP",
             "isVerified": user.verified,
             "isProfileComplete": getattr(user, "profile_complete", False),
         },
@@ -113,6 +114,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis
             "name": user.full_name if user else None,
             "email": user.email if user else None,
             "phone": user.phone if user else None,
+            "currency": (getattr(user, "currency", None) or "GBP") if user else "GBP",
             "isVerified": user.verified if user else None,
             "isProfileComplete": user.profile_complete if user else None,
             "profilePhoto": profile.photo_url if profile else None,

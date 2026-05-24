@@ -51,6 +51,7 @@ const Login: React.FC = () => {
         userId: profile?.userId ?? authData?.userId,
         email: profile?.email ?? email,
         name: profile?.name ?? email.split('@')[0],
+        currency: profile?.currency ?? authData?.currency ?? 'GBP',
         role: profile?.role ?? authData?.role ?? 'USER',
         status: profile?.status ?? authData?.status ?? 'ACTIVE',
       });

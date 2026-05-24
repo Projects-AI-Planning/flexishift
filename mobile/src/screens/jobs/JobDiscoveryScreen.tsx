@@ -1,7 +1,10 @@
 import React, {useMemo, useState} from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Modal,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,8 +12,21 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import {colors, radius, spacing} from '../../theme';
 import Icon, {IconName} from '../../components/common/Icon';
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 function formatDriverRequirement(value?: string | null): {label: string; icon: IconName} {
   switch ((value ?? '').toUpperCase()) {
@@ -81,8 +97,57 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 
   const [activeModal, setActiveModal] = useState<'cargo' | 'date' | 'radius' | null>(null);
 
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   const canApply = docStatus === 'approved';
   const appliedSet = new Set(appliedJobIds.filter(Boolean));
+
+  const requestLocation = async () => {
+    setLocationLoading(true);
+    setLocationError(null);
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'FlexiShift needs your location to find nearby jobs.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+            buttonNeutral: 'Ask Me Later',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          setLocationError('Location permission denied');
+          setLocationLoading(false);
+          return;
+        }
+      }
+      Geolocation.getCurrentPosition(
+        pos => {
+          setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
+          if (!radiusFilter) {setRadiusFilter('25 km');}
+          setLocationLoading(false);
+        },
+        err => {
+          setLocationError(err.code === 1 ? 'Permission denied' : 'Unable to get location');
+          setLocationLoading(false);
+        },
+        {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000},
+      );
+    } catch {
+      setLocationError('Location unavailable');
+      setLocationLoading(false);
+    }
+  };
+
+  const clearLocation = () => {
+    setDriverLocation(null);
+    setRadiusFilter(null);
+    setLocationError(null);
+  };
 
   // Derive unique cargo types from loaded jobs
   const cargoTypes = useMemo(() => {
@@ -94,25 +159,53 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     return ['All', ...Array.from(types)];
   }, [availableJobs]);
 
-  const filtered = availableJobs.filter(j => {
-    if (cargoFilter) {
-      if (String(j.goodsType ?? '').trim() !== cargoFilter) {return false;}
+  const filtered = useMemo(() => {
+    const radiusKm = radiusFilter ? parseInt(radiusFilter, 10) : null;
+
+    const items = availableJobs.filter(j => {
+      if (cargoFilter && String(j.goodsType ?? '').trim() !== cargoFilter) {return false;}
+      if (dateFilter && !matchesDateFilter(j.jobDate, dateFilter)) {return false;}
+
+      if (driverLocation && radiusKm) {
+        const jobLat = Number(j.pickupLat ?? j.latitude ?? NaN);
+        const jobLng = Number(j.pickupLng ?? j.longitude ?? NaN);
+        if (!isNaN(jobLat) && !isNaN(jobLng)) {
+          const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, jobLat, jobLng);
+          if (dist > radiusKm) {return false;}
+        }
+      }
+
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return (
+          String(j.jobReference ?? '').toLowerCase().includes(q) ||
+          addr(j.pickupLocation).toLowerCase().includes(q) ||
+          addr(j.dropLocation).toLowerCase().includes(q) ||
+          String(j.goodsType ?? '').toLowerCase().includes(q) ||
+          String(j.vehicleTypeRequired ?? '').toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    if (driverLocation) {
+      items.sort((a, b) => {
+        const latA = Number(a.pickupLat ?? NaN);
+        const lngA = Number(a.pickupLng ?? NaN);
+        const latB = Number(b.pickupLat ?? NaN);
+        const lngB = Number(b.pickupLng ?? NaN);
+        const distA = !isNaN(latA) && !isNaN(lngA)
+          ? haversineKm(driverLocation.latitude, driverLocation.longitude, latA, lngA)
+          : Infinity;
+        const distB = !isNaN(latB) && !isNaN(lngB)
+          ? haversineKm(driverLocation.latitude, driverLocation.longitude, latB, lngB)
+          : Infinity;
+        return distA - distB;
+      });
     }
-    if (dateFilter) {
-      if (!matchesDateFilter(j.jobDate, dateFilter)) {return false;}
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        String(j.jobReference ?? '').toLowerCase().includes(q) ||
-        addr(j.pickupLocation).toLowerCase().includes(q) ||
-        addr(j.dropLocation).toLowerCase().includes(q) ||
-        String(j.goodsType ?? '').toLowerCase().includes(q) ||
-        String(j.vehicleTypeRequired ?? '').toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+
+    return items;
+  }, [availableJobs, cargoFilter, dateFilter, radiusFilter, driverLocation, search]);
 
   const renderJobItem = ({item}: {item: any}) => {
     const pickup = addr(item.pickupLocation) || '—';
@@ -122,6 +215,13 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       String(item.status ?? '').toLowerCase() === 'urgent' ||
       String(item.jobReference ?? '').includes('URGENT');
     const isApplied = appliedSet.has(String(item.jobId ?? ''));
+
+    const jobLat = Number(item.pickupLat ?? NaN);
+    const jobLng = Number(item.pickupLng ?? NaN);
+    const distFromDriver =
+      driverLocation && !isNaN(jobLat) && !isNaN(jobLng)
+        ? haversineKm(driverLocation.latitude, driverLocation.longitude, jobLat, jobLng)
+        : null;
 
     return (
       <View style={[styles.jobCard, isUrgent && styles.jobCardUrgent]}>
@@ -133,7 +233,16 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
         )}
 
         <View style={styles.jobCardTop}>
-          <Text style={styles.jobRef}>REF: {String(item.jobReference ?? item.jobId ?? '')}</Text>
+          <View>
+            <Text style={styles.jobRef}>REF: {String(item.jobReference ?? item.jobId ?? '')}</Text>
+            {distFromDriver !== null && (
+              <Text style={styles.distFromDriver}>
+                📍 {distFromDriver < 1
+                  ? `${Math.round(distFromDriver * 1000)} m away`
+                  : `${distFromDriver.toFixed(1)} km away`}
+              </Text>
+            )}
+          </View>
           {amount ? (
             <Text style={styles.jobAmount}>${Number(amount).toLocaleString('en-US')}</Text>
           ) : (
@@ -263,11 +372,31 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
             style={styles.searchInput}
           />
           {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
+            <Pressable onPress={() => setSearch('')} style={styles.searchAction}>
               <Text style={styles.clearSearch}>✕</Text>
             </Pressable>
           )}
+          <Pressable
+            onPress={driverLocation ? clearLocation : requestLocation}
+            disabled={locationLoading}
+            style={[styles.nearMeBtn, driverLocation && styles.nearMeBtnActive]}>
+            {locationLoading ? (
+              <ActivityIndicator size="small" color={driverLocation ? '#fff' : '#1066B1'} />
+            ) : (
+              <Text style={[styles.nearMeBtnIcon, driverLocation && styles.nearMeBtnIconActive]}>
+                📍
+              </Text>
+            )}
+          </Pressable>
         </View>
+
+        {locationError ? (
+          <Text style={styles.locationErrorText}>{locationError}</Text>
+        ) : driverLocation ? (
+          <Text style={styles.locationActiveText}>
+            Showing jobs near your location · tap the icon to clear
+          </Text>
+        ) : null}
 
         {/* Filter chips */}
         <ScrollView
@@ -361,11 +490,13 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyIcon}>🚛</Text>
             <Text style={styles.emptyTitle}>
-              {search.trim() || cargoFilter || dateFilter ? 'No matches found' : 'No Jobs Available'}
+              {search.trim() || cargoFilter || dateFilter || radiusFilter ? 'No matches found' : 'No Jobs Available'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {search.trim() || cargoFilter || dateFilter
-                ? 'Try changing your filters.'
+              {search.trim() || cargoFilter || dateFilter || radiusFilter
+                ? driverLocation && radiusFilter
+                  ? `No jobs within ${radiusFilter} of your location. Try a larger radius.`
+                  : 'Try changing your filters.'
                 : 'Check back later for new opportunities.'}
             </Text>
           </View>
@@ -404,7 +535,28 @@ const styles = StyleSheet.create({
   },
   searchIcon: {marginRight: spacing.sm, fontSize: 16},
   searchInput: {flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 8},
-  clearSearch: {color: colors.inkSoft, fontSize: 16, paddingLeft: 8},
+  clearSearch: {color: colors.inkSoft, fontSize: 16},
+  searchAction: {paddingHorizontal: 8},
+  nearMeBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#EAF3FD',
+    justifyContent: 'center', alignItems: 'center',
+    marginLeft: 6,
+  },
+  nearMeBtnActive: {backgroundColor: '#1066B1'},
+  nearMeBtnIcon: {fontSize: 16},
+  nearMeBtnIconActive: {opacity: 0.9},
+  locationActiveText: {
+    fontSize: 11, color: '#1066B1', fontWeight: '600',
+    paddingHorizontal: spacing.lg, marginTop: -4,
+  },
+  locationErrorText: {
+    fontSize: 11, color: colors.danger, fontWeight: '600',
+    paddingHorizontal: spacing.lg, marginTop: -4,
+  },
+  distFromDriver: {
+    fontSize: 11, color: '#059669', fontWeight: '700', marginTop: 2,
+  },
 
   filterRow: {gap: 8},
   chip: {
@@ -453,7 +605,7 @@ const styles = StyleSheet.create({
   urgentText: {color: '#92620A', fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   jobCardTop: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 6,
+    alignItems: 'flex-start', marginBottom: 6,
   },
   jobRef: {color: colors.inkSoft, fontSize: 11, fontWeight: '700'},
   jobAmount: {color: '#1066B1', fontSize: 18, fontWeight: '900'},

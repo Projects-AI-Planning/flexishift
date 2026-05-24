@@ -62,7 +62,9 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
   const [professionalismRating, setProfessionalismRating] = useState(0);
   const [comment, setComment] = useState('');
 
-  const canSubmit = overallRating > 0;
+  const isLowRating = overallRating > 0 && overallRating <= 2;
+  const reasonMissing = isLowRating && comment.trim().length === 0;
+  const canSubmit = overallRating > 0 && !reasonMissing;
 
   const handleSubmit = () => {
     const subRatings = [
@@ -113,17 +115,38 @@ const RatingSubmissionScreen: React.FC<RatingSubmissionScreenProps> = ({
           </View>
 
           {/* ── Written Review ───────────────────────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Written Review</Text>
-            <Text style={styles.cardHint}>Optional — share any additional feedback</Text>
+          <View style={[styles.card, reasonMissing && styles.cardRequired]}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>
+                Written Review
+                {isLowRating ? <Text style={styles.requiredMark}> *</Text> : null}
+              </Text>
+              {isLowRating && (
+                <View style={styles.requiredBadge}>
+                  <Text style={styles.requiredBadgeText}>Required</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.cardHint}>
+              {isLowRating
+                ? 'Please tell us what went wrong so we can improve.'
+                : 'Optional — share any additional feedback'}
+            </Text>
             <AppInput
-              placeholder="Describe the experience, loading process, communication..."
+              placeholder={isLowRating
+                ? 'Describe the issue (e.g. late pickup, poor communication)...'
+                : 'Describe the experience, loading process, communication...'}
               multiline
               numberOfLines={5}
               value={comment}
               onChangeText={setComment}
               containerStyle={{marginBottom: 0, marginTop: spacing.sm}}
             />
+            {reasonMissing && (
+              <Text style={styles.fieldError}>
+                A reason is required for ratings of 1–2 stars.
+              </Text>
+            )}
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -178,17 +201,49 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
+  cardRequired: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FFF8F8',
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   cardTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: colors.navy,
-    marginBottom: 4,
+  },
+  requiredMark: {
+    color: colors.danger,
+    fontWeight: '900',
+  },
+  requiredBadge: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  requiredBadgeText: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cardHint: {
     fontSize: 12,
     color: colors.inkSoft,
     marginBottom: 14,
     lineHeight: 17,
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
 
   /* Stars */

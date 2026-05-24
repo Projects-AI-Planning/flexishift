@@ -32,6 +32,7 @@ import ResetPasswordScreen from './screens/auth/ResetPasswordScreen';
 import DashboardScreen from './screens/dashboard/DashboardScreen';
 import JobDiscoveryScreen from './screens/jobs/JobDiscoveryScreen';
 import JobSearchLockedScreen from './screens/jobs/JobSearchLockedScreen';
+import type {AvailabilityGateInfo} from './screens/jobs/JobSearchLockedScreen';
 import JobDetailScreen from './screens/jobs/JobDetailScreen';
 import MyQuotesScreen from './screens/jobs/MyQuotesScreen';
 import QuoteStatusScreen from './screens/jobs/QuoteStatusScreen';
@@ -110,6 +111,15 @@ const palette = {
   success: '#18794E',
 };
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GBP: '£', USD: '$', EUR: '€', INR: '₹', PKR: '₨', BDT: '৳',
+  NGN: '₦', GHS: '₵', ZAR: 'R', PLN: 'zł', RON: 'lei', BGN: 'лв',
+  CZK: 'Kč', HUF: 'Ft', UAH: '₴', PHP: '₱', AUD: 'A$', NZD: 'NZ$',
+  SGD: 'S$', CAD: 'C$', AED: 'AED', SAR: 'SAR',
+};
+
+const currencySymbol = (code: string) => CURRENCY_SYMBOLS[code?.toUpperCase()] ?? code ?? '£';
+
 const mapDocumentItems = (payload: Record<string, unknown> | null | undefined): DocumentSummary[] => {
   return (((payload?.items as DocumentSummary[] | undefined) ?? []) || []) as DocumentSummary[];
 };
@@ -152,12 +162,111 @@ const isDriverProfileComplete = (profile: ProfileResponse | null): boolean => {
   );
 };
 
+// ── Availability-aware gate ───────────────────────────────────────────────────
+
+const REQUIRED_DOCS_BY_MODE: Record<string, string[]> = {
+  DRIVER_ONLY:       ['DRIVING_LICENCE'],
+  TRUCK_ONLY:        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+  DRIVER_WITH_TRUCK: ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+};
+
+const REQUIRED_FIELDS_BY_MODE: Record<string, string[]> = {
+  DRIVER_ONLY:       ['licenceNumber'],
+  TRUCK_ONLY:        ['vehicleType', 'vehicleRegistration'],
+  DRIVER_WITH_TRUCK: ['licenceNumber', 'vehicleType', 'vehicleRegistration'],
+};
+
+const AVAILABILITY_MODE_LABELS: Record<string, string> = {
+  DRIVER_ONLY:       'Driver Only',
+  TRUCK_ONLY:        'Truck Only',
+  DRIVER_WITH_TRUCK: 'Driver with Truck',
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  DRIVING_LICENCE:   'Driving Licence',
+  VEHICLE_REG:       'Vehicle Registration',
+  VEHICLE_INSURANCE: 'Vehicle Insurance',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  licenceNumber:       'Driving Licence Number',
+  vehicleType:         'Vehicle Type',
+  vehicleRegistration: 'Vehicle Registration Number',
+};
+
+function getAvailabilityGate(
+  driverAvailability: string,
+  profileForm: {licenceNumber: string; vehicleType: string; vehicleRegistration: string},
+  documents: DocumentSummary[],
+): AvailabilityGateInfo & {canAccess: boolean} {
+  const mode = (driverAvailability ?? '').trim().toUpperCase();
+  const modeLabel = AVAILABILITY_MODE_LABELS[mode] ?? '';
+
+  if (!mode) {
+    return {
+      availabilityMode: '',
+      modeLabel: '',
+      profileChecks: [],
+      docChecks: [],
+      nextAction: 'set_availability',
+      canAccess: false,
+    };
+  }
+
+  const requiredFields = REQUIRED_FIELDS_BY_MODE[mode] ?? REQUIRED_FIELDS_BY_MODE.DRIVER_WITH_TRUCK;
+  const requiredDocs   = REQUIRED_DOCS_BY_MODE[mode]   ?? REQUIRED_DOCS_BY_MODE.DRIVER_WITH_TRUCK;
+
+  const profileChecks = requiredFields.map(field => ({
+    label: FIELD_LABELS[field] ?? field,
+    done:  Boolean((profileForm as any)[field]?.trim()),
+  }));
+
+  const getDocStatus = (type: string): 'approved' | 'pending' | 'rejected' | 'missing' => {
+    const doc = documents.find(
+      d => String((d as any).docType ?? d.documentType ?? '').toUpperCase() === type,
+    );
+    if (!doc) {return 'missing';}
+    const s = String(doc.status).toUpperCase();
+    if (s === 'APPROVED' || s === 'VERIFIED') {return 'approved';}
+    if (s === 'REJECTED') {return 'rejected';}
+    return 'pending';
+  };
+
+  const docChecks = requiredDocs.map(type => ({
+    label:  DOC_TYPE_LABELS[type] ?? type,
+    status: getDocStatus(type),
+  }));
+
+  const allProfileDone  = profileChecks.every(c => c.done);
+  const allDocsApproved = docChecks.every(c => c.status === 'approved');
+  const anyDocRejected  = docChecks.some(c => c.status === 'rejected');
+  const anyDocMissing   = docChecks.some(c => c.status === 'missing');
+
+  let nextAction: AvailabilityGateInfo['nextAction'] = 'wait_approval';
+  if (!allProfileDone) {
+    nextAction = 'complete_profile';
+  } else if (anyDocMissing || anyDocRejected) {
+    nextAction = 'upload_docs';
+  } else if (!allDocsApproved) {
+    nextAction = 'wait_approval';
+  }
+
+  return {
+    availabilityMode: mode,
+    modeLabel,
+    profileChecks,
+    docChecks,
+    nextAction,
+    canAccess: allProfileDone && allDocsApproved,
+  };
+}
+
 const defaultLogin = {email: '', password: ''};
-const defaultRegister = {email: '', name: '', password: '', phone: ''};
+const defaultRegister = {email: '', name: '', password: '', phone: '', currency: 'GBP'};
 const defaultVerify = {email: '', otp: ''};
 const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
 const defaultQuoteForm = {
-  currency: 'USD',
+  currency: 'GBP',
   jobId: '',
   notes: '',
   quoteAmount: '',
@@ -1618,7 +1727,7 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       try {
         await driverApi.quotes.submit({
-          currency: 'USD',
+          currency: session?.currency ?? 'GBP',
           jobId,
           notes,
           quoteAmount: Number(amount),
@@ -1918,7 +2027,7 @@ function DriverApp(): React.JSX.Element {
         jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
         haulierId: jobDetails?.haulierId ? String(jobDetails.haulierId) : undefined,
         amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
-        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? 'USD'),
+        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? session?.currency ?? 'GBP'),
         completionDate: new Date().toISOString(),
         invoiceUrl: jobDetails?.invoiceUrl ? String(jobDetails.invoiceUrl) : undefined,
       });
@@ -2219,7 +2328,7 @@ function DriverApp(): React.JSX.Element {
           jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? jobId),
           haulierId: job?.haulierId ? String(job.haulierId) : undefined,
           amount: Number((res as any)?.amount ?? (job as any)?.agreedAmount ?? 0),
-          currency: String((res as any)?.currency ?? (job as any)?.currency ?? 'USD'),
+          currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency ?? 'GBP'),
           completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
           invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
         });
@@ -2279,7 +2388,7 @@ function DriverApp(): React.JSX.Element {
             jobReference: String(job?.jobReference ?? jobId),
             haulierId: job?.haulierId ? String(job.haulierId) : undefined,
             amount: Number(job?.agreedAmount ?? 0),
-            currency: String(job?.currency ?? 'USD'),
+            currency: String(job?.currency ?? session?.currency ?? 'GBP'),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
             invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
           });
@@ -2432,8 +2541,8 @@ function DriverApp(): React.JSX.Element {
     const status = String(item.status ?? 'booked').toLowerCase();
     const paymentSecured = item.paymentSecured === true || status === 'payment_secured' || status === 'in_transit' || status === 'delivery_submitted' || status === 'completed';
     const canStart = !['completed', 'cancelled'].includes(status) && paymentSecured;
-    const currency = String(item.currency ?? 'USD');
-    const currencySymbol = '$';
+    const currency = String(item.currency ?? session?.currency ?? 'GBP');
+    const symbol = currencySymbol(currency);
     const matchedQuote = myQuotes.find(q => String(q.jobId) === String(item.jobId));
     const rawAmount = item.agreedAmount ?? item.amount ?? item.totalAmount
       ?? (matchedQuote as any)?.quoteAmount ?? (matchedQuote as any)?.amount;
@@ -2472,7 +2581,7 @@ function DriverApp(): React.JSX.Element {
 
         {rawAmount ? (
           <Text style={styles.amountText}>
-            {currencySymbol} {String(rawAmount)}
+            {symbol} {String(rawAmount)}
           </Text>
         ) : null}
 
@@ -2650,15 +2759,14 @@ function DriverApp(): React.JSX.Element {
 
     // ── SHIFTS TAB ─────────────────────────────────────────────────────────────
     if (activeTab === 'shifts' || activeRoute.startsWith('shifts.')) {
-      const shiftProfileComplete = isDriverProfileComplete(profile);
-      const shiftDocsApproved = areDriverDocumentsApproved(verificationStatus, documents);
-      const shiftDocState = hasDriverUploadedDocuments(verificationStatus, documents)
-        ? hasRejectedDriverDocuments(documents) ? 'rejected' : 'pending'
-        : 'missing';
-      const canBrowseShifts = !docsChecked || shiftDocsApproved;
+      const shiftGate = getAvailabilityGate(
+        profileForm.driverAvailability,
+        profileForm,
+        documents,
+      );
 
       const goToShiftDocuments = () => {
-        navigate('profile', shiftDocState === 'pending' ? 'documents.status' : 'documents.upload');
+        navigate('profile', 'documents.upload');
         loadProfile().catch(() => undefined);
         driverApi.documents.getStatus().then(s => setVerificationStatus(cast<Record<string, unknown>>(s))).catch(() => undefined);
         driverApi.documents.list().then(d => setDocuments(mapDocumentItems(d as Record<string, unknown>))).catch(() => undefined);
@@ -2681,11 +2789,11 @@ function DriverApp(): React.JSX.Element {
           onSubmitQuote={handleShiftQuoteSubmit}
           onWithdrawQuote={handleShiftQuoteWithdraw}
           onCancelShift={handleShiftCancel}
-          canBrowse={canBrowseShifts}
-          documentState={shiftDocState}
-          profileComplete={shiftProfileComplete}
+          canBrowse={docsChecked ? shiftGate.canAccess : true}
+          gateInfo={shiftGate}
           onGoToDocuments={goToShiftDocuments}
           onGoToProfile={() => navigate('profile', 'profile.edit')}
+          onGoToAvailability={() => navigate('profile', 'profile.edit')}
         />
       );
     }
@@ -2829,28 +2937,14 @@ function DriverApp(): React.JSX.Element {
         );
       }
 
-      const profileComplete = isDriverProfileComplete(profile);
-      const documentsApproved = areDriverDocumentsApproved(
-        verificationStatus,
+      const jobGate = getAvailabilityGate(
+        profileForm.driverAvailability,
+        profileForm,
         documents,
       );
-      const documentState = hasDriverUploadedDocuments(
-        verificationStatus,
-        documents,
-      )
-        ? hasRejectedDriverDocuments(documents)
-          ? 'rejected'
-          : 'pending'
-        : 'missing';
-      // Pending (under review) → allow browsing, JobDiscoveryScreen shows the banner.
-      // Only hard-block when docs are missing or rejected.
-      const isJobSearchAllowed = documentsApproved || documentState === 'pending';
 
       const goToDocuments = () => {
-        navigate(
-          'profile',
-          documentState === 'pending' ? 'documents.status' : 'documents.upload',
-        );
+        navigate('profile', 'documents.upload');
         loadProfile().catch(() => undefined);
         driverApi.documents.getStatus().then(status => {
           setVerificationStatus(cast<Record<string, unknown>>(status));
@@ -2860,16 +2954,20 @@ function DriverApp(): React.JSX.Element {
         }).catch(() => undefined);
       };
 
-      if (!isJobSearchAllowed) {
+      if (!jobGate.canAccess) {
         return (
           <JobSearchLockedScreen
-            documentState={documentState}
-            profileComplete={profileComplete}
+            gateInfo={jobGate}
             onGoToProfile={() => navigate('profile', 'profile.edit')}
             onGoToDocuments={goToDocuments}
+            onGoToAvailability={() => navigate('profile', 'profile.edit')}
+            context="jobs"
           />
         );
       }
+
+      // Compute docStatus for JobDiscoveryScreen banner (apply gate only)
+      const documentsApproved = jobGate.canAccess;
 
       // My Jobs (upcoming / booked)
       if (activeRoute === 'jobs.upcoming') {
@@ -2963,7 +3061,7 @@ function DriverApp(): React.JSX.Element {
                     pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
                     dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
                     amount: Number(d.amount ?? 0),
-                    currency: String(d.currency ?? 'USD'),
+                    currency: String(d.currency ?? session?.currency ?? 'GBP'),
                     status: String(d.status ?? ''),
                     stripeIntentId: d.stripeIntentId ? String(d.stripeIntentId) : undefined,
                     stripeStatus: d.stripeStatus ? String(d.stripeStatus) : undefined,
@@ -3050,11 +3148,8 @@ function DriverApp(): React.JSX.Element {
         );
       }
 
-      // Job Discovery — gate on profile complete + admin-approved documents
-      const hasApproved = documents.some(d => String(d.status).toUpperCase() === 'APPROVED');
-      const hasPending = documents.some(d => String(d.status).toUpperCase() === 'PENDING');
-      const docStatus: 'approved' | 'pending' | 'none' =
-        hasApproved ? 'approved' : hasPending ? 'pending' : 'none';
+      // Docs already verified by jobGate above — driver always has approved status here
+      const docStatus: 'approved' | 'pending' | 'none' = 'approved';
       return (
         <JobDiscoveryScreen
           availableJobs={availableJobs}
@@ -3330,7 +3425,6 @@ function DriverApp(): React.JSX.Element {
             onPayments={() => navigate('profile', 'profile.payments')}
             onChangePassword={() => navigate('profile', 'profile.password')}
             onNotificationPreferences={() => navigate('profile', 'profile.preferences')}
-            onAvailability={() => navigate('profile', 'availability.set')}
             onTerms={() => navigate('profile', 'legal.terms')}
             onPrivacy={() => navigate('profile', 'legal.privacy')}
             onDeactivate={() => {
@@ -3737,13 +3831,6 @@ function DriverApp(): React.JSX.Element {
             {profile?.name ?? session.name} | {session.role}
           </Text>
         </View>
-        {activeTab === 'home' && activeRoute === 'home' ? (
-          <Pressable
-            onPress={() => navigate('profile', 'availability.set')}
-            style={styles.headerScheduleBtn}>
-            <Text style={styles.headerScheduleText}>Schedule</Text>
-          </Pressable>
-        ) : null}
         {activeRoute === 'notifications.all' ? (
           <View style={styles.headerBellSpacer} />
         ) : (
@@ -4099,23 +4186,7 @@ const styles = StyleSheet.create({
     height: 28,
     marginRight: 8,
   },
-  headerScheduleBtn: {
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#BBBFC7',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerScheduleText: {
-    color: '#1A1A1A',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  headerBellBadge: {
+headerBellBadge: {
     alignItems: 'center',
     backgroundColor: palette.danger,
     borderRadius: 9,

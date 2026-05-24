@@ -1,7 +1,6 @@
 import {Platform} from 'react-native';
 
-const devHost =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+const devHost = 'http://localhost:8000';
 
 export const API_ORIGIN = (
   __DEV__ ? devHost : 'https://flexishift.indian-merchant-navy.com'

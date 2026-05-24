@@ -3,63 +3,99 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing} from '../../theme';
 import Icon from '../../components/common/Icon';
 
-interface JobSearchLockedScreenProps {
-  documentState: 'missing' | 'pending' | 'rejected';
-  profileComplete: boolean;
-  onGoToProfile: () => void;
-  onGoToDocuments: () => void;
+export interface ProfileCheck {
+  label: string;
+  done: boolean;
 }
 
+export interface DocCheck {
+  label: string;
+  status: 'approved' | 'pending' | 'rejected' | 'missing';
+}
+
+export interface AvailabilityGateInfo {
+  availabilityMode: string;
+  modeLabel: string;
+  profileChecks: ProfileCheck[];
+  docChecks: DocCheck[];
+  nextAction: 'set_availability' | 'complete_profile' | 'upload_docs' | 'wait_approval';
+}
+
+interface JobSearchLockedScreenProps {
+  gateInfo: AvailabilityGateInfo;
+  onGoToProfile: () => void;
+  onGoToDocuments: () => void;
+  onGoToAvailability: () => void;
+  context?: 'jobs' | 'shifts';
+}
+
+const CONFIG = {
+  set_availability: {
+    icon: 'settings' as const,
+    iconBg: '#EAF3FD',
+    iconBorder: '#BFDBFE',
+    title: 'Set Your Availability Type',
+    subtitle: 'Choose Driver Only, Truck Only, or Driver with Truck to unlock this section.',
+    btnLabel: 'Set Availability →',
+    btnColor: '#1066B1',
+  },
+  complete_profile: {
+    icon: 'user' as const,
+    iconBg: '#EAF3FD',
+    iconBorder: '#BFDBFE',
+    title: 'Complete Your Profile',
+    subtitle: 'Fill in the required profile fields to unlock this section.',
+    btnLabel: 'Go to Profile →',
+    btnColor: '#1066B1',
+  },
+  upload_docs: {
+    icon: 'file' as const,
+    iconBg: '#EAF3FD',
+    iconBorder: '#BFDBFE',
+    title: 'Documents Not Uploaded',
+    subtitle: 'Upload the required documents for your availability mode to unlock this section.',
+    btnLabel: 'Upload Documents →',
+    btnColor: '#1066B1',
+  },
+  wait_approval: {
+    icon: 'clock' as const,
+    iconBg: '#EAF3FD',
+    iconBorder: '#BFDBFE',
+    title: 'Documents Under Verification',
+    subtitle: 'Your documents have been submitted and are being reviewed by the admin. You will be notified once approved.',
+    btnLabel: null,
+    btnColor: null,
+  },
+};
+
 const JobSearchLockedScreen: React.FC<JobSearchLockedScreenProps> = ({
-  documentState,
-  profileComplete,
+  gateInfo,
   onGoToProfile,
   onGoToDocuments,
+  onGoToAvailability,
 }) => {
-  const needsProfile = !profileComplete;
-  const needsDocuments = documentState === 'missing';
-  const isRejected = documentState === 'rejected';
-  const title = needsDocuments
-    ? 'Upload Documents'
-    : isRejected
-    ? 'Document Rejected'
-    : needsProfile
-    ? 'Complete Your Profile'
-    : 'Documents Under Verification';
-  const subtitle = needsDocuments
-    ? needsProfile
-      ? 'Complete your driver profile, then upload your required documents. Jobs will unlock after admin approval.'
-      : 'Upload your required documents first. Jobs will unlock after admin approval.'
-    : isRejected
-    ? 'Your document was rejected by admin. Tap below to upload a corrected document.'
-    : needsProfile
-    ? 'Complete your driver profile before searching for jobs.'
-    : 'Your documents are under verification. You will be notified soon after admin review.';
-  const buttonText = needsProfile
-    ? 'Complete Profile ->'
-    : needsDocuments || isRejected
-    ? 'Upload Documents ->'
-    : 'View Documents';
+  const {nextAction} = gateInfo;
+  const cfg = CONFIG[nextAction];
+
+  const onPress =
+    nextAction === 'set_availability' ? onGoToAvailability :
+    nextAction === 'complete_profile' ? onGoToProfile :
+                                        onGoToDocuments;
 
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <Icon
-          name={needsDocuments ? 'file' : isRejected ? 'alert-triangle' : 'lock'}
-          size={38}
-          color="#000000"
-          strokeWidth={1.5}
-        />
+      <View style={[styles.iconCircle, {backgroundColor: cfg.iconBg, borderColor: cfg.iconBorder}]}>
+        <Icon name={cfg.icon} size={36} color="#000000" strokeWidth={1.5} />
       </View>
 
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={styles.title}>{cfg.title}</Text>
+      <Text style={styles.subtitle}>{cfg.subtitle}</Text>
 
-      <Pressable
-        style={styles.btn}
-        onPress={profileComplete ? onGoToDocuments : onGoToProfile}>
-        <Text style={styles.btnText}>{buttonText}</Text>
-      </Pressable>
+      {cfg.btnLabel && cfg.btnColor ? (
+        <Pressable style={[styles.btn, {backgroundColor: cfg.btnColor}]} onPress={onPress}>
+          <Text style={styles.btnText}>{cfg.btnLabel}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 };
@@ -67,52 +103,33 @@ const JobSearchLockedScreen: React.FC<JobSearchLockedScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
-    paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 48,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: 60,
+    backgroundColor: colors.bg,
   },
   iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#EAF3FD',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#BFDBFE',
     marginBottom: 24,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 12,
+    fontSize: 20, fontWeight: '900', color: '#111827',
+    textAlign: 'center', marginBottom: 10,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 23,
-    maxWidth: 280,
-    marginBottom: 36,
+    fontSize: 14, color: '#6B7280',
+    textAlign: 'center', lineHeight: 21, maxWidth: 280, marginBottom: 28,
   },
   btn: {
-    width: '100%',
-    backgroundColor: '#1066B1',
-    borderRadius: radius.lg,
-    minHeight: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#1066B1',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
+    paddingHorizontal: 32, paddingVertical: 14,
+    borderRadius: radius.lg, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
   },
-  btnText: {color: '#FFFFFF', fontSize: 16, fontWeight: '900'},
+  btnText: {color: '#FFFFFF', fontSize: 15, fontWeight: '900'},
 });
 
 export default JobSearchLockedScreen;

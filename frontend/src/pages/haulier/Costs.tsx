@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,10 +10,10 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, _currency?: string) =>
+const fmt = (value: number, currency = 'GBP') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency,
     maximumFractionDigits: 0,
   }).format(value);
 
@@ -43,6 +44,8 @@ type CostReport = {
 };
 
 export default function HaulierCostsPage() {
+  const { user } = useAuth();
+  const userCurrency = user?.currency ?? 'GBP';
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [data, setData] = useState<CostReport | null>(null);
@@ -137,22 +140,22 @@ export default function HaulierCostsPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-5 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total Spend</p>
-          <h3 className="mt-2 text-3xl font-black text-primary">{fmt(summary.totalSpend ?? 0)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-primary">{fmt(summary.totalSpend ?? 0, summary.currency ?? userCurrency)}</h3>
           <p className="mt-2 text-xs text-slate-500">Payments linked to loads in the selected period.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Escrowed</p>
-          <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedAmount ?? 0)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedAmount ?? 0, summary.currency ?? userCurrency)}</h3>
           <p className="mt-2 text-xs text-slate-500">Funds currently held in escrow.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Refunds</p>
-          <h3 className="mt-2 text-3xl font-black text-rose-600">{fmt(summary.refunds ?? 0)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-rose-600">{fmt(summary.refunds ?? 0, summary.currency ?? userCurrency)}</h3>
           <p className="mt-2 text-xs text-slate-500">Refunds processed against this period.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Net Spend</p>
-          <h3 className="mt-2 text-3xl font-black text-sky-700">{fmt(summary.netSpend ?? 0)}</h3>
+          <h3 className="mt-2 text-3xl font-black text-sky-700">{fmt(summary.netSpend ?? 0, summary.currency ?? userCurrency)}</h3>
           <p className="mt-2 text-xs text-slate-500">Spend after refunds for the period.</p>
         </div>
       </section>
@@ -165,7 +168,7 @@ export default function HaulierCostsPage() {
               <p className="text-sm text-slate-500">Backend summary for {periodLabel}.</p>
             </div>
             <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-              Average per load: {fmt(summary.averagePerJob ?? 0)}
+              Average per load: {fmt(summary.averagePerJob ?? 0, summary.currency ?? userCurrency)}
             </div>
           </div>
 
@@ -179,7 +182,7 @@ export default function HaulierCostsPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-black uppercase tracking-wider text-slate-500">{item.label}</p>
-                    <p className="mt-1 text-sm font-black text-primary">{fmt(item.value)}</p>
+                    <p className="mt-1 text-sm font-black text-primary">{fmt(item.value, summary?.currency ?? userCurrency)}</p>
                   </div>
                 </div>
               );
@@ -198,7 +201,7 @@ export default function HaulierCostsPage() {
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Released</p>
-              <p className="mt-1 text-2xl font-black text-primary">{fmt(summary.releasedAmount ?? 0)}</p>
+              <p className="mt-1 text-2xl font-black text-primary">{fmt(summary.releasedAmount ?? 0, summary.currency ?? userCurrency)}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Currency</p>

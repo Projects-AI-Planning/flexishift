@@ -1,8 +1,11 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
+  PermissionsAndroid,
   Platform,
   Pressable,
   RefreshControl,
@@ -13,10 +16,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import {colors, spacing, radius, shadow} from '../../theme';
 import Icon from '../../components/common/Icon';
+import JobSearchLockedScreen, {AvailabilityGateInfo} from '../jobs/JobSearchLockedScreen';
 
-type TabKey = 'available' | 'quotes' | 'mine';
+type TabKey = 'available' | 'quotes' | 'mine' | 'ongoing' | 'history';
 
 interface ShiftItem {
   shiftId: string;
@@ -34,6 +39,8 @@ interface ShiftItem {
   status: string;
   daysCompleted: number;
   selectedDriverId?: string;
+  pickupLat?: number;
+  pickupLng?: number;
 }
 
 interface ShiftQuoteItem {
@@ -67,18 +74,17 @@ interface ShiftsScreenProps {
   onSubmitQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
   onWithdrawQuote: (shiftId: string) => Promise<void>;
   onCancelShift: (shiftId: string) => Promise<void>;
-  // Document gate
   canBrowse?: boolean;
-  documentState?: 'missing' | 'pending' | 'rejected';
-  profileComplete?: boolean;
+  gateInfo?: AvailabilityGateInfo & {canAccess?: boolean};
   onGoToDocuments?: () => void;
   onGoToProfile?: () => void;
+  onGoToAvailability?: () => void;
 }
 
 const REQ_LABELS: Record<string, string> = {
-  DRIVER_ONLY: 'Driver Only',
-  TRUCK_WITH_DRIVER: 'Truck + Driver',
-  TRUCK_ONLY: 'Truck Only',
+  DRIVER_ONLY:      'Driver Only',
+  TRUCK_WITH_DRIVER:'Truck + Driver',
+  TRUCK_ONLY:       'Truck Only',
 };
 
 const QUOTE_STATUS: Record<string, {label: string; bg: string; text: string; border: string}> = {
@@ -88,207 +94,149 @@ const QUOTE_STATUS: Record<string, {label: string; bg: string; text: string; bor
   WITHDRAWN: {label: 'Withdrawn',       bg: '#F1F5F9', text: '#64748B', border: '#E2E8F0'},
 };
 
-// ─── ShiftLockedView ─────────────────────────────────────────────────────────
+const RADIUS_OPTIONS   = ['All', '10 km', '25 km', '50 km', '100 km', '200 km'];
+const DATE_OPTIONS     = ['All', 'This Week', 'Next Week', 'This Month'];
+const REQ_FILTER_OPTS  = ['All', 'Driver Only', 'Truck + Driver', 'Truck Only'];
 
-function ShiftLockedView({
-  documentState,
-  profileComplete,
-  onGoToDocuments,
-  onGoToProfile,
-}: {
-  documentState: 'missing' | 'pending' | 'rejected';
-  profileComplete: boolean;
-  onGoToDocuments?: () => void;
-  onGoToProfile?: () => void;
-}) {
-  const needsProfile = !profileComplete;
-  const isRejected   = documentState === 'rejected';
-  const isPending    = documentState === 'pending';
-  const isMissing    = documentState === 'missing';
-
-  const iconName = isRejected ? 'x-circle' as const : isMissing ? 'file' as const : 'lock' as const;
-  const iconColor = colors.ink;
-  const title  = isRejected
-    ? 'Document Rejected'
-    : isMissing
-    ? needsProfile ? 'Complete Your Profile' : 'Upload Documents'
-    : 'Under Verification';
-  const body   = isRejected
-    ? 'Your document was rejected by admin. Upload a corrected copy to start viewing and quoting on shifts.'
-    : isMissing
-    ? needsProfile
-      ? 'Complete your driver profile, then upload your required documents. Shifts unlock after admin approval.'
-      : 'Upload your required documents first. Shifts will unlock after admin approval.'
-    : 'Your documents are under review. You will be notified once approved.';
-  const btnText = needsProfile
-    ? 'Complete Profile →'
-    : isMissing || isRejected
-    ? 'Upload Documents →'
-    : 'View Documents';
-  const onPress = needsProfile ? onGoToProfile : onGoToDocuments;
-
-  return (
-    <View style={styles.lockedWrap}>
-      {/* Icon */}
-      <View style={[
-        styles.lockedIconCircle,
-        isRejected && styles.lockedIconCircleRed,
-        isPending  && styles.lockedIconCircleAmber,
-      ]}>
-        <Icon name={iconName} size={44} color={iconColor} strokeWidth={1.5} />
-      </View>
-
-      {/* Copy */}
-      <Text style={styles.lockedTitle}>{title}</Text>
-      <Text style={styles.lockedBody}>{body}</Text>
-
-      {/* Status pill */}
-      <View style={[
-        styles.lockedPill,
-        isRejected && styles.lockedPillRed,
-        isPending  && styles.lockedPillAmber,
-      ]}>
-        <Text style={[
-          styles.lockedPillText,
-          isRejected && styles.lockedPillTextRed,
-          isPending  && styles.lockedPillTextAmber,
-        ]}>
-          {isRejected ? 'Action Required' : isMissing ? 'Documents Missing' : 'Pending Approval'}
-        </Text>
-      </View>
-
-      {/* CTA */}
-      {onPress ? (
-        <Pressable onPress={onPress} style={styles.lockedBtn}>
-          <Text style={styles.lockedBtnText}>{btnText}</Text>
-        </Pressable>
-      ) : null}
-
-      <Text style={styles.lockedNote}>
-        My Quotes and My Shifts remain accessible below.
-      </Text>
-    </View>
-  );
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ─── ShiftCard (Available tab) ────────────────────────────────────────────────
+function matchesStartDateFilter(startDate: string | undefined, filter: string): boolean {
+  if (!startDate) {return true;}
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sd = new Date(startDate);
+  sd.setHours(0, 0, 0, 0);
+  if (filter === 'This Week') {
+    const end = new Date(today);
+    end.setDate(today.getDate() + 7);
+    return sd >= today && sd <= end;
+  }
+  if (filter === 'Next Week') {
+    const start = new Date(today);
+    start.setDate(today.getDate() + 8);
+    const end = new Date(today);
+    end.setDate(today.getDate() + 14);
+    return sd >= start && sd <= end;
+  }
+  if (filter === 'This Month') {
+    return sd.getMonth() === today.getMonth() && sd.getFullYear() === today.getFullYear();
+  }
+  return true;
+}
 
-function ShiftCard({
+// ─── Available Shift Card (job-style) ─────────────────────────────────────────
+
+function AvailableShiftCard({
   shift,
   myQuote,
+  driverLocation,
   onQuote,
   onWithdraw,
-  onCancel,
-  isMine,
 }: {
   shift: ShiftItem;
   myQuote?: ShiftQuoteItem;
-  onQuote?: (shift: ShiftItem) => void;
-  onWithdraw?: (shiftId: string) => void;
-  onCancel?: (shiftId: string) => void;
-  isMine: boolean;
+  driverLocation: {latitude: number; longitude: number} | null;
+  onQuote: (shift: ShiftItem) => void;
+  onWithdraw: (shiftId: string) => void;
 }) {
   const qStatus = myQuote?.status?.toUpperCase();
   const qCfg = qStatus ? QUOTE_STATUS[qStatus] : null;
-  const canQuote = !isMine && shift.status === 'OPEN' &&
-    (!qStatus || qStatus === 'REJECTED' || qStatus === 'WITHDRAWN');
-  const canCancel = isMine && !['COMPLETED', 'CANCELLED'].includes(shift.status);
-  const progress = shift.totalDays > 0 ? shift.daysCompleted / shift.totalDays : 0;
+  const canQuote = shift.status === 'OPEN' && !qStatus;
+  const isPending = qStatus === 'PENDING';
+
+  const pickup = shift.pickupAddress || '';
+  const drop   = shift.dropAddress   || shift.location || '—';
+  const route  = pickup ? `${pickup}  →  ${drop}` : drop;
+
+  const distFromDriver =
+    driverLocation && shift.pickupLat != null && shift.pickupLng != null
+      ? haversineKm(driverLocation.latitude, driverLocation.longitude, shift.pickupLat, shift.pickupLng)
+      : null;
 
   return (
-    <View style={[styles.card, qStatus === 'ACCEPTED' && styles.cardAccepted]}>
-      {/* Header row */}
-      <View style={styles.cardHeader}>
-        <View style={{flex: 1}}>
-          <Text style={styles.shiftRef}>{shift.shiftRef}</Text>
-          {shift.pickupAddress ? (
-            <View style={styles.routeBox}>
-              <View style={styles.routeRow}>
-                <View style={[styles.routeDot, {backgroundColor: '#1066B1'}]} />
-                <Text style={styles.routeText} numberOfLines={1}>{shift.pickupAddress}</Text>
-              </View>
-              <View style={styles.routeRow}>
-                <View style={[styles.routeDot, {backgroundColor: colors.accent}]} />
-                <Text style={styles.routeText} numberOfLines={1}>{shift.dropAddress}</Text>
-              </View>
-            </View>
-          ) : (
-            <Text style={styles.locationText}>{shift.location}</Text>
+    <View style={styles.jobCard}>
+      {/* Top row */}
+      <View style={styles.jobCardTop}>
+        <View>
+          <Text style={styles.jobRef}>REF: {shift.shiftRef}</Text>
+          {distFromDriver !== null && (
+            <Text style={styles.distFromDriver}>
+              📍 {distFromDriver < 1
+                ? `${Math.round(distFromDriver * 1000)} m away`
+                : `${distFromDriver.toFixed(1)} km away`}
+            </Text>
           )}
         </View>
-        {/* Right: quote status or OPEN badge */}
-        {qCfg ? (
+        {shift.dailyRate ? (
+          <Text style={styles.jobAmount}>
+            ${Number(shift.dailyRate).toLocaleString('en-US')}/day
+          </Text>
+        ) : qCfg ? (
           <View style={[styles.statusPill, {backgroundColor: qCfg.bg, borderColor: qCfg.border}]}>
             <Text style={[styles.statusPillText, {color: qCfg.text}]}>{qCfg.label}</Text>
           </View>
-        ) : !isMine ? (
-          <View style={[styles.statusPill, {backgroundColor: '#ECFDF5', borderColor: '#A7F3D0'}]}>
-            <Text style={[styles.statusPillText, {color: '#059669'}]}>OPEN</Text>
-          </View>
         ) : (
-          <View style={[styles.statusPill, {
-            backgroundColor: shift.status === 'COMPLETED' ? '#F1F5F9' :
-              shift.status === 'IN_PROGRESS' ? '#FFFBEB' : '#DBEAFE',
-            borderColor: shift.status === 'COMPLETED' ? '#E2E8F0' :
-              shift.status === 'IN_PROGRESS' ? '#FDE68A' : '#BFDBFE',
-          }]}>
-            <Text style={[styles.statusPillText, {
-              color: shift.status === 'COMPLETED' ? '#64748B' :
-                shift.status === 'IN_PROGRESS' ? '#D97706' : '#1D4ED8',
-            }]}>
-              {shift.status.replace(/_/g, ' ')}
-            </Text>
+          <View style={styles.openBadge}>
+            <Text style={styles.openBadgeText}>OPEN</Text>
           </View>
         )}
       </View>
 
-      {/* Meta */}
-      <View style={styles.metaRow}>
-        <View style={styles.metaChipWrap}>
-          <Icon name="calendar" size={11} color={colors.inkSoft} />
-          <Text style={styles.metaChipText}>{shift.startDate} → {shift.endDate}</Text>
+      {/* Route */}
+      <Text style={styles.routeText} numberOfLines={2}>{route}</Text>
+
+      {/* Meta grid */}
+      <View style={styles.metaGrid}>
+        <View style={styles.metaItem}>
+          <Icon name="calendar" size={20} color="#000000" strokeWidth={2} />
+          <View>
+            <Text style={styles.metaTag}>START DATE</Text>
+            <Text style={styles.metaVal}>{shift.startDate}</Text>
+          </View>
         </View>
-        <View style={styles.metaChipWrap}>
-          <Icon name="clock" size={11} color={colors.inkSoft} />
-          <Text style={styles.metaChipText}>{shift.totalDays}d · {shift.hoursPerDay}h/day</Text>
+        <View style={styles.metaItem}>
+          <Icon name="clock" size={20} color="#000000" strokeWidth={2} />
+          <View>
+            <Text style={styles.metaTag}>DURATION</Text>
+            <Text style={styles.metaVal}>{shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''}</Text>
+          </View>
         </View>
-        <Text style={styles.metaChip}>{REQ_LABELS[shift.requirementType] ?? shift.requirementType}</Text>
+        <View style={styles.metaItem}>
+          <Icon name="ruler" size={20} color="#000000" strokeWidth={2} />
+          <View>
+            <Text style={styles.metaTag}>HRS/DAY</Text>
+            <Text style={styles.metaVal}>{shift.hoursPerDay}h</Text>
+          </View>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="briefcase" size={20} color="#1066B1" strokeWidth={2} />
+          <View>
+            <Text style={styles.metaTag}>REQUIREMENT</Text>
+            <Text style={[styles.metaVal, styles.metaValReq]}>
+              {REQ_LABELS[shift.requirementType] ?? shift.requirementType}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      {/* Quote amount if submitted */}
+      {/* Quote submitted box */}
       {myQuote && (
         <View style={styles.quoteAmountBox}>
           <Text style={styles.quoteAmountLabel}>Your quote</Text>
           <View style={styles.quoteAmountRow}>
-            <Text style={styles.quoteAmount}>${myQuote.amountPerDay.toLocaleString()}/day</Text>
+            <Text style={styles.quoteAmountVal}>${myQuote.amountPerDay.toLocaleString()}/day</Text>
             <Text style={styles.quoteDivider}>·</Text>
             <Text style={styles.quoteTotal}>Total ${myQuote.totalAmount.toLocaleString()}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Listed rate */}
-      {shift.dailyRate && !myQuote ? (
-        <Text style={styles.listedRate}>Listed rate: ${shift.dailyRate.toLocaleString()}/day</Text>
-      ) : null}
-
-      {/* Progress bar for booked shifts */}
-      {isMine && shift.totalDays > 0 && (
-        <View style={styles.progressWrap}>
-          <Text style={styles.progressLabel}>{shift.daysCompleted}/{shift.totalDays} days completed</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, {width: `${progress * 100}%` as any}]} />
-          </View>
-        </View>
-      )}
-
-      {/* Accepted banner */}
-      {qStatus === 'ACCEPTED' && (
-        <View style={styles.acceptedBanner}>
-          <Icon name="check-circle" size={20} color="#1066B1" />
-          <View style={{flex: 1}}>
-            <Text style={styles.acceptedBannerTitle}>Your quote was accepted!</Text>
-            <Text style={styles.acceptedBannerSub}>This shift now appears under My Shifts.</Text>
           </View>
         </View>
       )}
@@ -296,25 +244,23 @@ function ShiftCard({
       {shift.notes ? <Text style={styles.notesText}>{shift.notes}</Text> : null}
 
       {/* Actions */}
-      {(canQuote || (qStatus === 'PENDING' && onWithdraw) || canCancel) ? (
-        <View style={styles.actionRow}>
-          {canQuote && onQuote && (
-            <Pressable onPress={() => onQuote(shift)} style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>Submit Quote</Text>
-            </Pressable>
-          )}
-          {qStatus === 'PENDING' && onWithdraw && (
-            <Pressable onPress={() => onWithdraw(shift.shiftId)} style={styles.outlineBtn}>
-              <Text style={styles.outlineBtnText}>Withdraw</Text>
-            </Pressable>
-          )}
-          {canCancel && onCancel && (
-            <Pressable onPress={() => onCancel(shift.shiftId)} style={styles.dangerBtn}>
-              <Text style={styles.dangerBtnText}>Cancel</Text>
-            </Pressable>
-          )}
-        </View>
-      ) : null}
+      <View style={styles.cardActions}>
+        {canQuote ? (
+          <Pressable onPress={() => onQuote(shift)} style={styles.applyBtn}>
+            <Text style={styles.applyBtnText}>Submit Quote</Text>
+          </Pressable>
+        ) : isPending ? (
+          <Pressable onPress={() => onWithdraw(shift.shiftId)} style={[styles.applyBtn, styles.applyBtnApplied]}>
+            <Text style={styles.applyBtnAppliedText}>✓  Quote Submitted</Text>
+          </Pressable>
+        ) : (
+          <View style={[styles.applyBtn, styles.applyBtnLocked]}>
+            <Text style={styles.applyBtnLockedText}>
+              {qStatus === 'ACCEPTED' ? '✓  Accepted' : '✓  Already Quoted'}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -329,113 +275,281 @@ function QuoteCard({
   onWithdraw: (shiftId: string) => void;
 }) {
   const statusUpper = (quote.status ?? '').toUpperCase();
-  const isPending  = statusUpper === 'PENDING';
   const isAccepted = statusUpper === 'ACCEPTED';
-  const isRejected = statusUpper === 'REJECTED';
-  const cfg = QUOTE_STATUS[statusUpper] ?? {label: statusUpper, bg: '#F1F5F9', text: '#64748B', border: '#E2E8F0'};
+  const isPending  = statusUpper === 'PENDING';
+  const isDeclined = statusUpper === 'REJECTED' || statusUpper === 'WITHDRAWN';
+
+  const statusLabel =
+    isPending  ? 'Pending'   :
+    isAccepted ? 'Accepted'  :
+    statusUpper === 'REJECTED' ? 'Declined' :
+                                  'Withdrawn';
+
+  const pickup = quote.pickupAddress || (quote.location ?? null);
+  const drop   = quote.dropAddress   || null;
 
   return (
-    <View style={[styles.card, isAccepted && styles.cardAccepted]}>
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={{flex: 1}}>
-          <Text style={styles.shiftRef}>{quote.shiftRef ?? `Shift #${quote.shiftId.slice(-6)}`}</Text>
-          {quote.pickupAddress ? (
-            <View style={styles.locationRow}>
-              <Icon name="map" size={12} color={colors.inkSoft} />
-              <Text style={[styles.locationText, {flex: 1}]} numberOfLines={1}>
-                {quote.pickupAddress} → {quote.dropAddress}
-              </Text>
-            </View>
-          ) : quote.location ? (
-            <View style={styles.locationRow}>
-              <Icon name="map" size={12} color={colors.inkSoft} />
-              <Text style={[styles.locationText, {flex: 1}]} numberOfLines={1}>{quote.location}</Text>
-            </View>
-          ) : null}
+    <View style={[styles.qCard, isAccepted && styles.qCardAccepted]}>
+
+      {/* Top row: ref + status badge */}
+      <View style={styles.qCardHeader}>
+        <View style={styles.qHeaderLeft}>
+          <Text style={styles.qRef} numberOfLines={1}>
+            {quote.shiftRef ?? `Shift #${quote.shiftId.slice(-6)}`}
+          </Text>
           {quote.createdAt ? (
-            <Text style={styles.submittedAt}>
-              Submitted {new Date(quote.createdAt).toLocaleDateString()}
+            <Text style={styles.qSubmittedAt}>
+              {new Date(quote.createdAt).toLocaleDateString()}
             </Text>
           ) : null}
         </View>
-        <View style={[styles.statusPill, {backgroundColor: cfg.bg, borderColor: cfg.border}]}>
-          <Text style={[styles.statusPillText, {color: cfg.text}]}>{cfg.label}</Text>
+        <View style={[
+          styles.qStatusBadge,
+          isAccepted ? styles.qBadgeBlue :
+          isDeclined ? styles.qBadgeRed  :
+                       styles.qBadgeGrey,
+        ]}>
+          <Text style={[
+            styles.qStatusText,
+            isAccepted ? styles.qStatusBlue :
+            isDeclined ? styles.qStatusRed  :
+                         styles.qStatusGrey,
+          ]}>
+            {statusLabel}
+          </Text>
         </View>
       </View>
 
-      {/* Dates + meta */}
-      {(quote.startDate || quote.totalDays) ? (
-        <View style={styles.metaRow}>
-          {quote.startDate ? (
-            <View style={styles.metaChipWrap}>
-              <Icon name="calendar" size={11} color={colors.inkSoft} />
-              <Text style={styles.metaChipText}>{quote.startDate} → {quote.endDate}</Text>
-            </View>
-          ) : null}
-          {quote.totalDays ? (
-            <View style={styles.metaChipWrap}>
-              <Icon name="clock" size={11} color={colors.inkSoft} />
-              <Text style={styles.metaChipText}>{quote.totalDays}d{quote.hoursPerDay ? ` · ${quote.hoursPerDay}h/day` : ''}</Text>
-            </View>
+      {/* Route */}
+      {pickup ? (
+        <View style={styles.qRouteRow}>
+          <View style={[styles.qDot, styles.qDotBlue]} />
+          <Text style={styles.qRouteText} numberOfLines={1}>{pickup}</Text>
+          {drop ? (
+            <>
+              <Text style={styles.qRouteArrow}>→</Text>
+              <View style={[styles.qDot, styles.qDotAmber]} />
+              <Text style={styles.qRouteText} numberOfLines={1}>{drop}</Text>
+            </>
           ) : null}
         </View>
       ) : null}
 
-      {/* Amounts */}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Daily Rate</Text>
-          <Text style={styles.statValue}>${quote.amountPerDay.toLocaleString()}</Text>
+      {/* Stats */}
+      <View style={styles.qStatsRow}>
+        <View style={styles.qStatBox}>
+          <Text style={styles.qStatLabel}>Daily Rate</Text>
+          <Text style={styles.qStatValue}>${quote.amountPerDay.toLocaleString()}</Text>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total Amount</Text>
-          <Text style={styles.statValue}>${quote.totalAmount.toLocaleString()}</Text>
+        <View style={styles.qStatDivider} />
+        <View style={styles.qStatBox}>
+          <Text style={styles.qStatLabel}>Total</Text>
+          <Text style={styles.qStatValue}>${quote.totalAmount.toLocaleString()}</Text>
         </View>
         {quote.totalDays ? (
           <>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>Days</Text>
-              <Text style={styles.statValue}>{quote.totalDays}</Text>
+            <View style={styles.qStatDivider} />
+            <View style={styles.qStatBox}>
+              <Text style={styles.qStatLabel}>Days</Text>
+              <Text style={styles.qStatValue}>{quote.totalDays}</Text>
             </View>
           </>
         ) : null}
       </View>
 
       {quote.notes ? (
-        <Text style={styles.notesText}>"{quote.notes}"</Text>
+        <Text style={styles.qNotesText} numberOfLines={2}>"{quote.notes}"</Text>
       ) : null}
 
-      {/* Accepted banner */}
+      {/* Accepted */}
       {isAccepted && (
-        <View style={styles.acceptedBanner}>
-          <Icon name="check-circle" size={20} color="#1066B1" />
+        <View style={styles.qAcceptedBanner}>
+          <Text style={styles.qAcceptedIcon}>🎉</Text>
           <View style={{flex: 1}}>
-            <Text style={styles.acceptedBannerTitle}>Your quote was accepted!</Text>
-            <Text style={styles.acceptedBannerSub}>This shift now appears under My Shifts.</Text>
+            <Text style={styles.qAcceptedTitle}>Your quote was accepted!</Text>
+            <Text style={styles.qAcceptedSub}>This shift now appears in My Shifts.</Text>
           </View>
         </View>
       )}
 
-      {/* Rejected banner */}
-      {isRejected && (
-        <View style={styles.rejectedBanner}>
-          <Icon name="x-circle" size={16} color="#DC2626" />
-          <View style={{flex: 1}}>
-            <Text style={styles.rejectedTitle}>Not selected</Text>
-            <Text style={styles.rejectedSub}>The haulier chose a different driver.</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Pending: withdraw */}
+      {/* Pending — Withdraw */}
       {isPending && (
-        <Pressable onPress={() => onWithdraw(quote.shiftId)} style={styles.outlineBtn}>
-          <Text style={styles.outlineBtnText}>Withdraw Quote</Text>
+        <Pressable onPress={() => onWithdraw(quote.shiftId)} style={styles.qWithdrawBtn}>
+          <Text style={styles.qWithdrawText}>Withdraw Quote</Text>
         </Pressable>
       )}
+    </View>
+  );
+}
+
+// ─── Booked Shift Card (My Shifts tab) ────────────────────────────────────────
+
+function BookedShiftCard({
+  shift,
+  onCancel,
+}: {
+  shift: ShiftItem;
+  onCancel: (shiftId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const canCancel = !['COMPLETED', 'CANCELLED'].includes(shift.status);
+  const isInProgress = shift.status === 'IN_PROGRESS';
+  const progress = shift.totalDays > 0 ? shift.daysCompleted / shift.totalDays : 0;
+
+  const route =
+    shift.pickupAddress && shift.dropAddress
+      ? `${shift.pickupAddress} → ${shift.dropAddress}`
+      : shift.location ?? '—';
+
+  const badgeLabel = isInProgress ? 'IN PROGRESS' : shift.status.replace(/_/g, ' ');
+  const badgeBg    = isInProgress ? '#D97706' : '#1066B1';
+
+  return (
+    <View style={[styles.listCard, styles.upcomingCard]}>
+      <View style={styles.cardTopRow}>
+        <View style={{flex: 1}}>
+          <Text style={styles.listTitle}>{shift.shiftRef}</Text>
+          <Text style={styles.listMeta}>{route}</Text>
+          <Text style={styles.listMetaSub}>{shift.startDate} → {shift.endDate}</Text>
+        </View>
+        <Text style={[styles.upcomingBadge, {backgroundColor: badgeBg}]}>
+          {badgeLabel}
+        </Text>
+      </View>
+
+      {shift.dailyRate ? (
+        <Text style={styles.amountText}>
+          ${shift.dailyRate.toLocaleString()}/day
+        </Text>
+      ) : null}
+
+      {shift.totalDays > 0 && (
+        <View style={styles.progressWrap}>
+          <Text style={styles.progressLabel}>
+            {shift.daysCompleted}/{shift.totalDays} days completed
+          </Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, {width: `${progress * 100}%` as any}]} />
+          </View>
+        </View>
+      )}
+
+      <View style={styles.listActionRow}>
+        <Pressable
+          onPress={() => setExpanded(p => !p)}
+          style={styles.listActionSecondary}>
+          <Text style={styles.listActionSecondaryText}>
+            {expanded ? 'Hide Details' : 'View Details'}
+          </Text>
+        </Pressable>
+        {canCancel && (
+          <Pressable
+            onPress={() => onCancel(shift.shiftId)}
+            style={[styles.listActionPrimary, styles.listActionDanger]}>
+            <Text style={styles.listActionPrimaryText}>Cancel</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {expanded && (
+        <View style={styles.detailsBox}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>Pickup</Text>
+            <Text style={styles.detailValue}>{shift.pickupAddress || 'N/A'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>Drop-off</Text>
+            <Text style={styles.detailValue}>
+              {shift.dropAddress || shift.location || 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>Start Date</Text>
+            <Text style={styles.detailValue}>{shift.startDate}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>End Date</Text>
+            <Text style={styles.detailValue}>{shift.endDate}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>Duration</Text>
+            <Text style={styles.detailValue}>
+              {shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''} · {shift.hoursPerDay}h/day
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailKey}>Requirement</Text>
+            <Text style={styles.detailValue}>
+              {REQ_LABELS[shift.requirementType] ?? shift.requirementType}
+            </Text>
+          </View>
+          {shift.dailyRate ? (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailKey}>Daily Rate</Text>
+                <Text style={styles.detailValue}>
+                  ${shift.dailyRate.toLocaleString()}/day
+                </Text>
+              </View>
+              {shift.daysCompleted > 0 && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Earned So Far</Text>
+                  <Text style={[styles.detailValue, {color: '#18794E'}]}>
+                    ${(shift.dailyRate * shift.daysCompleted).toLocaleString()}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : null}
+          {shift.notes ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Notes</Text>
+              <Text style={styles.detailValue}>{shift.notes}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── History Shift Card ───────────────────────────────────────────────────────
+
+function HistoryShiftCard({shift}: {shift: ShiftItem}) {
+  const isCompleted = shift.status === 'COMPLETED';
+  const isCancelled = shift.status === 'CANCELLED';
+
+  const route =
+    shift.pickupAddress && shift.dropAddress
+      ? `${shift.pickupAddress} → ${shift.dropAddress}`
+      : shift.location ?? '—';
+
+  const eyebrowColor = isCompleted ? '#1066B1' : isCancelled ? '#DC2626' : '#44474C';
+
+  const totalEarned =
+    shift.dailyRate && shift.daysCompleted > 0
+      ? shift.dailyRate * shift.daysCompleted
+      : null;
+
+  return (
+    <View style={styles.listCard}>
+      <Text style={[styles.cardEyebrow, {color: eyebrowColor}]}>
+        {shift.status.replace(/_/g, ' ')}
+      </Text>
+      <Text style={styles.listTitle}>{shift.shiftRef}</Text>
+      <Text style={styles.listMeta}>{route}</Text>
+      <Text style={styles.listMetaSub}>
+        {shift.startDate} → {shift.endDate} · {shift.totalDays}d · {shift.hoursPerDay}h/day
+      </Text>
+      {totalEarned ? (
+        <Text style={[styles.amountText, {color: isCancelled ? '#6B7280' : '#1066B1'}]}>
+          {isCancelled ? `Partial: $${totalEarned.toLocaleString()} (${shift.daysCompleted}/${shift.totalDays} days)` : `✓ Earned: $${totalEarned.toLocaleString()}`}
+        </Text>
+      ) : shift.dailyRate ? (
+        <Text style={[styles.amountText, {color: '#1066B1'}]}>
+          ${shift.dailyRate.toLocaleString()}/day
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -529,22 +643,158 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   onWithdrawQuote,
   onCancelShift,
   canBrowse = true,
-  documentState = 'missing',
-  profileComplete = true,
+  gateInfo,
   onGoToDocuments,
   onGoToProfile,
+  onGoToAvailability,
 }) => {
   const [tab, setTab] = useState<TabKey>('available');
   const [quotingShift, setQuotingShift] = useState<ShiftItem | null>(null);
 
-  // Build a map: shiftId → quote for quick lookup on available cards
-  const quoteByShiftId = React.useMemo(() => {
-    const map: Record<string, ShiftQuoteItem> = {};
-    for (const q of myShiftQuotes) {
-      map[q.shiftId] = q;
+  // ── Search / filter state ──────────────────────────────────────────────────
+  const [search, setSearch]         = useState('');
+  const [reqFilter, setReqFilter]   = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<string | null>(null);
+  const [radiusFilter, setRadiusFilter] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<'req' | 'date' | 'radius' | null>(null);
+
+  // ── Geo location state ────────────────────────────────────────────────────
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const requestLocation = async () => {
+    setLocationLoading(true);
+    setLocationError(null);
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'FlexiShift needs your location to find nearby shifts.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+            buttonNeutral: 'Ask Me Later',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          setLocationError('Location permission denied');
+          setLocationLoading(false);
+          return;
+        }
+      }
+      Geolocation.getCurrentPosition(
+        pos => {
+          setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
+          if (!radiusFilter) {setRadiusFilter('25 km');}
+          setLocationLoading(false);
+        },
+        err => {
+          setLocationError(err.code === 1 ? 'Permission denied' : 'Unable to get location');
+          setLocationLoading(false);
+        },
+        {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000},
+      );
+    } catch {
+      setLocationError('Location unavailable');
+      setLocationLoading(false);
     }
+  };
+
+  const clearLocation = () => {
+    setDriverLocation(null);
+    setRadiusFilter(null);
+    setLocationError(null);
+  };
+
+  // ── Quote map ─────────────────────────────────────────────────────────────
+  const quoteByShiftId = useMemo(() => {
+    const map: Record<string, ShiftQuoteItem> = {};
+    for (const q of myShiftQuotes) {map[q.shiftId] = q;}
     return map;
   }, [myShiftQuotes]);
+
+  // ── Filtered & sorted available shifts ───────────────────────────────────
+  const filteredShifts = useMemo(() => {
+    const radiusKm = radiusFilter ? parseInt(radiusFilter, 10) : null;
+
+    const reqKey = reqFilter
+      ? Object.keys(REQ_LABELS).find(k => REQ_LABELS[k] === reqFilter) ?? reqFilter
+      : null;
+
+    const items = availableShifts.filter(s => {
+      if (reqKey && s.requirementType !== reqKey) {return false;}
+      if (dateFilter && !matchesStartDateFilter(s.startDate, dateFilter)) {return false;}
+
+      if (driverLocation && radiusKm && s.pickupLat != null && s.pickupLng != null) {
+        const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, s.pickupLat, s.pickupLng);
+        if (dist > radiusKm) {return false;}
+      }
+
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return (
+          (s.shiftRef ?? '').toLowerCase().includes(q) ||
+          (s.pickupAddress ?? '').toLowerCase().includes(q) ||
+          (s.dropAddress ?? '').toLowerCase().includes(q) ||
+          (s.location ?? '').toLowerCase().includes(q) ||
+          (REQ_LABELS[s.requirementType] ?? '').toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    if (driverLocation) {
+      items.sort((a, b) => {
+        const distA = a.pickupLat != null && a.pickupLng != null
+          ? haversineKm(driverLocation.latitude, driverLocation.longitude, a.pickupLat, a.pickupLng)
+          : Infinity;
+        const distB = b.pickupLat != null && b.pickupLng != null
+          ? haversineKm(driverLocation.latitude, driverLocation.longitude, b.pickupLat, b.pickupLng)
+          : Infinity;
+        return distA - distB;
+      });
+    }
+
+    return items;
+  }, [availableShifts, reqFilter, dateFilter, radiusFilter, driverLocation, search]);
+
+  const renderFilterModal = (
+    title: string,
+    options: string[],
+    selected: string | null,
+    onSelect: (v: string | null) => void,
+  ) => (
+    <Modal
+      visible={activeModal !== null}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setActiveModal(null)}>
+      <Pressable style={styles.modalBackdrop} onPress={() => setActiveModal(null)} />
+      <View style={styles.filterModalSheet}>
+        <View style={styles.filterModalHandle} />
+        <Text style={styles.filterModalTitle}>{title}</Text>
+        {options.map(opt => {
+          const isSelected = opt === 'All' ? !selected : selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => {
+                onSelect(opt === 'All' ? null : opt);
+                setActiveModal(null);
+              }}
+              style={[styles.filterModalOpt, isSelected && styles.filterModalOptSelected]}>
+              <Text style={[styles.filterModalOptText, isSelected && styles.filterModalOptTextSel]}>
+                {opt}
+              </Text>
+              {isSelected && <Text style={styles.filterModalTick}>✓</Text>}
+            </Pressable>
+          );
+        })}
+      </View>
+    </Modal>
+  );
 
   const handleSubmitQuote = async (amountPerDay: number, notes: string) => {
     if (!quotingShift) {return;}
@@ -564,9 +814,14 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   };
 
   const handleCancelShift = (shiftId: string) => {
+    const shift = [...bookedShifts, ...ongoingShifts].find(s => s.shiftId === shiftId);
+    const daysWorked = shift?.daysCompleted ?? 0;
+    const message = daysWorked > 0
+      ? `You have completed ${daysWorked} of ${shift?.totalDays} day${shift?.totalDays !== 1 ? 's' : ''}. Cancelling now will end the shift early. This cannot be undone.`
+      : 'Are you sure you want to cancel this shift booking?';
     Alert.alert(
       'Cancel Shift',
-      'Are you sure you want to cancel this shift booking?',
+      message,
       [
         {text: 'Keep It', style: 'cancel'},
         {text: 'Cancel Shift', style: 'destructive', onPress: () => onCancelShift(shiftId)},
@@ -574,12 +829,21 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
     );
   };
 
-  const pendingQuotes = myShiftQuotes.filter(q => q.status?.toUpperCase() === 'PENDING');
+  const pendingQuotes  = myShiftQuotes.filter(q => q.status?.toUpperCase() === 'PENDING');
+  const bookedShifts   = myShifts.filter(s => s.status === 'BOOKED');
+  const ongoingShifts  = myShifts.filter(s => s.status === 'IN_PROGRESS');
+  const historyShifts  = myShifts.filter(s => ['COMPLETED', 'CANCELLED'].includes(s.status));
+  const isFiltering = !!(search.trim() || reqFilter || dateFilter || radiusFilter);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <View style={styles.tabBar}>
+
+      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabBar}
+        contentContainerStyle={styles.tabBarContent}>
         <Pressable
           onPress={() => setTab('available')}
           style={[styles.tabBtn, tab === 'available' && styles.tabBtnActive]}>
@@ -598,10 +862,24 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           onPress={() => setTab('mine')}
           style={[styles.tabBtn, tab === 'mine' && styles.tabBtnActive]}>
           <Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>
-            My Shifts{myShifts.length > 0 ? ` (${myShifts.length})` : ''}
+            Booked{bookedShifts.length > 0 ? ` (${bookedShifts.length})` : ''}
           </Text>
         </Pressable>
-      </View>
+        <Pressable
+          onPress={() => setTab('ongoing')}
+          style={[styles.tabBtn, tab === 'ongoing' && styles.tabBtnActive]}>
+          <Text style={[styles.tabText, tab === 'ongoing' && styles.tabTextActive]}>
+            Ongoing{ongoingShifts.length > 0 ? ` (${ongoingShifts.length})` : ''}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setTab('history')}
+          style={[styles.tabBtn, tab === 'history' && styles.tabBtnActive]}>
+          <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>
+            History{historyShifts.length > 0 ? ` (${historyShifts.length})` : ''}
+          </Text>
+        </Pressable>
+      </ScrollView>
 
       {error ? (
         <View style={styles.errorBanner}>
@@ -614,55 +892,151 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           <ActivityIndicator color={colors.accent} size="large" />
         </View>
       ) : (
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-          showsVerticalScrollIndicator={false}>
 
+        <>
           {/* ── Available Tab ─────────────────────────────────────────────── */}
           {tab === 'available' && (
-            <>
-              {!canBrowse ? (
-                <ShiftLockedView
-                  documentState={documentState}
-                  profileComplete={profileComplete}
-                  onGoToDocuments={onGoToDocuments}
-                  onGoToProfile={onGoToProfile}
+            <View style={styles.flex}>
+              {/* Search + filter header */}
+              <View style={styles.searchHeader}>
+                <View style={styles.searchBar}>
+                  <Text style={styles.searchIcon}>🔍</Text>
+                  <TextInput
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search by location or shift ref..."
+                    placeholderTextColor="#7A8699"
+                    style={styles.searchInput}
+                  />
+                  {search.length > 0 && (
+                    <Pressable onPress={() => setSearch('')} style={styles.searchAction}>
+                      <Text style={styles.clearSearch}>✕</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={driverLocation ? clearLocation : requestLocation}
+                    disabled={locationLoading}
+                    style={[styles.nearMeBtn, driverLocation && styles.nearMeBtnActive]}>
+                    {locationLoading ? (
+                      <ActivityIndicator size="small" color={driverLocation ? '#fff' : '#1066B1'} />
+                    ) : (
+                      <Text style={styles.nearMeBtnIcon}>📍</Text>
+                    )}
+                  </Pressable>
+                </View>
+
+                {locationError ? (
+                  <Text style={styles.locationErrorText}>{locationError}</Text>
+                ) : driverLocation ? (
+                  <Text style={styles.locationActiveText}>
+                    Showing shifts near your location · tap the icon to clear
+                  </Text>
+                ) : null}
+
+                {/* Filter chips */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterRow}>
+
+                  <Pressable
+                    onPress={() => setActiveModal('req')}
+                    style={[styles.chip, reqFilter ? styles.chipActive : styles.chipInactive]}>
+                    <Icon name="briefcase" size={14} color={reqFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
+                    <Text style={[styles.chipText, reqFilter ? styles.chipTextActive : undefined]}>
+                      {reqFilter ?? 'Requirement'}
+                    </Text>
+                    <Text style={[styles.chipCaret, reqFilter ? styles.chipCaretActive : undefined]}>▾</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setActiveModal('date')}
+                    style={[styles.chip, dateFilter ? styles.chipActive : styles.chipInactive]}>
+                    <Icon name="calendar" size={14} color={dateFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
+                    <Text style={[styles.chipText, dateFilter ? styles.chipTextActive : undefined]}>
+                      {dateFilter ?? 'Start Date'}
+                    </Text>
+                    <Text style={[styles.chipCaret, dateFilter ? styles.chipCaretActive : undefined]}>▾</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setActiveModal('radius')}
+                    style={[styles.chip, radiusFilter ? styles.chipActive : styles.chipInactive]}>
+                    <Icon name="map" size={14} color={radiusFilter ? '#FFFFFF' : '#1A1A1A'} strokeWidth={2} />
+                    <Text style={[styles.chipText, radiusFilter ? styles.chipTextActive : undefined]}>
+                      {radiusFilter ?? 'Distance'}
+                    </Text>
+                    <Text style={[styles.chipCaret, radiusFilter ? styles.chipCaretActive : undefined]}>▾</Text>
+                  </Pressable>
+
+                </ScrollView>
+              </View>
+
+              {/* Locked state or shift list */}
+              {!canBrowse && gateInfo ? (
+                <JobSearchLockedScreen
+                  gateInfo={gateInfo}
+                  onGoToProfile={onGoToProfile ?? (() => undefined)}
+                  onGoToDocuments={onGoToDocuments ?? (() => undefined)}
+                  onGoToAvailability={onGoToAvailability ?? (() => undefined)}
+                  context="shifts"
                 />
               ) : (
-                <>
-                  <Text style={styles.screenTitle}>Available Shifts</Text>
-                  {availableShifts.length === 0 ? (
-                    <View style={styles.emptyWrap}>
-                      <Icon name="clipboard" size={48} color={colors.ink} strokeWidth={1.3} />
-                      <Text style={styles.emptyTitle}>No shifts available right now</Text>
-                      <Text style={styles.emptyBody}>Hauliers post shifts here. Pull down to refresh.</Text>
-                    </View>
-                  ) : (
-                    availableShifts.map(shift => (
-                      <ShiftCard
-                        key={shift.shiftId}
-                        shift={shift}
-                        myQuote={quoteByShiftId[shift.shiftId]}
-                        isMine={false}
-                        onQuote={setQuotingShift}
-                        onWithdraw={handleWithdraw}
-                      />
-                    ))
+                <FlatList
+                  data={filteredShifts}
+                  keyExtractor={item => item.shiftId}
+                  renderItem={({item}) => (
+                    <AvailableShiftCard
+                      shift={item}
+                      myQuote={quoteByShiftId[item.shiftId]}
+                      driverLocation={driverLocation}
+                      onQuote={setQuotingShift}
+                      onWithdraw={handleWithdraw}
+                    />
                   )}
-                </>
+                  contentContainerStyle={styles.listContent}
+                  onRefresh={onRefresh}
+                  refreshing={refreshing}
+                  showsVerticalScrollIndicator={false}
+                  ListHeaderComponent={
+                    <View style={styles.listHeader}>
+                      <Text style={styles.listHeaderTitle}>Available Shifts</Text>
+                      <Text style={styles.listHeaderCount}>
+                        {filteredShifts.length} {filteredShifts.length === 1 ? 'Shift' : 'Shifts'}
+                      </Text>
+                    </View>
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.emptyWrap}>
+                      <Text style={styles.emptyIcon}>📋</Text>
+                      <Text style={styles.emptyTitle}>
+                        {isFiltering ? 'No matches found' : 'No shifts available'}
+                      </Text>
+                      <Text style={styles.emptyBody}>
+                        {isFiltering
+                          ? driverLocation && radiusFilter
+                            ? `No shifts within ${radiusFilter} of your location. Try a larger radius.`
+                            : 'Try changing your filters.'
+                          : 'Hauliers post shifts here. Pull down to refresh.'}
+                      </Text>
+                    </View>
+                  }
+                />
               )}
-            </>
+            </View>
           )}
 
           {/* ── My Quotes Tab ─────────────────────────────────────────────── */}
           {tab === 'quotes' && (
-            <>
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+              showsVerticalScrollIndicator={false}>
               <Text style={styles.screenTitle}>My Shift Quotes</Text>
               {myShiftQuotes.length === 0 ? (
                 <View style={styles.emptyWrap}>
-                  <Icon name="pen" size={48} color={colors.ink} strokeWidth={1.3} />
+                  <Text style={styles.emptyIcon}>✏️</Text>
                   <Text style={styles.emptyTitle}>No quotes submitted yet</Text>
                   <Text style={styles.emptyBody}>
                     Browse Available Shifts and submit a quote. It will appear here once submitted.
@@ -677,36 +1051,103 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
                   />
                 ))
               )}
-            </>
+            </ScrollView>
           )}
 
-          {/* ── My Shifts Tab ─────────────────────────────────────────────── */}
+          {/* ── Booked Tab ────────────────────────────────────────────────── */}
           {tab === 'mine' && (
-            <>
-              <Text style={styles.screenTitle}>My Booked Shifts</Text>
-              {myShifts.length === 0 ? (
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+              showsVerticalScrollIndicator={false}>
+              <Text style={styles.screenTitle}>Booked Shifts</Text>
+              {bookedShifts.length === 0 ? (
                 <View style={styles.emptyWrap}>
-                  <Icon name="truck" size={48} color={colors.ink} strokeWidth={1.3} />
-                  <Text style={styles.emptyTitle}>No booked shifts yet</Text>
+                  <Text style={styles.emptyIcon}>📋</Text>
+                  <Text style={styles.emptyTitle}>No booked shifts</Text>
                   <Text style={styles.emptyBody}>
-                    When a haulier accepts your quote, the shift appears here.
+                    When a haulier accepts your quote, the shift will appear here before work begins.
                   </Text>
                 </View>
               ) : (
-                myShifts.map(shift => (
-                  <ShiftCard
+                bookedShifts.map(shift => (
+                  <BookedShiftCard
                     key={shift.shiftId}
                     shift={shift}
-                    isMine={true}
                     onCancel={handleCancelShift}
                   />
                 ))
               )}
-            </>
+            </ScrollView>
           )}
-        </ScrollView>
+
+          {/* ── Ongoing Tab ───────────────────────────────────────────────── */}
+          {tab === 'ongoing' && (
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+              showsVerticalScrollIndicator={false}>
+              <Text style={styles.screenTitle}>Ongoing Shifts</Text>
+              {ongoingShifts.length === 0 ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyIcon}>🚛</Text>
+                  <Text style={styles.emptyTitle}>No ongoing shifts</Text>
+                  <Text style={styles.emptyBody}>
+                    Shifts that are currently in progress will appear here.
+                  </Text>
+                </View>
+              ) : (
+                ongoingShifts.map(shift => (
+                  <BookedShiftCard
+                    key={shift.shiftId}
+                    shift={shift}
+                    onCancel={handleCancelShift}
+                  />
+                ))
+              )}
+            </ScrollView>
+          )}
+
+          {/* ── History Tab ───────────────────────────────────────────────── */}
+          {tab === 'history' && (
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+              showsVerticalScrollIndicator={false}>
+              <Text style={styles.screenTitle}>Shift History</Text>
+              {historyShifts.length === 0 ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyIcon}>🗂️</Text>
+                  <Text style={styles.emptyTitle}>No history yet</Text>
+                  <Text style={styles.emptyBody}>
+                    Completed and cancelled shifts will appear here.
+                  </Text>
+                </View>
+              ) : (
+                historyShifts.map(shift => (
+                  <HistoryShiftCard
+                    key={shift.shiftId}
+                    shift={shift}
+                  />
+                ))
+              )}
+            </ScrollView>
+          )}
+        </>
       )}
 
+      {/* ── Filter modals ────────────────────────────────────────────────── */}
+      {activeModal === 'req' &&
+        renderFilterModal('Requirement Type', REQ_FILTER_OPTS, reqFilter, setReqFilter)}
+      {activeModal === 'date' &&
+        renderFilterModal('Start Date', DATE_OPTIONS, dateFilter, setDateFilter)}
+      {activeModal === 'radius' &&
+        renderFilterModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, setRadiusFilter)}
+
+      {/* ── Quote modal ──────────────────────────────────────────────────── */}
       {quotingShift && (
         <QuoteModal
           shift={quotingShift}
@@ -721,338 +1162,418 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.bg},
+  flex: {flex: 1},
 
+  // ── Tab bar ───────────────────────────────────────────────────────────────
   tabBar: {
-    flexDirection: 'row',
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    flexGrow: 0,
+  },
+  tabBarContent: {
+    flexDirection: 'row',
     paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    gap: 4,
   },
   tabBtn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    paddingHorizontal: spacing.md, paddingVertical: 8,
+    alignItems: 'center', borderRadius: 10,
+    backgroundColor: 'transparent',
+    minWidth: 80,
   },
-  tabBtnActive: {borderBottomColor: colors.accent},
-  tabText: {color: colors.inkSoft, fontWeight: '800', fontSize: 13},
-  tabTextActive: {color: colors.navy},
+  tabBtnActive: {backgroundColor: '#1066B1'},
+  tabText: {color: colors.inkSoft, fontWeight: '800', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5},
+  tabTextActive: {color: '#FFFFFF'},
 
   errorBanner: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: radius.md,
-    margin: spacing.md,
-    padding: spacing.md,
+    backgroundColor: '#FEE2E2', borderRadius: radius.md,
+    margin: spacing.md, padding: spacing.md,
   },
   errorText: {color: colors.danger, fontWeight: '700', fontSize: 13},
-
   loaderWrap: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  list: {flex: 1},
-  listContent: {padding: spacing.md, paddingBottom: 100, gap: spacing.sm},
 
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.navy,
-    marginBottom: spacing.sm,
-  },
-
-  // ── Locked state ──────────────────────────────────────────────────────────
-  lockedWrap: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingHorizontal: spacing.xl,
+  // ── Search header ─────────────────────────────────────────────────────────
+  searchHeader: {
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     gap: spacing.md,
   },
-  lockedIconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#EEF5FB', borderRadius: radius.lg,
+    paddingHorizontal: spacing.md, minHeight: 50,
+    borderWidth: 1, borderColor: '#D6E5F1',
+  },
+  searchIcon: {marginRight: spacing.sm, fontSize: 16},
+  searchInput: {flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 8},
+  searchAction: {paddingHorizontal: 8},
+  clearSearch: {color: colors.inkSoft, fontSize: 16},
+  nearMeBtn: {
+    width: 36, height: 36, borderRadius: 10,
     backgroundColor: '#EAF3FD',
-    borderWidth: 2,
-    borderColor: '#BFDBFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+    justifyContent: 'center', alignItems: 'center', marginLeft: 6,
   },
-  lockedIconCircleRed:   {backgroundColor: '#FEE2E2', borderColor: '#FECACA'},
-  lockedIconCircleAmber: {backgroundColor: '#FFFBEB', borderColor: '#FDE68A'},
-  lockedTitle: {
-    color: colors.navy,
-    fontSize: 20,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  lockedBody: {
-    color: colors.inkSoft,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 21,
-    maxWidth: 300,
-  },
-  lockedPill: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  lockedPillRed:   {backgroundColor: '#FEE2E2', borderColor: '#FECACA'},
-  lockedPillAmber: {backgroundColor: '#FFFBEB', borderColor: '#FDE68A'},
-  lockedPillText: {
-    color: '#1D4ED8',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  lockedPillTextRed:   {color: '#DC2626'},
-  lockedPillTextAmber: {color: '#D97706'},
-  lockedBtn: {
-    width: '100%',
-    backgroundColor: '#1066B1',
-    borderRadius: radius.lg,
-    minHeight: 54,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    shadowColor: '#1066B1',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  lockedBtnText: {color: '#fff', fontSize: 16, fontWeight: '900'},
-  lockedNote: {
-    color: colors.inkSoft,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: spacing.xs,
-  },
+  nearMeBtnActive: {backgroundColor: '#1066B1'},
+  nearMeBtnIcon: {fontSize: 16},
+  locationActiveText: {fontSize: 11, color: '#1066B1', fontWeight: '600', marginTop: -4},
+  locationErrorText:  {fontSize: 11, color: colors.danger, fontWeight: '600', marginTop: -4},
 
-  emptyWrap: {alignItems: 'center', paddingTop: 56, paddingHorizontal: spacing.xl, gap: spacing.sm},
-  emptyTitle: {color: colors.navy, fontSize: 18, fontWeight: '900', textAlign: 'center'},
-  emptyBody: {color: colors.inkSoft, fontSize: 14, lineHeight: 20, textAlign: 'center'},
+  filterRow: {gap: 8},
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: radius.pill, borderWidth: 1,
+  },
+  chipActive:       {backgroundColor: '#1066B1', borderColor: '#1066B1'},
+  chipInactive:     {backgroundColor: '#FFFFFF', borderColor: '#D1D9E6'},
+  chipText:         {color: '#374151', fontSize: 13, fontWeight: '600'},
+  chipTextActive:   {color: '#FFFFFF'},
+  chipCaret:        {color: '#6B7280', fontSize: 11},
+  chipCaretActive:  {color: '#FFFFFF'},
 
-  // ── Card ───────────────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    shadowColor: shadow.color,
-    shadowOffset: shadow.offset,
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+  // ── List / headers ────────────────────────────────────────────────────────
+  list: {flex: 1},
+  listContent: {padding: spacing.lg, paddingBottom: 110, gap: 14},
+  listHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 8,
   },
-  cardAccepted: {
-    borderColor: '#1066B1',
-    borderWidth: 1.5,
-  },
+  listHeaderTitle: {color: colors.navy, fontSize: 20, fontWeight: '900'},
+  listHeaderCount: {color: colors.inkSoft, fontSize: 13, fontWeight: '600'},
 
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  shiftRef: {color: colors.navy, fontSize: 16, fontWeight: '900', marginBottom: 4},
+  screenTitle: {fontSize: 22, fontWeight: '900', color: colors.navy, marginBottom: spacing.sm},
 
-  routeBox: {gap: 4, marginTop: 2},
-  routeRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  routeDot: {width: 8, height: 8, borderRadius: 4, flexShrink: 0},
-  routeText: {flex: 1, color: colors.ink, fontSize: 12, fontWeight: '700'},
-
-  locationText: {color: colors.inkSoft, fontSize: 12, fontWeight: '600'},
-  locationRow: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2},
-
-  statusPill: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    flexShrink: 0,
+  // ── Job-style shift card ──────────────────────────────────────────────────
+  jobCard: {
+    backgroundColor: colors.card, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.xl, overflow: 'hidden',
   },
-  statusPillText: {fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.3},
-
-  metaRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 6},
-  metaChip: {
-    color: colors.inkSoft,
-    fontSize: 11,
-    fontWeight: '700',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
+  jobCardTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'flex-start', marginBottom: 6,
   },
-  metaChipWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
+  jobRef: {color: colors.inkSoft, fontSize: 11, fontWeight: '700'},
+  distFromDriver: {fontSize: 11, color: '#059669', fontWeight: '700', marginTop: 2},
+  jobAmount: {color: '#1066B1', fontSize: 18, fontWeight: '900'},
+  openBadge: {
+    backgroundColor: '#EAF3FD', borderRadius: radius.pill,
+    paddingHorizontal: 10, paddingVertical: 3,
   },
-  metaChipText: {
-    color: colors.inkSoft,
-    fontSize: 11,
-    fontWeight: '700',
+  openBadgeText: {color: colors.accent, fontSize: 11, fontWeight: '900'},
+  routeText: {color: colors.navy, fontSize: 16, fontWeight: '900', marginBottom: 14},
+  metaGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16},
+  metaItem: {flexBasis: '45%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8},
+  metaTag: {
+    color: colors.inkSoft, fontSize: 10, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 0.4,
   },
+  metaVal:    {color: colors.ink, fontSize: 13, fontWeight: '700', marginTop: 1},
+  metaValReq: {color: '#1066B1'},
+  cardActions: {flexDirection: 'row', gap: 10},
+  applyBtn: {
+    flex: 1, backgroundColor: '#1066B1', borderRadius: radius.md,
+    minHeight: 48, justifyContent: 'center', alignItems: 'center',
+  },
+  applyBtnLocked:   {backgroundColor: '#D1D9E6'},
+  applyBtnApplied:  {backgroundColor: '#EBF4FF'},
+  applyBtnText:         {color: colors.card, fontSize: 15, fontWeight: '900'},
+  applyBtnLockedText:   {color: '#64748B', fontSize: 14, fontWeight: '700'},
+  applyBtnAppliedText:  {color: '#1066B1', fontSize: 14, fontWeight: '800'},
 
   quoteAmountBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF', borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 8,
   },
   quoteAmountLabel: {color: '#1D4ED8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2},
   quoteAmountRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  quoteAmount: {color: '#1D4ED8', fontSize: 15, fontWeight: '900'},
+  quoteAmountVal: {color: '#1D4ED8', fontSize: 15, fontWeight: '900'},
   quoteDivider: {color: '#93C5FD', fontWeight: '700'},
   quoteTotal: {color: '#1E40AF', fontSize: 13, fontWeight: '700'},
 
-  listedRate: {color: colors.accent, fontWeight: '800', fontSize: 13},
-
-  progressWrap: {gap: 4},
-  progressLabel: {color: colors.inkSoft, fontSize: 11, fontWeight: '700'},
+  // ── Booked shift card ─────────────────────────────────────────────────────
+  listCard: {
+    backgroundColor: '#FCFBF7',
+    borderColor: '#E4DED0',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 14,
+  },
+  upcomingCard: {backgroundColor: '#F8FAFF'},
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  listTitle: {color: '#041627', fontSize: 16, fontWeight: '800', marginBottom: 6},
+  listMeta: {color: '#44474C', fontSize: 13, lineHeight: 18},
+  listMetaSub: {color: '#44474C', fontSize: 12, marginTop: 2},
+  upcomingBadge: {
+    color: '#FFFFFF',
+    backgroundColor: '#1066B1',
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    textTransform: 'uppercase',
+    overflow: 'hidden',
+  },
+  amountText: {color: '#DFA622', fontSize: 16, fontWeight: '800', marginTop: 8},
+  cardEyebrow: {
+    color: '#DFA622',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  listActionRow: {flexDirection: 'row', gap: 10, marginTop: 12},
+  listActionPrimary: {
+    alignItems: 'center',
+    backgroundColor: '#1066B1',
+    borderRadius: 12,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionSecondary: {
+    alignItems: 'center',
+    backgroundColor: '#1066B1',
+    borderColor: '#1066B1',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionSecondaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionDanger: {backgroundColor: '#A53A32', borderColor: '#A53A32'},
+  detailsBox: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E4DED0',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+    gap: 8,
+  },
+  detailRow: {flexDirection: 'row', justifyContent: 'space-between', gap: 12},
+  detailKey: {
+    color: '#44474C',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    color: '#041627',
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#EAF3FD',
+    borderColor: '#1066B1',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+  },
+  infoBannerIcon: {fontSize: 18, marginTop: 1, color: '#1066B1'},
+  infoBannerTitle: {fontSize: 13, fontWeight: '900', color: '#1066B1', marginBottom: 3},
+  infoBannerBody: {fontSize: 12, color: '#1F4B79', lineHeight: 17},
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+  },
+  warningBannerIcon: {fontSize: 18, marginTop: 1, color: '#DC2626'},
+  warningBannerTitle: {fontSize: 13, fontWeight: '900', color: '#DC2626', marginBottom: 3},
+  warningBannerBody: {fontSize: 12, color: '#7F1D1D', lineHeight: 17},
+  progressWrap: {gap: 4, marginTop: 8},
+  progressLabel: {color: '#44474C', fontSize: 11, fontWeight: '700'},
   progressTrack: {height: 6, backgroundColor: '#E5E9F0', borderRadius: 999, overflow: 'hidden'},
   progressFill: {height: '100%', backgroundColor: '#1066B1', borderRadius: 999},
+  notesText: {color: '#44474C', fontSize: 12, fontStyle: 'italic', lineHeight: 17},
 
-  acceptedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#EFF6FF',
-    borderRadius: radius.md,
-    padding: spacing.sm,
+  // ── Quote card (mirrors MyQuotesScreen) ───────────────────────────────────────
+  qCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  acceptedBannerTitle: {color: '#1066B1', fontSize: 13, fontWeight: '900'},
-  acceptedBannerSub: {color: '#1E40AF', fontSize: 11, marginTop: 1},
-
-  rejectedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#FEF2F2',
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  rejectedTitle: {color: '#DC2626', fontSize: 13, fontWeight: '900'},
-  rejectedSub: {color: '#7F1D1D', fontSize: 11, marginTop: 1},
-
-  notesText: {color: colors.inkSoft, fontSize: 12, fontStyle: 'italic', lineHeight: 17},
-
-  submittedAt: {color: colors.inkSoft, fontSize: 11, marginTop: 2},
-
-  actionRow: {flexDirection: 'row', gap: spacing.sm, marginTop: 2},
-  primaryBtn: {
-    flex: 1,
-    backgroundColor: '#1066B1',
-    borderRadius: radius.lg,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {color: '#fff', fontWeight: '900', fontSize: 13},
-  outlineBtn: {
-    flex: 1,
-    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: radius.lg,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.md,
+    shadowColor: shadow.color,
+    shadowOffset: shadow.offset,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  outlineBtnText: {color: colors.inkSoft, fontWeight: '800', fontSize: 13},
-  dangerBtn: {
-    flex: 1,
-    backgroundColor: '#FEE2E2',
-    borderRadius: radius.lg,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  qCardAccepted: {borderColor: '#1066B1', borderWidth: 2},
+  qCardHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'},
+  qHeaderLeft: {flex: 1, marginRight: spacing.md},
+  qRef: {color: colors.navy, fontSize: 16, fontWeight: '900'},
+  qSubmittedAt: {color: colors.inkSoft, fontSize: 11, marginTop: 2},
+  qStatusBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
+  qBadgeBlue: {backgroundColor: '#DBEAFE'},
+  qBadgeRed:  {backgroundColor: '#FEE2E2'},
+  qBadgeGrey: {backgroundColor: '#F1F5F9'},
+  qStatusText: {fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  qStatusBlue: {color: '#1066B1'},
+  qStatusRed:  {color: '#B91C1C'},
+  qStatusGrey: {color: '#64748B'},
+  qRouteRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F8FAFD', borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
   },
-  dangerBtnText: {color: colors.danger, fontWeight: '800', fontSize: 13},
-
-  // ── Stats row (quote card) ─────────────────────────────────────────────────
-  statsRow: {
+  qDot: {width: 8, height: 8, borderRadius: 4, flexShrink: 0},
+  qDotBlue:  {backgroundColor: '#1066B1'},
+  qDotAmber: {backgroundColor: colors.accent},
+  qRouteText: {flex: 1, color: colors.ink, fontSize: 12, fontWeight: '700'},
+  qRouteArrow: {color: colors.inkSoft, fontSize: 12, flexShrink: 0},
+  qStatsRow: {
     flexDirection: 'row',
     backgroundColor: '#F8FAFD',
     borderRadius: radius.md,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  statBox: {flex: 1, alignItems: 'center'},
-  statDivider: {width: 1, backgroundColor: colors.border, marginHorizontal: spacing.sm},
-  statLabel: {color: colors.inkSoft, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2},
-  statValue: {color: colors.navy, fontSize: 14, fontWeight: '900'},
+  qStatBox: {flex: 1},
+  qStatDivider: {width: 1, backgroundColor: colors.border, marginHorizontal: spacing.md},
+  qStatLabel: {
+    color: colors.inkSoft, fontSize: 10, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2,
+  },
+  qStatValue: {color: colors.navy, fontSize: 15, fontWeight: '900'},
+  qNotesText: {color: colors.inkSoft, fontSize: 13, fontStyle: 'italic'},
+  qAcceptedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: '#EFF6FF', borderRadius: radius.md,
+    padding: spacing.md, borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  qAcceptedIcon: {fontSize: 24},
+  qAcceptedTitle: {color: '#1066B1', fontSize: 14, fontWeight: '900'},
+  qAcceptedSub: {color: '#166534', fontSize: 12, marginTop: 2},
+  qDeclinedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: '#FEF2F2', borderRadius: radius.md,
+    padding: spacing.md, borderWidth: 1, borderColor: '#FECACA',
+  },
+  qDeclinedIcon: {fontSize: 20},
+  qDeclinedTitle: {color: '#B91C1C', fontSize: 13, fontWeight: '900'},
+  qDeclinedSub: {color: '#7F1D1D', fontSize: 11, marginTop: 2},
+  qWithdrawBtn: {
+    borderWidth: 1, borderColor: colors.danger,
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  qWithdrawText: {color: colors.danger, fontSize: 13, fontWeight: '800'},
+
+  statusPill: {
+    borderRadius: radius.pill, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 4,
+    alignSelf: 'flex-start', flexShrink: 0,
+  },
+  statusPillText: {fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.3},
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  emptyWrap: {alignItems: 'center', marginTop: 60, paddingHorizontal: spacing.xl},
+  emptyIcon: {fontSize: 56, marginBottom: 16},
+  emptyTitle: {fontSize: 20, fontWeight: '900', color: colors.navy, marginBottom: 8, textAlign: 'center'},
+  emptyBody: {fontSize: 14, color: colors.inkSoft, textAlign: 'center', lineHeight: 20},
+
+  // ── Filter modal ──────────────────────────────────────────────────────────
+  modalBackdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.4)'},
+  filterModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: spacing.xl, paddingBottom: 40, paddingTop: 16, gap: 4,
+  },
+  filterModalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  filterModalTitle: {color: colors.navy, fontSize: 17, fontWeight: '900', marginBottom: 12},
+  filterModalOpt: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: 16, borderRadius: radius.md, marginBottom: 2,
+  },
+  filterModalOptSelected: {backgroundColor: '#EFF8FF'},
+  filterModalOptText: {color: colors.ink, fontSize: 15, fontWeight: '600'},
+  filterModalOptTextSel: {color: '#1066B1', fontWeight: '800'},
+  filterModalTick: {color: '#1066B1', fontSize: 16, fontWeight: '900'},
 
   // ── Quote modal ───────────────────────────────────────────────────────────
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(4, 22, 39, 0.7)',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: 'center', justifyContent: 'flex-end',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },
   modal: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    gap: spacing.sm,
+    width: '100%', backgroundColor: colors.card,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, gap: spacing.sm,
   },
   modalTitle: {color: colors.navy, fontSize: 20, fontWeight: '900'},
   modalSub: {color: colors.inkSoft, fontSize: 13, fontWeight: '700'},
   inputLabel: {color: colors.navy, fontSize: 13, fontWeight: '800', marginTop: spacing.xs},
   input: {
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.navy,
-    fontWeight: '700',
+    backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: colors.navy, fontWeight: '700',
   },
-  totalPreview: {
-    color: '#1066B1',
-    fontWeight: '900',
-    fontSize: 13,
-    marginTop: -spacing.xs,
-  },
+  totalPreview: {color: '#1066B1', fontWeight: '900', fontSize: 13, marginTop: -spacing.xs},
   modalActions: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm},
   cancelBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1, height: 52, borderRadius: radius.lg, borderWidth: 1,
+    borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
   },
   cancelBtnText: {color: colors.inkSoft, fontWeight: '800', fontSize: 14},
+  primaryBtn: {
+    flex: 1, backgroundColor: '#1066B1', borderRadius: radius.lg,
+    height: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  primaryBtnText: {color: '#fff', fontWeight: '900', fontSize: 13},
+  outlineBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg,
+    height: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  outlineBtnText: {color: colors.inkSoft, fontWeight: '800', fontSize: 13},
 });
 
 export default ShiftsScreen;

@@ -22,6 +22,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  currency?: string;
   role: string;
   status: string;
   isVerified?: boolean;
