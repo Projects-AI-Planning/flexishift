@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class JobCreateRequest(BaseModel):
@@ -13,14 +13,18 @@ class JobCreateRequest(BaseModel):
     drop_lng: Optional[float] = Field(None, alias="dropLng")
     goods_type: str = Field(..., alias="goodsType")
     weight_kg: Optional[float] = Field(None, alias="weightKg")
+    total_capacity: float = Field(..., alias="totalCapacity")
+    compartments: int = Field(..., alias="compartments")
+    compartment_details: Optional[List[dict]] = Field(None, alias="compartmentDetails")
+    special_instructions: str = Field(..., alias="specialInstructions")
     vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")
     driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
     stops: Optional[List[dict]] = Field(None, alias="stops")
+    access_code: str = Field(..., alias="accessCode")
     load_code: str = Field(..., alias="loadCode")
-    access_code: Optional[str] = Field(None, alias="accessCode")
-    total_litres: Optional[float] = Field(None, alias="totalLitres")
+    estimated_delivery: Optional[date] = Field(None, alias="estimatedDelivery")
 
     model_config = {"populate_by_name": True}
 

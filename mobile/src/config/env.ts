@@ -1,12 +1,8 @@
-import {Platform} from 'react-native';
-
 // Set this to a remote URL to use a deployed dev server instead of local.
-// Leave empty ('') to fall back to localhost (emulator: 10.0.2.2, iOS sim: localhost).
+// Leave empty ('') to use localhost (works for both emulator and device via adb reverse).
 const DEV_API_URL = '';
 
-const localHost = Platform.OS === 'android'
-  ? 'http://10.0.2.2:8000'
-  : 'http://localhost:8000';
+const localHost = 'http://localhost:8000';
 
 const devHost = DEV_API_URL || localHost;
 

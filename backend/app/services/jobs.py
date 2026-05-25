@@ -18,7 +18,23 @@ def _gen_job_ref() -> str:
 
 
 
-_SLOT_END_HOURS = {'MORNING': 12, 'AFTERNOON': 18, 'EVENING': 22, 'NIGHT': 30, 'FULL_DAY': 30}
+_SLOT_END_HOURS   = {'MORNING': 12, 'AFTERNOON': 18, 'EVENING': 22, 'NIGHT': 30, 'FULL_DAY': 30}
+_SLOT_START_HOURS = {'MORNING': 6,  'AFTERNOON': 12, 'EVENING': 18, 'NIGHT': 22, 'FULL_DAY': 0}
+
+
+def _compute_eta(data: dict):
+    from datetime import timedelta
+    estimated = data.get("estimated_delivery")
+    if estimated:
+        return datetime.combine(estimated, datetime.min.time())
+    job_date     = data.get("job_date")
+    duration_min = data.get("duration_min")
+    if not job_date or not duration_min:
+        return None
+    slot       = (data.get("time_slot") or "MORNING").upper()
+    start_hour = _SLOT_START_HOURS.get(slot, 6)
+    departure  = datetime.combine(job_date, datetime.min.time()).replace(hour=start_hour)
+    return departure + timedelta(minutes=int(duration_min))
 
 
 async def create_job(db: Session, haulier: User, data: dict) -> Job:
@@ -69,17 +85,14 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         addr = stop.get("address", "").strip()
         if not addr:
             continue
-        compartment = {
-            "goods_type": stop.get("goods_type") or stop.get("goodsType") or "",
-            "litres": float(stop["litres"]) if stop.get("litres") else None,
-        }
+        delivery_qty = stop.get("deliveryQty")
         if stop.get("lat") and stop.get("lng"):
             geocoded_stops.append({
                 "address": addr,
                 "lat": float(stop["lat"]),
                 "lng": float(stop["lng"]),
                 "order": i + 1,
-                **compartment,
+                **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
             })
         else:
             try:
@@ -89,10 +102,15 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
                     "lat": float(geo["lat"]),
                     "lng": float(geo["lng"]),
                     "order": i + 1,
-                    **compartment,
+                    **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
                 })
             except Exception:
-                geocoded_stops.append({"address": addr, "lat": None, "lng": None, "order": i + 1, **compartment})
+                geocoded_stops.append({
+                    "address": addr, "lat": None, "lng": None, "order": i + 1,
+                    **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
+                })
+
+    data["duration_min"] = route["duration_min"]
 
     job_ref = _gen_job_ref()
     while db.query(Job).filter(Job.job_ref == job_ref).first():
@@ -102,8 +120,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         haulier_id=haulier.id,
         job_ref=job_ref,
         load_code=data.get("load_code", "").strip().upper(),
-        access_code=data.get("access_code", "").strip().upper() or None,
-        total_litres=data.get("total_litres"),
+        access_code=(data.get("access_code") or "").strip().upper() or None,
         pickup_address=data["pickup_address"],
         pickup_lat=data["pickup_lat"],
         pickup_lng=data["pickup_lng"],
@@ -112,6 +129,10 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         drop_lng=data["drop_lng"],
         goods_type=data["goods_type"],
         weight_kg=data.get("weight_kg"),
+        total_capacity=data.get("total_capacity"),
+        compartments=data.get("compartments"),
+        compartment_details=data.get("compartment_details") or None,
+        special_instructions=data.get("special_instructions"),
         vehicle_type=data.get("vehicle_type"),
         job_date=data["job_date"],
         time_slot=data["time_slot"],
@@ -119,6 +140,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         stops=geocoded_stops if geocoded_stops else None,
         distance_km=route["distance_km"],
         duration_min=route["duration_min"],
+        original_eta=_compute_eta(data),
         status=JobStatus.OPEN,
     )
     db.add(job)

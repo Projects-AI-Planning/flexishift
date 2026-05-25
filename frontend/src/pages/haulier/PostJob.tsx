@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 import RouteMapStep, { type RouteStepData } from './RouteMapStep';
@@ -18,29 +18,39 @@ const SLOT_END_HOURS: Record<string, number> = {
   NIGHT: 30, FULL_DAY: 30,
 };
 
+const SLOT_START_HOURS: Record<string, number> = {
+  MORNING: 6, AFTERNOON: 12, EVENING: 18, NIGHT: 22, FULL_DAY: 0,
+};
+
 const DRIVER_REQUIREMENTS = [
   { value: 'DRIVER_ONLY',       label: 'Driver Only',      desc: 'Hire a driver — you provide the truck.',          icon: 'person'         },
   { value: 'DRIVER_WITH_TRUCK', label: 'Truck with Driver', desc: 'Hire a driver who brings their own truck.',       icon: 'local_shipping' },
   { value: 'TRUCK_ONLY',        label: 'Truck Only',        desc: 'Hire a truck — no driver services needed.',       icon: 'garage'         },
 ];
 
-const GOODS_SUGGESTIONS = [
-  'Palletised Goods', 'Machinery', 'Refrigerated Food', 'Building Materials',
-  'Electronics', 'Automotive Parts', 'Chemicals', 'Furniture', 'Textiles',
-];
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
 interface StopEntry { id: string; address: string; lat?: number; lng?: number; goodsType?: string; litres?: string; }
 
+interface CompartmentDetail {
+  contents:  string;
+  quantity:  string;
+  unit:      string;
+  stopId:    string;
+}
+
 interface FormState {
   pickupAddress:       string;
   dropAddress:         string;
   goodsType:           string;
+  totalCapacity:       string;
+  compartments:        string;
   jobDate:             string;
   timeSlot:            string;
   specialInstructions: string;
   driverRequirement:   string;
+  accessCode:          string;
   loadCode:            string;
   accessCode:          string;
   totalLitres:         string;
@@ -69,10 +79,13 @@ const EMPTY: FormState = {
   pickupAddress:       '',
   dropAddress:         '',
   goodsType:           '',
+  totalCapacity:       '',
+  compartments:        '',
   jobDate:             '',
   timeSlot:            'MORNING',
   specialInstructions: '',
   driverRequirement:   'DRIVER_WITH_TRUCK',
+  accessCode:          '',
   loadCode:            '',
   accessCode:          '',
   totalLitres:         '',
@@ -134,13 +147,38 @@ const PostJobPage: React.FC = () => {
   const [step, setStep]           = useState(1);
   const [form, setForm]           = useState<FormState>(EMPTY);
   const [stops, setStops]         = useState<StopEntry[]>([]);
+  const [stopDeliveries, setStopDeliveries]       = useState<Record<string, string>>({});
+  const [compartmentDetails, setCompartmentDetails] = useState<CompartmentDetail[]>([]);
   const [routeCoords, setRouteCoords] = useState<RouteCoords>({});
   const [error, setError]         = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated]     = useState<CreatedJob | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  const _now  = new Date();
+  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+
+  /* ── Auto-compute estimated delivery date (local time, not UTC) ── */
+  useEffect(() => {
+    if (!form.jobDate || !routeCoords.durationMin) { setDeliveryDate(''); return; }
+    const startHour = SLOT_START_HOURS[form.timeSlot] ?? 6;
+    const departure = new Date(`${form.jobDate}T${String(startHour).padStart(2, '0')}:00:00`);
+    const arrival   = new Date(departure.getTime() + routeCoords.durationMin * 60 * 1000);
+    const y = arrival.getFullYear();
+    const m = String(arrival.getMonth() + 1).padStart(2, '0');
+    const d = String(arrival.getDate()).padStart(2, '0');
+    setDeliveryDate(`${y}-${m}-${d}`);
+  }, [form.jobDate, form.timeSlot, routeCoords.durationMin]);
+
+  /* ── Sync compartment detail rows with count ── */
+  useEffect(() => {
+    const count = Math.max(0, parseInt(form.compartments) || 0);
+    setCompartmentDetails(prev =>
+      Array.from({ length: count }, (_, i) =>
+        prev[i] ?? { contents: '', quantity: '', unit: 'L', stopId: 'final' }
+      )
+    );
+  }, [form.compartments]);
 
   /* ── Route map callback ── */
   const handleRouteChange = useCallback((data: RouteStepData) => {
@@ -150,6 +188,11 @@ const PostJobPage: React.FC = () => {
       dropAddress:   data.dropAddress,
     }));
     setStops(data.stops);
+    setStopDeliveries(prev => {
+      const next: Record<string, string> = {};
+      data.stops.forEach(s => { next[s.id] = prev[s.id] ?? ''; });
+      return next;
+    });
     setRouteCoords({
       pickupLat:   data.pickupLat,
       pickupLng:   data.pickupLng,
@@ -180,14 +223,33 @@ const PostJobPage: React.FC = () => {
       if (!routeCoords.dropLat)       return 'Please choose a drop-off address from the suggestions.';
     }
     if (step === 2) {
-      if (!form.driverRequirement) return 'Please select a driver requirement.';
-      if (!form.goodsType.trim())  return 'Goods type is required.';
-      if (!form.jobDate)           return 'Job date is required.';
-      if (form.jobDate < today)    return 'Job date cannot be in the past.';
+      if (!form.driverRequirement)          return 'Please select a driver requirement.';
+      if (!form.goodsType.trim())           return 'Goods type is required.';
+      if (!form.totalCapacity)              return 'Total capacity is required.';
+      if (parseFloat(form.totalCapacity) <= 0) return 'Total capacity must be greater than 0.';
+      if (!form.compartments)               return 'Number of compartments is required.';
+      if (parseInt(form.compartments) < 1)  return 'Compartments must be at least 1.';
+      for (let i = 0; i < compartmentDetails.length; i++) {
+        const c = compartmentDetails[i];
+        if (!c.contents.trim())     return `Compartment ${i + 1}: contents are required.`;
+        if (!c.quantity)            return `Compartment ${i + 1}: quantity is required.`;
+        if (parseFloat(c.quantity) <= 0) return `Compartment ${i + 1}: quantity must be greater than 0.`;
+        if (!c.stopId)              return `Compartment ${i + 1}: please select a destination stop.`;
+      }
+      if (stops.length > 0) {
+        for (let i = 0; i < stops.length; i++) {
+          if (!stopDeliveries[stops[i].id]) return `Delivery quantity is required for Stop ${i + 1}.`;
+        }
+      }
+      if (!form.jobDate)                    return 'Collection date is required.';
+      if (form.jobDate < today)             return 'Collection date cannot be in the past.';
       if (form.jobDate === today && isSlotExpired(form.timeSlot))
         return 'The selected time slot has already passed for today. Please choose a later slot.';
-      if (!form.loadCode.trim())   return 'Load code is required.';
-      if (form.loadCode.trim().length < 4) return 'Load code must be at least 4 characters.';
+      if (!form.accessCode.trim())          return 'Access code is required.';
+      if (form.accessCode.trim().length < 4) return 'Access code must be at least 4 characters.';
+      if (!form.loadCode.trim())            return 'Load code is required.';
+      if (form.loadCode.trim().length < 4)  return 'Load code must be at least 4 characters.';
+      if (!form.specialInstructions.trim()) return 'Special instructions are required.';
     }
     return '';
   };
@@ -214,20 +276,32 @@ const PostJobPage: React.FC = () => {
         dropLat:           routeCoords.dropLat,
         dropLng:           routeCoords.dropLng,
         goodsType:         form.goodsType.trim(),
+        totalCapacity:     form.totalCapacity ? parseFloat(form.totalCapacity) : undefined,
+        compartments:      form.compartments ? parseInt(form.compartments, 10) : undefined,
+        compartmentDetails: compartmentDetails.map((c, i) => ({
+          compartment: i + 1,
+          contents:    c.contents.trim(),
+          quantity:    parseFloat(c.quantity),
+          unit:        c.unit,
+          stopId:      c.stopId,
+          stopLabel:   c.stopId === 'final'
+            ? `Final Destination: ${form.dropAddress}`
+            : (() => { const idx = stops.findIndex(s => s.id === c.stopId); return `Stop ${idx + 1}: ${stops[idx]?.address ?? ''}`; })(),
+        })),
         jobDate:           form.jobDate,
+        estimatedDelivery: deliveryDate || undefined,
         timeSlot:          form.timeSlot,
         driverRequirement: form.driverRequirement,
         stops:             stops.map((s, i) => ({
-          address:    s.address,
-          lat:        s.lat,
-          lng:        s.lng,
-          order:      i + 1,
-          goods_type: s.goodsType?.trim() || '',
-          litres:     s.litres ? parseFloat(s.litres) : null,
+          address:     s.address,
+          lat:         s.lat,
+          lng:         s.lng,
+          order:       i + 1,
+          deliveryQty: stopDeliveries[s.id] ? parseFloat(stopDeliveries[s.id]) : undefined,
         })),
-        loadCode:          form.loadCode.trim().toUpperCase(),
-        accessCode:        form.accessCode.trim().toUpperCase() || undefined,
-        totalLitres:       form.totalLitres ? parseFloat(form.totalLitres) : undefined,
+        specialInstructions: form.specialInstructions.trim(),
+        accessCode:          form.accessCode.trim().toUpperCase(),
+        loadCode:            form.loadCode.trim().toUpperCase(),
       }) as {
         jobId?: string; jobReference?: string; loadCode?: string;
         distanceKm?: number; durationMin?: number;
@@ -300,7 +374,7 @@ const PostJobPage: React.FC = () => {
                 View Jobs
               </button>
               <button
-                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setRouteCoords({}); setStep(1); setError(''); }}
+                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setStopDeliveries({}); setCompartmentDetails([]); setRouteCoords({}); setStep(1); setError(''); }}
                 className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
               >
                 Post New
@@ -424,8 +498,9 @@ const PostJobPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-7">
-              {/* Driver Requirement */}
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-8">
+
+              {/* ── Driver Requirement ── */}
               <div>
                 <Label text="Driver Requirement" required />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
@@ -459,50 +534,203 @@ const PostJobPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Goods type */}
-              <div className="relative">
-                <Label text="Goods Type" required />
-                <input
-                  className={inputCls}
-                  placeholder="e.g. Palletised Goods, Refrigerated Food, Machinery…"
-                  value={form.goodsType}
-                  onChange={set('goodsType')}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  autoComplete="off"
-                />
-                {showSuggestions && (
-                  <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
-                    {GOODS_SUGGESTIONS.filter(s => s.toLowerCase().includes(form.goodsType.toLowerCase())).slice(0, 6).map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#1066b1]/10 hover:text-[#0a4a8f] font-medium transition-colors"
-                        onMouseDown={() => { setForm(f => ({ ...f, goodsType: s })); setShowSuggestions(false); }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              {/* ── Section divider: Cargo ── */}
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-[#1066b1]/10 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[#1066b1] text-sm">inventory_2</span>
+                </div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Cargo Details</p>
+                <div className="flex-1 h-px bg-slate-100" />
               </div>
 
-              {/* Collection Date */}
-              <div>
-                <Label text="Collection Date" required />
-                <input
-                  className={inputCls}
-                  type="date"
-                  min={today}
-                  value={form.jobDate}
-                  onChange={set('jobDate')}
-                />
+              {/* Goods Type / Total Capacity / Compartments — one row */}
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_140px] gap-4">
+                <div>
+                  <Label text="Goods Type" required />
+                  <input
+                    className={inputCls}
+                    placeholder="e.g. Fuel, Palletised Goods, Machinery…"
+                    value={form.goodsType}
+                    onChange={set('goodsType')}
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <Label text="Total Capacity" required hint="L / kg" />
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 5000"
+                    value={form.totalCapacity}
+                    onChange={set('totalCapacity')}
+                  />
+                </div>
+                <div>
+                  <Label text="Compartments" required hint="no." />
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 3"
+                    value={form.compartments}
+                    onChange={set('compartments')}
+                  />
+                </div>
+              </div>
+
+              {/* Compartment details — shown when count > 0 */}
+              {compartmentDetails.length > 0 && (
+                <div>
+                  <Label text="Compartment Details" required hint="what goes in each compartment" />
+                  <div className="mt-1 rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                    <div className="hidden sm:grid sm:grid-cols-[44px_1fr_110px_76px_1fr] gap-3 px-4 py-2 bg-slate-50">
+                      {['#', 'Contents', 'Qty', 'Unit', 'Destination Stop'].map(h => (
+                        <span key={h} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</span>
+                      ))}
+                    </div>
+                    {compartmentDetails.map((c, i) => {
+                      const stopOptions = [
+                        ...stops.map((s, si) => ({ value: s.id, label: `Stop ${si + 1}: ${s.address.length > 32 ? s.address.slice(0, 32) + '…' : s.address}` })),
+                        { value: 'final', label: `Final: ${form.dropAddress ? (form.dropAddress.length > 32 ? form.dropAddress.slice(0, 32) + '…' : form.dropAddress) : 'Final Destination'}` },
+                      ];
+                      const upd = (field: keyof CompartmentDetail) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+                        setCompartmentDetails(prev => prev.map((x, j) => j === i ? { ...x, [field]: e.target.value } : x));
+                      return (
+                        <div key={i} className="grid grid-cols-1 sm:grid-cols-[44px_1fr_110px_76px_1fr] gap-3 px-4 py-3 bg-white items-center">
+                          <div className="w-8 h-8 rounded-lg bg-[#1066b1]/10 flex items-center justify-center">
+                            <span className="text-xs font-black text-[#1066b1]">{i + 1}</span>
+                          </div>
+                          <input
+                            className={inputCls}
+                            placeholder="e.g. Petrol, Diesel…"
+                            value={c.contents}
+                            onChange={upd('contents')}
+                          />
+                          <input
+                            className={inputCls}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="2000"
+                            value={c.quantity}
+                            onChange={upd('quantity')}
+                          />
+                          <select className={inputCls} value={c.unit} onChange={upd('unit')}>
+                            <option value="L">L</option>
+                            <option value="kg">kg</option>
+                            <option value="t">t</option>
+                            <option value="units">units</option>
+                          </select>
+                          <select className={inputCls} value={c.stopId} onChange={upd('stopId')}>
+                            {stopOptions.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Stop delivery quantities */}
+              {stops.length > 0 && (
+                <div>
+                  <Label text="Delivery Qty per Stop" required hint="how much to unload at each stop" />
+                  <div className="mt-1 rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                    {stops.map((s, i) => (
+                      <div key={s.id} className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-slate-50 transition-colors">
+                        <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
+                          <span className="text-white text-[10px] font-black">{i + 1}</span>
+                        </div>
+                        <p className="text-sm font-medium text-[#44474C] flex-1 truncate min-w-0">{s.address || `Stop ${i + 1}`}</p>
+                        <input
+                          className="w-32 bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-[#041627] shrink-0"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Qty (L/kg)"
+                          value={stopDeliveries[s.id] ?? ''}
+                          onChange={e => setStopDeliveries(prev => ({ ...prev, [s.id]: e.target.value }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-slate-400">Same unit as total capacity above.</p>
+                </div>
+              )}
+
+              {/* ── Section divider: Schedule ── */}
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-emerald-500 text-sm">calendar_month</span>
+                </div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Schedule</p>
+                <div className="flex-1 h-px bg-slate-100" />
+              </div>
+
+              {/* Collection Date + Estimated Delivery */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label text="Collection Date" required />
+                  <input
+                    className={inputCls}
+                    type="date"
+                    min={today}
+                    value={form.jobDate}
+                    onChange={set('jobDate')}
+                  />
+                </div>
+                <div>
+                  <Label text="Est. Delivery Date" hint="auto-calculated" />
+                  <div className={`${inputCls} flex items-center gap-2 ${deliveryDate ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-400 bg-slate-50'}`}>
+                    <span className={`material-symbols-outlined text-base shrink-0 ${deliveryDate ? 'text-emerald-500' : 'text-slate-300'}`}>
+                      event_available
+                    </span>
+                    <span className="text-sm font-semibold truncate">
+                      {deliveryDate
+                        ? new Date(deliveryDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Set route & date first'}
+                    </span>
+                  </div>
+                  {deliveryDate && (
+                    <p className="mt-1.5 text-[10px] text-slate-400">Based on route duration from Step 1.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Access Code + Load Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label text="Access Code" required hint="e.g. gate or site entry code" />
+                  <input
+                    className={`${inputCls} font-mono tracking-widest uppercase`}
+                    placeholder="e.g. GATE4321"
+                    value={form.accessCode}
+                    maxLength={20}
+                    onChange={e => setForm(f => ({ ...f, accessCode: e.target.value.toUpperCase() }))}
+                  />
+                  <p className="mt-1.5 text-[10px] text-slate-400">Share with the driver to access the pickup site.</p>
+                </div>
+                <div>
+                  <Label text="Load Code" required hint="shared with driver at pickup" />
+                  <input
+                    className={`${inputCls} font-mono tracking-widest uppercase`}
+                    placeholder="e.g. ABC12345"
+                    value={form.loadCode}
+                    maxLength={20}
+                    onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
+                  />
+                </div>
               </div>
 
               {/* Time slot */}
               <div>
                 <Label text="Deliver By" required />
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                   {TIME_SLOTS.map(t => {
                     const expired  = form.jobDate === today && isSlotExpired(t.value);
                     const selected = form.timeSlot === t.value;
@@ -512,23 +740,23 @@ const PostJobPage: React.FC = () => {
                         type="button"
                         disabled={expired}
                         onClick={() => !expired && setForm(f => ({ ...f, timeSlot: t.value }))}
-                        className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                        className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 text-left transition-all ${
                           expired   ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' :
                           selected  ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'    :
                                       'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                       >
-                        <span className={`material-symbols-outlined text-xl ${expired ? 'text-slate-300' : selected ? 'text-primary' : 'text-slate-400'}`}>
+                        <span className={`material-symbols-outlined text-lg ${expired ? 'text-slate-300' : selected ? 'text-primary' : 'text-slate-400'}`}>
                           {t.icon}
                         </span>
-                        <div>
-                          <p className={`font-black text-sm ${expired ? 'text-slate-400' : selected ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
+                        <div className="min-w-0">
+                          <p className={`font-black text-sm truncate ${expired ? 'text-slate-400' : selected ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
                           <p className={`text-[10px] font-medium ${expired ? 'text-red-400' : 'text-slate-400'}`}>
-                            {expired ? 'Passed for today' : t.sub}
+                            {expired ? 'Passed' : t.sub}
                           </p>
                         </div>
                         {selected && !expired && (
-                          <span className="material-symbols-outlined text-primary text-base ml-auto">check_circle</span>
+                          <span className="material-symbols-outlined text-primary text-sm ml-auto shrink-0">check_circle</span>
                         )}
                       </button>
                     );
@@ -536,95 +764,9 @@ const PostJobPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Load code + Access code */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label text="Load Code" required hint="Driver enters at pickup to verify" />
-                  <input
-                    className={`${inputCls} font-mono tracking-widest uppercase`}
-                    placeholder="e.g. ABC12345"
-                    value={form.loadCode}
-                    maxLength={20}
-                    onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
-                  />
-                  <p className="mt-1.5 text-[10px] text-slate-400">Keep private — share only with the driver at pickup.</p>
-                </div>
-                <div>
-                  <Label text="Access Code" hint="(optional) — gate or site entry code" />
-                  <input
-                    className={`${inputCls} font-mono tracking-widest uppercase`}
-                    placeholder="e.g. GATE9012"
-                    value={form.accessCode}
-                    maxLength={20}
-                    onChange={e => setForm(f => ({ ...f, accessCode: e.target.value.toUpperCase() }))}
-                  />
-                  <p className="mt-1.5 text-[10px] text-slate-400">Site access code for secured depots or gates.</p>
-                </div>
-              </div>
-
-              {/* Total litres */}
-              <div>
-                <Label text="Total Litres" hint="(optional) — total volume of liquid goods" />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className={inputCls}
-                  placeholder="e.g. 5000"
-                  value={form.totalLitres}
-                  onChange={e => setForm(f => ({ ...f, totalLitres: e.target.value }))}
-                />
-              </div>
-
-              {/* Per-stop compartment segregation */}
-              {stops.length > 0 && (
-                <div>
-                  <Label text="Compartment Segregation" hint="Specify goods and litres per delivery point" />
-                  <div className="space-y-3 mt-2">
-                    {stops.map((s, i) => (
-                      <div key={s.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50">
-                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3">
-                          Stop {i + 1} — {s.address || 'Unnamed stop'}
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Goods Type</label>
-                            <input
-                              className={inputCls}
-                              placeholder="e.g. Diesel"
-                              value={s.goodsType || ''}
-                              onChange={e => setStops(prev => prev.map((x, j) => j === i ? { ...x, goodsType: e.target.value } : x))}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Litres</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className={inputCls}
-                              placeholder="e.g. 1000"
-                              value={s.litres || ''}
-                              onChange={e => setStops(prev => prev.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {/* Final drop-off compartment */}
-                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
-                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3">
-                        Final Drop-off — {form.dropAddress || 'Drop-off location'}
-                      </p>
-                      <p className="text-[10px] text-slate-400">Remaining goods delivered to the final drop-off. Set per-stop amounts above and the remainder is assumed to go here.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Special instructions */}
               <div>
-                <Label text="Special Instructions" hint="(optional)" />
+                <Label text="Special Instructions" required />
                 <textarea
                   className={`${inputCls} resize-none`}
                   rows={3}
@@ -633,6 +775,7 @@ const PostJobPage: React.FC = () => {
                   onChange={set('specialInstructions')}
                 />
               </div>
+
             </div>
           </div>
         )}
@@ -685,14 +828,53 @@ const PostJobPage: React.FC = () => {
                 {/* Cargo section */}
                 <ReviewSection title="Cargo & Schedule" icon="inventory_2" iconBg="bg-[#1066b1]/10" iconColor="text-[#1066b1]">
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
-                    <ReviewRow label="Requirement" value={DRIVER_REQUIREMENTS.find(r => r.value === form.driverRequirement)?.label ?? form.driverRequirement} />
-                    <ReviewRow label="Goods Type"  value={form.goodsType} />
-                    <ReviewRow label="Date"        value={form.jobDate} />
-                    <ReviewRow label="Deliver By"  value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
-                    <ReviewRow label="Load Code"   value={form.loadCode} />
-                    {form.accessCode && <ReviewRow label="Access Code"  value={form.accessCode} />}
-                    {form.totalLitres && <ReviewRow label="Total Litres" value={`${form.totalLitres} L`} />}
+                    <ReviewRow label="Requirement"     value={DRIVER_REQUIREMENTS.find(r => r.value === form.driverRequirement)?.label ?? form.driverRequirement} />
+                    <ReviewRow label="Goods Type"      value={form.goodsType} />
+                    <ReviewRow label="Total Capacity"  value={form.totalCapacity ? `${form.totalCapacity} L/kg` : '—'} />
+                    <ReviewRow label="Compartments"    value={form.compartments || '—'} />
                   </div>
+                  {compartmentDetails.length > 0 && (
+                    <div className="pt-3 border-t border-slate-100 mb-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Compartment Breakdown</p>
+                      <div className="space-y-1.5">
+                        {compartmentDetails.map((c, i) => {
+                          const stopLabel = c.stopId === 'final'
+                            ? (form.dropAddress || 'Final Destination')
+                            : (() => { const idx = stops.findIndex(s => s.id === c.stopId); return `Stop ${idx + 1}: ${stops[idx]?.address ?? ''}`; })();
+                          return (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              <span className="w-6 h-6 rounded bg-[#1066b1]/10 flex items-center justify-center font-black text-[#1066b1] shrink-0">{i + 1}</span>
+                              <span className="font-semibold text-[#44474C]">{c.contents || '—'}</span>
+                              <span className="text-slate-400">·</span>
+                              <span className="font-bold text-[#1066b1]">{c.quantity} {c.unit}</span>
+                              <span className="text-slate-400">→</span>
+                              <span className="text-slate-500 truncate">{stopLabel}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
+                    <ReviewRow label="Collection Date"  value={form.jobDate} />
+                    <ReviewRow label="Est. Delivery"   value={deliveryDate ? new Date(deliveryDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
+                    <ReviewRow label="Deliver By"      value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
+                    {form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
+                    <ReviewRow label="Load Code"       value={form.loadCode} />
+                  </div>
+                  {stops.length > 0 && stops.some(s => stopDeliveries[s.id]) && (
+                    <div className="pt-3 border-t border-slate-100 mb-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Delivery per Stop</p>
+                      <div className="space-y-1.5">
+                        {stops.map((s, i) => stopDeliveries[s.id] ? (
+                          <div key={s.id} className="flex justify-between items-center">
+                            <span className="text-xs text-slate-500 font-medium truncate max-w-[60%]">Stop {i + 1}: {s.address}</span>
+                            <span className="text-xs font-black text-[#1066b1]">{stopDeliveries[s.id]} L/kg</span>
+                          </div>
+                        ) : null)}
+                      </div>
+                    </div>
+                  )}
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Special Instructions</p>
