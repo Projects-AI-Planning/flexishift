@@ -54,7 +54,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   const jobDate = job?.jobDate ?? '';
   const distance = job?.distanceKm ? `${job.distanceKm} km` : '';
   const weight = job?.weightKg ? `${job.weightKg} kg` : '';
-  const stops: Array<{address: string; order: number}> = Array.isArray(job?.stops) ? job.stops : [];
+  const stops: Array<{address: string; order: number; goods_type?: string; litres?: number}> = Array.isArray(job?.stops) ? job.stops : [];
+  const accessCode = job?.accessCode ?? null;
+  const totalLitres = job?.totalLitres ? `${job.totalLitres} L` : '';
 
   return (
     <ScrollView
@@ -112,6 +114,17 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
         <InfoRow label="Job Date" value={jobDate} />
         <InfoRow label="Distance" value={distance} />
         <InfoRow label="Weight" value={weight} />
+        {totalLitres ? <InfoRow label="Total Litres" value={totalLitres} /> : null}
+        {accessCode ? <InfoRow label="Access Code" value={accessCode} /> : null}
+        {stops.some(s => s.goods_type || s.litres) && (
+          stops.map((s, idx) => (s.goods_type || s.litres) ? (
+            <InfoRow
+              key={idx}
+              label={`Stop ${idx + 1} Compartment`}
+              value={[s.goods_type, s.litres ? `${s.litres} L` : ''].filter(Boolean).join(' · ')}
+            />
+          ) : null)
+        )}
       </View>
 
       {/* Bid form / Applied status */}

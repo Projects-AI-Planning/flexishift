@@ -19,6 +19,8 @@ class JobCreateRequest(BaseModel):
     driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
     stops: Optional[List[dict]] = Field(None, alias="stops")
     load_code: str = Field(..., alias="loadCode")
+    access_code: Optional[str] = Field(None, alias="accessCode")
+    total_litres: Optional[float] = Field(None, alias="totalLitres")
 
     model_config = {"populate_by_name": True}
 
@@ -28,6 +30,8 @@ class JobOut(BaseModel):
     haulierId: str = Field(..., alias="haulier_id")
     jobRef: str = Field(..., alias="job_ref")
     loadCode: str = Field(..., alias="load_code")
+    accessCode: Optional[str] = Field(None, alias="access_code")
+    totalLitres: Optional[float] = Field(None, alias="total_litres")
     pickupAddress: str = Field(..., alias="pickup_address")
     pickupLat: float = Field(..., alias="pickup_lat")
     pickupLng: float = Field(..., alias="pickup_lng")
@@ -66,6 +70,8 @@ class JobUpdateRequest(BaseModel):
     time_slot: Optional[str] = Field(None, alias="timeSlot")
     driver_requirement: Optional[str] = Field(None, alias="driverRequirement")
     stops: Optional[List[dict]] = Field(None, alias="stops")
+    access_code: Optional[str] = Field(None, alias="accessCode")
+    total_litres: Optional[float] = Field(None, alias="totalLitres")
 
     model_config = {"populate_by_name": True}
 

@@ -35,6 +35,8 @@ class Job(Base):
     haulier_id:           Mapped[str]       = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     job_ref:              Mapped[str]       = mapped_column(String(20), nullable=False, unique=True)
     load_code:            Mapped[str]       = mapped_column(String(10), nullable=False)
+    access_code:          Mapped[str]       = mapped_column(String(20), nullable=True)
+    total_litres:         Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
     pickup_address:       Mapped[str]       = mapped_column(Text, nullable=False)
     pickup_lat:           Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     pickup_lng:           Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)

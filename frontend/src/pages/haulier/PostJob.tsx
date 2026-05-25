@@ -31,7 +31,7 @@ const GOODS_SUGGESTIONS = [
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
-interface StopEntry { id: string; address: string; lat?: number; lng?: number; }
+interface StopEntry { id: string; address: string; lat?: number; lng?: number; goodsType?: string; litres?: string; }
 
 interface FormState {
   pickupAddress:       string;
@@ -42,6 +42,8 @@ interface FormState {
   specialInstructions: string;
   driverRequirement:   string;
   loadCode:            string;
+  accessCode:          string;
+  totalLitres:         string;
 }
 
 interface RouteCoords {
@@ -72,6 +74,8 @@ const EMPTY: FormState = {
   specialInstructions: '',
   driverRequirement:   'DRIVER_WITH_TRUCK',
   loadCode:            '',
+  accessCode:          '',
+  totalLitres:         '',
 };
 
 /* ─── Shared styles ──────────────────────────────────────────────────────────── */
@@ -213,8 +217,17 @@ const PostJobPage: React.FC = () => {
         jobDate:           form.jobDate,
         timeSlot:          form.timeSlot,
         driverRequirement: form.driverRequirement,
-        stops:             stops.map((s, i) => ({ address: s.address, lat: s.lat, lng: s.lng, order: i + 1 })),
+        stops:             stops.map((s, i) => ({
+          address:    s.address,
+          lat:        s.lat,
+          lng:        s.lng,
+          order:      i + 1,
+          goods_type: s.goodsType?.trim() || '',
+          litres:     s.litres ? parseFloat(s.litres) : null,
+        })),
         loadCode:          form.loadCode.trim().toUpperCase(),
+        accessCode:        form.accessCode.trim().toUpperCase() || undefined,
+        totalLitres:       form.totalLitres ? parseFloat(form.totalLitres) : undefined,
       }) as {
         jobId?: string; jobReference?: string; loadCode?: string;
         distanceKm?: number; durationMin?: number;
@@ -523,20 +536,91 @@ const PostJobPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Load code */}
-              <div>
-                <Label text="Load Code" required hint="The driver will enter this code at pickup to verify the job" />
-                <input
-                  className={`${inputCls} font-mono tracking-widest uppercase`}
-                  placeholder="e.g. ABC12345"
-                  value={form.loadCode}
-                  maxLength={20}
-                  onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
-                />
-                <p className="mt-1.5 text-[10px] text-slate-400">
-                  Keep this code private — share it only with the driver at the pickup point.
-                </p>
+              {/* Load code + Access code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label text="Load Code" required hint="Driver enters at pickup to verify" />
+                  <input
+                    className={`${inputCls} font-mono tracking-widest uppercase`}
+                    placeholder="e.g. ABC12345"
+                    value={form.loadCode}
+                    maxLength={20}
+                    onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
+                  />
+                  <p className="mt-1.5 text-[10px] text-slate-400">Keep private — share only with the driver at pickup.</p>
+                </div>
+                <div>
+                  <Label text="Access Code" hint="(optional) — gate or site entry code" />
+                  <input
+                    className={`${inputCls} font-mono tracking-widest uppercase`}
+                    placeholder="e.g. GATE9012"
+                    value={form.accessCode}
+                    maxLength={20}
+                    onChange={e => setForm(f => ({ ...f, accessCode: e.target.value.toUpperCase() }))}
+                  />
+                  <p className="mt-1.5 text-[10px] text-slate-400">Site access code for secured depots or gates.</p>
+                </div>
               </div>
+
+              {/* Total litres */}
+              <div>
+                <Label text="Total Litres" hint="(optional) — total volume of liquid goods" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={inputCls}
+                  placeholder="e.g. 5000"
+                  value={form.totalLitres}
+                  onChange={e => setForm(f => ({ ...f, totalLitres: e.target.value }))}
+                />
+              </div>
+
+              {/* Per-stop compartment segregation */}
+              {stops.length > 0 && (
+                <div>
+                  <Label text="Compartment Segregation" hint="Specify goods and litres per delivery point" />
+                  <div className="space-y-3 mt-2">
+                    {stops.map((s, i) => (
+                      <div key={s.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3">
+                          Stop {i + 1} — {s.address || 'Unnamed stop'}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Goods Type</label>
+                            <input
+                              className={inputCls}
+                              placeholder="e.g. Diesel"
+                              value={s.goodsType || ''}
+                              onChange={e => setStops(prev => prev.map((x, j) => j === i ? { ...x, goodsType: e.target.value } : x))}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Litres</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className={inputCls}
+                              placeholder="e.g. 1000"
+                              value={s.litres || ''}
+                              onChange={e => setStops(prev => prev.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Final drop-off compartment */}
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3">
+                        Final Drop-off — {form.dropAddress || 'Drop-off location'}
+                      </p>
+                      <p className="text-[10px] text-slate-400">Remaining goods delivered to the final drop-off. Set per-stop amounts above and the remainder is assumed to go here.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Special instructions */}
               <div>
@@ -606,6 +690,8 @@ const PostJobPage: React.FC = () => {
                     <ReviewRow label="Date"        value={form.jobDate} />
                     <ReviewRow label="Deliver By"  value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
                     <ReviewRow label="Load Code"   value={form.loadCode} />
+                    {form.accessCode && <ReviewRow label="Access Code"  value={form.accessCode} />}
+                    {form.totalLitres && <ReviewRow label="Total Litres" value={`${form.totalLitres} L`} />}
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">

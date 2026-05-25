@@ -69,12 +69,17 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         addr = stop.get("address", "").strip()
         if not addr:
             continue
+        compartment = {
+            "goods_type": stop.get("goods_type") or stop.get("goodsType") or "",
+            "litres": float(stop["litres"]) if stop.get("litres") else None,
+        }
         if stop.get("lat") and stop.get("lng"):
             geocoded_stops.append({
                 "address": addr,
                 "lat": float(stop["lat"]),
                 "lng": float(stop["lng"]),
                 "order": i + 1,
+                **compartment,
             })
         else:
             try:
@@ -84,9 +89,10 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
                     "lat": float(geo["lat"]),
                     "lng": float(geo["lng"]),
                     "order": i + 1,
+                    **compartment,
                 })
             except Exception:
-                geocoded_stops.append({"address": addr, "lat": None, "lng": None, "order": i + 1})
+                geocoded_stops.append({"address": addr, "lat": None, "lng": None, "order": i + 1, **compartment})
 
     job_ref = _gen_job_ref()
     while db.query(Job).filter(Job.job_ref == job_ref).first():
@@ -96,6 +102,8 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         haulier_id=haulier.id,
         job_ref=job_ref,
         load_code=data.get("load_code", "").strip().upper(),
+        access_code=data.get("access_code", "").strip().upper() or None,
+        total_litres=data.get("total_litres"),
         pickup_address=data["pickup_address"],
         pickup_lat=data["pickup_lat"],
         pickup_lng=data["pickup_lng"],
