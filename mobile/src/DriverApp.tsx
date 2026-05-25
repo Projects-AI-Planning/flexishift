@@ -800,19 +800,8 @@ function DriverApp(): React.JSX.Element {
     }
 
     setDocsChecked(true);
-    const documentsApproved = areDriverDocumentsApproved(
-      nextVerificationStatus,
-      nextDocuments,
-    );
-    if (!documentsApproved) {
-      setAvailableJobs([]);
-      setUpcomingJobs([]);
-      setJobHistory([]);
-      setMyQuotes([]);
-      return;
-    }
     const [availableData, upcomingData, historyData, quotesData] = await Promise.all([
-      driverApi.jobs.listAvailable({limit: 20, page: 1, status: 'open'}),
+      driverApi.jobs.listAvailable({page: 1, per_page: 20}),
       driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
       driverApi.dashboard.getJobHistory({limit: 20, page: 1}),
       driverApi.quotes.listMine().catch(() => null),
@@ -1504,6 +1493,10 @@ function DriverApp(): React.JSX.Element {
     try {
       const payload = await driverApi.auth.login(loginForm);
       const newSession = cast<DriverSession>(payload);
+      if (newSession.role === 'haulier') {
+        setAuthError('This app is for drivers only. Please use the web portal to access your haulier account.');
+        return;
+      }
       setSession(newSession);
       AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession)).catch(() => {});
       setSetupStep(null);
@@ -2965,9 +2958,6 @@ function DriverApp(): React.JSX.Element {
           />
         );
       }
-
-      // Compute docStatus for JobDiscoveryScreen banner (apply gate only)
-      const documentsApproved = jobGate.canAccess;
 
       // My Jobs (upcoming / booked)
       if (activeRoute === 'jobs.upcoming') {
