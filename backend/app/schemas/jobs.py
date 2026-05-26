@@ -16,7 +16,7 @@ class JobCreateRequest(BaseModel):
     total_capacity: float = Field(..., alias="totalCapacity")
     compartments: int = Field(..., alias="compartments")
     compartment_details: Optional[List[dict]] = Field(None, alias="compartmentDetails")
-    special_instructions: str = Field(..., alias="specialInstructions")
+    special_instructions: Optional[str] = Field(None, alias="specialInstructions")
     vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")

@@ -36,7 +36,7 @@ async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -
     if existing:
         raise HTTPException(status_code=409, detail="You already have an active quote on this job")
 
-    quote = Quote(job_id=job_id, supplier_id=supplier.id, price=price)
+    quote = Quote(job_id=job_id, supplier_id=supplier.id, price=price, currency=supplier.currency or "GBP")
     db.add(quote)
     db.commit()
     db.refresh(quote)

@@ -82,6 +82,7 @@ export interface DashboardOverview {
     } | null;
     quickActions?: string[];
     status?: string;
+    stops?: Array<{order?: number; address?: string; litres?: number}>;
   } | null;
   driverId: string;
   isAvailable?: boolean;

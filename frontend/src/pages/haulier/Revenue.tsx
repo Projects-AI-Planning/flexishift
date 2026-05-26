@@ -147,9 +147,9 @@ export default function HaulierRevenuePage() {
           <p className="mt-2 text-xs text-slate-500">Released into your account.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Escrowed</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Secured</p>
           <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedRevenue ?? 0)}</h3>
-          <p className="mt-2 text-xs text-slate-500">Payments waiting in escrow.</p>
+          <p className="mt-2 text-xs text-slate-500">Payments secured pending delivery approval.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Net Revenue</p>

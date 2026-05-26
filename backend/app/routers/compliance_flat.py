@@ -30,20 +30,25 @@ AdminDep = require_role(Role.ADMIN)
 
 # ── Load Code ─────────────────────────────────────────────────────────────────
 
+class AccessCodeRequest(BaseModel):
+    job_id: str = Field(..., alias="jobId")
+    access_code: str = Field(..., alias="accessCode")
+    model_config = {"populate_by_name": True}
+
+
 class LoadCodeRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
     load_code: str = Field(..., alias="loadCode")
     model_config = {"populate_by_name": True}
 
 
-
 @router.post("/load-code/verify")
 def verify_load_code(
-    body: LoadCodeRequest,
+    body: AccessCodeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(DriverDep),
 ):
-    record = comp_svc.verify_load_code(db, body.job_id, current_user.id, body.load_code)
+    record = comp_svc.verify_load_code(db, body.job_id, current_user.id, body.access_code)
     job = db.query(Job).filter(Job.id == body.job_id).first()
     return ok(
         data={
@@ -53,8 +58,24 @@ def verify_load_code(
             "loadCodeVerifiedAt": record.load_code_verified_at.isoformat() if record.load_code_verified_at else None,
             "verifiedBy": current_user.id,
         },
-        message="Load code verified",
+        message="Access code verified",
     )
+
+
+@router.post("/load-code/verify-at-handover")
+def verify_load_code_at_handover(
+    body: LoadCodeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(DriverDep),
+):
+    job = db.query(Job).filter(Job.id == body.job_id, Job.deleted_at.is_(None)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.selected_supplier_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not job.load_code or job.load_code.upper() != body.load_code.strip().upper():
+        raise HTTPException(status_code=400, detail="Invalid load code")
+    return ok(data={"jobId": body.job_id, "verified": True}, message="Load code verified")
 
 
 @router.get("/load-code/status/{job_id}")

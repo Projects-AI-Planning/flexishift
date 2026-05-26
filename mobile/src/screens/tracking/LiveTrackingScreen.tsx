@@ -193,6 +193,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
           dropCoords={dropCoords}
           currentCoords={liveCoords}
           liveMode={isInTransit}
+          stops={Array.isArray((activeJob as any)?.stops) ? (activeJob as any).stops : []}
           onLocationUpdate={isInTransit ? onUpdateLocation : undefined}
           onRouteInfoUpdate={isInTransit ? setRealtimeInfo : undefined}
         />

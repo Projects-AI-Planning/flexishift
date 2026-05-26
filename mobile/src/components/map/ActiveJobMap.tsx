@@ -10,6 +10,7 @@ interface ActiveJobMapProps {
   dropCoords?: {latitude: number; longitude: number} | null;
   currentCoords?: {latitude: number; longitude: number} | null;
   liveMode?: boolean;
+  stops?: Array<{address?: string; order?: number; litres?: number}>;
   onLocationUpdate?: (coords: {latitude: number; longitude: number}) => void;
   onRouteInfoUpdate?: (info: {distanceKm: number; durationMin: number}) => void;
 }
@@ -79,6 +80,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   dropCoords: dropCoordsProp = null,
   currentCoords = null,
   liveMode = false,
+  stops = [],
   onLocationUpdate,
   onRouteInfoUpdate,
 }) => {
@@ -88,6 +90,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
 
   const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
   const [dropCoords, setDropCoords] = useState<Coords | null>(null);
+  const [stopCoords, setStopCoords] = useState<Coords[]>([]);
   const [loading, setLoading] = useState(true);
   const [noCoords, setNoCoords] = useState(false);
   const [routeReady, setRouteReady] = useState(false);
@@ -142,6 +145,26 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     pickupCoordsProp?.latitude, pickupCoordsProp?.longitude,
     dropCoordsProp?.latitude, dropCoordsProp?.longitude,
   ]);
+
+  // ── Geocode intermediate stops ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!stops || stops.length === 0) {
+      setStopCoords([]);
+      return;
+    }
+    let cancelled = false;
+    const sorted = [...stops].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    (async () => {
+      const results = await Promise.all(
+        sorted.map(s => (s.address ? geocode(s.address) : Promise.resolve(null))),
+      );
+      if (!cancelled) {
+        setStopCoords(results.filter((c): c is Coords => c !== null));
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(stops?.map(s => s.address))]);
 
   // ── GPS handler — fires whenever showsUserLocation updates ──────────────────
   const handleUserLocationChange = useCallback(
@@ -225,7 +248,11 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
 
     (async () => {
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${directionsOrigin.longitude},${directionsOrigin.latitude};${directionsDestination.longitude},${directionsDestination.latitude}?overview=full&geometries=geojson`;
+        const waypointSegments = stopCoords
+          .map(c => `${c.lon},${c.lat}`)
+          .join(';');
+        const waypoints = waypointSegments ? `;${waypointSegments}` : '';
+        const url = `https://router.project-osrm.org/route/v1/driving/${directionsOrigin.longitude},${directionsOrigin.latitude}${waypoints};${directionsDestination.longitude},${directionsDestination.latitude}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -266,7 +293,8 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
         });
       }
     })();
-  }, [directionsOrigin?.latitude, directionsOrigin?.longitude, directionsDestination?.latitude, directionsDestination?.longitude, onRouteInfoUpdate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directionsOrigin?.latitude, directionsOrigin?.longitude, directionsDestination?.latitude, directionsDestination?.longitude, stopCoords, onRouteInfoUpdate]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (noCoords && !loading) {
@@ -343,6 +371,19 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
                 </View>
               </Marker>
             )}
+
+            {/* Intermediate stop pins */}
+            {stopCoords.map((sc, idx) => (
+              <Marker
+                key={`stop-${idx}`}
+                coordinate={{latitude: sc.lat, longitude: sc.lon}}
+                title={`Stop ${idx + 1}`}
+                description={stops[idx]?.address ?? ''}>
+                <View style={styles.pinStop}>
+                  <Text style={styles.pinLabel}>{idx + 1}</Text>
+                </View>
+              </Marker>
+            ))}
 
             {/* Destination pin */}
             {dropCoords && (
@@ -447,6 +488,17 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#dc2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    elevation: 4,
+  },
+  pinStop: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#d97706',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,

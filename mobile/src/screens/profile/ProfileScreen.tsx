@@ -21,12 +21,72 @@ import {launchImageLibrary} from 'react-native-image-picker';
 import {driverApi} from '../../api/driverApi';
 import {colors, radius, spacing} from '../../theme';
 import TruckCompartmentVisual, {
-  FUEL_COLORS,
-  FUEL_TYPES,
   TruckCompartment,
 } from '../../components/TruckCompartmentVisual';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+const DIAL_CODES = [
+  {code: 'GB', dialCode: '+44',  name: 'UK'},
+  {code: 'US', dialCode: '+1',   name: 'USA'},
+  {code: 'CA', dialCode: '+1',   name: 'Canada'},
+  {code: 'AU', dialCode: '+61',  name: 'Australia'},
+  {code: 'NZ', dialCode: '+64',  name: 'New Zealand'},
+  {code: 'IE', dialCode: '+353', name: 'Ireland'},
+  {code: 'DE', dialCode: '+49',  name: 'Germany'},
+  {code: 'FR', dialCode: '+33',  name: 'France'},
+  {code: 'ES', dialCode: '+34',  name: 'Spain'},
+  {code: 'IT', dialCode: '+39',  name: 'Italy'},
+  {code: 'NL', dialCode: '+31',  name: 'Netherlands'},
+  {code: 'CH', dialCode: '+41',  name: 'Switzerland'},
+  {code: 'SE', dialCode: '+46',  name: 'Sweden'},
+  {code: 'NO', dialCode: '+47',  name: 'Norway'},
+  {code: 'DK', dialCode: '+45',  name: 'Denmark'},
+  {code: 'PL', dialCode: '+48',  name: 'Poland'},
+  {code: 'SG', dialCode: '+65',  name: 'Singapore'},
+  {code: 'HK', dialCode: '+852', name: 'Hong Kong'},
+  {code: 'JP', dialCode: '+81',  name: 'Japan'},
+  {code: 'IN', dialCode: '+91',  name: 'India'},
+  {code: 'PK', dialCode: '+92',  name: 'Pakistan'},
+  {code: 'BD', dialCode: '+880', name: 'Bangladesh'},
+  {code: 'LK', dialCode: '+94',  name: 'Sri Lanka'},
+  {code: 'NG', dialCode: '+234', name: 'Nigeria'},
+  {code: 'GH', dialCode: '+233', name: 'Ghana'},
+  {code: 'KE', dialCode: '+254', name: 'Kenya'},
+  {code: 'ZA', dialCode: '+27',  name: 'South Africa'},
+  {code: 'AE', dialCode: '+971', name: 'UAE'},
+  {code: 'SA', dialCode: '+966', name: 'Saudi Arabia'},
+  {code: 'QA', dialCode: '+974', name: 'Qatar'},
+  {code: 'KW', dialCode: '+965', name: 'Kuwait'},
+  {code: 'BH', dialCode: '+973', name: 'Bahrain'},
+  {code: 'OM', dialCode: '+968', name: 'Oman'},
+  {code: 'EG', dialCode: '+20',  name: 'Egypt'},
+  {code: 'MA', dialCode: '+212', name: 'Morocco'},
+  {code: 'TZ', dialCode: '+255', name: 'Tanzania'},
+  {code: 'UG', dialCode: '+256', name: 'Uganda'},
+  {code: 'ET', dialCode: '+251', name: 'Ethiopia'},
+  {code: 'MX', dialCode: '+52',  name: 'Mexico'},
+  {code: 'BR', dialCode: '+55',  name: 'Brazil'},
+  {code: 'TR', dialCode: '+90',  name: 'Turkey'},
+  {code: 'TH', dialCode: '+66',  name: 'Thailand'},
+  {code: 'MY', dialCode: '+60',  name: 'Malaysia'},
+  {code: 'ID', dialCode: '+62',  name: 'Indonesia'},
+  {code: 'PH', dialCode: '+63',  name: 'Philippines'},
+  {code: 'VN', dialCode: '+84',  name: 'Vietnam'},
+  {code: 'CN', dialCode: '+86',  name: 'China'},
+  {code: 'KR', dialCode: '+82',  name: 'South Korea'},
+];
+
+function splitPhone(raw: string): {dialCode: string; number: string} {
+  if (!raw) {return {dialCode: '+44', number: ''};}
+  const sorted = [...DIAL_CODES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+  for (const d of sorted) {
+    if (raw.startsWith(d.dialCode)) {
+      return {dialCode: d.dialCode, number: raw.slice(d.dialCode.length).trimStart()};
+    }
+  }
+  return {dialCode: '', number: raw};
+}
 
 const DRIVER_AVAILABILITY_LABELS: Record<string, string> = {
   DRIVER_ONLY:       'Only Driver',
@@ -200,6 +260,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [availDropdownOpen, setAvailDropdownOpen] = useState(false);
+  const [dialCodeModalOpen, setDialCodeModalOpen] = useState(false);
+
+  const [phoneDialCode, setPhoneDialCode] = useState(() => splitPhone(profileForm.phone).dialCode || '+44');
+  const [phoneNumber, setPhoneNumber] = useState(() => splitPhone(profileForm.phone).number);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
   const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
   const [extraDocNameInput, setExtraDocNameInput] = useState('');
@@ -221,12 +285,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       .map((c: any, i: number) => ({
         id: c.id ?? Date.now() + i,
         capacityLitres: String(c.capacityLitres),
-        fuelType: c.fuelType ?? 'Other',
       })),
   );
   const [cptCapacity, setCptCapacity] = useState('');
-  const [cptFuelType, setCptFuelType] = useState('Diesel');
-  const [fuelDropOpen, setFuelDropOpen] = useState(false);
   const [cptError, setCptError] = useState('');
 
   const openVehicleModal = () => {
@@ -645,13 +706,71 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           value={email}
           editable={false}
         />
-        <InfoField
-          label="PHONE NUMBER"
-          value={profileForm.phone}
-          onChange={v => onChange({phone: v})}
-          placeholder="+1 (555) 000-0000"
-          keyboardType="phone-pad"
-        />
+        {/* Phone with country code picker */}
+        <View style={phoneStyles.wrap}>
+          <Text style={phoneStyles.label}>PHONE NUMBER</Text>
+          <View style={phoneStyles.row}>
+            <Pressable
+              style={phoneStyles.dialBtn}
+              onPress={() => setDialCodeModalOpen(true)}>
+              <Text style={phoneStyles.dialBtnText}>{phoneDialCode}</Text>
+              <Text style={phoneStyles.dialChevron}>▾</Text>
+            </Pressable>
+            <TextInput
+              style={phoneStyles.numberInput}
+              value={phoneNumber}
+              onChangeText={v => {
+                setPhoneNumber(v);
+                onChange({phone: v.trim() ? `${phoneDialCode}${v.trim()}` : ''});
+              }}
+              placeholder="7123 456789"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        {/* Dial code picker modal */}
+        <Modal
+          visible={dialCodeModalOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDialCodeModalOpen(false)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setDialCodeModalOpen(false)}>
+            <Pressable style={[styles.modalCard, {maxHeight: '70%', gap: 0}]} onPress={() => {}}>
+              <View style={[styles.modalHeader, {marginBottom: 12}]}>
+                <Text style={styles.modalTitle}>Select Country Code</Text>
+                <Pressable onPress={() => setDialCodeModalOpen(false)} style={styles.modalCloseBtn}>
+                  <Text style={styles.modalCloseBtnText}>✕</Text>
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {DIAL_CODES.map((d, i) => {
+                  const active = d.dialCode === phoneDialCode;
+                  const isLast = i === DIAL_CODES.length - 1;
+                  return (
+                    <Pressable
+                      key={d.code}
+                      style={[phoneStyles.dialItem, !isLast && phoneStyles.dialItemBorder, active && phoneStyles.dialItemActive]}
+                      onPress={() => {
+                        setPhoneDialCode(d.dialCode);
+                        onChange({phone: phoneNumber.trim() ? `${d.dialCode}${phoneNumber.trim()}` : ''});
+                        setDialCodeModalOpen(false);
+                      }}>
+                      <Text style={[phoneStyles.dialItemName, active && phoneStyles.dialItemNameActive]}>
+                        {d.name}
+                      </Text>
+                      <Text style={[phoneStyles.dialItemCode, active && phoneStyles.dialItemCodeActive]}>
+                        {d.dialCode}
+                      </Text>
+                      {active && <Text style={phoneStyles.dialItemTick}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
 
       {/* ── Vehicle Information ───────────────────────────────────────────── */}
@@ -777,23 +896,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {/* Compartment chips */}
               {compartments.length > 0 && (
                 <View style={cptStyles.chipRow}>
-                  {compartments.map((cpt, idx) => {
-                    const color = FUEL_COLORS[cpt.fuelType] ?? FUEL_COLORS.Other;
-                    return (
-                      <View key={cpt.id} style={[cptStyles.chip, {borderColor: color + '60'}]}>
-                        <View style={[cptStyles.chipDot, {backgroundColor: color}]} />
-                        <Text style={cptStyles.chipLabel}>C{idx + 1}</Text>
-                        <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} L</Text>
-                        <Text style={cptStyles.chipFuel}>{cpt.fuelType}</Text>
-                        <Pressable
-                          onPress={() => updateCompartments(compartments.filter(c => c.id !== cpt.id))}
-                          style={cptStyles.chipRemove}
-                          hitSlop={6}>
-                          <Text style={cptStyles.chipRemoveText}>✕</Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
+                  {compartments.map((cpt, idx) => (
+                    <View key={cpt.id} style={cptStyles.chip}>
+                      <Text style={cptStyles.chipLabel}>C{idx + 1}</Text>
+                      <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} L</Text>
+                      <Pressable
+                        onPress={() => updateCompartments(compartments.filter(c => c.id !== cpt.id))}
+                        style={cptStyles.chipRemove}
+                        hitSlop={6}>
+                        <Text style={cptStyles.chipRemoveText}>✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
                 </View>
               )}
 
@@ -803,56 +917,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   {compartments.length === 0 ? 'Add First Compartment' : 'Add Another Compartment'}
                 </Text>
 
-                <View style={cptStyles.inputRow}>
-                  {/* Capacity */}
-                  <View style={cptStyles.capacityWrap}>
-                    <Text style={cptStyles.inputLabel}>CAPACITY (L)</Text>
-                    <View style={cptStyles.capacityInput}>
-                      <TextInput
-                        style={cptStyles.capacityField}
-                        keyboardType="numeric"
-                        placeholder="e.g. 8000"
-                        placeholderTextColor="#9CA4B0"
-                        value={cptCapacity}
-                        onChangeText={v => { setCptCapacity(v.replace(/[^0-9]/g, '')); setCptError(''); }}
-                        returnKeyType="done"
-                      />
-                      <Text style={cptStyles.capacityUnit}>L</Text>
-                    </View>
-                  </View>
-
-                  {/* Fuel type */}
-                  <View style={cptStyles.fuelWrap}>
-                    <Text style={cptStyles.inputLabel}>FUEL TYPE</Text>
-                    <Pressable
-                      style={[cptStyles.fuelTrigger, {borderColor: (FUEL_COLORS[cptFuelType] ?? '#D1D5DB') + 'AA'}]}
-                      onPress={() => setFuelDropOpen(o => !o)}>
-                      <View style={[cptStyles.fuelDot, {backgroundColor: FUEL_COLORS[cptFuelType] ?? '#94A3B8'}]} />
-                      <Text style={cptStyles.fuelValue}>{cptFuelType}</Text>
-                      <Text style={[cptStyles.fuelChevron, fuelDropOpen && cptStyles.fuelChevronUp]}>▾</Text>
-                    </Pressable>
-                  </View>
+                <View style={cptStyles.capacityInput}>
+                  <TextInput
+                    style={cptStyles.capacityField}
+                    keyboardType="numeric"
+                    placeholder="Capacity in litres, e.g. 8000"
+                    placeholderTextColor="#9CA4B0"
+                    value={cptCapacity}
+                    onChangeText={v => { setCptCapacity(v.replace(/[^0-9]/g, '')); setCptError(''); }}
+                    returnKeyType="done"
+                  />
+                  <Text style={cptStyles.capacityUnit}>L</Text>
                 </View>
-
-                {/* Fuel dropdown */}
-                {fuelDropOpen && (
-                  <View style={cptStyles.fuelDropList}>
-                    {FUEL_TYPES.map((ft, fi) => {
-                      const active = cptFuelType === ft;
-                      const isLast = fi === FUEL_TYPES.length - 1;
-                      return (
-                        <Pressable
-                          key={ft}
-                          onPress={() => { setCptFuelType(ft); setFuelDropOpen(false); }}
-                          style={[cptStyles.fuelDropItem, !isLast && cptStyles.fuelDropItemBorder, active && cptStyles.fuelDropItemActive]}>
-                          <View style={[cptStyles.fuelDropDot, {backgroundColor: FUEL_COLORS[ft] ?? '#94A3B8'}]} />
-                          <Text style={[cptStyles.fuelDropLabel, active && cptStyles.fuelDropLabelActive]}>{ft}</Text>
-                          {active && <Text style={cptStyles.fuelDropTick}>✓</Text>}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
 
                 {cptError ? <Text style={cptStyles.error}>{cptError}</Text> : null}
 
@@ -866,7 +942,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }
                     updateCompartments([
                       ...compartments,
-                      {id: Date.now(), capacityLitres: cap, fuelType: cptFuelType},
+                      {id: Date.now(), capacityLitres: cap},
                     ]);
                     setCptCapacity('');
                     setCptError('');
@@ -1868,10 +1944,8 @@ const cptStyles = StyleSheet.create({
     backgroundColor: '#F8FAFC', borderWidth: 1.5,
     borderRadius: 99, paddingHorizontal: 10, paddingVertical: 5,
   },
-  chipDot: {width: 8, height: 8, borderRadius: 4},
   chipLabel: {fontSize: 11, fontWeight: '900', color: '#111827'},
   chipCap: {fontSize: 12, fontWeight: '700', color: '#111827'},
-  chipFuel: {fontSize: 11, color: '#6B7280', fontWeight: '600'},
   chipRemove: {
     width: 18, height: 18, borderRadius: 9,
     backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center',
@@ -1885,13 +1959,6 @@ const cptStyles = StyleSheet.create({
   },
   formTitle: {fontSize: 12, fontWeight: '800', color: '#374151', letterSpacing: 0.2},
 
-  inputRow: {flexDirection: 'row', gap: 10},
-  inputLabel: {
-    fontSize: 10, fontWeight: '800', color: '#6B7280',
-    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5,
-  },
-
-  capacityWrap: {flex: 1},
   capacityInput: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D1D5DB',
@@ -1899,34 +1966,6 @@ const cptStyles = StyleSheet.create({
   },
   capacityField: {flex: 1, fontSize: 15, color: '#111827', fontWeight: '600'},
   capacityUnit: {fontSize: 13, fontWeight: '700', color: '#6B7280'},
-
-  fuelWrap: {flex: 1},
-  fuelTrigger: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: '#FFFFFF', borderWidth: 1.5,
-    borderRadius: radius.md, minHeight: 46, paddingHorizontal: 12,
-  },
-  fuelDot: {width: 10, height: 10, borderRadius: 5},
-  fuelValue: {flex: 1, fontSize: 13, fontWeight: '700', color: '#111827'},
-  fuelChevron: {fontSize: 13, color: '#6B7280'},
-  fuelChevronUp: {transform: [{rotate: '180deg'}]},
-
-  fuelDropList: {
-    borderWidth: 1, borderColor: '#D1D5DB', borderRadius: radius.md,
-    backgroundColor: '#FFFFFF', overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: {width: 0, height: 3},
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 5,
-  },
-  fuelDropItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, paddingHorizontal: 14, backgroundColor: '#FFFFFF',
-  },
-  fuelDropItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
-  fuelDropItemActive: {backgroundColor: '#EAF3FD'},
-  fuelDropDot: {width: 10, height: 10, borderRadius: 5},
-  fuelDropLabel: {flex: 1, fontSize: 13, fontWeight: '600', color: '#111827'},
-  fuelDropLabelActive: {color: '#1066B1', fontWeight: '700'},
-  fuelDropTick: {fontSize: 13, color: '#1066B1', fontWeight: '900'},
 
   error: {fontSize: 12, fontWeight: '700', color: '#DC2626'},
 
@@ -1970,6 +2009,40 @@ const scStyles = StyleSheet.create({
   },
   btnDisabled: {opacity: 0.5},
   btnText: {color: '#fff', fontSize: 14, fontWeight: '700'},
+});
+
+const phoneStyles = StyleSheet.create({
+  wrap: {gap: 6},
+  label: {fontSize: 11, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5},
+  row: {
+    flexDirection: 'row', alignItems: 'stretch',
+    borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: 10,
+    backgroundColor: '#F3F4F6', overflow: 'hidden',
+  },
+  dialBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 13,
+    borderRightWidth: 1.5, borderRightColor: '#D1D5DB',
+    backgroundColor: '#E8ECF0',
+  },
+  dialBtnText: {fontSize: 14, fontWeight: '800', color: '#111827'},
+  dialChevron: {fontSize: 12, color: '#6B7280'},
+  numberInput: {
+    flex: 1, paddingHorizontal: 12, paddingVertical: 13,
+    fontSize: 15, color: '#111827', fontWeight: '500',
+  },
+  dialItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 13, paddingHorizontal: 16,
+    backgroundColor: '#fff',
+  },
+  dialItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F3F4F6'},
+  dialItemActive: {backgroundColor: '#EAF3FD'},
+  dialItemName: {flex: 1, fontSize: 14, fontWeight: '600', color: '#111827'},
+  dialItemNameActive: {color: '#1066B1', fontWeight: '800'},
+  dialItemCode: {fontSize: 14, fontWeight: '700', color: '#6B7280', marginRight: 8},
+  dialItemCodeActive: {color: '#1066B1'},
+  dialItemTick: {fontSize: 14, fontWeight: '900', color: '#1066B1'},
 });
 
 export default ProfileScreen;

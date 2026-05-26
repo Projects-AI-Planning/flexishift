@@ -99,7 +99,7 @@ type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset' | 'terms' |
 type SetupStep = 'profile' | 'documents' | null;
 
 const palette = {
-  accent: '#DFA622',
+  accent: '#1066b1',
   accentSoft: '#FFF3D5',
   bg: '#F8F9FA',
   border: '#E4DED0',
@@ -1516,7 +1516,7 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: string;
     vehicleType: string;
     vehicleRegistration: string;
-    compartments?: Array<{id: number; capacityLitres: string; fuelType: string}>;
+    compartments?: Array<{id: number; capacityLitres: string}>;
     photoFile?: {uri: string; fileName: string; type: string};
     extraDocs: {name: string; docNumber: string}[];
   }) => {
@@ -1877,8 +1877,8 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      await driverApi.compliance.verifyLoadCode({jobId, loadCode: code});
-      setSuccessBanner('Load code verified! Proceed to vehicle handover.');
+      await driverApi.compliance.verifyLoadCode({jobId, accessCode: code});
+      setSuccessBanner('Access code verified! Proceed to vehicle handover.');
       navigate('tracking', 'compliance.handover');
       // Remove the load code screen from back history so the driver can't accidentally
       // return to it after a successful verification
@@ -1888,10 +1888,16 @@ function DriverApp(): React.JSX.Element {
       }
       await refreshActiveView();
     } catch (err) {
-      setErrorBanner(err instanceof Error ? err.message : 'Invalid load code.');
+      setErrorBanner(err instanceof Error ? err.message : 'Invalid access code.');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleVerifyLoadCodeAtHandover = async (code: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    await driverApi.compliance.verifyLoadCodeAtHandover({jobId, loadCode: code});
   };
 
   const handleSubmitHandover = async (checklist: any, photos: any[]) => {
@@ -2818,6 +2824,7 @@ function DriverApp(): React.JSX.Element {
           jobReference={hoJobRef}
           onSubmit={handleSubmitHandover}
           onProceed={() => { void handleProceedAfterHandover(); }}
+          onVerifyLoadCode={handleVerifyLoadCodeAtHandover}
           loading={actionLoading}
           error={errorBanner}
           haulierSigned={handoverStatus?.haulierSigned ?? false}
@@ -3050,6 +3057,14 @@ function DriverApp(): React.JSX.Element {
                     jobRef: String(d.jobRef ?? ''),
                     pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
                     dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
+                    stops: Array.isArray(d.stops) ? (d.stops as Array<{order?: number; address?: string; litres?: number}>) : [],
+                    goodsType: d.goodsType ? String(d.goodsType) : undefined,
+                    jobDate: d.jobDate ? String(d.jobDate) : undefined,
+                    timeSlot: d.timeSlot ? String(d.timeSlot) : undefined,
+                    compartmentCount: d.compartmentCount != null ? Number(d.compartmentCount) : undefined,
+                    totalLitres: d.totalLitres != null ? Number(d.totalLitres) : undefined,
+                    specialInstructions: d.specialInstructions ? String(d.specialInstructions) : undefined,
+                    distanceKm: d.distanceKm != null ? Number(d.distanceKm) : undefined,
                     amount: Number(d.amount ?? 0),
                     currency: String(d.currency ?? session?.currency ?? 'GBP'),
                     status: String(d.status ?? ''),

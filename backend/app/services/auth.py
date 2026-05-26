@@ -11,6 +11,7 @@ from app.core.security import (
 )
 from app.config import settings
 from app.services.email import send_verification_email, send_password_reset_email
+from app.utils.phone_country import phone_to_country_currency
 
 
 def _generate_otp() -> str:
@@ -100,6 +101,8 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    detected_country, detected_currency = phone_to_country_currency(phone)
+
     otp = _generate_otp()
     pending = {
         "full_name": full_name,
@@ -107,7 +110,8 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
         "phone": phone or "",
         "password_hash": hash_password(password),
         "role": role,
-        "currency": currency or "GBP",
+        "country": detected_country,
+        "currency": detected_currency,
         "otp": otp,
     }
     _store_pending(r, email, pending)
@@ -133,6 +137,7 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                 phone=pending["phone"],
                 password_hash=pending["password_hash"],
                 role=Role(pending["role"]),
+                country=pending.get("country", "GB"),
                 currency=pending.get("currency", "GBP"),
                 status=UserStatus.ACTIVE,
                 verified=True,

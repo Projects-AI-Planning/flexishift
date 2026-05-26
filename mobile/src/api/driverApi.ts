@@ -161,6 +161,11 @@ export const driverApi = {
         method: 'POST',
         body: jsonBody(payload),
       }),
+    verifyLoadCodeAtHandover: (payload: Record<string, unknown>) =>
+      request<Record<string, unknown>>('/compliance/load-code/verify-at-handover', {
+        method: 'POST',
+        body: jsonBody(payload),
+      }),
   },
   dashboard: {
     getEarnings: (

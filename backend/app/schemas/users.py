@@ -56,6 +56,8 @@ class UpdateProfileRequest(BaseModel):
     driver_assignments: Optional[list[dict]] = Field(None, alias="driverAssignments")
     bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
     push_token: Optional[str] = Field(None, alias="pushToken")
+    country: Optional[str] = Field(None, alias="country")
+    currency: Optional[str] = Field(None, alias="currency")
 
     model_config = {"populate_by_name": True}
 

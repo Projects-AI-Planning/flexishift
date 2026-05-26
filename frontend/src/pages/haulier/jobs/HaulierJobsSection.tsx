@@ -16,6 +16,9 @@ type QuoteRow = {
     vehicleNumber?: string;
     avgRating?: number | null;
     completedJobs?: number;
+    driverAvailability?: string | null;
+    truckCapacity?: string | null;
+    equipmentDetails?: Array<{ id?: number; capacityLitres?: string | number }> | null;
   } | null;
   quoteAmount: number;
   currency: string;
@@ -60,6 +63,45 @@ type HandoverState = {
   haulierSigned: boolean;
   driverSignedAt?: string | null;
   haulierSignedAt?: string | null;
+};
+
+type JobDetail = {
+  jobId: string;
+  jobReference?: string;
+  jobRef?: string;
+  status: string;
+  pickupLocation?: string;
+  pickupAddress?: string;
+  dropLocation?: string;
+  dropAddress?: string;
+  goodsType?: string;
+  vehicleType?: string;
+  weightKg?: number | null;
+  distanceKm?: number | null;
+  timeSlot?: string;
+  jobDate?: string;
+  loadCode?: string;
+  accessCode?: string;
+  agreedAmount?: number | null;
+  currency?: string;
+  createdAt?: string;
+  specialInstructions?: string;
+  compartmentCount?: number | null;
+  totalCapacity?: string;
+  totalLitres?: number | null;
+  driverRequirement?: string;
+  stops?: Array<{
+    order?: number;
+    address?: string;
+    litres?: number | null;
+    compartment?: number | null;
+  }>;
+  driver?: {
+    name?: string;
+    phone?: string;
+    vehicleType?: string;
+    vehicleNumber?: string;
+  } | null;
 };
 
 type SectionMeta = {
@@ -290,13 +332,21 @@ interface BidsPanelProps {
 }
 
 const BidsPanel: React.FC<BidsPanelProps> = ({
-  jobRef, quotes, loading, error, actionLoading, onApprove, onReject, onClose,
+  jobId, jobRef, quotes, loading, error, actionLoading, onApprove, onReject, onClose,
 }) => {
   const activeQuotes = quotes.filter((q) => q.status.toUpperCase() === 'ACTIVE');
   const otherQuotes = quotes.filter((q) => q.status.toUpperCase() !== 'ACTIVE');
 
-  // Pull job details from the first quote (all quotes on this panel are for the same job)
-  const jobDetails = quotes.find((q) => q.job)?.job ?? null;
+  const [detail, setDetail] = React.useState<JobDetail | null>(null);
+  const [detailLoading, setDetailLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    setDetailLoading(true);
+    haulierService.getJobDetails(jobId)
+      .then((d) => setDetail(d as JobDetail))
+      .catch(() => setDetail(null))
+      .finally(() => setDetailLoading(false));
+  }, [jobId]);
 
   return (
     <div
@@ -305,74 +355,174 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
     >
       <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
         {/* Header */}
-        <div className="border-b border-slate-100 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Driver Bids</p>
-              <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 shrink-0">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Job & Bids</p>
+            <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
           </div>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
 
-          {/* Job details card */}
-          {jobDetails && (
-            <div className="mt-4 rounded-2xl bg-[#041627] p-4 space-y-3">
-              {/* Route */}
-              {(jobDetails.pickupLocation || jobDetails.dropLocation) && (
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          {/* ── Job Details ── */}
+          {detailLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
+            </div>
+          )}
+
+          {!detailLoading && detail && (
+            <>
+              {/* Route card */}
+              <div className="rounded-2xl bg-[#041627] p-5 space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#1066b1]" />
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
-                      <p className="text-sm font-bold text-white">{jobDetails.pickupLocation ?? '—'}</p>
+                      <p className="text-sm font-bold text-white">{detail.pickupLocation ?? detail.pickupAddress ?? '—'}</p>
                     </div>
                   </div>
+                  {detail.stops && detail.stops.length > 0 && detail.stops.map((stop, i) => (
+                    <React.Fragment key={i}>
+                      <div className="ml-[5px] h-4 w-px bg-white/20" />
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/10 text-[6px] font-black text-white/70">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stop {i + 1}</p>
+                          <p className="text-sm font-bold text-white truncate">{stop.address ?? '—'}</p>
+                          {(stop.litres != null || stop.compartment != null) && (
+                            <div className="mt-0.5 flex gap-3 text-[10px] text-white/40">
+                              {stop.litres != null && <span>{stop.litres} L</span>}
+                              {stop.compartment != null && <span>Comp. {stop.compartment}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  ))}
                   <div className="ml-[5px] h-4 w-px bg-white/20" />
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
-                      <p className="text-sm font-bold text-white">{jobDetails.dropLocation ?? '—'}</p>
+                      <p className="text-sm font-bold text-white">{detail.dropLocation ?? detail.dropAddress ?? '—'}</p>
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* Meta grid */}
-              <div className="grid grid-cols-4 gap-2 rounded-xl bg-white/8 p-3">
-                <div className="text-center">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Cargo</p>
-                  <p className="text-[11px] font-black text-white">{jobDetails.goodsType ?? '—'}</p>
-                </div>
-                <div className="text-center border-x border-white/10">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Weight</p>
-                  <p className="text-[11px] font-black text-white">{jobDetails.weightKg != null ? `${jobDetails.weightKg} kg` : '—'}</p>
-                </div>
-                <div className="text-center border-r border-white/10">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Vehicle</p>
-                  <p className="text-[11px] font-black text-white">{jobDetails.vehicleType ?? '—'}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Date</p>
-                  <p className="text-[11px] font-black text-white">
-                    {jobDetails.jobDate ? new Date(jobDetails.jobDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
-                  </p>
+                <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/8 p-3">
+                  <div className="text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Date</p>
+                    <p className="text-[11px] font-black text-white">
+                      {detail.jobDate ? new Date(detail.jobDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
+                    </p>
+                  </div>
+                  <div className="text-center border-x border-white/10">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Cargo</p>
+                    <p className="text-[11px] font-black text-white">{detail.goodsType ?? '—'}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Distance</p>
+                    <p className="text-[11px] font-black text-white">{detail.distanceKm != null ? `${detail.distanceKm} km` : '—'}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+              {/* Job info grid */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Job Info</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {detail.timeSlot && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Time Slot</p>
+                      <p className="font-bold text-[#041627]">{detail.timeSlot}</p>
+                    </div>
+                  )}
+                  {detail.weightKg != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Weight</p>
+                      <p className="font-bold text-[#041627]">{detail.weightKg} kg</p>
+                    </div>
+                  )}
+                  {detail.totalCapacity && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Capacity</p>
+                      <p className="font-bold text-[#041627]">{detail.totalCapacity}</p>
+                    </div>
+                  )}
+                  {detail.totalLitres != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Litres</p>
+                      <p className="font-bold text-[#041627]">{detail.totalLitres} L</p>
+                    </div>
+                  )}
+                  {detail.compartmentCount != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Compartments</p>
+                      <p className="font-bold text-[#041627]">{detail.compartmentCount}</p>
+                    </div>
+                  )}
+                  {detail.driverRequirement && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Requirement</p>
+                      <p className="font-bold text-[#041627]">{detail.driverRequirement}</p>
+                    </div>
+                  )}
+                </div>
+                {detail.specialInstructions && (
+                  <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Special Instructions</p>
+                    <p className="text-sm text-[#44474C]">{detail.specialInstructions}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Codes */}
+              {(detail.loadCode || detail.accessCode) && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
+                  {detail.loadCode && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Load Code</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail.loadCode}</p>
+                      </div>
+                      <button onClick={() => { void navigator.clipboard.writeText(detail.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                      </button>
+                    </div>
+                  )}
+                  {detail.accessCode && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Access Code</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail.accessCode}</p>
+                      </div>
+                      <button onClick={() => { void navigator.clipboard.writeText(detail.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Divider ── */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Bids</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          {/* ── Bids ── */}
           {loading && (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
+            <div className="flex items-center justify-center py-10">
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
             </div>
           )}
 
@@ -381,7 +531,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
           )}
 
           {!loading && !error && quotes.length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-20 text-center">
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                 <span className="material-symbols-outlined text-2xl text-slate-400">inbox</span>
               </span>
@@ -397,32 +547,20 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {activeQuotes.map((q) => (
-                  <BidCard
-                    key={q.quoteId}
-                    quote={q}
-                    actionLoading={actionLoading}
-                    onApprove={onApprove}
-                    onReject={onReject}
-                  />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} />
                 ))}
               </div>
             </div>
           )}
 
           {!loading && otherQuotes.length > 0 && (
-            <div className={activeQuotes.length > 0 ? 'mt-6' : ''}>
+            <div className={activeQuotes.length > 0 ? 'mt-4' : ''}>
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Previous · {otherQuotes.length}
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <BidCard
-                    key={q.quoteId}
-                    quote={q}
-                    actionLoading={actionLoading}
-                    onApprove={onApprove}
-                    onReject={onReject}
-                  />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} />
                 ))}
               </div>
             </div>
@@ -487,6 +625,41 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
               </span>
             )}
           </div>
+
+          {/* Truck info — shown when driver has a truck */}
+          {(sup?.driverAvailability === 'TRUCK_ONLY' || sup?.driverAvailability === 'DRIVER_WITH_TRUCK') && (
+            <div className="mt-2 rounded-xl border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-2 space-y-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]">
+                {sup.driverAvailability === 'TRUCK_ONLY' ? 'Truck Only' : 'Driver with Truck'}
+              </p>
+
+              {/* Stats: Capacity + Compartment count */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-white border border-[#1066b1]/15 px-2.5 py-1.5 text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-[#1066b1]/70 mb-0.5">Capacity</p>
+                  <p className="text-xs font-black text-[#041627]">{sup.truckCapacity ?? '—'}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-[#1066b1]/15 px-2.5 py-1.5 text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-[#1066b1]/70 mb-0.5">Compartments</p>
+                  <p className="text-xs font-black text-[#041627]">
+                    {sup.equipmentDetails && sup.equipmentDetails.length > 0 ? sup.equipmentDetails.length : '—'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Individual compartment chips */}
+              {sup.equipmentDetails && sup.equipmentDetails.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {sup.equipmentDetails.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-lg bg-white border border-[#1066b1]/20 px-2 py-0.5 text-[10px] font-bold text-[#041627]">
+                      <span className="text-[#1066b1] font-black">C{i + 1}</span>
+                      {c.capacityLitres ? `${c.capacityLitres} L` : '—'}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-xl font-black text-[#1066b1]">
@@ -785,7 +958,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
               </div>
               <p className="text-xl font-black text-[#041627]">Delivery Approved</p>
               <p className="text-sm text-slate-500">
-                Payment has been released from escrow and transferred to the driver's account.
+                Payment has been released and transferred to the driver's account.
               </p>
               <button onClick={onClose} className="mt-4 rounded-2xl bg-[#1066b1] px-8 py-3 text-sm font-black text-white">
                 Close
@@ -821,7 +994,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
                   <div className="mt-3 flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black text-amber-300">
                       <span className="material-symbols-outlined text-[12px]">lock</span>
-                      ESCROWED
+                      SECURED
                     </span>
                     {details.payment.escrowedAt && (
                       <span className="text-[10px] text-white/40">since {fmt(details.payment.escrowedAt)}</span>
@@ -978,6 +1151,261 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
   );
 };
 
+/* ── Job Detail Panel ───────────────────────────────────────────────────────── */
+
+interface JobDetailPanelProps {
+  jobId: string;
+  jobRef: string;
+  onClose: () => void;
+}
+
+const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose }) => {
+  const [detail, setDetail] = React.useState<JobDetail | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    setLoading(true);
+    setError('');
+    haulierService.getJobDetails(jobId)
+      .then((d) => setDetail(d as JobDetail))
+      .catch(() => setError('Failed to load job details.'))
+      .finally(() => setLoading(false));
+  }, [jobId]);
+
+  const ref = detail?.jobReference ?? detail?.jobRef ?? jobRef;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 shrink-0">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Job Details</p>
+            <h2 className="text-xl font-black text-[#041627]">{ref}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+          )}
+
+          {!loading && detail && (
+            <>
+              {/* Route card */}
+              <div className="rounded-2xl bg-[#041627] p-5 space-y-3">
+                <div className="space-y-1.5">
+                  {/* Pickup */}
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#1066b1]" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
+                      <p className="text-sm font-bold text-white">{detail.pickupLocation ?? detail.pickupAddress ?? '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Intermediate stops */}
+                  {detail.stops && detail.stops.length > 0 && detail.stops.map((stop, i) => (
+                    <React.Fragment key={i}>
+                      <div className="ml-[5px] h-4 w-px bg-white/20" />
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/10 text-[6px] font-black text-white/70">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stop {i + 1}</p>
+                          <p className="text-sm font-bold text-white truncate">{stop.address ?? '—'}</p>
+                          {(stop.litres != null || stop.compartment != null) && (
+                            <div className="mt-0.5 flex gap-3 text-[10px] text-white/40">
+                              {stop.litres != null && <span>{stop.litres} L</span>}
+                              {stop.compartment != null && <span>Comp. {stop.compartment}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  ))}
+
+                  {/* Drop-off */}
+                  <div className="ml-[5px] h-4 w-px bg-white/20" />
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
+                      <p className="text-sm font-bold text-white">{detail.dropLocation ?? detail.dropAddress ?? '—'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/8 p-3">
+                  <div className="text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Date</p>
+                    <p className="text-[11px] font-black text-white">
+                      {detail.jobDate ? new Date(detail.jobDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
+                    </p>
+                  </div>
+                  <div className="text-center border-x border-white/10">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Cargo</p>
+                    <p className="text-[11px] font-black text-white">{detail.goodsType ?? '—'}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Distance</p>
+                    <p className="text-[11px] font-black text-white">{detail.distanceKm != null ? `${detail.distanceKm} km` : '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status + amount */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Status</p>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadge(detail.status)}`}>
+                    {statusLabel(detail.status)}
+                  </span>
+                </div>
+                {detail.agreedAmount != null && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Amount</p>
+                    <p className="text-xl font-black text-[#1066b1]">${Number(detail.agreedAmount).toLocaleString('en-US')}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Details grid */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Job Info</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {detail.timeSlot && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Time Slot</p>
+                      <p className="font-bold text-[#041627]">{detail.timeSlot}</p>
+                    </div>
+                  )}
+                  {detail.weightKg != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Weight</p>
+                      <p className="font-bold text-[#041627]">{detail.weightKg} kg</p>
+                    </div>
+                  )}
+                  {detail.totalCapacity && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Capacity</p>
+                      <p className="font-bold text-[#041627]">{detail.totalCapacity}</p>
+                    </div>
+                  )}
+                  {detail.totalLitres != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Litres</p>
+                      <p className="font-bold text-[#041627]">{detail.totalLitres} L</p>
+                    </div>
+                  )}
+                  {detail.compartmentCount != null && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Compartments</p>
+                      <p className="font-bold text-[#041627]">{detail.compartmentCount}</p>
+                    </div>
+                  )}
+                  {detail.driverRequirement && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Requirement</p>
+                      <p className="font-bold text-[#041627]">{detail.driverRequirement}</p>
+                    </div>
+                  )}
+                  {detail.createdAt && (
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Posted</p>
+                      <p className="font-bold text-[#041627]">{formatDate(detail.createdAt)}</p>
+                    </div>
+                  )}
+                </div>
+                {detail.specialInstructions && (
+                  <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Special Instructions</p>
+                    <p className="text-sm text-[#44474C]">{detail.specialInstructions}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Codes */}
+              {(detail.loadCode || detail.accessCode) && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
+                  {detail.loadCode && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Load Code</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail.loadCode}</p>
+                      </div>
+                      <button onClick={() => { void navigator.clipboard.writeText(detail.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                      </button>
+                    </div>
+                  )}
+                  {detail.accessCode && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Access Code</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail.accessCode}</p>
+                      </div>
+                      <button onClick={() => { void navigator.clipboard.writeText(detail.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Assigned driver */}
+              {detail.driver && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Assigned Driver</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1066b1]/10 text-[#1066b1] font-black text-sm">
+                      {detail.driver.name ? detail.driver.name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div>
+                      <p className="font-black text-[#041627]">{detail.driver.name ?? 'Unknown'}</p>
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                        {detail.driver.vehicleType && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">local_shipping</span>
+                            {detail.driver.vehicleType}
+                          </span>
+                        )}
+                        {detail.driver.vehicleNumber && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">confirmation_number</span>
+                            {detail.driver.vehicleNumber}
+                          </span>
+                        )}
+                        {detail.driver.phone && (
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">phone</span>
+                            {detail.driver.phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── Main Component ─────────────────────────────────────────────────────────── */
 
 interface HaulierJobsSectionProps {
@@ -1019,6 +1447,10 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
 
   /* Driver rating modal state */
   const [driverRating, setDriverRating] = useState<{ jobId: string; driverId: string; driverName: string } | null>(null);
+
+  /* Job detail panel state */
+  const [viewJobId, setViewJobId] = useState<string | null>(null);
+  const [viewJobRef, setViewJobRef] = useState('');
 
   /* Fetch handover status for every in-transit job */
   const fetchHandoverStatuses = useCallback(async (jobList: HaulierJobRow[]) => {
@@ -1084,14 +1516,14 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
     try {
       await haulierService.acceptQuote(bidsJobId, quoteId);
       closeBidsPanel();
-      refresh();
+      navigate(`/haulier/payments/create?jobId=${bidsJobId}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to approve bid.';
       setQuotesError(msg);
     } finally {
       setQuoteActionLoading(null);
     }
-  }, [bidsJobId, closeBidsPanel, refresh]);
+  }, [bidsJobId, closeBidsPanel, navigate]);
 
   const handleRejectQuote = useCallback(async (quoteId: string) => {
     if (!bidsJobId) return;
@@ -1214,6 +1646,15 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           driverId={driverRating.driverId}
           driverName={driverRating.driverName}
           onClose={() => setDriverRating(null)}
+        />
+      )}
+
+      {/* Job detail panel */}
+      {viewJobId && (
+        <JobDetailPanel
+          jobId={viewJobId}
+          jobRef={viewJobRef}
+          onClose={() => { setViewJobId(null); setViewJobRef(''); }}
         />
       )}
 
@@ -1346,6 +1787,9 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                 )}
                 {activeStatus === 'IN_TRANSIT' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
+                )}
+                {activeStatus !== 'OPEN' && (
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">View</th>
                 )}
               </tr>
             </thead>
@@ -1504,13 +1948,26 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                         )}
                       </td>
                     )}
+
+                    {/* View button — all tabs except OPEN (View Bids already shows full details) */}
+                    {activeStatus !== 'OPEN' && (
+                      <td className="px-6 py-5">
+                        <button
+                          onClick={() => { setViewJobId(job.jobId); setViewJobRef(job.jobReference ?? job.jobRef ?? job.jobId); }}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">visibility</span>
+                          View
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
 
               {!loading && jobs.length === 0 && (
                 <tr>
-                  <td colSpan={activeStatus === 'OPEN' || activeStatus === 'BOOKED' || activeStatus === 'IN_TRANSIT' ? 7 : 6} className="px-6 py-20 text-center">
+                  <td colSpan={activeStatus === 'OPEN' ? 6 : activeStatus === 'BOOKED' || activeStatus === 'IN_TRANSIT' ? 8 : 7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                         <span className="material-symbols-outlined text-2xl text-slate-400">search_off</span>

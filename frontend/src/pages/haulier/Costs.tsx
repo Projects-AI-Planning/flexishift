@@ -93,7 +93,7 @@ export default function HaulierCostsPage() {
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Reports & Analytics</p>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-primary">Cost Analytics</h1>
-          <p className="text-on-surface-variant font-medium">Backend-driven spend, escrow, refunds, and per-load cost view.</p>
+          <p className="text-on-surface-variant font-medium">Backend-driven spend, secured payments, refunds, and per-load cost view.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <select
@@ -144,9 +144,9 @@ export default function HaulierCostsPage() {
           <p className="mt-2 text-xs text-slate-500">Payments linked to loads in the selected period.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Escrowed</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Secured</p>
           <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedAmount ?? 0, summary.currency ?? userCurrency)}</h3>
-          <p className="mt-2 text-xs text-slate-500">Funds currently held in escrow.</p>
+          <p className="mt-2 text-xs text-slate-500">Funds currently secured pending delivery.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Refunds</p>

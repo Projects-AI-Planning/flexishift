@@ -38,11 +38,13 @@ def create_connect_account(db: Session, user: User) -> str:
     first_name = name_parts[0]
     last_name  = name_parts[1] if len(name_parts) > 1 else ""
 
+    country = (getattr(user, "country", None) or "GB").upper()
+
     client = _stripe()
     try:
         account = client.Account.create(
             type="express",
-            country="GB",
+            country=country,
             email=user.email,
             capabilities={
                 "card_payments": {"requested": True},

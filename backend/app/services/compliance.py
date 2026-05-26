@@ -23,8 +23,8 @@ def verify_load_code(db: Session, job_id: str, driver_id: str, code: str) -> Com
         raise HTTPException(status_code=403, detail="Only the assigned supplier can verify the load code")
     if job.status != JobStatus.PAYMENT_SECURED:
         raise HTTPException(status_code=422, detail="Payment must be secured before load code verification")
-    if job.load_code.upper() != code.strip().upper():
-        raise HTTPException(status_code=400, detail="Invalid load code")
+    if not job.access_code or job.access_code.upper() != code.strip().upper():
+        raise HTTPException(status_code=400, detail="Invalid access code")
     record = get_or_create_compliance(db, job_id)
     if record.load_code_verified_at:
         raise HTTPException(status_code=409, detail="Load code already verified")

@@ -12,6 +12,7 @@ import {
   PanResponder,
   GestureResponderEvent,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
@@ -25,6 +26,7 @@ interface HandoverScreenProps {
   jobReference: string;
   onSubmit: (checklist: any, photos: any[]) => Promise<void>;
   onProceed: () => void;
+  onVerifyLoadCode: (code: string) => Promise<void>;
   loading: boolean;
   error: string | null;
   vehicleUnit?: string;
@@ -172,6 +174,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   jobReference: _jobReference,
   onSubmit,
   onProceed,
+  onVerifyLoadCode,
   loading,
   error,
   vehicleUnit = 'VOL-882',
@@ -191,6 +194,11 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   const [driverSigned, setDriverSigned] = useState(false);
   const [showDriverSigModal, setShowDriverSigModal] = useState(false);
   const [driverHasSig, setDriverHasSig] = useState(false);
+
+  const [loadCode, setLoadCode] = useState('');
+  const [loadCodeVerified, setLoadCodeVerified] = useState(false);
+  const [loadCodeLoading, setLoadCodeLoading] = useState(false);
+  const [loadCodeError, setLoadCodeError] = useState<string | null>(null);
 
   const driverSigRef = useRef<SignaturePadHandle>(null);
 
@@ -247,8 +255,21 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
   };
 
-  // Only the driver signature is required to submit
-  const isComplete = driverSigned;
+  const handleVerifyLoadCode = async () => {
+    if (!loadCode.trim()) {return;}
+    setLoadCodeLoading(true);
+    setLoadCodeError(null);
+    try {
+      await onVerifyLoadCode(loadCode.trim());
+      setLoadCodeVerified(true);
+    } catch (err) {
+      setLoadCodeError(err instanceof Error ? err.message : 'Invalid load code.');
+    } finally {
+      setLoadCodeLoading(false);
+    }
+  };
+
+  const isComplete = driverSigned && loadCodeVerified;
 
   const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
   const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
@@ -405,6 +426,40 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
           <Text style={styles.sigConfirmText}>
             I CONFIRM THAT I HAVE INSPECTED THE VEHICLE AND LOAD.
           </Text>
+        </View>
+
+        {/* ── Load Code Verification ─────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardHeaderIcon}>🔑</Text>
+            <Text style={styles.cardHeaderTitle}>Load Code Verification</Text>
+            {loadCodeVerified && <Text style={styles.lcVerifiedBadge}>✓ Verified</Text>}
+          </View>
+          {loadCodeVerified ? (
+            <Text style={styles.lcVerifiedText}>Load code accepted. You may now submit the handover.</Text>
+          ) : (
+            <>
+              <TextInput
+                style={styles.lcInput}
+                placeholder="Enter load code"
+                placeholderTextColor="#9AA4B2"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                value={loadCode}
+                onChangeText={t => { setLoadCode(t.toUpperCase()); setLoadCodeError(null); }}
+                editable={!loadCodeLoading}
+              />
+              {loadCodeError ? <Text style={styles.lcErrorText}>{loadCodeError}</Text> : null}
+              <Pressable
+                onPress={handleVerifyLoadCode}
+                disabled={loadCodeLoading || loadCode.trim().length === 0}
+                style={[styles.lcVerifyBtn, (loadCodeLoading || !loadCode.trim()) && styles.lcVerifyBtnDisabled]}>
+                {loadCodeLoading
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.lcVerifyBtnText}>Verify Load Code</Text>}
+              </Pressable>
+            </>
+          )}
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -749,6 +804,55 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
+  },
+
+  /* Load Code */
+  lcInput: {
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.navy,
+    textAlign: 'center',
+    letterSpacing: 8,
+    backgroundColor: '#F8FAFD',
+    marginBottom: 10,
+  },
+  lcErrorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lcVerifyBtn: {
+    backgroundColor: colors.navy,
+    borderRadius: 12,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lcVerifyBtnDisabled: {opacity: 0.45},
+  lcVerifyBtnText: {color: '#fff', fontSize: 15, fontWeight: '900'},
+  lcVerifiedBadge: {
+    marginLeft: 'auto' as any,
+    backgroundColor: '#DCFCE7',
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  lcVerifiedText: {
+    fontSize: 14,
+    color: '#15803D',
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 
   /* Error */

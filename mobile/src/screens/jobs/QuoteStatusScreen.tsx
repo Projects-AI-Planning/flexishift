@@ -108,11 +108,11 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
             ) : null}
           </View>
 
-          {/* Escrow notice */}
+          {/* Payment secured notice */}
           <View style={styles.escrowBox}>
             <Text style={styles.escrowIcon}>🔒</Text>
             <Text style={styles.escrowText}>
-              Payment has been secured in escrow and will be released upon delivery confirmation.
+              Payment has been secured and will be released upon delivery confirmation.
             </Text>
           </View>
 

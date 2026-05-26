@@ -41,6 +41,9 @@ def _supplier_snippet(quote: Quote) -> Optional[dict]:
         "vehicleNumber": profile.vehicle_registration if profile else None,
         "avgRating": float(supplier.avg_rating) if supplier.avg_rating is not None else None,
         "completedJobs": supplier.completed_jobs,
+        "driverAvailability": profile.driver_availability if profile else None,
+        "truckCapacity": profile.truck_capacity if profile else None,
+        "equipmentDetails": profile.equipment_details if profile else None,
     }
 
 

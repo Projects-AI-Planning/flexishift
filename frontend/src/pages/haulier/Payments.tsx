@@ -131,7 +131,7 @@ type PaymentTab = 'create' | 'escrow' | 'history' | 'invoices' | 'methods';
 
 const PAYMENT_TABS: { key: PaymentTab; label: string; icon: string }[] = [
   { key: 'create',   label: 'Pay Now',  icon: 'payments' },
-  { key: 'escrow',   label: 'Escrow',   icon: 'security' },
+  { key: 'escrow',   label: 'Secured',  icon: 'security' },
   { key: 'history',  label: 'History',  icon: 'receipt_long' },
   { key: 'invoices', label: 'Invoices', icon: 'description' },
   { key: 'methods',  label: 'Payment Setup',  icon: 'add_card' },
@@ -229,7 +229,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-black text-[#041627]">Secure Payment — Escrow</h3>
+          <h3 className="text-lg font-black text-[#041627]">Secure Payment</h3>
           <button onClick={onCancel} disabled={confirming} className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-40">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -268,7 +268,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
 
         <div className="flex items-start gap-2 text-xs text-slate-500">
           <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
-          <span>Funds are held in escrow and released to the driver only after delivery is approved.</span>
+          <span>Funds are held securely and released to the driver only after delivery is approved.</span>
         </div>
 
         <div className="flex gap-3 pt-1">
@@ -435,7 +435,7 @@ const CreatePaymentTab: React.FC = () => {
       <div className="flex items-start gap-3 bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">info</span>
         <div className="text-xs text-[#083d7a] font-medium leading-relaxed">
-          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds in escrow via Stripe.
+          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds via Stripe.
           Once secured, the driver can enter the load code and begin the trip. Payment releases to the driver after delivery is approved.
         </div>
       </div>
@@ -475,7 +475,7 @@ const CreatePaymentTab: React.FC = () => {
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-black text-[#041627]">Booked Jobs — Payment Pending</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Stripe escrow</p>
+            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Stripe</p>
           </div>
           <button
             onClick={() => void fetchJobs()}
@@ -654,16 +654,16 @@ const EscrowTab: React.FC = () => {
         </div>
         <div className="md:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 relative overflow-hidden">
           <span className="material-symbols-outlined absolute -bottom-6 -right-6 text-white/10 text-[140px] pointer-events-none">lock</span>
-          <p className="text-indigo-200 text-xs font-black uppercase tracking-widest mb-1">Funds in Escrow</p>
+          <p className="text-indigo-200 text-xs font-black uppercase tracking-widest mb-1">Secured Funds</p>
           <p className="text-4xl font-black">{loading ? '...' : fmtMoney(escrowTotal)}</p>
-          <p className="text-indigo-200 text-xs mt-2 font-medium">Held until delivery is approved — {total} active escrow record{total !== 1 ? 's' : ''}.</p>
+          <p className="text-indigo-200 text-xs mt-2 font-medium">Held until delivery is approved — {total} active record{total !== 1 ? 's' : ''}.</p>
         </div>
       </div>
 
       <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-indigo-500 shrink-0 text-base mt-0.5">info</span>
         <p className="text-xs text-indigo-800 font-medium leading-relaxed">
-          Payments are held in escrow once a job is fully paid. Funds are released to the driver after you approve delivery.
+          Payments are secured once a job is fully paid. Funds are released to the driver after you approve delivery.
         </p>
       </div>
 
@@ -671,13 +671,13 @@ const EscrowTab: React.FC = () => {
         {error ? (
           <div className="p-6 text-red-600 text-sm font-semibold">{error}</div>
         ) : items.length === 0 && !loading ? (
-          <Empty icon="security" title="No funds in escrow" sub="Escrow payments appear here once you secure payment for a booked job." />
+          <Empty icon="security" title="No secured payments" sub="Secured payments appear here once you pay for a booked job." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Escrowed On', 'Status'].map((header) => (
+                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status'].map((header) => (
                     <th key={header} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                       {header}
                     </th>
@@ -757,7 +757,7 @@ const HistoryTab: React.FC = () => {
         {[
           { label: 'Total Transactions', value: total, money: false, color: 'text-primary' },
           { label: 'Released', value: totalPaid, money: true, color: 'text-emerald-600' },
-          { label: 'In Escrow', value: totalEscrowed, money: true, color: 'text-indigo-600' },
+          { label: 'Secured', value: totalEscrowed, money: true, color: 'text-indigo-600' },
           { label: 'This Page', value: items.length, money: false, color: 'text-[#44474C]' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-[0_1px_4px_rgba(26,43,60,0.04)]">
@@ -771,13 +771,19 @@ const HistoryTab: React.FC = () => {
 
       <div className="flex items-center gap-3 flex-wrap">
         <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Filter</label>
-        {['', 'ESCROWED', 'RELEASED', 'REFUNDED', 'PENDING'].map((status) => (
+        {[
+          {value: '',          label: 'All'},
+          {value: 'ESCROWED',  label: 'Secured'},
+          {value: 'RELEASED',  label: 'Released'},
+          {value: 'REFUNDED',  label: 'Refunded'},
+          {value: 'PENDING',   label: 'Pending'},
+        ].map(({value, label}) => (
           <button
-            key={status || 'ALL'}
-            onClick={() => { setStatusFilter(status); setPage(1); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === status ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-[#44474C] hover:border-slate-300'}`}
+            key={value || 'ALL'}
+            onClick={() => { setStatusFilter(value); setPage(1); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === value ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-[#44474C] hover:border-slate-300'}`}
           >
-            {status || 'All'}
+            {label}
           </button>
         ))}
       </div>
@@ -792,7 +798,7 @@ const HistoryTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Amount', 'Currency', 'Status', 'Escrowed', 'Released', 'Created'].map((h) => (
+                  {['Job Ref', 'Route', 'Amount', 'Currency', 'Status', 'Secured On', 'Released', 'Created'].map((h) => (
                     <th key={h} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
@@ -1227,7 +1233,7 @@ const HaulierPaymentsPage: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Payments</h2>
-        <p className="text-slate-500 font-medium mt-1">Secure job payments, manage escrow, view history, and configure bank accounts.</p>
+        <p className="text-slate-500 font-medium mt-1">Secure job payments, view payment history, and configure bank accounts.</p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-1.5 inline-flex gap-1 shadow-[0_2px_8px_rgba(26,43,60,0.05)] flex-wrap">

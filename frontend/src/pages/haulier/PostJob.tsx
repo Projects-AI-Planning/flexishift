@@ -147,7 +147,6 @@ const PostJobPage: React.FC = () => {
   const [step, setStep]           = useState(1);
   const [form, setForm]           = useState<FormState>(EMPTY);
   const [stops, setStops]         = useState<StopEntry[]>([]);
-  const [stopDeliveries, setStopDeliveries]       = useState<Record<string, string>>({});
   const [compartmentDetails, setCompartmentDetails] = useState<CompartmentDetail[]>([]);
   const [routeCoords, setRouteCoords] = useState<RouteCoords>({});
   const [error, setError]         = useState('');
@@ -188,11 +187,6 @@ const PostJobPage: React.FC = () => {
       dropAddress:   data.dropAddress,
     }));
     setStops(data.stops);
-    setStopDeliveries(prev => {
-      const next: Record<string, string> = {};
-      data.stops.forEach(s => { next[s.id] = prev[s.id] ?? ''; });
-      return next;
-    });
     setRouteCoords({
       pickupLat:   data.pickupLat,
       pickupLng:   data.pickupLng,
@@ -238,7 +232,6 @@ const PostJobPage: React.FC = () => {
       }
       if (stops.length > 0) {
         for (let i = 0; i < stops.length; i++) {
-          if (!stopDeliveries[stops[i].id]) return `Delivery quantity is required for Stop ${i + 1}.`;
         }
       }
       if (!form.jobDate)                    return 'Collection date is required.';
@@ -249,7 +242,6 @@ const PostJobPage: React.FC = () => {
       if (form.accessCode.trim().length < 4) return 'Access code must be at least 4 characters.';
       if (!form.loadCode.trim())            return 'Load code is required.';
       if (form.loadCode.trim().length < 4)  return 'Load code must be at least 4 characters.';
-      if (!form.specialInstructions.trim()) return 'Special instructions are required.';
     }
     return '';
   };
@@ -297,7 +289,6 @@ const PostJobPage: React.FC = () => {
           lat:         s.lat,
           lng:         s.lng,
           order:       i + 1,
-          deliveryQty: stopDeliveries[s.id] ? parseFloat(stopDeliveries[s.id]) : undefined,
         })),
         specialInstructions: form.specialInstructions.trim(),
         accessCode:          form.accessCode.trim().toUpperCase(),
@@ -361,10 +352,10 @@ const PostJobPage: React.FC = () => {
               className="w-full flex items-center justify-center gap-2 bg-white text-[#1066b1] py-3.5 rounded-xl font-black text-sm transition-all hover:bg-blue-50 shadow-xl shadow-black/10 active:scale-[0.98]"
             >
               <span className="material-symbols-outlined text-base">lock</span>
-              Secure Escrow Payment
+              Secure Payment
             </button>
             <p className="text-[10px] text-blue-100/60 font-bold uppercase tracking-widest">
-              Note: Fund escrow after accepting a bid
+              Note: Secure payment after accepting a bid
             </p>
             <div className="flex gap-3 w-full">
               <button
@@ -374,7 +365,7 @@ const PostJobPage: React.FC = () => {
                 View Jobs
               </button>
               <button
-                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setStopDeliveries({}); setCompartmentDetails([]); setRouteCoords({}); setStep(1); setError(''); }}
+                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setCompartmentDetails([]); setRouteCoords({}); setStep(1); setError(''); }}
                 className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
               >
                 Post New
@@ -636,32 +627,6 @@ const PostJobPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Stop delivery quantities */}
-              {stops.length > 0 && (
-                <div>
-                  <Label text="Delivery Qty per Stop" required hint="how much to unload at each stop" />
-                  <div className="mt-1 rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
-                    {stops.map((s, i) => (
-                      <div key={s.id} className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-slate-50 transition-colors">
-                        <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
-                          <span className="text-white text-[10px] font-black">{i + 1}</span>
-                        </div>
-                        <p className="text-sm font-medium text-[#44474C] flex-1 truncate min-w-0">{s.address || `Stop ${i + 1}`}</p>
-                        <input
-                          className="w-32 bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-[#041627] shrink-0"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Qty (L/kg)"
-                          value={stopDeliveries[s.id] ?? ''}
-                          onChange={e => setStopDeliveries(prev => ({ ...prev, [s.id]: e.target.value }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-[10px] text-slate-400">Same unit as total capacity above.</p>
-                </div>
-              )}
 
               {/* ── Section divider: Schedule ── */}
               <div className="flex items-center gap-3">
@@ -766,7 +731,7 @@ const PostJobPage: React.FC = () => {
 
               {/* Special instructions */}
               <div>
-                <Label text="Special Instructions" required />
+                <Label text="Special Instructions" />
                 <textarea
                   className={`${inputCls} resize-none`}
                   rows={3}
@@ -862,19 +827,6 @@ const PostJobPage: React.FC = () => {
                     {form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
                     <ReviewRow label="Load Code"       value={form.loadCode} />
                   </div>
-                  {stops.length > 0 && stops.some(s => stopDeliveries[s.id]) && (
-                    <div className="pt-3 border-t border-slate-100 mb-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Delivery per Stop</p>
-                      <div className="space-y-1.5">
-                        {stops.map((s, i) => stopDeliveries[s.id] ? (
-                          <div key={s.id} className="flex justify-between items-center">
-                            <span className="text-xs text-slate-500 font-medium truncate max-w-[60%]">Stop {i + 1}: {s.address}</span>
-                            <span className="text-xs font-black text-[#1066b1]">{stopDeliveries[s.id]} L/kg</span>
-                          </div>
-                        ) : null)}
-                      </div>
-                    </div>
-                  )}
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Special Instructions</p>

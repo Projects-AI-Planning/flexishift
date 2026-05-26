@@ -4,30 +4,7 @@ import {ScrollView, StyleSheet, Text, View} from 'react-native';
 export interface TruckCompartment {
   id: number;
   capacityLitres: string;
-  fuelType: string;
 }
-
-export const FUEL_TYPES = [
-  'Petrol',
-  'Diesel',
-  'LPG',
-  'CNG',
-  'Kerosene',
-  'Water',
-  'Chemicals',
-  'Other',
-];
-
-export const FUEL_COLORS: Record<string, string> = {
-  Petrol:    '#F97316',
-  Diesel:    '#2563EB',
-  LPG:       '#10B981',
-  CNG:       '#8B5CF6',
-  Kerosene:  '#EAB308',
-  Water:     '#06B6D4',
-  Chemicals: '#EF4444',
-  Other:     '#6B7280',
-};
 
 interface Props {
   compartments: TruckCompartment[];
@@ -41,11 +18,8 @@ export default function TruckCompartmentVisual({compartments}: Props) {
 
         {/* CAB */}
         <View style={s.cab}>
-          {/* Windshield */}
           <View style={s.windshield} />
-          {/* Hood bump */}
           <View style={s.hood} />
-          {/* Front bumper */}
           <View style={s.bumper} />
         </View>
 
@@ -66,7 +40,6 @@ export default function TruckCompartmentVisual({compartments}: Props) {
               style={s.scroll}
               contentContainerStyle={s.scrollContent}>
               {compartments.map((cpt, idx) => {
-                const color = FUEL_COLORS[cpt.fuelType] ?? FUEL_COLORS.Other;
                 const cap   = parseFloat(cpt.capacityLitres) || 0;
                 const label = cap >= 1000
                   ? `${(cap / 1000).toFixed(cap % 1000 === 0 ? 0 : 1)}k L`
@@ -75,14 +48,9 @@ export default function TruckCompartmentVisual({compartments}: Props) {
                   <View
                     key={cpt.id}
                     style={[s.compartment, idx > 0 && s.divider]}>
-                    {/* Fuel-type stripe */}
-                    <View style={[s.stripe, {backgroundColor: color}]} />
+                    <View style={s.stripe} />
                     <Text style={s.cptNum}>C{idx + 1}</Text>
                     <Text style={s.cptCap}>{label}</Text>
-                    <View style={s.fuelRow}>
-                      <View style={[s.fuelDot, {backgroundColor: color}]} />
-                      <Text style={s.fuelLabel} numberOfLines={1}>{cpt.fuelType}</Text>
-                    </View>
                   </View>
                 );
               })}
@@ -93,7 +61,6 @@ export default function TruckCompartmentVisual({compartments}: Props) {
 
       {/* ── Axles + Wheels ────────────────────────────────── */}
       <View style={s.axleRow}>
-        {/* Front axle (cab) */}
         <View style={[s.axleGroup, {marginLeft: 10}]}>
           <View style={s.axleBar} />
           <View style={s.wheelPair}>
@@ -103,7 +70,6 @@ export default function TruckCompartmentVisual({compartments}: Props) {
 
         <View style={s.axleSpacer} />
 
-        {/* Rear double axle (trailer) */}
         <View style={[s.axleGroup, {marginRight: 24}]}>
           <View style={s.axleBar} />
           <View style={s.wheelPair}>
@@ -123,8 +89,9 @@ export default function TruckCompartmentVisual({compartments}: Props) {
   );
 }
 
-const BORDER = '#111827';
-const FILL   = '#F3F4F6';
+const BORDER  = '#111827';
+const FILL    = '#F3F4F6';
+const ACCENT  = '#1066b1';
 
 const s = StyleSheet.create({
   wrapper: {
@@ -138,7 +105,6 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // ── Truck row ──────────────────────────────────────────────────────────────
   truckRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -146,7 +112,6 @@ const s = StyleSheet.create({
     gap: 0,
   },
 
-  // Cab
   cab: {
     width: 44,
     height: 72,
@@ -188,7 +153,6 @@ const s = StyleSheet.create({
     borderTopColor: BORDER,
   },
 
-  // Coupling
   coupling: {
     width: 8,
     height: 6,
@@ -200,7 +164,6 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
 
-  // Tanker
   tanker: {
     flex: 1,
     height: 72,
@@ -227,7 +190,6 @@ const s = StyleSheet.create({
     minHeight: 68,
   },
 
-  // Compartments inside tanker
   compartment: {
     width: 76,
     alignItems: 'center',
@@ -241,6 +203,7 @@ const s = StyleSheet.create({
     width: '100%',
     height: 5,
     marginBottom: 4,
+    backgroundColor: ACCENT,
   },
   cptNum: {
     fontSize: 9,
@@ -256,25 +219,7 @@ const s = StyleSheet.create({
     marginTop: 2,
     letterSpacing: -0.3,
   },
-  fuelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  fuelDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  fuelLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#374151',
-    maxWidth: 50,
-  },
 
-  // ── Axles & Wheels ─────────────────────────────────────────────────────────
   axleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -300,7 +245,6 @@ const s = StyleSheet.create({
     backgroundColor: '#1F2937',
     borderWidth: 3,
     borderColor: BORDER,
-    // inner hub
     justifyContent: 'center',
     alignItems: 'center',
   },

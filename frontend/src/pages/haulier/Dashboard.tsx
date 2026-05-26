@@ -521,7 +521,7 @@ const HaulierOverview: React.FC = () => {
               <span className="material-symbols-outlined text-sm">task_alt</span>
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="font-black text-emerald-900 text-base sm:text-lg">Jobs with Payment in Escrow</h2>
+              <h2 className="font-black text-emerald-900 text-base sm:text-lg">Jobs with Payment Secured</h2>
               <p className="text-xs sm:text-sm text-emerald-700">Click "Release Payment" when you are satisfied the job is complete.</p>
             </div>
             <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-black text-white shrink-0 animate-pulse">
@@ -560,7 +560,7 @@ const HaulierOverview: React.FC = () => {
                           <p className="font-bold text-[#44474C] truncate">{job.dropLocation ?? '—'}</p>
                         </div>
                         <div>
-                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Amount in Escrow</p>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Payment Amount</p>
                           <p className="font-black text-emerald-700 text-sm">
                             {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : '—'}
                           </p>

@@ -48,7 +48,13 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     amount = float(selected_quote.price)
     amount_minor = int(round(amount * 100))
-    currency = (selected_quote.currency or settings.PAYMENT_CURRENCY).upper()
+
+    haulier = db.query(User).filter(User.id == haulier_id).first()
+    currency = (
+        (haulier.currency if haulier else None)
+        or selected_quote.currency
+        or settings.PAYMENT_CURRENCY
+    ).upper()
 
     # Look up driver's Stripe Connect account to use destination charge model.
     # Embedding transfer_data at creation means funds flow to the driver automatically
@@ -209,12 +215,31 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         except Exception:
             pass
 
+    stops_raw = job.stops or []
+    stops = [
+        {
+            "order": s.get("order") if isinstance(s, dict) else None,
+            "address": s.get("address") if isinstance(s, dict) else None,
+            "litres": s.get("litres") or s.get("totalLitres") if isinstance(s, dict) else None,
+        }
+        for s in stops_raw
+    ] if stops_raw else []
+
     return {
         "paymentId": payment.id,
         "jobId": job_id,
         "jobRef": job.job_ref,
+        "loadCode": job.load_code,
         "pickupAddress": job.pickup_address,
         "dropAddress": job.drop_address,
+        "stops": stops,
+        "goodsType": job.goods_type,
+        "jobDate": job.job_date.isoformat() if job.job_date else None,
+        "timeSlot": job.time_slot.value if job.time_slot else None,
+        "compartmentCount": job.compartments,
+        "totalLitres": float(job.total_litres) if getattr(job, "total_litres", None) is not None else None,
+        "specialInstructions": job.special_instructions,
+        "distanceKm": float(job.distance_km) if getattr(job, "distance_km", None) is not None else None,
         "amount": float(payment.amount),
         "currency": payment.currency,
         "status": payment.status.value,

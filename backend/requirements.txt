@@ -45,6 +45,7 @@ structlog==24.1.0
 # Utilities
 python-dotenv==1.0.1
 nanoid==2.0.0
+phonenumbers==8.13.39
 
 # Testing
 pytest==8.2.0

@@ -221,16 +221,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     },
     { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
-    { to: '/haulier/drivers/all', icon: 'badge', label: 'Drivers' },
-    {
-      icon: 'inventory_2',
-      label: 'Load Management',
-      children: [
-        { to: '/haulier/loads/matching', label: 'Matching' },
-        { to: '/haulier/loads/bids', label: 'Bids' },
-        { to: '/haulier/loads/awarded', label: 'Awarded' },
-      ],
-    },
     {
       icon: 'monitoring',
       label: 'Analytics',
@@ -248,11 +238,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/documents/insurance', label: 'Insurance' },
       ],
     },
-    // { icon: 'settings', label: 'Settings', children: [
-    //   { to: '/haulier/settings/profile', label: 'Profile' },
-    //   { to: '/haulier/settings/notifications', label: 'Notifications' },
-    //   { to: '/haulier/settings/security', label: 'Security' },
-    // ] },
+    { icon: 'settings', label: 'Settings', children: [
+      { to: '/haulier/settings/profile', label: 'Profile' },
+    ] },
     // { icon: 'help', label: 'Support', children: [
     //   { to: '/haulier/support/help', label: 'Help Center' },
     //   { to: '/haulier/support/contact', label: 'Contact' },

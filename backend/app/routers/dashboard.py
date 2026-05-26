@@ -207,6 +207,14 @@ def driver_overview(
                 "lastUpdatedAt": last_point.recorded_at.isoformat() if last_point.recorded_at else None,
             } if last_point else None,
             "complianceStep": "delivery_report",
+            "stops": [
+                {
+                    "order": s.get("order") if isinstance(s, dict) else None,
+                    "address": s.get("address") if isinstance(s, dict) else None,
+                    "litres": s.get("litres") or s.get("totalLitres") if isinstance(s, dict) else None,
+                }
+                for s in (active_job.stops or [])
+            ],
         }
 
     return ok(
@@ -475,7 +483,7 @@ def haulier_overview(
                 "openJobsWithQuotes": open_with_quotes,
                 "totalJobsThisMonth": month_jobs,
                 "totalSpentThisMonth": float(month_spend),
-                "currency": payment.currency if payment else settings.PAYMENT_CURRENCY,
+                "currency": settings.PAYMENT_CURRENCY,
             },
             "activeJobs": active_job_list,
             "quickActions": ["post_new_job", "view_active_map"],

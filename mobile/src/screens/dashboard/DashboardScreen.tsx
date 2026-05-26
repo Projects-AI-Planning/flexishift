@@ -203,6 +203,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     }
                   : null
               }
+              stops={Array.isArray((activeJob as any).stops) ? (activeJob as any).stops : []}
             />
             <View style={styles.routeRow}>
               <View style={styles.routePoint}>

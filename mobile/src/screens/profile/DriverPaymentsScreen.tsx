@@ -231,7 +231,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
             />
             <StatCard
               icon="clock"
-              label="In Escrow"
+              label="Pending Release"
               value={fmtAmount(escrowedTotal, currency)}
             />
           </View>
@@ -249,7 +249,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
                 ))}
               </View>
               <Text style={s.escrowNote}>
-                These funds are held in escrow and will be released once the haulier confirms delivery.
+                These funds are secured and will be released once the haulier confirms delivery.
               </Text>
             </>
           )}

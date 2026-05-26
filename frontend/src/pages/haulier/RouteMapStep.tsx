@@ -118,36 +118,39 @@ export default function RouteMapStep({ onChange }: Props) {
       return;
     }
 
-    // Collect stops that have been geocoded
     const stopWaypoints = locs.slice(1, -1)
       .filter(l => l.lat != null && l.lng != null)
       .map(l => ({ lat: l.lat!, lng: l.lng! }));
 
-    try {
-      const [routeRes, statsRes] = await Promise.all([
-        haulierService.getRoute(
-          pickup.lat, pickup.lng,
-          drop.lat,   drop.lng,
-          stopWaypoints.length ? stopWaypoints : undefined,
-        ),
-        haulierService.calculateRoute({
-          originLat: pickup.lat, originLng: pickup.lng,
-          destLat:   drop.lat,   destLng:   drop.lng,
-          waypoints: stopWaypoints,
-        }),
-      ]);
-      const coords: [number, number][] = (routeRes.coordinates ?? []).map(
-        (c: { latitude: number; longitude: number }) => [c.latitude, c.longitude] as [number, number],
-      );
-      setRouteCoords(coords);
-      const stats = { distanceKm: statsRes.distanceKm, durationMin: statsRes.durationMin };
-      setRouteStats(stats);
-      emitChange(locs, stats);
-    } catch {
-      setRouteCoords([]);
-      setRouteStats(null);
-      emitChange(locs, null);
-    }
+    // Fetch polyline and stats independently so one failure doesn't block the other
+    const [routeResult, statsResult] = await Promise.allSettled([
+      haulierService.getRoute(
+        pickup.lat, pickup.lng,
+        drop.lat,   drop.lng,
+        stopWaypoints.length ? stopWaypoints : undefined,
+      ),
+      haulierService.calculateRoute({
+        originLat: pickup.lat, originLng: pickup.lng,
+        destLat:   drop.lat,   destLng:   drop.lng,
+        waypoints: stopWaypoints,
+      }),
+    ]);
+
+    const coords: [number, number][] =
+      routeResult.status === 'fulfilled'
+        ? (routeResult.value.coordinates ?? []).map(
+            (c: { latitude: number; longitude: number }) => [c.latitude, c.longitude] as [number, number],
+          )
+        : [];
+
+    const stats =
+      statsResult.status === 'fulfilled'
+        ? { distanceKm: statsResult.value.distanceKm, durationMin: statsResult.value.durationMin }
+        : null;
+
+    setRouteCoords(coords);
+    setRouteStats(stats);
+    emitChange(locs, stats);
   }, [emitChange]);
 
   /* ── autocomplete input change ── */
@@ -196,13 +199,13 @@ export default function RouteMapStep({ onChange }: Props) {
 
       setLocations(prev => {
         const next = prev.map(l => l.id === id ? { ...l, address, lat, lng } : l);
-        refreshRoute(next);
         return next;
       });
       setInputValues(prev => ({ ...prev, [id]: address }));
+      refreshRoute(locations.map(l => l.id === id ? { ...l, address, lat, lng } : l));
     } catch { /* ignore */ }
     finally { setLoadingId(null); }
-  }, [refreshRoute]);
+  }, [refreshRoute, locations]);
 
   /* ── suggestion selected ── */
   const handleSuggestionSelect = useCallback((id: string, s: Suggestion) => {
@@ -268,7 +271,7 @@ export default function RouteMapStep({ onChange }: Props) {
         </div>
 
         {/* Location inputs */}
-        <div className="px-5 py-4 flex-1 overflow-y-auto space-y-1">
+        <div className="px-5 py-4 flex-1 space-y-1 overflow-visible">
           <div className="relative">
             <div className="absolute left-[17px] z-0 w-0.5 bg-slate-200" style={{ top: '36px', bottom: '36px' }} />
             <div className="space-y-2 relative z-10">

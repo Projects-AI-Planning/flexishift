@@ -1,11 +1,83 @@
 import { useCallback, useEffect, useState } from 'react';
 import haulierService from '../../api/haulierService';
 
+const DIAL_CODES = [
+  { code: 'GB', dialCode: '+44', name: 'United Kingdom' },
+  { code: 'US', dialCode: '+1',  name: 'United States' },
+  { code: 'CA', dialCode: '+1',  name: 'Canada' },
+  { code: 'AU', dialCode: '+61', name: 'Australia' },
+  { code: 'NZ', dialCode: '+64', name: 'New Zealand' },
+  { code: 'IE', dialCode: '+353',name: 'Ireland' },
+  { code: 'DE', dialCode: '+49', name: 'Germany' },
+  { code: 'FR', dialCode: '+33', name: 'France' },
+  { code: 'ES', dialCode: '+34', name: 'Spain' },
+  { code: 'IT', dialCode: '+39', name: 'Italy' },
+  { code: 'NL', dialCode: '+31', name: 'Netherlands' },
+  { code: 'BE', dialCode: '+32', name: 'Belgium' },
+  { code: 'AT', dialCode: '+43', name: 'Austria' },
+  { code: 'PT', dialCode: '+351',name: 'Portugal' },
+  { code: 'GR', dialCode: '+30', name: 'Greece' },
+  { code: 'CH', dialCode: '+41', name: 'Switzerland' },
+  { code: 'SE', dialCode: '+46', name: 'Sweden' },
+  { code: 'NO', dialCode: '+47', name: 'Norway' },
+  { code: 'DK', dialCode: '+45', name: 'Denmark' },
+  { code: 'PL', dialCode: '+48', name: 'Poland' },
+  { code: 'SG', dialCode: '+65', name: 'Singapore' },
+  { code: 'HK', dialCode: '+852',name: 'Hong Kong' },
+  { code: 'JP', dialCode: '+81', name: 'Japan' },
+  { code: 'IN', dialCode: '+91', name: 'India' },
+  { code: 'PK', dialCode: '+92', name: 'Pakistan' },
+  { code: 'BD', dialCode: '+880',name: 'Bangladesh' },
+  { code: 'LK', dialCode: '+94', name: 'Sri Lanka' },
+  { code: 'NG', dialCode: '+234',name: 'Nigeria' },
+  { code: 'GH', dialCode: '+233',name: 'Ghana' },
+  { code: 'KE', dialCode: '+254',name: 'Kenya' },
+  { code: 'ZA', dialCode: '+27', name: 'South Africa' },
+  { code: 'AE', dialCode: '+971',name: 'UAE' },
+  { code: 'SA', dialCode: '+966',name: 'Saudi Arabia' },
+  { code: 'QA', dialCode: '+974',name: 'Qatar' },
+  { code: 'KW', dialCode: '+965',name: 'Kuwait' },
+  { code: 'BH', dialCode: '+973',name: 'Bahrain' },
+  { code: 'OM', dialCode: '+968',name: 'Oman' },
+  { code: 'EG', dialCode: '+20', name: 'Egypt' },
+  { code: 'MA', dialCode: '+212',name: 'Morocco' },
+  { code: 'TZ', dialCode: '+255',name: 'Tanzania' },
+  { code: 'UG', dialCode: '+256',name: 'Uganda' },
+  { code: 'ET', dialCode: '+251',name: 'Ethiopia' },
+  { code: 'MX', dialCode: '+52', name: 'Mexico' },
+  { code: 'BR', dialCode: '+55', name: 'Brazil' },
+  { code: 'TR', dialCode: '+90', name: 'Turkey' },
+  { code: 'TH', dialCode: '+66', name: 'Thailand' },
+  { code: 'MY', dialCode: '+60', name: 'Malaysia' },
+  { code: 'ID', dialCode: '+62', name: 'Indonesia' },
+  { code: 'PH', dialCode: '+63', name: 'Philippines' },
+  { code: 'VN', dialCode: '+84', name: 'Vietnam' },
+  { code: 'CN', dialCode: '+86', name: 'China' },
+  { code: 'KR', dialCode: '+82', name: 'South Korea' },
+];
+
+const COUNTRY_DIAL: Record<string, string> = Object.fromEntries(
+  DIAL_CODES.map(d => [d.code, d.dialCode])
+);
+
+function splitPhone(raw: string): { dialCode: string; number: string } {
+  if (!raw) return { dialCode: '+44', number: '' };
+  const sorted = [...DIAL_CODES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+  for (const d of sorted) {
+    if (raw.startsWith(d.dialCode)) {
+      return { dialCode: d.dialCode, number: raw.slice(d.dialCode.length).trimStart() };
+    }
+  }
+  return { dialCode: '', number: raw };
+}
+
 type HaulierProfile = {
   userId: string;
   name: string;
   email: string;
   phone?: string | null;
+  country?: string | null;
+  currency?: string | null;
   role?: string;
   profileComplete?: boolean;
   isVerified?: boolean;
@@ -20,18 +92,62 @@ type HaulierProfile = {
   } | null;
 };
 
+const COUNTRY_CURRENCY: Record<string, string> = {
+  GB: 'GBP', US: 'USD', CA: 'CAD', AU: 'AUD', NZ: 'NZD',
+  IE: 'EUR', DE: 'EUR', FR: 'EUR', ES: 'EUR', IT: 'EUR',
+  NL: 'EUR', BE: 'EUR', AT: 'EUR', FI: 'EUR', PT: 'EUR',
+  GR: 'EUR', LU: 'EUR', SK: 'EUR', SI: 'EUR', EE: 'EUR',
+  LV: 'EUR', LT: 'EUR', CY: 'EUR', MT: 'EUR', HR: 'EUR',
+  SG: 'SGD', HK: 'HKD', JP: 'JPY', IN: 'INR', PK: 'PKR',
+  BD: 'BDT', LK: 'LKR', NG: 'NGN', GH: 'GHS', KE: 'KES',
+  ZA: 'ZAR', AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD',
+  BH: 'BHD', OM: 'OMR', EG: 'EGP', MA: 'MAD', TZ: 'TZS',
+  UG: 'UGX', ET: 'ETB', MX: 'MXN', BR: 'BRL', AR: 'ARS',
+  CL: 'CLP', CO: 'COP', PE: 'PEN', TR: 'TRY', IL: 'ILS',
+  TH: 'THB', MY: 'MYR', ID: 'IDR', PH: 'PHP', VN: 'VND',
+  CN: 'CNY', KR: 'KRW', TW: 'TWD', CH: 'CHF', SE: 'SEK',
+  NO: 'NOK', DK: 'DKK', PL: 'PLN', CZ: 'CZK', HU: 'HUF',
+  RO: 'RON', RU: 'RUB', UA: 'UAH',
+};
+
+const COUNTRY_NAMES: Record<string, string> = {
+  GB: 'United Kingdom', US: 'United States', CA: 'Canada', AU: 'Australia',
+  NZ: 'New Zealand', IE: 'Ireland', DE: 'Germany', FR: 'France', ES: 'Spain',
+  IT: 'Italy', NL: 'Netherlands', BE: 'Belgium', AT: 'Austria', FI: 'Finland',
+  PT: 'Portugal', GR: 'Greece', LU: 'Luxembourg', SK: 'Slovakia', SI: 'Slovenia',
+  EE: 'Estonia', LV: 'Latvia', LT: 'Lithuania', CY: 'Cyprus', MT: 'Malta',
+  HR: 'Croatia', SG: 'Singapore', HK: 'Hong Kong', JP: 'Japan', IN: 'India',
+  PK: 'Pakistan', BD: 'Bangladesh', LK: 'Sri Lanka', NG: 'Nigeria', GH: 'Ghana',
+  KE: 'Kenya', ZA: 'South Africa', AE: 'United Arab Emirates', SA: 'Saudi Arabia',
+  QA: 'Qatar', KW: 'Kuwait', BH: 'Bahrain', OM: 'Oman', EG: 'Egypt',
+  MA: 'Morocco', TZ: 'Tanzania', UG: 'Uganda', ET: 'Ethiopia', MX: 'Mexico',
+  BR: 'Brazil', AR: 'Argentina', CL: 'Chile', CO: 'Colombia', PE: 'Peru',
+  TR: 'Turkey', IL: 'Israel', TH: 'Thailand', MY: 'Malaysia', ID: 'Indonesia',
+  PH: 'Philippines', VN: 'Vietnam', CN: 'China', KR: 'South Korea', TW: 'Taiwan',
+  CH: 'Switzerland', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', PL: 'Poland',
+  CZ: 'Czech Republic', HU: 'Hungary', RO: 'Romania', RU: 'Russia', UA: 'Ukraine',
+};
+
 export default function HaulierProfilePage() {
   const [profile, setProfile] = useState<HaulierProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [phoneDialCode, setPhoneDialCode] = useState('+44');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
       const data = await haulierService.getMe();
       setProfile(data);
+      const parsed = splitPhone(data?.phone ?? '');
+      setPhoneDialCode(
+        parsed.dialCode || (data?.country ? (COUNTRY_DIAL[data.country] ?? '+44') : '+44')
+      );
+      setPhoneNumber(parsed.number);
       setError(null);
     } catch {
       setError('Failed to load profile from the backend.');
@@ -47,7 +163,7 @@ export default function HaulierProfilePage() {
   const updateField = (field: string, value: string) => {
     setProfile((current) => {
       if (!current) return current;
-      if (field === 'name' || field === 'phone') {
+      if (['name', 'phone', 'country', 'currency'].includes(field)) {
         return { ...current, [field]: value };
       }
       return {
@@ -60,13 +176,29 @@ export default function HaulierProfilePage() {
     });
   };
 
+  const handleCountryChange = (countryCode: string) => {
+    const derivedCurrency = COUNTRY_CURRENCY[countryCode] ?? '';
+    const derivedDial = COUNTRY_DIAL[countryCode] ?? phoneDialCode;
+    setPhoneDialCode(derivedDial);
+    setProfile((current) => {
+      if (!current) return current;
+      return { ...current, country: countryCode, currency: derivedCurrency };
+    });
+  };
+
   const saveProfile = async () => {
     if (!profile) return;
     setSaving(true);
+    setSuccess(false);
     try {
+      const combinedPhone = phoneNumber.trim()
+        ? `${phoneDialCode}${phoneNumber.trim()}`
+        : '';
       await haulierService.updateProfile({
         name: profile.name,
-        phone: profile.phone ?? '',
+        phone: combinedPhone,
+        country: profile.country ?? '',
+        currency: profile.currency ?? '',
         companyName: profile.profile?.companyName ?? '',
         companyAddress: profile.profile?.companyAddress ?? '',
         coverageArea: profile.profile?.coverageArea ?? '',
@@ -75,6 +207,8 @@ export default function HaulierProfilePage() {
         licenceNumber: profile.profile?.licenceNumber ?? '',
       });
       await fetchProfile();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
     } catch {
       setError('Failed to save profile changes.');
     } finally {
@@ -101,7 +235,7 @@ export default function HaulierProfilePage() {
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Haulier Settings</p>
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary">Profile</h1>
-        <p className="text-on-surface-variant font-medium">Update your haulier account details using the backend profile service.</p>
+        <p className="text-on-surface-variant font-medium">Manage your personal details, company info, and regional settings.</p>
       </div>
 
       {error && (
@@ -109,11 +243,17 @@ export default function HaulierProfilePage() {
           {error}
         </div>
       )}
+      {success && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          Profile saved successfully.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        {/* ── Left card: avatar + photo upload ── */}
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#1066b1]/100 text-2xl font-black text-white">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#1066b1] text-2xl font-black text-white">
               {profile?.name?.charAt(0) || 'H'}
             </div>
             <div>
@@ -124,6 +264,24 @@ export default function HaulierProfilePage() {
               </p>
             </div>
           </div>
+
+          {/* Country + currency badges */}
+          {(profile?.country || profile?.currency) && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {profile.country && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-1.5 text-xs font-black text-[#1066b1]">
+                  <span className="material-icons-outlined text-[14px]">public</span>
+                  {COUNTRY_NAMES[profile.country] ?? profile.country}
+                </span>
+              )}
+              {profile.currency && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                  <span className="material-icons-outlined text-[14px]">payments</span>
+                  {profile.currency}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 space-y-4">
             <label className="block">
@@ -140,91 +298,163 @@ export default function HaulierProfilePage() {
               />
             </label>
             <p className="text-xs text-slate-500">
-              {uploading ? 'Uploading photo...' : 'Upload a new profile photo to the backend storage.'}
+              {uploading ? 'Uploading photo...' : 'Upload a new profile photo.'}
             </p>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name</span>
-              <input
-                value={profile?.name ?? ''}
-                onChange={(e) => updateField('name', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</span>
-              <input
-                value={profile?.email ?? ''}
-                disabled
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500 outline-none"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Phone</span>
-              <input
-                value={profile?.phone ?? ''}
-                onChange={(e) => updateField('phone', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Company Name</span>
-              <input
-                value={profile?.profile?.companyName ?? ''}
-                onChange={(e) => updateField('companyName', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2 md:col-span-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Company Address</span>
-              <input
-                value={profile?.profile?.companyAddress ?? ''}
-                onChange={(e) => updateField('companyAddress', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Coverage Area</span>
-              <input
-                value={profile?.profile?.coverageArea ?? ''}
-                onChange={(e) => updateField('coverageArea', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Type</span>
-              <input
-                value={profile?.profile?.vehicleType ?? ''}
-                onChange={(e) => updateField('vehicleType', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Registration</span>
-              <input
-                value={profile?.profile?.vehicleRegistration ?? ''}
-                onChange={(e) => updateField('vehicleRegistration', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Licence Number</span>
-              <input
-                value={profile?.profile?.licenceNumber ?? ''}
-                onChange={(e) => updateField('licenceNumber', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-              />
-            </label>
+        {/* ── Right card: editable fields ── */}
+        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-6">
+
+          {/* Personal Details */}
+          <div>
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Personal Details</p>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name</span>
+                <input
+                  value={profile?.name ?? ''}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</span>
+                <input
+                  value={profile?.email ?? ''}
+                  disabled
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500 outline-none"
+                />
+              </label>
+              <div className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Phone</span>
+                <div className="flex items-stretch gap-0 rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-primary">
+                  <select
+                    value={phoneDialCode}
+                    onChange={(e) => setPhoneDialCode(e.target.value)}
+                    className="shrink-0 border-r border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-primary outline-none cursor-pointer"
+                  >
+                    {DIAL_CODES.map((d) => (
+                      <option key={d.code} value={d.dialCode}>
+                        {d.dialCode} ({d.code})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="7123 456789"
+                    className="flex-1 min-w-0 px-4 py-3 text-sm font-bold text-primary outline-none bg-white"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-between gap-4">
-            <p className="text-xs font-medium text-slate-500">
-              Data is saved through `PUT /profile/update`.
-            </p>
+          {/* Regional Settings */}
+          <div>
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Regional Settings</p>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Country</span>
+                <select
+                  value={profile?.country ?? ''}
+                  onChange={(e) => handleCountryChange(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">— Select country —</option>
+                  {Object.entries(COUNTRY_NAMES)
+                    .sort(([, a], [, b]) => a.localeCompare(b))
+                    .map(([code, name]) => (
+                      <option key={code} value={code}>{name} ({code})</option>
+                    ))}
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Currency
+                  <span className="ml-1 text-[9px] normal-case font-medium text-slate-400">(auto-set by country)</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={profile?.currency ?? ''}
+                    readOnly
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none"
+                    placeholder="Select a country above"
+                  />
+                  {profile?.currency && (
+                    <span className="flex-shrink-0 rounded-lg bg-emerald-100 px-3 py-3 text-xs font-black text-emerald-700">
+                      {profile.currency}
+                    </span>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Company Details */}
+          <div>
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Company Details</p>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Company Name</span>
+                <input
+                  value={profile?.profile?.companyName ?? ''}
+                  onChange={(e) => updateField('companyName', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Coverage Area</span>
+                <input
+                  value={profile?.profile?.coverageArea ?? ''}
+                  onChange={(e) => updateField('coverageArea', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2 md:col-span-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Company Address</span>
+                <input
+                  value={profile?.profile?.companyAddress ?? ''}
+                  onChange={(e) => updateField('companyAddress', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Vehicle Details */}
+          <div>
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Vehicle Details</p>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Type</span>
+                <input
+                  value={profile?.profile?.vehicleType ?? ''}
+                  onChange={(e) => updateField('vehicleType', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Registration</span>
+                <input
+                  value={profile?.profile?.vehicleRegistration ?? ''}
+                  onChange={(e) => updateField('vehicleRegistration', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Licence Number</span>
+                <input
+                  value={profile?.profile?.licenceNumber ?? ''}
+                  onChange={(e) => updateField('licenceNumber', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
             <button
               onClick={() => void saveProfile()}
               disabled={saving || loading}

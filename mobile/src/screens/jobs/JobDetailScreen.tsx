@@ -50,12 +50,13 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   const drop = job?.dropLocation ?? job?.dropAddress ?? '';
   const jobRef = job?.jobReference ?? job?.jobRef ?? 'Job';
   const goodsType = job?.goodsType ?? 'General Goods';
-  const vehicleType = job?.vehicleTypeRequired ?? job?.vehicleType ?? '';
   const jobDate = job?.jobDate ?? '';
   const distance = job?.distanceKm ? `${job.distanceKm} km` : '';
-  const weight = job?.weightKg ? `${job.weightKg} kg` : '';
+  const totalCapacity = job?.totalCapacity ? `${job.totalCapacity} L` : '';
+  const compartmentCount = job?.compartments ? `${job.compartments}` : '';
+  const timeSlot = job?.timeSlot ? String(job.timeSlot).replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : '';
+  const specialInstructions = job?.specialInstructions ?? '';
   const stops: Array<{address: string; order: number; goods_type?: string; litres?: number}> = Array.isArray(job?.stops) ? job.stops : [];
-  const accessCode = job?.accessCode ?? null;
   const totalLitres = job?.totalLitres ? `${job.totalLitres} L` : '';
 
   return (
@@ -109,13 +110,14 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
       <View style={styles.detailCard}>
         <Text style={styles.sectionTitle}>Job Details</Text>
         <InfoRow label="Goods Type" value={goodsType} />
-        <InfoRow label="Vehicle Required" value={vehicleType} />
         <InfoRow label="Requirement" value={formatDriverRequirement(job?.driverRequirement)} />
         <InfoRow label="Job Date" value={jobDate} />
+        {timeSlot ? <InfoRow label="Collection Time" value={timeSlot} /> : null}
         <InfoRow label="Distance" value={distance} />
-        <InfoRow label="Weight" value={weight} />
+        {totalCapacity ? <InfoRow label="Total Capacity" value={totalCapacity} /> : null}
+        {compartmentCount ? <InfoRow label="Compartments" value={compartmentCount} /> : null}
         {totalLitres ? <InfoRow label="Total Litres" value={totalLitres} /> : null}
-        {accessCode ? <InfoRow label="Access Code" value={accessCode} /> : null}
+        {specialInstructions ? <InfoRow label="Special Instructions" value={specialInstructions} /> : null}
         {stops.some(s => s.goods_type || s.litres) && (
           stops.map((s, idx) => (s.goods_type || s.litres) ? (
             <InfoRow

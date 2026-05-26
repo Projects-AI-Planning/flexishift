@@ -20,9 +20,3 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
-// Keep build outputs inside the Android project on Linux.
-def buildBase = new File(rootProject.projectDir, "build")
-rootProject.buildDir = new File(buildBase, "_root")
-subprojects {
-    buildDir = new File(buildBase, project.name)
-}

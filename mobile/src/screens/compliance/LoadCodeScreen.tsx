@@ -66,16 +66,16 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           <View style={styles.stepRow}>
             <Text style={styles.stepTitle}>Step 1 of 3 — Complete</Text>
           </View>
-          <Text style={styles.mainTitle}>Load Code Verified</Text>
+          <Text style={styles.mainTitle}>Access Code Verified</Text>
           <Text style={styles.subtitle}>
-            The load code for this job has already been verified. You can proceed to the vehicle handover checklist.
+            The access code for this job has already been verified. You can proceed to the vehicle handover checklist.
           </Text>
 
           <View style={styles.verifiedCard}>
             <Text style={styles.verifiedIcon}>✅</Text>
             <Text style={styles.verifiedTitle}>Already Verified</Text>
             <Text style={styles.verifiedSub}>
-              Load code was accepted. This step cannot be repeated for the same job.
+              Access code was accepted. This step cannot be repeated for the same job.
             </Text>
           </View>
 
@@ -112,9 +112,9 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           <View style={styles.stepRow}>
             <Text style={styles.stepTitle}>Step 1 of 3</Text>
           </View>
-          <Text style={styles.mainTitle}>Load Code Confirmation</Text>
+          <Text style={styles.mainTitle}>Access Code Confirmation</Text>
           <Text style={styles.subtitle}>
-            Enter the load code provided by the haulier at pickup.
+            Enter the access code provided by the haulier to confirm pickup.
           </Text>
 
           {/* Job info card */}
@@ -176,7 +176,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
 
           {/* Code input */}
           <View style={styles.codeCard}>
-            <Text style={styles.codeLabel}>Enter Load Code</Text>
+            <Text style={styles.codeLabel}>Enter Access Code</Text>
             <TextInput
               style={styles.codeInput}
               placeholder="Enter code"
@@ -189,7 +189,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
               autoFocus
             />
             <Text style={styles.hintText}>
-              This code ensures the right vehicle is picking up the correct cargo.
+              This code is provided by the haulier to authorise your access to the load.
             </Text>
           </View>
 
