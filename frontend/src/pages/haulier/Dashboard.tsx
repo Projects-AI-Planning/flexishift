@@ -16,13 +16,15 @@ const DashboardSignModal: React.FC<{
   job: { jobId: string; jobReference: string };
   onClose: () => void;
   onSigned: (jobId: string) => void;
-}> = ({ job, onClose, onSigned }) => {
+  savedEsig?: string | null;
+}> = ({ job, onClose, onSigned, savedEsig }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const lastPt = useRef<SigPoint | null>(null);
   const [hasStrokes, setHasStrokes] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [useSaved, setUseSaved] = useState(!!savedEsig);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): SigPoint => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -45,11 +47,16 @@ const DashboardSignModal: React.FC<{
   const end = () => { drawing.current = false; lastPt.current = null; };
   const clear = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); setHasStrokes(false); };
 
+  const canConfirm = useSaved ? !!savedEsig : hasStrokes;
+
   const submit = async () => {
-    if (!canvasRef.current || !hasStrokes) return;
+    if (!canConfirm) return;
     setLoading(true); setError('');
     try {
-      await haulierService.submitDigitalSignature({ jobId: job.jobId, signatureData: canvasRef.current.toDataURL('image/png') });
+      const signatureData = useSaved && savedEsig
+        ? savedEsig
+        : canvasRef.current!.toDataURL('image/png');
+      await haulierService.submitDigitalSignature({ jobId: job.jobId, signatureData });
       onSigned(job.jobId);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; detail?: string } } };
@@ -62,7 +69,7 @@ const DashboardSignModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-start justify-between">
+        <div className="mb-1 flex items-start justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Step 2 · Handover</p>
             <h2 className="text-xl font-black text-[#041627]">Haulier Signature</h2>
@@ -72,19 +79,58 @@ const DashboardSignModal: React.FC<{
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <p className="mb-3 text-sm text-[#44474C]">Draw your signature to confirm dispatch officer vehicle release.</p>
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-          <canvas ref={canvasRef} width={560} height={200} className="w-full cursor-crosshair touch-none"
-            onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-            onTouchStart={start} onTouchMove={move} onTouchEnd={end}
-          />
-          {!hasStrokes && <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">Draw your signature here</p>}
-        </div>
-        <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE</p>
+
+        {/* Tab toggle — only shown when a saved e-sig exists */}
+        {savedEsig && (
+          <div className="mt-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1">
+            <button
+              onClick={() => setUseSaved(true)}
+              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Use Saved E-Signature
+            </button>
+            <button
+              onClick={() => setUseSaved(false)}
+              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${!useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Draw New Signature
+            </button>
+          </div>
+        )}
+
+        {useSaved && savedEsig ? (
+          <div className="mt-4">
+            <div className="overflow-hidden rounded-2xl border-2 border-[#1066b1]/30 bg-slate-50">
+              <img src={savedEsig} alt="Saved e-signature" className="h-40 w-full object-contain" />
+            </div>
+            <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-[#1066b1]">
+              Saved E-Signature · From Profile
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            {!savedEsig && (
+              <p className="mb-3 text-sm text-[#44474C]">Draw your signature to confirm dispatch officer vehicle release.</p>
+            )}
+            <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+              <canvas ref={canvasRef} width={560} height={200} className="w-full cursor-crosshair touch-none"
+                onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+                onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+              />
+              {!hasStrokes && <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">Draw your signature here</p>}
+            </div>
+            <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE</p>
+          </div>
+        )}
+
         {error && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
         <div className="mt-5 flex gap-3">
-          <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
-          <button onClick={() => void submit()} disabled={loading || !hasStrokes} className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40">
+          {useSaved ? (
+            <button onClick={onClose} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Cancel</button>
+          ) : (
+            <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
+          )}
+          <button onClick={() => void submit()} disabled={loading || !canConfirm} className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40">
             {loading ? 'Submitting…' : 'Confirm Signature'}
           </button>
         </div>
@@ -242,6 +288,13 @@ const HaulierOverview: React.FC = () => {
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [handoverRows, setHandoverRows] = useState<HandoverInfo[]>([]);
   const [sigModalJob, setSigModalJob] = useState<{ jobId: string; jobReference: string } | null>(null);
+  const [haulierEsig, setHaulierEsig] = useState<string | null>(null);
+  useEffect(() => {
+    haulierService.getMe().then((user: { profile?: { esignatureData?: string | null } | null }) => {
+      const esig = user?.profile?.esignatureData;
+      if (esig) setHaulierEsig(esig);
+    }).catch(() => undefined);
+  }, []);
 
   // Pending delivery approval state
   const [pendingApprovalJobs, setPendingApprovalJobs] = useState<PendingApprovalJob[]>([]);
@@ -515,6 +568,7 @@ const HaulierOverview: React.FC = () => {
         <DashboardSignModal
           job={sigModalJob}
           onClose={() => setSigModalJob(null)}
+          savedEsig={haulierEsig}
           onSigned={(jobId) => {
             setSigModalJob(null);
             setHandoverRows((prev) =>

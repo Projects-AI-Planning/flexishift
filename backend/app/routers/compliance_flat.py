@@ -324,12 +324,12 @@ class DisputeRequest(BaseModel):
 
 
 @router.post("/delivery/submit")
-def submit_delivery(
+async def submit_delivery(
     body: DeliverySubmitRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(DriverDep),
 ):
-    record = comp_svc.complete_step2(db, body.job_id, current_user.id, body.model_dump(by_alias=False))
+    record = await comp_svc.complete_step2(db, body.job_id, current_user.id, body.model_dump(by_alias=False))
     return ok(
         data={
             "deliveryId": record.id,
@@ -486,6 +486,7 @@ def get_delivery_status(
             "deliverySubmittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
             "deliveryPhotos": delivery_photos,
             "deliveryNotes": record.delivery_notes if record else None,
+            "recipientName": record.recipient_name if record else None,
             "recipientSignatureUrl": record.recipient_signature_url if record else None,
             # Approval step
             "step3Approved": bool(record and record.step3_approved_at),

@@ -214,7 +214,7 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
           <Pressable
             onPress={() => onVerify(code)}
             disabled={loading || code.trim().length === 0}
-            style={[styles.primaryButton, (loading || code.length < 8) && styles.disabledButton]}>
+            style={[styles.primaryButton, (loading || code.trim().length === 0) && styles.disabledButton]}>
             {loading ? (
               <ActivityIndicator color={colors.card} />
             ) : (

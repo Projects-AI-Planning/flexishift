@@ -33,13 +33,18 @@ class PaymentMethodRequest(BaseModel):
 
 
 def _payment_dict(p: Payment) -> dict:
+    _total  = float(p.amount)
+    _driver = float(p.driver_amount) if p.driver_amount else round(_total / 1.125, 2)
+    _fee    = float(p.platform_fee)  if p.platform_fee  else round(_total - _driver, 2)
     return {
         "paymentId": p.id,
         "jobId": p.job_id,
         "gatewayOrderId": p.gateway_order_id,
         "gatewayPaymentId": p.gateway_payment_id,
         "gatewayPayoutId": p.gateway_payout_id,
-        "amount": float(p.amount),
+        "amount": _total,
+        "driverAmount": _driver,
+        "platformFee": _fee,
         "currency": p.currency,
         "status": p.status.value,
         "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,

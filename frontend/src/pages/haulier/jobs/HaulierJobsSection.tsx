@@ -208,26 +208,15 @@ interface SignatureModalProps {
   onCancel: () => void;
   loading: boolean;
   error: string;
+  savedEsig?: string | null;
 }
 
-const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, onCancel, loading, error }) => {
+const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, onCancel, loading, error, savedEsig }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const lastPt = useRef<Point | null>(null);
   const [hasStrokes, setHasStrokes] = useState(false);
-  const [savedEsig, setSavedEsig] = useState<string | null>(null);
-  const [useSaved, setUseSaved] = useState(false);
-
-  /* Fetch saved e-signature from profile on mount */
-  useEffect(() => {
-    haulierService.getMe().then((user: { profile?: { esignatureData?: string | null } | null }) => {
-      const esig = user?.profile?.esignatureData;
-      if (esig) {
-        setSavedEsig(esig);
-        setUseSaved(true);
-      }
-    }).catch(() => { /* no saved sig — ignore */ });
-  }, []);
+  const [useSaved, setUseSaved] = useState(!!savedEsig);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -983,6 +972,47 @@ const DriverRatingModal: React.FC<DriverRatingModalProps> = ({ jobId, driverId, 
   );
 };
 
+/* ── Stroke Signature Renderer ─────────────────────────────────────────────── */
+
+type StrokePoint = { x: number; y: number };
+
+const StrokeSignature: React.FC<{ data: string; className?: string }> = ({ data, className }) => {
+  let strokes: StrokePoint[][] = [];
+  let isUrl = false;
+  try {
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) strokes = parsed as StrokePoint[][];
+    else isUrl = true;
+  } catch {
+    isUrl = true;
+  }
+
+  if (isUrl) {
+    return <img src={data} alt="Recipient signature" className={`object-contain ${className ?? ''}`} />;
+  }
+
+  const W = 300;
+  const H = 120;
+  const paths = strokes.map((stroke) =>
+    stroke.length < 2
+      ? ''
+      : stroke.reduce((acc, pt, i) => acc + (i === 0 ? `M${pt.x},${pt.y}` : ` L${pt.x},${pt.y}`), '')
+  ).filter(Boolean);
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      className={className ?? 'w-full h-24'}
+      style={{ background: 'transparent' }}
+    >
+      {paths.map((d, i) => (
+        <path key={i} d={d} stroke="#1C2E45" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+    </svg>
+  );
+};
+
 /* ── Delivery Review Panel ──────────────────────────────────────────────────── */
 
 type DeliveryDetails = {
@@ -994,6 +1024,8 @@ type DeliveryDetails = {
   deliverySubmittedAt?: string;
   deliveryPhotos?: string[];
   deliveryNotes?: string;
+  recipientName?: string;
+  recipientSignatureUrl?: string;
   step3Approved: boolean;
   disputed: boolean;
   driver?: {
@@ -1210,6 +1242,14 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
                   <span className="text-sm font-bold text-[#041627]">{fmt(details.deliverySubmittedAt)}</span>
                 </div>
 
+                {/* Recipient name */}
+                {details.recipientName && (
+                  <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Received By</p>
+                    <p className="text-sm font-bold text-[#041627]">{details.recipientName}</p>
+                  </div>
+                )}
+
                 {details.deliveryNotes && (
                   <div className="rounded-xl bg-slate-50 px-3 py-2.5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Driver Notes</p>
@@ -1240,6 +1280,16 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
                   <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-400">
                     <span className="material-symbols-outlined text-base">image_not_supported</span>
                     No delivery photos uploaded
+                  </div>
+                )}
+
+                {/* Recipient signature */}
+                {details.recipientSignatureUrl && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Recipient Signature</p>
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+                      <StrokeSignature data={details.recipientSignatureUrl} className="w-full h-24" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1775,6 +1825,15 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
   const [deliveryReviewJobId, setDeliveryReviewJobId] = useState<string | null>(null);
   const [deliveryReviewJobRef, setDeliveryReviewJobRef] = useState('');
 
+  /* Haulier saved e-signature (fetched once for the signing modal) */
+  const [haulierEsig, setHaulierEsig] = useState<string | null>(null);
+  useEffect(() => {
+    haulierService.getMe().then((user: { profile?: { esignatureData?: string | null } | null }) => {
+      const esig = user?.profile?.esignatureData;
+      if (esig) setHaulierEsig(esig);
+    }).catch(() => undefined);
+  }, []);
+
   /* Driver rating modal state */
   const [driverRating, setDriverRating] = useState<{ jobId: string; driverId: string; driverName: string } | null>(null);
 
@@ -1951,6 +2010,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           onCancel={() => setSigningJobId(null)}
           loading={sigLoading}
           error={sigError}
+          savedEsig={haulierEsig}
         />
       )}
 
@@ -2106,7 +2166,6 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                 {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
                 )}
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                 {activeStatus === 'OPEN' && (
@@ -2174,10 +2233,6 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                         <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
                       </td>
                     )}
-                    <td className="px-6 py-5">
-                      <p className="text-sm font-bold text-[#041627]">{job.vehicleType ?? 'N/A'}</p>
-                      {job.distanceKm != null && <p className="text-xs text-slate-400">{job.distanceKm} km</p>}
-                    </td>
                     <td className="px-6 py-5">
                       <p className="text-sm font-bold text-[#041627]">{formatDate(job.jobDate)}</p>
                       {job.timeSlot && <p className="text-xs text-slate-400">{statusLabel(job.timeSlot)}</p>}

@@ -128,6 +128,8 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     if existing:
         existing.gateway_order_id = intent["id"]
         existing.amount = total_amount
+        existing.driver_amount = driver_amount
+        existing.platform_fee = platform_fee
         existing.currency = currency
         existing.status = PaymentStatus.PENDING
         db.commit()
@@ -137,6 +139,8 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
             job_id=job_id,
             gateway_order_id=intent["id"],
             amount=total_amount,
+            driver_amount=driver_amount,
+            platform_fee=platform_fee,
             currency=currency,
             status=PaymentStatus.PENDING,
         )
@@ -237,8 +241,8 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
     ] if stops_raw else []
 
     _total = float(payment.amount)
-    _driver = round(_total / 1.125, 2)
-    _fee = round(_total - _driver, 2)
+    _driver = float(payment.driver_amount) if payment.driver_amount else round(_total / 1.125, 2)
+    _fee = float(payment.platform_fee) if payment.platform_fee else round(_total - _driver, 2)
 
     return {
         "paymentId": payment.id,
@@ -255,8 +259,8 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "totalLitres": float(job.total_litres) if getattr(job, "total_litres", None) is not None else None,
         "specialInstructions": job.special_instructions,
         "distanceKm": float(job.distance_km) if getattr(job, "distance_km", None) is not None else None,
-        "amount": _total,
-        "driverAmount": _driver,
+        "amount": _total,       # total charged to haulier
+        "driverAmount": _driver,  # driver's portion (what they earn)
         "platformFee": _fee,
         "totalAmount": _total,
         "currency": payment.currency,
@@ -292,24 +296,36 @@ def release_payment(db: Session, job_id: str) -> Payment:
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
-    # If the intent was created with transfer_data (destination charge), Stripe already
-    # moved the funds to the driver on capture — no separate Transfer needed.
-    # Fall back to manual Transfer only for older intents without transfer_data.
+    # Resolve the driver's portion — use stored value; fall back to reverse-calc for legacy rows
+    stored_driver_amount = float(payment.driver_amount) if payment.driver_amount else None
+    driver_payout = stored_driver_amount or round(float(payment.amount) / 1.125, 2)
+    driver_payout_minor = int(round(driver_payout * 100))
+
+    # Check if this was a destination charge (transfer_data set at intent creation).
+    # Use dict-style .get() which is reliable across Stripe SDK versions.
     transfer_id = None
-    has_destination = bool(getattr(captured_intent, "transfer_data", None))
+    try:
+        td = captured_intent.get("transfer_data") if callable(getattr(captured_intent, "get", None)) \
+            else getattr(captured_intent, "transfer_data", None)
+        has_destination = bool(td and td.get("destination") if isinstance(td, dict) else td)
+    except Exception:
+        has_destination = False
 
     if has_destination:
-        # Destination charge: transfer happened automatically; record the transfer ID
-        transfer_id = getattr(captured_intent, "transfer", None)
-        log.info("release_payment_destination_charge", job_id=job_id, transfer=transfer_id)
+        # Destination charge: Stripe auto-transferred driver_amount at capture.
+        # transfer_data.amount was set to driver_amount_minor at intent creation,
+        # so exactly the right amount already went to the driver.
+        transfer_id = (captured_intent.get("transfer") if callable(getattr(captured_intent, "get", None))
+                       else getattr(captured_intent, "transfer", None))
+        log.info("release_payment_destination_charge", job_id=job_id, transfer=transfer_id,
+                 driver_payout=driver_payout)
     elif job.selected_supplier_id:
         driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
         if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
-            # Only transfer the driver's portion (exclude the 12.5% platform fee)
-            driver_amount_minor = int(round(float(payment.amount) / 1.125 * 100))
+            # Transfer only the driver's quoted amount — platform retains platform_fee
             transfer_id = transfer_to_driver(
                 stripe_account_id=driver.stripe_account_id,
-                amount_pence=driver_amount_minor,
+                amount_pence=driver_payout_minor,
                 currency=payment.currency,
                 payment_intent_id=intent_id,
                 job_ref=job.job_ref,

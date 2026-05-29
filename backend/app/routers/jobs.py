@@ -47,7 +47,9 @@ def _job_dict(job: Job) -> dict:
         "status": job.status.value,
         "selectedSupplierId": job.selected_supplier_id,
         "originalEta": job.original_eta.isoformat() if job.original_eta else None,
-        "agreedAmount": float(payment.amount) if payment else None,
+        "agreedAmount": float(payment.amount) if payment else None,          # total (haulier pays)
+        "driverAmount": float(payment.driver_amount) if payment and payment.driver_amount else (round(float(payment.amount) / 1.125, 2) if payment else None),  # driver's earning
+        "platformFee": float(payment.platform_fee) if payment and payment.platform_fee else (round(float(payment.amount) * 0.125 / 1.125, 2) if payment else None),
         "currency": payment.currency if payment else None,
         "invoiceUrl": job.invoice_url,
         "createdAt": job.created_at.isoformat() if job.created_at else None,

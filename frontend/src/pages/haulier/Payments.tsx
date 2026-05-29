@@ -577,10 +577,7 @@ const CreatePaymentTab: React.FC = () => {
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Goods</p>
                           <p className="font-bold text-[#44474C]">{job.goodsType ?? '—'}</p>
                         </div>
-                        <div>
-                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Vehicle</p>
-                          <p className="font-bold text-[#44474C]">{job.vehicleType ?? '—'}</p>
-                        </div>
+
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Date</p>
                           <p className="font-bold text-[#44474C]">{fmtDate(job.jobDate)}</p>

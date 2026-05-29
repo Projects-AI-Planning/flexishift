@@ -23,6 +23,7 @@ class ComplianceRecord(Base):
     step2_completed_at:      Mapped[datetime] = mapped_column(DateTime, nullable=True)
     delivery_photo_url:      Mapped[str]      = mapped_column(Text, nullable=True)
     recipient_signature_url: Mapped[str]      = mapped_column(Text, nullable=True)
+    recipient_name:          Mapped[str]      = mapped_column(Text, nullable=True)
     delivery_notes:          Mapped[str]      = mapped_column(Text, nullable=True)
     delivery_submitted_at:   Mapped[datetime] = mapped_column(DateTime, nullable=True)
     step3_approved_at:       Mapped[datetime] = mapped_column(DateTime, nullable=True)

@@ -209,7 +209,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
             </Text>
             <Text style={styles.payAmount}>
               {details.currency ? `${details.currency} ` : ''}
-              {details.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+              {(details.driverAmount ?? details.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}
             </Text>
             <Text style={styles.payNote}>
               {isAuthorised
@@ -283,29 +283,11 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
             <Text style={styles.rowLabel}>REFERENCE</Text>
             <Text style={[styles.rowValue, styles.mono]}>{maskIntentId(details.stripeIntentId)}</Text>
           </View>
-          {details.driverAmount != null && (
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>DRIVER QUOTE</Text>
-              <Text style={styles.rowValue}>
-                {details.currency ? `${details.currency} ` : ''}
-                {details.driverAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}
-              </Text>
-            </View>
-          )}
-          {details.platformFee != null && (
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>PLATFORM FEE (12.5%)</Text>
-              <Text style={styles.rowValue}>
-                {details.currency ? `${details.currency} ` : ''}
-                {details.platformFee.toLocaleString('en-US', {minimumFractionDigits: 2})}
-              </Text>
-            </View>
-          )}
           <View style={[styles.row, styles.rowTotal]}>
-            <Text style={[styles.rowLabel, styles.rowLabelTotal]}>TOTAL AMOUNT</Text>
+            <Text style={[styles.rowLabel, styles.rowLabelTotal]}>YOUR PAYMENT</Text>
             <Text style={[styles.rowValue, styles.rowValueTotal]}>
               {details.currency ? `${details.currency} ` : ''}
-              {details.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+              {(details.driverAmount ?? details.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}
             </Text>
           </View>
           <View style={styles.row}>

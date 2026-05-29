@@ -1,5 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import {
+  ActivityIndicator,
   Alert,
   GestureResponderEvent,
   Image,
@@ -302,9 +303,11 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
           }
           disabled={loading || !isComplete}
           style={[styles.submitBtn, (loading || !isComplete) && styles.submitBtnDisabled]}>
-          <Text style={styles.submitBtnText}>
-            {loading ? 'Submitting…' : '✓  Complete Job & Submit Report'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitBtnText}>✓  Complete Job & Submit Report</Text>
+          )}
         </Pressable>
       </ScrollView>
     </SafeAreaView>

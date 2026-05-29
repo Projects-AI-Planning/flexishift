@@ -757,7 +757,7 @@ def haulier_spend_summary(
                 "totalSpent": float(month_total),
                 "totalJobs": month_jobs,
                 "averagePerJob": avg,
-                "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "allTimeSpent": float(all_time_total),
             "allTimeJobs": all_time_jobs,

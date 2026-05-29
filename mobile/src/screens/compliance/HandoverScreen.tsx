@@ -58,13 +58,6 @@ const checklistItems: ReadonlyArray<{
   {key: 'bodyDamage', label: 'Body Damage', description: 'No new dents, cracks, or loose panels'},
 ];
 
-const photoSlots: {key: string; label: string}[] = [
-  {key: 'front', label: 'Vehicle Front'},
-  {key: 'side', label: 'Vehicle Side'},
-  {key: 'rear', label: 'Vehicle Rear'},
-  {key: 'cargo', label: 'Cargo Secure'},
-];
-
 // ── SignaturePad ──────────────────────────────────────────────────────────────
 
 interface SignaturePadHandle {
@@ -190,7 +183,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     fluidLevels: false,
     bodyDamage: false,
   });
-  const [photos, setPhotos] = useState<Record<string, Asset>>({});
+  const [photos, setPhotos] = useState<Asset[]>([]);
   const [job, setJob] = useState<Record<string, unknown> | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -218,8 +211,8 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     setChecklist(prev => ({...prev, [key]: !prev[key]}));
   };
 
-  const handlePickPhoto = (key: string, label: string) => {
-    Alert.alert(label, 'Choose photo source', [
+  const handleAddPhoto = () => {
+    Alert.alert('Add Photo', 'Choose photo source', [
       {
         text: '📷  Camera',
         onPress: () => {
@@ -228,9 +221,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
             response => {
               if (response.didCancel || response.errorCode) {return;}
               const asset = response.assets?.[0];
-              if (asset?.uri) {
-                setPhotos(prev => ({...prev, [key]: asset}));
-              }
+              if (asset?.uri) {setPhotos(prev => [...prev, asset]);}
             },
           );
         },
@@ -238,12 +229,10 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
       {
         text: '🖼  Gallery',
         onPress: () => {
-          launchImageLibrary({mediaType: 'photo', quality: 0.8}, response => {
+          launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 0}, response => {
             if (response.didCancel || response.errorCode) {return;}
-            const asset = response.assets?.[0];
-            if (asset?.uri) {
-              setPhotos(prev => ({...prev, [key]: asset}));
-            }
+            const assets = (response.assets ?? []).filter(a => a?.uri);
+            if (assets.length) {setPhotos(prev => [...prev, ...assets]);}
           });
         },
       },
@@ -251,8 +240,8 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     ]);
   };
 
-  const handleRaiseIssue = () => {
-    Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const isComplete = driverSigned;
@@ -270,10 +259,6 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <View style={styles.header}>
           <View style={styles.headerCenter} />
-          <Pressable onPress={handleRaiseIssue} style={styles.raiseBtn}>
-            <Text style={styles.raiseIcon}>⚠</Text>
-            <Text style={styles.raiseBtnText}>Raise{'\n'}Issue</Text>
-          </Pressable>
           <View style={styles.unitPill}>
             <Text style={styles.unitText}>Unit: {vehicleUnit}</Text>
           </View>
@@ -348,38 +333,44 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
         </View>
 
         {/* ── Photo Evidence ─────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Photo Evidence</Text>
-        <Text style={styles.sectionSubtitle}>Add any photos you'd like to include as part of the handover record.</Text>
-        <View style={styles.photoGrid}>
-          {photoSlots.map(slot => {
-            const asset = photos[slot.key];
-            const taken = !!asset;
-            return (
+        <View style={styles.card}>
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0F2F6'}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+              <Text style={{fontSize: 18, color: '#1C2E45'}}>📷</Text>
+              <Text style={{fontSize: 15, fontWeight: '700', color: '#1C2E45'}}>
+                Photo Evidence{photos.length > 0 ? ` (${photos.length})` : ''}
+              </Text>
+            </View>
+            {photos.length > 0 && (
               <Pressable
-                key={slot.key}
-                onPress={() => handlePickPhoto(slot.key, slot.label)}
-                style={[styles.photoBox, taken && styles.photoBoxDone]}>
-                {taken ? (
-                  <>
-                    <Image
-                      source={{uri: asset.uri!}}
-                      style={styles.photoThumb}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.photoTickBadge}>
-                      <Text style={styles.photoTickText}>✓</Text>
-                    </View>
-                    <Text style={styles.photoLabelDone}>{slot.label}</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.cameraIcon}>📷</Text>
-                    <Text style={styles.photoLabel}>{slot.label}</Text>
-                  </>
-                )}
+                onPress={handleAddPhoto}
+                style={{backgroundColor: '#EFF6FF', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#BFDBFE'}}>
+                <Text style={{color: '#1066B1', fontSize: 12, fontWeight: '800'}}>+ Add</Text>
               </Pressable>
-            );
-          })}
+            )}
+          </View>
+
+          {photos.length === 0 ? (
+            <Pressable onPress={handleAddPhoto} style={styles.photoPlaceholder}>
+              <Text style={styles.cameraIcon}>📷</Text>
+              <Text style={styles.photoPlaceholderTitle}>Add Photos</Text>
+              <Text style={styles.photoPlaceholderSub}>Optional — tap to add handover photos</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.photoGrid}>
+              {photos.map((asset, index) => (
+                <View key={`${asset.uri}-${index}`} style={styles.photoBox}>
+                  <Image source={{uri: asset.uri!}} style={styles.photoThumb} resizeMode="cover" />
+                  <Pressable
+                    onPress={() => handleRemovePhoto(index)}
+                    style={styles.photoRemoveBtn}
+                    hitSlop={6}>
+                    <Text style={styles.photoRemoveText}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* ── Driver Signature ───────────────────────────────────────────── */}
@@ -519,7 +510,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
               const driverSignatureData = sigSegments.length > 0
                 ? JSON.stringify(sigSegments)
                 : (savedSignature ?? 'driver_signed');
-              onSubmit({...checklist, __driverSignature: driverSignatureData}, Object.values(photos));
+              onSubmit({...checklist, __driverSignature: driverSignatureData}, photos);
             }}
             disabled={loading || !isComplete}
             style={[
@@ -775,70 +766,45 @@ const styles = StyleSheet.create({
   checkSubtitle: {fontSize: 13, color: '#6B7280', marginTop: 2},
 
   /* Photo grid */
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+  photoPlaceholder: {
+    borderWidth: 2,
+    borderColor: '#CAD0DA',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    minHeight: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FAFBFC',
   },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 12,
-  },
+  photoPlaceholderTitle: {color: '#1C2E45', fontSize: 14, fontWeight: '800'},
+  photoPlaceholderSub: {fontSize: 12, color: '#6B7280', textAlign: 'center'},
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 16,
   },
   photoBox: {
     width: '47.5%',
     aspectRatio: 1,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#C9D1DC',
-    borderStyle: 'dashed',
-    backgroundColor: '#FAFBFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
+    borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#E8EEF6',
   },
-  photoBoxDone: {
-    borderStyle: 'solid',
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  photoThumb: {
+  photoThumb: {width: '100%', height: '100%'},
+  photoRemoveBtn: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  photoTickBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#2563EB',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
   },
-  photoTickText: {color: '#fff', fontSize: 14, fontWeight: '900'},
+  photoRemoveText: {color: '#fff', fontSize: 11, fontWeight: '900'},
   cameraIcon: {fontSize: 32},
-  photoLabel: {fontSize: 13, color: '#6B7280', fontWeight: '500'},
-  photoLabelDone: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '700',
-    backgroundColor: 'rgba(37,99,235,0.75)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    zIndex: 1,
-  },
 
   /* Signature card */
   sigHeader: {

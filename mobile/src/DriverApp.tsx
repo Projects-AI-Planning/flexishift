@@ -370,8 +370,8 @@ function normalizeComplianceStep(
     compliance?.job_status ?? compliance?.jobStatus ?? activeJob?.status ?? '',
   ).toLowerCase();
 
+  // Job is actually in transit or beyond — go to tracking
   if (
-    compliance?.step1_handover_completed === true ||
     complianceJobStatus === 'in_transit' ||
     complianceJobStatus === 'delivery_submitted' ||
     complianceJobStatus === 'completed'
@@ -379,7 +379,11 @@ function normalizeComplianceStep(
     return 'tracking.active';
   }
 
-  if (compliance?.load_code_verified === true) {
+  // Driver submitted handover (waiting for haulier) OR load code verified — stay on handover
+  if (
+    compliance?.step1_handover_completed === true ||
+    compliance?.load_code_verified === true
+  ) {
     return 'compliance.handover';
   }
 
@@ -2080,20 +2084,13 @@ function DriverApp(): React.JSX.Element {
         }
       }
 
-      // Fetch job details to get the final agreed amount and invoice URL
-      const jobDetails = await driverApi.jobs.getDetails(jobId);
-      setPaymentReleasedData({
-        jobId: String(jobId),
-        jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
-        haulierId: jobDetails?.haulierId ? String(jobDetails.haulierId) : undefined,
-        amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
-        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? session?.currency ),
-        completionDate: new Date().toISOString(),
-        invoiceUrl: jobDetails?.invoiceUrl ? String(jobDetails.invoiceUrl) : undefined,
-      });
-
       setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
-      navigate('jobs', 'payments.released' as any);
+      // Show the escrow/payment waiting screen — navigates to payments.released
+      // automatically when the haulier releases payment (via PAYMENT_RELEASED notification)
+      setEscrowJobId(jobId);
+      setEscrowDetails(null);
+      navigate('jobs', 'payment.escrow');
+      loadEscrowPayment(jobId);
       await refreshActiveView();
     } catch (err) {
       setErrorBanner(
@@ -2559,7 +2556,8 @@ function DriverApp(): React.JSX.Element {
           jobId: String(jobId),
           jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? jobId),
           haulierId: job?.haulierId ? String(job.haulierId) : undefined,
-          amount: Number((res as any)?.amount ?? (job as any)?.agreedAmount ?? 0),
+          // Show only the driver's quoted amount, not the total (which includes platform fee)
+          amount: Number((res as any)?.driverAmount ?? (job as any)?.driverAmount ?? (res as any)?.amount ?? 0),
           currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency ),
           completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
           invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
@@ -2619,7 +2617,8 @@ function DriverApp(): React.JSX.Element {
             jobId: String(jobId),
             jobReference: String(job?.jobReference ?? jobId),
             haulierId: job?.haulierId ? String(job.haulierId) : undefined,
-            amount: Number(job?.agreedAmount ?? 0),
+            // Show driver's earning (their quoted amount), not the total haulier paid
+            amount: Number((job as any)?.driverAmount ?? job?.agreedAmount ?? 0),
             currency: String(job?.currency ?? session?.currency ),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
             invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
@@ -3284,7 +3283,10 @@ function DriverApp(): React.JSX.Element {
             }}
             onProceedToCompliance={(jobId, jobRef, qAmt, curr) => {
               setHighlightedQuoteJobId(null);
-              handleProceedToBooking(jobId, jobRef, qAmt, curr);
+              setEscrowJobId(jobId);
+              setEscrowDetails(null);
+              navigate('jobs', 'payment.escrow');
+              loadEscrowPayment(jobId);
             }}
             onWithdrawQuote={handleWithdrawQuote}
             onViewQuoteStatus={(quote: Record<string, unknown>) => {
@@ -3438,6 +3440,8 @@ function DriverApp(): React.JSX.Element {
                     specialInstructions: d.specialInstructions ? String(d.specialInstructions) : undefined,
                     distanceKm: d.distanceKm != null ? Number(d.distanceKm) : undefined,
                     amount: Number(d.amount ?? 0),
+                    driverAmount: d.driverAmount != null ? Number(d.driverAmount) : undefined,
+                    platformFee: d.platformFee != null ? Number(d.platformFee) : undefined,
                     currency: String(d.currency ?? session?.currency ),
                     status: String(d.status ?? ''),
                     stripeIntentId: d.stripeIntentId ? String(d.stripeIntentId) : undefined,

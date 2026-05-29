@@ -13,7 +13,7 @@ def create_rating(
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != JobStatus.COMPLETED:
+    if job.status not in (JobStatus.COMPLETED, JobStatus.DELIVERY_SUBMITTED, JobStatus.DISPUTED):
         raise HTTPException(status_code=422, detail="Job must be completed to leave a rating")
 
     if rater.id != job.haulier_id and rater.id != job.selected_supplier_id:

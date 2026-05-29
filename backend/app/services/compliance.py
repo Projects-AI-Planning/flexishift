@@ -70,8 +70,8 @@ async def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict)
         raise HTTPException(status_code=404, detail="Job not found")
     if job.selected_supplier_id != supplier_id:
         raise HTTPException(status_code=403, detail="Only the assigned supplier can submit delivery proof")
-    if job.status != JobStatus.IN_TRANSIT:
-        raise HTTPException(status_code=422, detail="Job must be in transit for delivery confirmation")
+    if job.status in (JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.DELIVERY_SUBMITTED):
+        raise HTTPException(status_code=422, detail="Delivery already submitted or job is closed")
 
     record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
     if not record or not record.step1_completed_at:
@@ -82,6 +82,7 @@ async def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict)
     now = datetime.utcnow()
     record.delivery_photo_url = data["delivery_photo_url"]
     record.recipient_signature_url = data["recipient_signature_url"]
+    record.recipient_name = data.get("recipient_name")
     record.delivery_notes = data.get("delivery_notes")
     record.delivery_submitted_at = now
     record.step2_completed_at = now

@@ -24,7 +24,9 @@ class Payment(Base):
     gateway_order_id:   Mapped[str]           = mapped_column(String(100), nullable=False)
     gateway_payment_id: Mapped[str]           = mapped_column(String(100), nullable=True)
     gateway_payout_id:  Mapped[str]           = mapped_column(String(100), nullable=True)
-    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)
+    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)  # total charged to haulier
+    driver_amount:      Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # portion released to driver
+    platform_fee:       Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # platform commission
     currency:           Mapped[str]           = mapped_column(String(3), nullable=True)
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
     escrowed_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
