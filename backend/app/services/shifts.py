@@ -191,6 +191,28 @@ def complete_shift_day(db: Session, shift_id: str, haulier: User) -> Shift:
             detail=f"Payment for Day {current_day} must be made before completing it",
         )
 
+    # Transfer driver's quoted amount to their Stripe Connect account.
+    # The platform retains the 12.5% fee already captured in the platform account.
+    if shift.selected_driver_id and payment.driver_amount and payment.gateway_payment_id:
+        from app.models.user import User as _User
+        from app.services.stripe_connect import transfer_to_driver
+        import structlog as _log
+        _logger = _log.get_logger()
+        driver = db.query(_User).filter(_User.id == shift.selected_driver_id).first()
+        if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
+            driver_amount_minor = int(round(float(payment.driver_amount) * 100))
+            try:
+                transfer_to_driver(
+                    stripe_account_id=driver.stripe_account_id,
+                    amount_pence=driver_amount_minor,
+                    currency=payment.currency,
+                    payment_intent_id=payment.gateway_payment_id,
+                    job_ref=shift.shift_ref,
+                )
+            except Exception as exc:
+                _logger.error("shift_driver_transfer_failed",
+                              shift_id=shift_id, day=current_day, error=str(exc))
+
     # Release the escrowed funds
     payment.status = ShiftPaymentStatus.RELEASED
     payment.released_at = datetime.utcnow()

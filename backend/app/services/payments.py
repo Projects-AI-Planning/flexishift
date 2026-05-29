@@ -46,8 +46,11 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     if not selected_quote:
         raise HTTPException(status_code=422, detail="No selected quote found")
 
-    amount = float(selected_quote.price)
-    amount_minor = int(round(amount * 100))
+    driver_amount = float(selected_quote.price)
+    platform_fee = round(driver_amount * 0.125, 2)
+    total_amount = round(driver_amount + platform_fee, 2)
+    amount_minor = int(round(total_amount * 100))
+    driver_amount_minor = int(round(driver_amount * 100))
 
     haulier = db.query(User).filter(User.id == haulier_id).first()
     currency = (
@@ -79,7 +82,9 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
                     "payment_id": existing.id,
                     "gateway_order_id": prev_intent["id"],
                     "client_secret": prev_intent["client_secret"],
-                    "amount": amount,
+                    "amount": total_amount,
+                    "driverAmount": driver_amount,
+                    "platformFee": platform_fee,
                     "currency": existing.currency,
                     "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
                 }
@@ -106,8 +111,12 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "description": f"FlexiShift job {job.job_ref}",
     }
     if driver_stripe_account:
-        # Destination charge: on capture Stripe automatically moves funds to the driver
-        intent_params["transfer_data"] = {"destination": driver_stripe_account}
+        # Destination charge: on capture Stripe moves driver_amount to the driver;
+        # the platform retains the platform_fee portion.
+        intent_params["transfer_data"] = {
+            "destination": driver_stripe_account,
+            "amount": driver_amount_minor,
+        }
 
     try:
         intent = client.PaymentIntent.create(**intent_params)
@@ -118,7 +127,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     if existing:
         existing.gateway_order_id = intent["id"]
-        existing.amount = selected_quote.price
+        existing.amount = total_amount
         existing.currency = currency
         existing.status = PaymentStatus.PENDING
         db.commit()
@@ -127,7 +136,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         payment = Payment(
             job_id=job_id,
             gateway_order_id=intent["id"],
-            amount=selected_quote.price,
+            amount=total_amount,
             currency=currency,
             status=PaymentStatus.PENDING,
         )
@@ -142,7 +151,9 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "payment_id": payment.id,
         "gateway_order_id": intent["id"],
         "client_secret": intent["client_secret"],
-        "amount": amount,
+        "amount": total_amount,
+        "driverAmount": driver_amount,
+        "platformFee": platform_fee,
         "currency": currency,
         "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
@@ -225,6 +236,10 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         for s in stops_raw
     ] if stops_raw else []
 
+    _total = float(payment.amount)
+    _driver = round(_total / 1.125, 2)
+    _fee = round(_total - _driver, 2)
+
     return {
         "paymentId": payment.id,
         "jobId": job_id,
@@ -240,7 +255,10 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "totalLitres": float(job.total_litres) if getattr(job, "total_litres", None) is not None else None,
         "specialInstructions": job.special_instructions,
         "distanceKm": float(job.distance_km) if getattr(job, "distance_km", None) is not None else None,
-        "amount": float(payment.amount),
+        "amount": _total,
+        "driverAmount": _driver,
+        "platformFee": _fee,
+        "totalAmount": _total,
         "currency": payment.currency,
         "status": payment.status.value,
         "stripeIntentId": payment.gateway_payment_id or payment.gateway_order_id,
@@ -287,10 +305,11 @@ def release_payment(db: Session, job_id: str) -> Payment:
     elif job.selected_supplier_id:
         driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
         if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
-            amount_minor = int(float(payment.amount) * 100)
+            # Only transfer the driver's portion (exclude the 12.5% platform fee)
+            driver_amount_minor = int(round(float(payment.amount) / 1.125 * 100))
             transfer_id = transfer_to_driver(
                 stripe_account_id=driver.stripe_account_id,
-                amount_pence=amount_minor,
+                amount_pence=driver_amount_minor,
                 currency=payment.currency,
                 payment_intent_id=intent_id,
                 job_ref=job.job_ref,

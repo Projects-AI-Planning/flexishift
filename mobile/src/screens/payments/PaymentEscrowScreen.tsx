@@ -26,6 +26,9 @@ interface PaymentEscrowDetails {
   specialInstructions?: string;
   distanceKm?: number;
   amount: number;
+  driverAmount?: number;
+  platformFee?: number;
+  totalAmount?: number;
   currency: string;
   status: string;
   stripeIntentId?: string;
@@ -280,6 +283,31 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
             <Text style={styles.rowLabel}>REFERENCE</Text>
             <Text style={[styles.rowValue, styles.mono]}>{maskIntentId(details.stripeIntentId)}</Text>
           </View>
+          {details.driverAmount != null && (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>DRIVER QUOTE</Text>
+              <Text style={styles.rowValue}>
+                {details.currency ? `${details.currency} ` : ''}
+                {details.driverAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+              </Text>
+            </View>
+          )}
+          {details.platformFee != null && (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>PLATFORM FEE (12.5%)</Text>
+              <Text style={styles.rowValue}>
+                {details.currency ? `${details.currency} ` : ''}
+                {details.platformFee.toLocaleString('en-US', {minimumFractionDigits: 2})}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.row, styles.rowTotal]}>
+            <Text style={[styles.rowLabel, styles.rowLabelTotal]}>TOTAL AMOUNT</Text>
+            <Text style={[styles.rowValue, styles.rowValueTotal]}>
+              {details.currency ? `${details.currency} ` : ''}
+              {details.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+            </Text>
+          </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>STATUS</Text>
             <View style={[styles.badge, isAuthorised ? styles.badgeGreen : styles.badgeAmber]}>
@@ -422,6 +450,9 @@ const styles = StyleSheet.create({
   },
   rowLabel: {color: colors.inkSoft, fontSize: 11, fontWeight: '900', letterSpacing: 0.5},
   rowValue: {color: colors.navy, fontSize: 13, fontWeight: '800'},
+  rowTotal: {borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4},
+  rowLabelTotal: {color: colors.navy},
+  rowValueTotal: {fontSize: 15, color: colors.accent},
   rowValueWrap: {flex: 1, textAlign: 'right', marginLeft: 12},
   mono: {fontFamily: 'monospace', fontSize: 12},
 

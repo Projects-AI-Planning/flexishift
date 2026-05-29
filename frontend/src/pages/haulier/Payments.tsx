@@ -98,6 +98,8 @@ interface PaymentOrder {
   paymentIntentId: string;
   clientSecret: string;
   amount: number;
+  driverAmount?: number;
+  platformFee?: number;
   currency: string;
   publishableKey: string;
 }
@@ -239,16 +241,30 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         </div>
 
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-          {[
-            { label: 'Job', value: job.jobRef, mono: true },
-            { label: 'Amount', value: fmtMoney(order.amount, order.currency), bold: true },
-            { label: 'Currency', value: order.currency.toUpperCase() },
-          ].map(({ label, value, mono, bold }) => (
-            <div key={label} className="flex justify-between text-sm">
-              <span className="font-bold text-slate-500">{label}</span>
-              <span className={`${mono ? 'font-mono' : ''} ${bold ? 'text-base text-primary' : ''} font-black text-[#041627]`}>{value}</span>
+          <div className="flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Job</span>
+            <span className="font-mono font-black text-[#041627]">{job.jobRef}</span>
+          </div>
+          {order.driverAmount != null && (
+            <div className="flex justify-between text-sm">
+              <span className="font-bold text-slate-500">Driver Quote</span>
+              <span className="font-black text-[#041627]">{fmtMoney(order.driverAmount, order.currency)}</span>
             </div>
-          ))}
+          )}
+          {order.platformFee != null && (
+            <div className="flex justify-between text-sm">
+              <span className="font-bold text-slate-500">Platform Fee (12.5%)</span>
+              <span className="font-black text-[#44474C]">{fmtMoney(order.platformFee, order.currency)}</span>
+            </div>
+          )}
+          <div className="border-t border-slate-200 pt-2 flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Total Amount</span>
+            <span className="text-base font-black text-primary">{fmtMoney(order.amount, order.currency)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Currency</span>
+            <span className="font-black text-[#041627]">{order.currency.toUpperCase()}</span>
+          </div>
         </div>
 
         {isTest && (

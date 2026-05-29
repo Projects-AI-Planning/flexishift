@@ -66,8 +66,11 @@ def _booking_dict(job: Job) -> dict:
     quote_amount = float(selected_quote.price) if selected_quote else None
     quote_currency = selected_quote.currency if selected_quote else None
 
-    # Prefer payment amount (final); fall back to the winning quote price
-    display_amount = agreed_amount if agreed_amount is not None else quote_amount
+    # Total = driver quote + 12.5% platform fee
+    quote_total = round(quote_amount * 1.125, 2) if quote_amount is not None else None
+
+    # Prefer payment amount (which already stores the total); fall back to computed total
+    display_amount = agreed_amount if agreed_amount is not None else quote_total
 
     compliance = job.compliance
     compliance_status = _compliance_status(compliance)
