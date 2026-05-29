@@ -120,11 +120,8 @@ def _presigned_photo_url(raw_url: str | None) -> str | None:
 
 
 def _local_photo_url(request: Request, key: str) -> str:
-    url = str(request.url_for("uploads", path=key))
-    # Fix potential http/https mismatch when behind a proxy
-    if request.headers.get("x-forwarded-proto") == "https":
-        url = url.replace("http://", "https://")
-    return url
+    base = settings.BACKEND_URL.rstrip("/")
+    return f"{base}/uploads/{key}"
 
 
 def _save_local_photo(request: Request, key: str, contents: bytes) -> str:
