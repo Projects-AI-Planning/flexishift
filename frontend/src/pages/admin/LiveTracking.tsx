@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import adminService from '../../api/adminService';
 import type { LiveDelivery } from '../../types';
+import { fmtMoney } from '../../utils/currency';
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -32,8 +33,6 @@ type LiveTrackingData = {
   totalActive: number;
   deliveries: LiveDelivery[];
 };
-
-import { fmtMoney } from '../../utils/currency';
 
 const formatCurrency = (amount?: number | null, cur?: string) => (typeof amount === 'number' ? fmtMoney(amount, cur) : '—');
 

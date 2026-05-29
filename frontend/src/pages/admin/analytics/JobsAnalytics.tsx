@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAdminJobs, useAdminStats } from '../../../hooks/useAdmin';
 import type { Job } from '../../../types';
+import { fmtMoney as _fmtMoney } from '../../../utils/currency';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Jobs' },
@@ -12,8 +13,6 @@ const STATUS_OPTIONS = [
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'DISPUTED', label: 'Disputed' },
 ];
-
-import { fmtMoney as _fmtMoney } from '../../../utils/currency';
 
 const fmtMoney = (value?: number, currency?: string) =>
   typeof value === 'number' ? _fmtMoney(value, currency) : '—';

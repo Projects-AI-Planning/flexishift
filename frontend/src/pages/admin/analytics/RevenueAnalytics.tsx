@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAdminRevenue, useAdminStats } from '../../../hooks/useAdmin';
+import { fmtMoney } from '../../../utils/currency';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -8,8 +9,6 @@ const MONTHS = [
 
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
-
-import { fmtMoney } from '../../../utils/currency';
 
 const fmt = (value: number, currency?: string) => fmtMoney(value, currency);
 
