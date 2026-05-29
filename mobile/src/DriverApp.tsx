@@ -4152,16 +4152,25 @@ function DriverApp(): React.JSX.Element {
     activeTab === 'shifts' ||
     activeRoute.startsWith('shifts.');
 
-  const tabIcons: Record<DriverTabKey, ReturnType<typeof require>> = {
+  const tabIcons: Partial<Record<DriverTabKey, ReturnType<typeof require>>> = {
     home: require('./assets/icons/home.png'),
     jobs: require('./assets/icons/jobs.png'),
-    shifts: require('./assets/icons/jobs.png'),
     tracking: require('./assets/icons/route.png'),
     profile: require('./assets/icons/profile.png'),
   };
 
   const renderBottomTabIcon = (tabKey: DriverTabKey) => {
     const isActive = activeTab === tabKey;
+    if (tabKey === 'shifts') {
+      return (
+        <Icon
+          name="calendar"
+          size={22}
+          color={isActive ? '#111827' : '#6B7280'}
+          strokeWidth={isActive ? 2.2 : 1.8}
+        />
+      );
+    }
     return (
       <Image
         source={tabIcons[tabKey]}
