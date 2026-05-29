@@ -17,7 +17,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('jobs', sa.Column('access_code', sa.String(length=50), nullable=True))
+    conn = op.get_bind()
+    cols = [r[0] for r in conn.execute(sa.text("SHOW COLUMNS FROM jobs LIKE 'access_code'"))]
+    if not cols:
+        op.add_column('jobs', sa.Column('access_code', sa.String(length=50), nullable=True))
 
 
 def downgrade() -> None:
