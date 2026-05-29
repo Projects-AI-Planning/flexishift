@@ -124,7 +124,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   SGD: 'S$', CAD: 'C$', AED: 'AED', SAR: 'SAR',
 };
 
-const currencySymbol = (code: string) => CURRENCY_SYMBOLS[code?.toUpperCase()] ?? code ?? '£';
+const currencySymbol = (code?: string | null) => (code ? (CURRENCY_SYMBOLS[code.toUpperCase()] ?? code) : '');
 
 const mapDocumentItems = (payload: Record<string, unknown> | null | undefined): DocumentSummary[] => {
   return (((payload?.items as DocumentSummary[] | undefined) ?? []) || []) as DocumentSummary[];
