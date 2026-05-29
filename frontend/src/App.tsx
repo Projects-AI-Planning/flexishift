@@ -1,8 +1,32 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, fontFamily: 'monospace' }}>
+          <h2 style={{ color: '#b91c1c' }}>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', color: '#374151', fontSize: 13 }}>
+            {(this.state.error as Error).message}
+            {'\n\n'}
+            {(this.state.error as Error).stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -158,6 +182,7 @@ function AppRoutes() {
       <Route
         path="/haulier/*"
         element={
+          <ErrorBoundary>
           <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
@@ -194,7 +219,8 @@ function AppRoutes() {
               <Route path="*" element={<HaulierOverview />} />
             </Routes>
           </ProtectedRoute>
-        } 
+          </ErrorBoundary>
+        }
       />
 
       <Route path="/" element={
