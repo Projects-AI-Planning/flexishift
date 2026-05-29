@@ -601,6 +601,11 @@ function DriverApp(): React.JSX.Element {
     shiftId: string; shiftRef: string; haulierId: string;
   } | null>(null);
 
+  // Shift daily payment waiting for haulier release
+  const [shiftPaymentReleased, setShiftPaymentReleased] = useState<{
+    amount: number; currency: string; isLastDay: boolean;
+  } | null>(null);
+
   // Profile
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [profileForm, setProfileForm] = useState({
@@ -1874,6 +1879,38 @@ function DriverApp(): React.JSX.Element {
     });
   };
 
+  // ─── Push location while waiting for payment (job escrow + shift dayComplete) ─
+  // Allows haulier to track driver until payment is released
+
+  useEffect(() => {
+    const isJobWaiting   = activeRoute === 'payment.escrow' && !!escrowJobId;
+    const isShiftWaiting = activeRoute === 'shifts.dayComplete' && !!shiftHandoverInfo && shiftPaymentReleased === null;
+    if (!isJobWaiting && !isShiftWaiting) {return;}
+
+    const push = () => {
+      Geolocation.getCurrentPosition(
+        pos => {
+          const {latitude, longitude} = pos.coords;
+          if (isJobWaiting && escrowJobId) {
+            driverApi.tracking.updateLocation({
+              latitude, longitude, timestamp: new Date().toISOString(),
+            }).catch(() => undefined);
+          }
+          if (isShiftWaiting && shiftHandoverInfo) {
+            driverApi.shifts.updateLocation(shiftHandoverInfo.shiftId, latitude, longitude)
+              .catch(() => undefined);
+          }
+        },
+        () => undefined,
+        {enableHighAccuracy: false, timeout: 10000},
+      );
+    };
+
+    push();
+    const timer = setInterval(push, 30_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, escrowJobId, shiftHandoverInfo, shiftPaymentReleased]);
+
   // ─── Poll haulier signature when driver is on handover screen ───────────────
 
   useEffect(() => {
@@ -2483,6 +2520,8 @@ function DriverApp(): React.JSX.Element {
           signatureData:  data.signatureData,
         },
       );
+      // Show waiting screen — payment releases when haulier approves (SHIFT_PAYMENT_RELEASED notification)
+      setShiftPaymentReleased(null);
       navigate('shifts', 'shifts.dayComplete');
     } catch (err) {
       setErrorBanner(err instanceof Error ? err.message : 'End-of-day submission failed.');
@@ -2630,6 +2669,15 @@ function DriverApp(): React.JSX.Element {
       } else {
         navigate('profile', 'earnings.history');
       }
+      return;
+    }
+
+    if (type.includes('SHIFT_PAYMENT_RELEASED')) {
+      const amount   = Number(data.amount   ?? 0);
+      const currency = String(data.currency ?? '');
+      const isFinal  = Boolean(data.is_final_day);
+      setShiftPaymentReleased({ amount, currency, isLastDay: isFinal });
+      navigate('shifts', 'shifts.dayComplete');
       return;
     }
 
@@ -3097,12 +3145,16 @@ function DriverApp(): React.JSX.Element {
       // ── Day Complete screen ───────────────────────────────────────────────
       if (activeRoute === 'shifts.dayComplete' && shiftHandoverInfo) {
         const isLastDay = shiftHandoverInfo.dayNumber >= shiftHandoverInfo.totalDays;
+        const waiting   = shiftPaymentReleased === null;
         return (
           <ShiftDayCompleteScreen
             shiftRef={shiftHandoverInfo.shiftRef}
             dayNumber={shiftHandoverInfo.dayNumber}
             totalDays={shiftHandoverInfo.totalDays}
             isLastDay={isLastDay}
+            waitingForPayment={waiting}
+            releasedAmount={shiftPaymentReleased?.amount}
+            currency={shiftPaymentReleased?.currency}
             onRate={() => {
               setPendingShiftRating({
                 shiftId:   shiftHandoverInfo.shiftId,
@@ -3110,10 +3162,12 @@ function DriverApp(): React.JSX.Element {
                 haulierId: shiftHandoverInfo.haulierId,
               });
               setShiftHandoverInfo(null);
+              setShiftPaymentReleased(null);
               navigate('shifts', 'shifts.rating');
             }}
             onDone={() => {
               setShiftHandoverInfo(null);
+              setShiftPaymentReleased(null);
               loadShifts().catch(() => undefined);
               navigate('shifts', 'shifts.myShifts');
             }}

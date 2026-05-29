@@ -64,12 +64,6 @@ const CHECKLIST_ITEMS: ReadonlyArray<{
   {key: 'bodyDamage',    label: 'Body Damage',         description: 'No new dents, cracks, or loose panels'},
 ];
 
-const PHOTO_SLOTS: {key: string; label: string}[] = [
-  {key: 'front',  label: 'Vehicle Front'},
-  {key: 'side',   label: 'Vehicle Side'},
-  {key: 'rear',   label: 'Vehicle Rear'},
-  {key: 'cargo',  label: 'Cargo Secure'},
-];
 
 // ── SignaturePad ───────────────────────────────────────────────────────────────
 
@@ -185,7 +179,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
     lightsSignals: false, tirePressure: false,
     fluidLevels:   false, bodyDamage:   false,
   });
-  const [photos,            setPhotos]            = useState<Record<string, Asset>>({});
+  const [photos,            setPhotos]            = useState<Asset[]>([]);
   const [submitted,         setSubmitted]         = useState(false);
   const [driverSigned,      setDriverSigned]      = useState(false);
   const [showSigModal,      setShowSigModal]      = useState(false);
@@ -202,8 +196,8 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
   const toggleItem = (key: ChecklistKey) =>
     setChecklist(prev => ({...prev, [key]: !prev[key]}));
 
-  const handlePickPhoto = (key: string, label: string) => {
-    Alert.alert(label, 'Choose photo source', [
+  const handleAddPhoto = () => {
+    Alert.alert('Add Photo', 'Choose photo source', [
       {
         text: '📷  Camera',
         onPress: () => {
@@ -212,7 +206,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
             response => {
               if (response.didCancel || response.errorCode) {return;}
               const asset = response.assets?.[0];
-              if (asset?.uri) {setPhotos(prev => ({...prev, [key]: asset}));}
+              if (asset?.uri) {setPhotos(prev => [...prev, asset]);}
             },
           );
         },
@@ -220,10 +214,10 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
       {
         text: '🖼  Gallery',
         onPress: () => {
-          launchImageLibrary({mediaType: 'photo', quality: 0.8}, response => {
+          launchImageLibrary({mediaType: 'photo', quality: 0.8, selectionLimit: 0}, response => {
             if (response.didCancel || response.errorCode) {return;}
-            const asset = response.assets?.[0];
-            if (asset?.uri) {setPhotos(prev => ({...prev, [key]: asset}));}
+            const assets = (response.assets ?? []).filter(a => a?.uri);
+            if (assets.length) {setPhotos(prev => [...prev, ...assets]);}
           });
         },
       },
@@ -231,8 +225,8 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
     ]);
   };
 
-  const handleRaiseIssue = () => {
-    Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   // Submission is unlocked once the driver has signed
@@ -263,10 +257,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
             <Text style={styles.topBarTitle}>{shiftRef}</Text>
             <Text style={styles.topBarSub}>Day {dayNumber} of {totalDays} · Handover</Text>
           </View>
-          <Pressable onPress={handleRaiseIssue} style={styles.raiseBtn}>
-            <Text style={styles.raiseIcon}>⚠</Text>
-            <Text style={styles.raiseBtnText}>Issue</Text>
-          </Pressable>
+          <View style={{width: 44}} />
         </View>
 
         {/* ── Progress Stepper ─────────────────────────────────────────────── */}
@@ -327,34 +318,40 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
         </View>
 
         {/* ── Photo Evidence ───────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Photo Evidence</Text>
-        <Text style={styles.sectionSubtitle}>Add photos as part of the handover record.</Text>
-        <View style={styles.photoGrid}>
-          {PHOTO_SLOTS.map(slot => {
-            const asset = photos[slot.key];
-            const taken = !!asset;
-            return (
+        <View style={styles.card}>
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0F2F6'}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+              <Text style={{fontSize: 18, color: '#1C2E45'}}>📷</Text>
+              <Text style={{fontSize: 15, fontWeight: '700', color: '#1C2E45'}}>
+                Photo Evidence{photos.length > 0 ? ` (${photos.length})` : ''}
+              </Text>
+            </View>
+            {photos.length > 0 && (
               <Pressable
-                key={slot.key}
-                onPress={() => handlePickPhoto(slot.key, slot.label)}
-                style={[styles.photoBox, taken && styles.photoBoxDone]}>
-                {taken ? (
-                  <>
-                    <Image source={{uri: asset.uri!}} style={styles.photoThumb} resizeMode="cover" />
-                    <View style={styles.photoTickBadge}>
-                      <Text style={styles.photoTickText}>✓</Text>
-                    </View>
-                    <Text style={styles.photoLabelDone}>{slot.label}</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.cameraIcon}>📷</Text>
-                    <Text style={styles.photoLabel}>{slot.label}</Text>
-                  </>
-                )}
+                onPress={handleAddPhoto}
+                style={{backgroundColor: '#EFF6FF', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#BFDBFE'}}>
+                <Text style={{color: '#1066B1', fontSize: 12, fontWeight: '800'}}>+ Add</Text>
               </Pressable>
-            );
-          })}
+            )}
+          </View>
+          {photos.length === 0 ? (
+            <Pressable onPress={handleAddPhoto} style={styles.photoPlaceholder}>
+              <Text style={styles.cameraIcon}>📷</Text>
+              <Text style={styles.photoPlaceholderTitle}>Add Photos</Text>
+              <Text style={styles.photoPlaceholderSub}>Optional — tap to add handover photos</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.photoGrid}>
+              {photos.map((asset, index) => (
+                <View key={`${asset.uri}-${index}`} style={styles.photoBox}>
+                  <Image source={{uri: asset.uri!}} style={styles.photoThumb} resizeMode="cover" />
+                  <Pressable onPress={() => handleRemovePhoto(index)} style={styles.photoRemoveBtn} hitSlop={6}>
+                    <Text style={styles.photoRemoveText}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* ── Driver Signature ─────────────────────────────────────────────── */}
@@ -494,7 +491,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
                 : (savedSignature ?? 'driver_signed');
               void onSubmit(
                 {...checklist, __driverSignature: sigData} as any,
-                Object.values(photos),
+                photos,
               );
             }}
             disabled={loading || !isComplete}
@@ -646,13 +643,6 @@ const styles = StyleSheet.create({
   topBarCenter: {flex: 1, alignItems: 'center'},
   topBarTitle:  {fontSize: 17, fontWeight: '900', color: colors.navy ?? colors.ink},
   topBarSub:    {fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginTop: 2},
-  raiseBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E8732A',
-    borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5, gap: 4,
-  },
-  raiseIcon:    {fontSize: 13, color: '#E8732A'},
-  raiseBtnText: {fontSize: 11, fontWeight: '800', color: '#E8732A'},
 
   /* Stepper */
   stepperRow: {flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20},
@@ -711,29 +701,27 @@ const styles = StyleSheet.create({
   checkSubtitle:   {fontSize: 13, color: '#6B7280', marginTop: 2},
 
   /* Photo grid */
-  sectionHeading: {fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 4},
-  sectionSubtitle:{fontSize: 12, color: '#6B7280', marginBottom: 12},
-  photoGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16},
+  photoPlaceholder: {
+    borderWidth: 2, borderColor: '#CAD0DA', borderStyle: 'dashed',
+    borderRadius: 14, minHeight: 120,
+    justifyContent: 'center', alignItems: 'center', gap: 8, backgroundColor: '#FAFBFC',
+  },
+  photoPlaceholderTitle: {color: '#1C2E45', fontSize: 14, fontWeight: '800'},
+  photoPlaceholderSub:   {fontSize: 12, color: '#6B7280', textAlign: 'center'},
+  photoGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
   photoBox: {
-    width: '47.5%', aspectRatio: 1, borderRadius: 14,
-    borderWidth: 2, borderColor: '#C9D1DC', borderStyle: 'dashed',
-    backgroundColor: '#FAFBFC',
-    justifyContent: 'center', alignItems: 'center', gap: 8, overflow: 'hidden',
+    width: '47.5%', aspectRatio: 1, borderRadius: 12,
+    overflow: 'hidden', backgroundColor: '#E8EEF6',
   },
-  photoBoxDone: {borderStyle: 'solid', borderColor: '#2563EB', backgroundColor: '#EFF6FF'},
-  photoThumb: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0},
-  photoTickBadge: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: '#2563EB',
-    justifyContent: 'center', alignItems: 'center', zIndex: 1,
+  photoThumb:     {width: '100%', height: '100%'},
+  photoRemoveBtn: {
+    position: 'absolute', top: 6, right: 6,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  photoTickText: {color: '#fff', fontSize: 14, fontWeight: '900'},
-  cameraIcon:    {fontSize: 32},
-  photoLabel:    {fontSize: 13, color: '#6B7280', fontWeight: '500'},
-  photoLabelDone:{
-    fontSize: 12, color: '#fff', fontWeight: '700',
-    backgroundColor: 'rgba(37,99,235,0.75)',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, zIndex: 1,
-  },
+  photoRemoveText: {color: '#fff', fontSize: 11, fontWeight: '900'},
+  cameraIcon: {fontSize: 32},
 
   /* Signature */
   sigHeader: {

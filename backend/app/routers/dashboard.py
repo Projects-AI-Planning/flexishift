@@ -26,7 +26,7 @@ from app.services import suppliers as sup_svc
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
-ACTIVE_STATUSES = [JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT]
+ACTIVE_STATUSES = [JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT, JobStatus.DELIVERY_SUBMITTED]
 AdminDep = require_role(Role.ADMIN)
 
 

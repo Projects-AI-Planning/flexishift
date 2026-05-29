@@ -1,7 +1,31 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
+
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const driverMarkerIcon = new L.DivIcon({
+  className: '',
+  html: '<div style="width:36px;height:36px;border-radius:50%;background:#1066b1;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(16,102,177,.4);font-size:17px;">🚚</div>',
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+  popupAnchor: [0, -20],
+});
+
+function FlyTo({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => { map.flyTo(center, 15, { duration: 1 }); }, [center, map]);
+  return null;
+}
 
 // ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
 declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
@@ -1326,6 +1350,12 @@ const HaulierShiftsPage: React.FC = () => {
     driverName: string; latitude: number | null; longitude: number | null;
   } | null>(null);
   const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackingWsRef = useRef<WebSocket | null>(null);
+  const [trackingWsConnected, setTrackingWsConnected] = useState(false);
+
+  const WS_BASE = (import.meta.env.VITE_API_URL as string ?? 'http://localhost:8000/api/v1')
+    .replace(/^http/, 'ws')
+    .replace(/\/api\/v1\/?$/, '');
 
   const openTrackingPanel = async (shift: ShiftItem) => {
     setTrackingShift(shift);
@@ -1337,25 +1367,50 @@ const HaulierShiftsPage: React.FC = () => {
   };
 
   const closeTrackingPanel = () => {
-    if (trackingIntervalRef.current) {
-      clearInterval(trackingIntervalRef.current);
-      trackingIntervalRef.current = null;
-    }
+    if (trackingIntervalRef.current) { clearInterval(trackingIntervalRef.current); trackingIntervalRef.current = null; }
+    if (trackingWsRef.current) { trackingWsRef.current.close(); trackingWsRef.current = null; }
     setTrackingShift(null);
     setDriverLocation(null);
+    setTrackingWsConnected(false);
   };
 
-  // Poll driver location every 10 s while panel is open
+  // WebSocket for real-time shift location + 10s polling fallback
   useEffect(() => {
     if (!trackingShift) return;
+
+    // WebSocket
+    const token = localStorage.getItem('token');
+    if (token) {
+      const url = `${WS_BASE}/ws/shifts/${trackingShift.shiftId}/tracking?token=${encodeURIComponent(token)}`;
+      const ws = new WebSocket(url);
+      trackingWsRef.current = ws;
+      ws.onopen = () => setTrackingWsConnected(true);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data as string);
+          if (msg.type === 'tracking_update' && msg.lat != null && msg.lng != null) {
+            setDriverLocation((prev) => prev
+              ? { ...prev, latitude: msg.lat, longitude: msg.lng }
+              : { driverName: '—', latitude: msg.lat, longitude: msg.lng }
+            );
+          }
+        } catch { /* ignore */ }
+      };
+      ws.onclose = () => { setTrackingWsConnected(false); trackingWsRef.current = null; };
+    }
+
+    // Polling fallback every 10s
     trackingIntervalRef.current = setInterval(async () => {
       try {
         const loc = await haulierService.getShiftDriverLocation(trackingShift.shiftId);
         setDriverLocation(loc);
       } catch { /* ignore */ }
     }, 10_000);
+
     return () => {
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+      if (trackingWsRef.current) { trackingWsRef.current.close(); trackingWsRef.current = null; }
+      setTrackingWsConnected(false);
     };
   }, [trackingShift]);
 
@@ -1611,30 +1666,38 @@ const HaulierShiftsPage: React.FC = () => {
                         <span className="relative inline-flex h-3 w-3 rounded-full bg-[#1066b1]" />
                       </span>
                       <p className="text-sm font-bold text-[#1066b1]">
-                        {driverLocation.driverName} is active · last updated just now
+                        {driverLocation.driverName} is active
+                        {trackingWsConnected ? ' · Live' : ' · polling every 10s'}
                       </p>
                     </div>
-                    {/* Coordinates card */}
-                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Latitude</p>
-                        <p className="text-sm font-black text-[#041627]">{driverLocation.latitude.toFixed(6)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Longitude</p>
-                        <p className="text-sm font-black text-[#041627]">{driverLocation.longitude.toFixed(6)}</p>
-                      </div>
+                    {/* Inline map */}
+                    <div className="h-64 overflow-hidden rounded-2xl border border-slate-200">
+                      <MapContainer
+                        center={[driverLocation.latitude, driverLocation.longitude]}
+                        zoom={15}
+                        className="h-full w-full"
+                        zoomControl={true}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <FlyTo center={[driverLocation.latitude, driverLocation.longitude]} />
+                        <Marker
+                          position={[driverLocation.latitude, driverLocation.longitude]}
+                          icon={driverMarkerIcon}
+                        >
+                          <Popup>
+                            <div className="text-sm">
+                              <p className="font-black text-[#1066b1]">{driverLocation.driverName}</p>
+                              <p className="text-slate-500 text-xs mt-0.5">
+                                {driverLocation.latitude.toFixed(5)}, {driverLocation.longitude.toFixed(5)}
+                              </p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
                     </div>
-                    {/* Open in Google Maps */}
-                    <a
-                      href={`https://www.google.com/maps?q=${driverLocation.latitude},${driverLocation.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1066b1] px-4 py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                      Open in Google Maps
-                    </a>
                   </>
                 ) : (
                   <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-5 text-center">

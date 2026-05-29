@@ -97,8 +97,14 @@ def get_live_location(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.status != JobStatus.IN_TRANSIT:
-        raise HTTPException(status_code=400, detail="Tracking is not active for this job.")
+    trackable = (
+        JobStatus.IN_TRANSIT,
+        JobStatus.DELIVERY_SUBMITTED,
+        JobStatus.COMPLETED,
+        JobStatus.DISPUTED,
+    )
+    if job.status not in trackable:
+        raise HTTPException(status_code=400, detail="Tracking is not available for this job.")
 
     last = (
         db.query(TrackingPoint)

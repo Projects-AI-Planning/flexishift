@@ -15,8 +15,8 @@ async def add_tracking_point(
         raise HTTPException(status_code=404, detail="Job not found")
     if job.selected_supplier_id != supplier_id:
         raise HTTPException(status_code=403, detail="Only the assigned supplier can update tracking")
-    if job.status != JobStatus.IN_TRANSIT:
-        raise HTTPException(status_code=422, detail="Job is not in transit")
+    if job.status not in (JobStatus.IN_TRANSIT, JobStatus.DELIVERY_SUBMITTED):
+        raise HTTPException(status_code=422, detail="Job is not active")
 
     point = TrackingPoint(job_id=job_id, lat=lat, lng=lng, recorded_at=recorded_at)
     db.add(point)

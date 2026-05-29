@@ -222,6 +222,35 @@ def complete_shift_day(db: Session, shift_id: str, haulier: User) -> Shift:
     shift.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(shift)
+
+    # Notify driver that their daily payment has been released
+    if shift.selected_driver_id:
+        try:
+            import asyncio as _asyncio
+            from app.services.notifications import create_notification as _notify
+            is_final = shift.status == ShiftStatus.COMPLETED
+            msg = (
+                f"Your shift {shift.shift_ref} is complete! Final day payment released."
+                if is_final else
+                f"Day {current_day} payment released for {shift.shift_ref}. Ready for Day {current_day + 1}."
+            )
+            _asyncio.run(_notify(
+                db, shift.selected_driver_id, "SHIFT_PAYMENT_RELEASED",
+                "Shift Day Payment Released",
+                msg,
+                {
+                    "shift_id": shift_id,
+                    "shift_ref": shift.shift_ref,
+                    "day_number": current_day,
+                    "total_days": shift.total_days,
+                    "is_final_day": is_final,
+                    "amount": float(payment.driver_amount) if payment.driver_amount else float(payment.amount),
+                    "currency": payment.currency,
+                },
+            ))
+        except Exception:
+            pass  # notification failure must not break payment release
+
     return shift
 
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -12,12 +13,17 @@ import {colors, radius, spacing} from '../../theme';
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface ShiftDayCompleteScreenProps {
-  shiftRef:   string;
-  dayNumber:  number;
-  totalDays:  number;
-  isLastDay:  boolean;
-  onRate:     () => void;   // only shown on last day
-  onDone:     () => void;   // back to My Shifts
+  shiftRef:           string;
+  dayNumber:          number;
+  totalDays:          number;
+  isLastDay:          boolean;
+  /** When true: EOD proof submitted, waiting for haulier to release payment */
+  waitingForPayment?: boolean;
+  /** Amount released (populated once haulier releases payment) */
+  releasedAmount?:    number;
+  currency?:          string;
+  onRate:             () => void;
+  onDone:             () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -27,14 +33,70 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
   dayNumber,
   totalDays,
   isLastDay,
+  waitingForPayment = false,
+  releasedAmount,
+  currency,
   onRate,
   onDone,
 }) => {
+  // ── Waiting for haulier to release payment ─────────────────────────────────
+  if (waitingForPayment) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.heroWrap}>
+            <View style={[styles.heroCircle, {backgroundColor: '#1066B1'}]}>
+              <ActivityIndicator color="#fff" size="large" />
+            </View>
+            <Text style={styles.heroTitle}>Proof Submitted!</Text>
+            <Text style={styles.heroSub}>
+              Day {dayNumber} of {totalDays} — {shiftRef}
+            </Text>
+          </View>
+
+          <View style={styles.waitingCard}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.waitingTitle}>Waiting for Payment Release</Text>
+            <Text style={styles.waitingText}>
+              Your end-of-day proof has been submitted.{'\n'}
+              The haulier will review and release your Day {dayNumber} payment.{'\n'}
+              This screen updates automatically.
+            </Text>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Shift</Text>
+              <Text style={styles.summaryValue}>{shiftRef}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Day</Text>
+              <Text style={styles.summaryValue}>{dayNumber} of {totalDays}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Status</Text>
+              <View style={[styles.statusBadge, {backgroundColor: '#FEF9C3'}]}>
+                <Text style={[styles.statusBadgeText, {color: '#A16207'}]}>AWAITING RELEASE</Text>
+              </View>
+            </View>
+          </View>
+
+          <Pressable onPress={onDone} style={styles.doneBtn}>
+            <Text style={styles.doneBtnText}>← Back to My Shifts</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Payment released / Day complete ────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Success animation area ─────────────────────────────────────────── */}
+        {/* ── Success area ──────────────────────────────────────────────────── */}
         <View style={styles.heroWrap}>
           <View style={styles.heroCircle}>
             <Text style={styles.heroIcon}>✓</Text>
@@ -45,9 +107,20 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
           <Text style={styles.heroSub}>
             {isLastDay
               ? `You've completed all ${totalDays} day${totalDays !== 1 ? 's' : ''} of shift ${shiftRef}.`
-              : `Day ${dayNumber} of ${totalDays} submitted. Great work!`}
+              : `Day ${dayNumber} of ${totalDays} payment released. Great work!`}
           </Text>
         </View>
+
+        {/* ── Payment released banner ───────────────────────────────────────── */}
+        {releasedAmount != null && (
+          <View style={styles.paymentBanner}>
+            <Text style={styles.paymentLabel}>PAYMENT RELEASED</Text>
+            <Text style={styles.paymentAmount}>
+              {currency ? `${currency} ` : ''}{releasedAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+            </Text>
+            <Text style={styles.paymentSub}>Transferred to your account</Text>
+          </View>
+        )}
 
         {/* ── Summary card ──────────────────────────────────────────────────── */}
         <View style={styles.summaryCard}>
@@ -57,7 +130,7 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Day Submitted</Text>
+            <Text style={styles.summaryLabel}>Day Completed</Text>
             <Text style={styles.summaryValue}>{dayNumber} of {totalDays}</Text>
           </View>
           <View style={styles.summaryDivider} />
@@ -65,35 +138,25 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
             <Text style={styles.summaryLabel}>Status</Text>
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>
-                {isLastDay ? 'FINAL DAY SUBMITTED' : 'DAY COMPLETE'}
+                {isLastDay ? 'SHIFT COMPLETE' : 'DAY COMPLETE'}
               </Text>
             </View>
           </View>
         </View>
 
         {/* ── What happens next ─────────────────────────────────────────────── */}
-        <View style={styles.nextCard}>
-          <Text style={styles.nextLabel}>WHAT HAPPENS NEXT</Text>
-          {isLastDay ? (
-            <>
-              <Text style={styles.nextTitle}>Haulier processes final payment</Text>
-              <Text style={styles.nextText}>
-                The haulier will review your end-of-day proof and release your final payment. You'll receive a notification when it's processed.{'\n\n'}
-                You can also leave a rating for your experience working with this haulier.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.nextTitle}>Haulier pays for Day {dayNumber + 1}</Text>
-              <Text style={styles.nextText}>
-                The haulier will process payment for Day {dayNumber + 1}. Once the payment is confirmed, you'll be able to start your next day.{'\n\n'}
-                Come back tomorrow and tap "Start Day {dayNumber + 1}" when the payment is secured.
-              </Text>
-            </>
-          )}
-        </View>
+        {!isLastDay && (
+          <View style={styles.nextCard}>
+            <Text style={styles.nextLabel}>WHAT HAPPENS NEXT</Text>
+            <Text style={styles.nextTitle}>Haulier pays for Day {dayNumber + 1}</Text>
+            <Text style={styles.nextText}>
+              Once the haulier confirms payment for Day {dayNumber + 1}, you can start your next day.{'\n\n'}
+              Come back tomorrow and tap "Start Day {dayNumber + 1}" when payment is secured.
+            </Text>
+          </View>
+        )}
 
-        {/* ── Progress bar ─────────────────────────────────────────────────── */}
+        {/* ── Progress bar ──────────────────────────────────────────────────── */}
         <View style={styles.progressWrap}>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, {width: `${(dayNumber / totalDays) * 100}%`}]} />
@@ -139,6 +202,26 @@ const styles = StyleSheet.create({
   heroIcon:  {fontSize: 48, color: '#FFFFFF', fontWeight: '900'},
   heroTitle: {fontSize: 28, fontWeight: '900', color: colors.navy ?? colors.ink, textAlign: 'center'},
   heroSub:   {fontSize: 14, color: colors.inkSoft, textAlign: 'center', lineHeight: 20},
+
+  /* Waiting card */
+  waitingCard: {
+    width: '100%', backgroundColor: '#F0F6FF',
+    borderRadius: radius.xl, borderWidth: 1, borderColor: '#BFDBFE',
+    padding: spacing.xl, marginBottom: spacing.lg,
+    alignItems: 'center', gap: 12,
+  },
+  waitingTitle: {fontSize: 17, fontWeight: '900', color: '#1E3A5F', textAlign: 'center'},
+  waitingText:  {fontSize: 13, color: '#3B5E8C', textAlign: 'center', lineHeight: 20},
+
+  /* Payment released banner */
+  paymentBanner: {
+    width: '100%', backgroundColor: '#041627',
+    borderRadius: radius.xl, padding: spacing.xl,
+    alignItems: 'center', gap: 6, marginBottom: spacing.lg,
+  },
+  paymentLabel:  {fontSize: 10, fontWeight: '900', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8},
+  paymentAmount: {fontSize: 36, fontWeight: '900', color: '#FFFFFF'},
+  paymentSub:    {fontSize: 12, color: 'rgba(255,255,255,0.6)'},
 
   summaryCard: {
     width: '100%', backgroundColor: colors.card,

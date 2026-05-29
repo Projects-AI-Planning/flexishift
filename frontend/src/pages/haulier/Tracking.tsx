@@ -263,7 +263,33 @@ const WS_BASE = (import.meta.env.VITE_API_URL as string ?? 'http://localhost:800
   .replace(/^http/, 'ws')
   .replace(/\/api\/v1\/?$/, '');
 
+type ActiveShift = {
+  shiftId: string;
+  shiftRef?: string;
+  status?: string;
+  location?: string;
+  pickupAddress?: string;
+  dropAddress?: string;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropLat?: number | null;
+  dropLng?: number | null;
+  driver?: { name?: string; phone?: string } | null;
+  daysCompleted?: number;
+  totalDays?: number;
+};
+
+type ShiftDriverLocation = {
+  driverId?: string;
+  driverName?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
 export default function HaulierTrackingPage() {
+  const [tab, setTab] = useState<'jobs' | 'shifts'>('jobs');
+
+  // ── Job tracking state ─────────────────────────────────────────────────────
   const [jobs, setJobs] = useState<ActiveJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [live, setLive] = useState<LiveTracking | null>(null);
@@ -275,6 +301,15 @@ export default function HaulierTrackingPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [lastWsUpdate, setLastWsUpdate] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // ── Shift tracking state ───────────────────────────────────────────────────
+  const [shifts, setShifts] = useState<ActiveShift[]>([]);
+  const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [shiftLoc, setShiftLoc] = useState<ShiftDriverLocation | null>(null);
+  const [loadingShifts, setLoadingShifts] = useState(false);
+  const [shiftWsConnected, setShiftWsConnected] = useState(false);
+  const [shiftLastUpdate, setShiftLastUpdate] = useState<string | null>(null);
+  const shiftWsRef = useRef<WebSocket | null>(null);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.jobId === selectedJobId) ?? null,
@@ -417,7 +452,78 @@ export default function HaulierTrackingPage() {
     return () => window.clearInterval(timer);
   }, [loadTracking, selectedJobId]);
 
-  // Build pickup location from job + eta data for the map
+  // ── Shift effects ─────────────────────────────────────────────────────────
+
+  const loadShifts = useCallback(async () => {
+    setLoadingShifts(true);
+    try {
+      const result = await haulierService.listMyShifts() as { shifts?: ActiveShift[] } | ActiveShift[];
+      const items: ActiveShift[] = Array.isArray(result) ? result : ((result as { shifts?: ActiveShift[] }).shifts ?? []);
+      const active = items.filter((s) => ['BOOKED', 'IN_PROGRESS'].includes((s.status ?? '').toUpperCase()));
+      setShifts(active);
+      setSelectedShiftId((cur) => cur || active[0]?.shiftId || '');
+    } catch { /* ignore */ } finally {
+      setLoadingShifts(false);
+    }
+  }, []);
+
+  const loadShiftLocation = useCallback(async (shiftId: string) => {
+    if (!shiftId) return;
+    try {
+      const data = await haulierService.getShiftDriverLocation(shiftId);
+      setShiftLoc(data as ShiftDriverLocation);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Shift WebSocket for real-time location
+  useEffect(() => {
+    if (tab !== 'shifts' || !selectedShiftId) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const url = `${WS_BASE}/ws/shifts/${selectedShiftId}/tracking?token=${encodeURIComponent(token)}`;
+    const ws = new WebSocket(url);
+    shiftWsRef.current = ws;
+    ws.onopen = () => setShiftWsConnected(true);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data as string);
+        if (msg.type === 'tracking_update' && msg.lat != null && msg.lng != null) {
+          const now = new Date().toISOString();
+          setShiftLastUpdate(now);
+          setShiftLoc((prev) => ({ ...prev, latitude: msg.lat, longitude: msg.lng }));
+        }
+      } catch { /* ignore */ }
+    };
+    ws.onclose = () => { setShiftWsConnected(false); shiftWsRef.current = null; };
+    ws.onerror = () => setShiftWsConnected(false);
+    return () => { ws.close(); shiftWsRef.current = null; setShiftWsConnected(false); };
+  }, [tab, selectedShiftId]);
+
+  // Shift polling fallback (10s — same interval as driver push)
+  useEffect(() => {
+    if (tab !== 'shifts' || !selectedShiftId) return;
+    void loadShiftLocation(selectedShiftId);
+    const timer = window.setInterval(() => void loadShiftLocation(selectedShiftId), 10000);
+    return () => window.clearInterval(timer);
+  }, [tab, selectedShiftId, loadShiftLocation]);
+
+  useEffect(() => {
+    if (tab === 'shifts') void loadShifts();
+  }, [tab, loadShifts]);
+
+  const selectedShift = useMemo(
+    () => shifts.find((s) => s.shiftId === selectedShiftId) ?? null,
+    [shifts, selectedShiftId],
+  );
+
+  const shiftLiveLocation = useMemo(
+    () => (shiftLoc?.latitude != null && shiftLoc.longitude != null
+      ? { latitude: shiftLoc.latitude!, longitude: shiftLoc.longitude! }
+      : null),
+    [shiftLoc],
+  );
+
+  // ── Build pickup location from job + eta data for the map
   const pickupForMap = useMemo(() => {
     const job = selectedJob;
     if (job?.pickupLat != null && job?.pickupLng != null) {
@@ -458,62 +564,198 @@ export default function HaulierTrackingPage() {
         </div>
       )}
 
+      {/* ── Tab toggle ────────────────────────────────────────────────────────── */}
+      <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1 self-start w-fit">
+        <button
+          onClick={() => setTab('jobs')}
+          className={`rounded-lg px-5 py-2 text-sm font-black transition ${tab === 'jobs' ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Jobs
+        </button>
+        <button
+          onClick={() => setTab('shifts')}
+          className={`rounded-lg px-5 py-2 text-sm font-black transition ${tab === 'shifts' ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Shifts
+        </button>
+      </div>
+
       <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Active Jobs</p>
-          <h3 className="mt-2 text-3xl font-black text-primary">{jobs.length}</h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{tab === 'jobs' ? 'Active Jobs' : 'Active Shifts'}</p>
+          <h3 className="mt-2 text-3xl font-black text-primary">{tab === 'jobs' ? jobs.length : shifts.length}</h3>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Tracking Points</p>
-          <h3 className="mt-2 text-3xl font-black text-primary">{history?.totalPoints ?? 0}</h3>
+          <h3 className="mt-2 text-3xl font-black text-primary">{tab === 'jobs' ? (history?.totalPoints ?? 0) : (shiftLiveLocation ? '1' : '0')}</h3>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">ETA</p>
-          <h3 className="mt-2 text-2xl font-black text-primary">{eta?.eta ? new Date(eta.eta).toLocaleString('en-US') : 'N/A'}</h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{tab === 'jobs' ? 'ETA' : 'Last Update'}</p>
+          <h3 className="mt-2 text-2xl font-black text-primary">
+            {tab === 'jobs'
+              ? (eta?.eta ? new Date(eta.eta).toLocaleString('en-US') : 'N/A')
+              : (shiftLastUpdate ? new Date(shiftLastUpdate).toLocaleTimeString() : 'N/A')}
+          </h3>
         </div>
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        {/* ── Sidebar: job or shift list ─────────────────────────────────────── */}
         <aside className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-black text-primary">Active Jobs</h2>
-              <p className="text-sm text-slate-500">Select a job to view live tracking.</p>
-            </div>
-            {loadingJobs && <span className="text-xs font-black text-slate-400">Loading...</span>}
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {jobs.map((job) => (
-              <button
-                key={job.jobId}
-                onClick={() => setSelectedJobId(job.jobId)}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
-                  selectedJobId === job.jobId
-                    ? 'border-primary bg-primary/5'
-                    : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-primary">{job.jobRef ?? job.title ?? job.jobId}</p>
-                    <p className="mt-1 text-xs text-slate-500">{job.pickupAddress ?? 'Pickup not set'} → {job.dropAddress ?? 'Drop not set'}</p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusTone(job.status)}`}>
-                    {job.status ?? 'ACTIVE'}
-                  </span>
+          {tab === 'jobs' ? (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-primary">Active Jobs</h2>
+                  <p className="text-sm text-slate-500">Select a job to view live tracking.</p>
                 </div>
-              </button>
-            ))}
-            {!loadingJobs && jobs.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                No active jobs found.
+                {loadingJobs && <span className="text-xs font-black text-slate-400">Loading...</span>}
               </div>
-            )}
-          </div>
+              <div className="mt-5 space-y-3">
+                {jobs.map((job) => (
+                  <button
+                    key={job.jobId}
+                    onClick={() => setSelectedJobId(job.jobId)}
+                    className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                      selectedJobId === job.jobId
+                        ? 'border-primary bg-primary/5'
+                        : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-primary">{job.jobRef ?? job.title ?? job.jobId}</p>
+                        <p className="mt-1 text-xs text-slate-500">{job.pickupAddress ?? 'Pickup not set'} → {job.dropAddress ?? 'Drop not set'}</p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusTone(job.status)}`}>
+                        {job.status ?? 'ACTIVE'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+                {!loadingJobs && jobs.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                    No active jobs found.
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-primary">Active Shifts</h2>
+                  <p className="text-sm text-slate-500">Select a shift to track the driver.</p>
+                </div>
+                {loadingShifts && <span className="text-xs font-black text-slate-400">Loading...</span>}
+              </div>
+              <div className="mt-5 space-y-3">
+                {shifts.map((shift) => (
+                  <button
+                    key={shift.shiftId}
+                    onClick={() => { setSelectedShiftId(shift.shiftId); setShiftLoc(null); setShiftLastUpdate(null); }}
+                    className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                      selectedShiftId === shift.shiftId
+                        ? 'border-primary bg-primary/5'
+                        : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-primary">{shift.shiftRef ?? shift.shiftId}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Day {(shift.daysCompleted ?? 0) + 1} of {shift.totalDays ?? '?'}
+                          {shift.driver?.name ? ` · ${shift.driver.name}` : ''}
+                        </p>
+                        {shift.location && <p className="mt-0.5 text-xs text-slate-400 truncate">{shift.location}</p>}
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusTone(shift.status)}`}>
+                        {shift.status ?? 'ACTIVE'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+                {!loadingShifts && shifts.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                    No active shifts found.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </aside>
 
         <main className="space-y-6">
+          {/* ── Shift tracking panel ──────────────────────────────────────────── */}
+          {tab === 'shifts' && (
+            <>
+              <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-primary">Selected Shift</h2>
+                    <p className="text-sm text-slate-500">{selectedShift?.shiftRef ?? 'Choose an active shift to begin tracking.'}</p>
+                  </div>
+                  {selectedShift && (
+                    <div className="flex items-center gap-2">
+                      {shiftWsConnected && <span className="text-[10px] font-black text-emerald-600">● Live</span>}
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${statusTone(selectedShift.status)}`}>
+                        {selectedShift.status ?? 'ACTIVE'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {selectedShift ? (
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Driver</p>
+                      <p className="mt-2 text-sm font-black text-primary">{shiftLoc?.driverName ?? selectedShift.driver?.name ?? 'N/A'}</p>
+                      <p className="text-xs text-slate-500">{selectedShift.driver?.phone ?? '—'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Last Update</p>
+                      <p className="mt-2 text-sm font-black text-primary">{shiftLastUpdate ? formatTime(shiftLastUpdate) : 'No location yet'}</p>
+                      {shiftWsConnected && <p className="text-[10px] text-emerald-600 font-black mt-0.5">● Real-time</p>}
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Day Progress</p>
+                      <p className="mt-2 text-sm font-black text-primary">
+                        Day {(selectedShift.daysCompleted ?? 0) + 1} of {selectedShift.totalDays ?? '?'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                    No active shift selected.
+                  </div>
+                )}
+              </div>
+
+              <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-primary">Live Map</h3>
+                    <p className="text-sm text-slate-500">
+                      {shiftWsConnected ? 'Updates in real-time via WebSocket.' : 'Polling every 10 seconds.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  <span className="flex items-center gap-1"><span className="text-sm">🚚</span> Driver (live)</span>
+                </div>
+                <div className="mt-4 h-[460px] overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                  <TrackingMap
+                    liveLocation={shiftLiveLocation}
+                    historyPoints={[]}
+                    destination={null}
+                    pickup={null}
+                  />
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ── Job tracking panel ────────────────────────────────────────────── */}
+          {tab === 'jobs' && (<>
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -667,6 +909,7 @@ export default function HaulierTrackingPage() {
               </table>
             </div>
           </section>
+          </>)} {/* end tab === 'jobs' */}
         </main>
       </section>
     </div>

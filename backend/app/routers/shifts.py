@@ -271,6 +271,24 @@ def update_shift_driver_location(
     current_user.location_lat = body.latitude
     current_user.location_lng = body.longitude
     db.commit()
+
+    # Broadcast to haulier WebSocket subscribers
+    from datetime import datetime as _dt
+    from app.core.connection_manager import manager as _mgr
+    import asyncio as _asyncio
+    channel = f"shift:{shift_id}"
+    try:
+        _asyncio.get_event_loop().create_task(
+            _mgr.broadcast(channel, {
+                "type": "tracking_update",
+                "lat": body.latitude,
+                "lng": body.longitude,
+                "recorded_at": _dt.utcnow().isoformat(),
+            })
+        )
+    except Exception:
+        pass
+
     return ok({"latitude": body.latitude, "longitude": body.longitude}, "Location updated")
 
 
