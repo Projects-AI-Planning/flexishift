@@ -5,22 +5,14 @@ import RouteMapStep, { type RouteStepData } from './RouteMapStep';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 
-const TIME_SLOTS = [
-  { value: 'MORNING',   label: 'Morning',   sub: '06:00 – 12:00', icon: 'wb_sunny'    },
-  { value: 'AFTERNOON', label: 'Afternoon', sub: '12:00 – 18:00', icon: 'light_mode'  },
-  { value: 'EVENING',   label: 'Evening',   sub: '18:00 – 22:00', icon: 'nights_stay' },
-  { value: 'NIGHT',     label: 'Night',     sub: '22:00 – 06:00', icon: 'dark_mode'   },
-  { value: 'FULL_DAY',  label: 'All Day',   sub: '00:00 – 24:00', icon: 'schedule'    },
-];
-
-const SLOT_END_HOURS: Record<string, number> = {
-  MORNING: 12, AFTERNOON: 18, EVENING: 22,
-  NIGHT: 30, FULL_DAY: 30,
-};
-
-const SLOT_START_HOURS: Record<string, number> = {
-  MORNING: 6, AFTERNOON: 12, EVENING: 18, NIGHT: 22, FULL_DAY: 0,
-};
+/** Map a custom "HH:MM" time to the backend TimeSlot enum value. */
+function timeToSlot(time: string): string {
+  const h = parseInt(time.split(':')[0] ?? '0', 10);
+  if (h >= 6  && h < 12) return 'MORNING';
+  if (h >= 12 && h < 18) return 'AFTERNOON';
+  if (h >= 18 && h < 22) return 'EVENING';
+  return 'NIGHT';
+}
 
 const DRIVER_REQUIREMENTS = [
   { value: 'DRIVER_ONLY',       label: 'Driver Only',      desc: 'Hire a driver — you provide the truck.',          icon: 'person'         },
@@ -28,10 +20,27 @@ const DRIVER_REQUIREMENTS = [
   { value: 'TRUCK_ONLY',        label: 'Truck Only',        desc: 'Hire a truck — no driver services needed.',       icon: 'garage'         },
 ];
 
+/* ─── Haversine helper (straight-line km between two coords) ─────────────────── */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLng = (lng2 - lng1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function fmtTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
 interface StopEntry { id: string; address: string; lat?: number; lng?: number; goodsType?: string; litres?: string; }
+
+// stopDeliveryTimes: maps stop.id → "HH:MM" for intermediate stops, 'final' → "HH:MM" for drop-off
 
 interface CompartmentDetail {
   contents:  string;
@@ -82,7 +91,7 @@ const EMPTY: FormState = {
   totalCapacity:       '',
   compartments:        '',
   jobDate:             '',
-  timeSlot:            'MORNING',
+  timeSlot:            '',
   specialInstructions: '',
   driverRequirement:   'DRIVER_WITH_TRUCK',
   accessCode:          '',
@@ -149,6 +158,7 @@ const PostJobPage: React.FC = () => {
   const [stops, setStops]         = useState<StopEntry[]>([]);
   const [compartmentDetails, setCompartmentDetails] = useState<CompartmentDetail[]>([]);
   const [routeCoords, setRouteCoords] = useState<RouteCoords>({});
+  const [stopDeliveryTimes, setStopDeliveryTimes] = useState<Record<string, string>>({});
   const [error, setError]         = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated]     = useState<CreatedJob | null>(null);
@@ -157,17 +167,66 @@ const PostJobPage: React.FC = () => {
   const _now  = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
 
-  /* ── Auto-compute estimated delivery date (local time, not UTC) ── */
+  /* ── Auto-compute delivery date + per-stop delivery times ── */
   useEffect(() => {
-    if (!form.jobDate || !routeCoords.durationMin) { setDeliveryDate(''); return; }
-    const startHour = SLOT_START_HOURS[form.timeSlot] ?? 6;
-    const departure = new Date(`${form.jobDate}T${String(startHour).padStart(2, '0')}:00:00`);
-    const arrival   = new Date(departure.getTime() + routeCoords.durationMin * 60 * 1000);
+    if (!form.jobDate || !routeCoords.durationMin || !form.timeSlot) {
+      setDeliveryDate('');
+      setStopDeliveryTimes({});
+      return;
+    }
+    // Use exact "HH:MM" time entered by user
+    const departure = new Date(`${form.jobDate}T${form.timeSlot}:00`);
+    const totalMs    = routeCoords.durationMin * 60 * 1000;
+
+    // ── Final delivery date ──
+    const arrival = new Date(departure.getTime() + totalMs);
     const y = arrival.getFullYear();
     const m = String(arrival.getMonth() + 1).padStart(2, '0');
     const d = String(arrival.getDate()).padStart(2, '0');
     setDeliveryDate(`${y}-${m}-${d}`);
-  }, [form.jobDate, form.timeSlot, routeCoords.durationMin]);
+
+    // ── Per-stop delivery times via proportional Haversine distance ──
+    const pLat = routeCoords.pickupLat;
+    const pLng = routeCoords.pickupLng;
+    const dLat = routeCoords.dropLat;
+    const dLng = routeCoords.dropLng;
+    const validStops = stops.filter(s => s.lat != null && s.lng != null);
+
+    if (!pLat || !pLng || !dLat || !dLng || validStops.length === 0) {
+      // No intermediate stops — just set final time
+      setStopDeliveryTimes({ final: fmtTime(arrival) });
+      return;
+    }
+
+    // Build point chain: pickup → stops → drop
+    const chain = [
+      { lat: pLat, lng: pLng },
+      ...validStops.map(s => ({ lat: s.lat!, lng: s.lng! })),
+      { lat: dLat, lng: dLng },
+    ];
+
+    // Cumulative straight-line distances along the chain
+    const cumDist: number[] = [0];
+    for (let i = 1; i < chain.length; i++) {
+      cumDist.push(cumDist[i - 1] + haversineKm(chain[i - 1].lat, chain[i - 1].lng, chain[i].lat, chain[i].lng));
+    }
+    const totalDist = cumDist[cumDist.length - 1];
+
+    const times: Record<string, string> = {};
+
+    if (totalDist > 0) {
+      // Intermediate stops (chain indices 1 … n-1)
+      validStops.forEach((s, i) => {
+        const proportion = cumDist[i + 1] / totalDist;
+        times[s.id] = fmtTime(new Date(departure.getTime() + proportion * totalMs));
+      });
+    }
+
+    // Final destination always = departure + full duration
+    times['final'] = fmtTime(arrival);
+
+    setStopDeliveryTimes(times);
+  }, [form.jobDate, form.timeSlot, routeCoords, stops]);
 
   /* ── Sync compartment detail rows with count ── */
   useEffect(() => {
@@ -197,9 +256,12 @@ const PostJobPage: React.FC = () => {
     });
   }, []);
 
-  const isSlotExpired = (slot: string) => {
-    const endHour = SLOT_END_HOURS[slot];
-    return endHour !== undefined && new Date().getHours() >= endHour;
+  /** Returns true if the user-chosen "HH:MM" time has already passed today. */
+  const isTimePassed = (time: string): boolean => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const now = new Date();
+    return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m);
   };
 
   const set = (k: keyof FormState) =>
@@ -236,8 +298,9 @@ const PostJobPage: React.FC = () => {
       }
       if (!form.jobDate)                    return 'Collection date is required.';
       if (form.jobDate < today)             return 'Collection date cannot be in the past.';
-      if (form.jobDate === today && isSlotExpired(form.timeSlot))
-        return 'The selected time slot has already passed for today. Please choose a later slot.';
+      if (!form.timeSlot)                   return 'Please select a delivery time.';
+      if (form.jobDate === today && isTimePassed(form.timeSlot))
+        return 'The selected delivery time has already passed for today. Please choose a later time.';
       if (!form.accessCode.trim())          return 'Access code is required.';
       if (form.accessCode.trim().length < 4) return 'Access code must be at least 4 characters.';
       if (!form.loadCode.trim())            return 'Load code is required.';
@@ -282,14 +345,17 @@ const PostJobPage: React.FC = () => {
         })),
         jobDate:           form.jobDate,
         estimatedDelivery: deliveryDate || undefined,
-        timeSlot:          form.timeSlot,
+        timeSlot:          timeToSlot(form.timeSlot),
+        jobTime:           form.timeSlot,
         driverRequirement: form.driverRequirement,
         stops:             stops.map((s, i) => ({
-          address:     s.address,
-          lat:         s.lat,
-          lng:         s.lng,
-          order:       i + 1,
+          address:      s.address,
+          lat:          s.lat,
+          lng:          s.lng,
+          order:        i + 1,
+          ...(stopDeliveryTimes[s.id] ? { deliveryTime: stopDeliveryTimes[s.id] } : {}),
         })),
+        finalDeliveryTime: stopDeliveryTimes['final'] || undefined,
         specialInstructions: form.specialInstructions.trim(),
         accessCode:          form.accessCode.trim().toUpperCase(),
         loadCode:            form.loadCode.trim().toUpperCase(),
@@ -365,7 +431,7 @@ const PostJobPage: React.FC = () => {
                 View Jobs
               </button>
               <button
-                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setCompartmentDetails([]); setRouteCoords({}); setStep(1); setError(''); }}
+                onClick={() => { setCreated(null); setForm(EMPTY); setStops([]); setCompartmentDetails([]); setRouteCoords({}); setStopDeliveryTimes({}); setStep(1); setError(''); }}
                 className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
               >
                 Post New
@@ -692,42 +758,125 @@ const PostJobPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Time slot */}
+              {/* Deliver By — custom time picker */}
               <div>
-                <Label text="Deliver By" required />
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                  {TIME_SLOTS.map(t => {
-                    const expired  = form.jobDate === today && isSlotExpired(t.value);
-                    const selected = form.timeSlot === t.value;
-                    return (
-                      <button
-                        key={t.value}
-                        type="button"
-                        disabled={expired}
-                        onClick={() => !expired && setForm(f => ({ ...f, timeSlot: t.value }))}
-                        className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 text-left transition-all ${
-                          expired   ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' :
-                          selected  ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'    :
-                                      'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                      >
-                        <span className={`material-symbols-outlined text-lg ${expired ? 'text-slate-300' : selected ? 'text-primary' : 'text-slate-400'}`}>
-                          {t.icon}
-                        </span>
-                        <div className="min-w-0">
-                          <p className={`font-black text-sm truncate ${expired ? 'text-slate-400' : selected ? 'text-primary' : 'text-[#44474C]'}`}>{t.label}</p>
-                          <p className={`text-[10px] font-medium ${expired ? 'text-red-400' : 'text-slate-400'}`}>
-                            {expired ? 'Passed' : t.sub}
-                          </p>
-                        </div>
-                        {selected && !expired && (
-                          <span className="material-symbols-outlined text-primary text-sm ml-auto shrink-0">check_circle</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                <Label text="Deliver By" required hint="expected delivery time" />
+                <div className="relative max-w-xs">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">schedule</span>
+                  <input
+                    type="time"
+                    className={`${inputCls} pl-10 font-mono tracking-widest ${
+                      form.timeSlot
+                        ? form.jobDate === today && isTimePassed(form.timeSlot)
+                          ? 'border-red-300 bg-red-50 text-red-700'
+                          : 'border-primary/40 bg-primary/5 text-primary font-black'
+                        : ''
+                    }`}
+                    value={form.timeSlot}
+                    onChange={set('timeSlot')}
+                  />
                 </div>
+                {form.timeSlot && form.jobDate === today && isTimePassed(form.timeSlot) && (
+                  <p className="mt-1.5 text-[11px] text-red-500 font-bold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">warning</span>
+                    This time has already passed today.
+                  </p>
+                )}
+                {form.timeSlot && !(form.jobDate === today && isTimePassed(form.timeSlot)) && (
+                  <p className="mt-1.5 text-[10px] text-slate-400">
+                    Mapped to time window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
+                  </p>
+                )}
               </div>
+
+              {/* ── Per-Stop Delivery Time Slots (ETA pre-filled, editable) ── */}
+              {(stops.length > 0 || form.dropAddress) && (
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-6 h-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-amber-500 text-sm">schedule_send</span>
+                    </div>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Delivery Time Slots</p>
+                    <div className="flex-1 h-px bg-slate-100" />
+                    <span className="text-[10px] text-slate-400 font-medium italic">ETA pre-filled · editable</span>
+                  </div>
+
+                  {!form.jobDate || !routeCoords.durationMin ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <span className="material-symbols-outlined text-slate-300 text-base">info</span>
+                      <p className="text-xs text-slate-400 font-medium">Set a collection date and time to see ETA-based delivery slots at each stop.</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                      <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-2 bg-slate-50">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Time</span>
+                      </div>
+                      {stops.map((s, i) => (
+                        <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-[11px] font-black shrink-0">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium text-[#44474C] truncate block">
+                                {s.address || `Stop ${i + 1}`}
+                              </span>
+                              {stopDeliveryTimes[s.id] && (
+                                <span className="text-[10px] text-amber-600 font-medium">
+                                  Slot: {timeToSlot(stopDeliveryTimes[s.id]).charAt(0) + timeToSlot(stopDeliveryTimes[s.id]).slice(1).toLowerCase()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <input
+                              type="time"
+                              className="border border-amber-200 bg-amber-50 text-amber-700 font-black text-sm rounded-lg px-3 py-1.5 font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-300"
+                              value={stopDeliveryTimes[s.id] ?? ''}
+                              onChange={e =>
+                                setStopDeliveryTimes(prev => ({ ...prev, [s.id]: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {form.dropAddress && (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-white text-xs">flag</span>
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium text-[#44474C] truncate block">
+                                {form.dropAddress}
+                              </span>
+                              {stopDeliveryTimes['final'] && (
+                                <span className="text-[10px] text-emerald-600 font-medium">
+                                  Slot: {timeToSlot(stopDeliveryTimes['final']).charAt(0) + timeToSlot(stopDeliveryTimes['final']).slice(1).toLowerCase()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <input
+                              type="time"
+                              className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-black text-sm rounded-lg px-3 py-1.5 font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                              value={stopDeliveryTimes['final'] ?? ''}
+                              onChange={e =>
+                                setStopDeliveryTimes(prev => ({ ...prev, final: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <p className="mt-1.5 text-[10px] text-slate-400">
+                    Pre-filled from ETA (departure + route duration). Adjust each stop's delivery time slot as needed.
+                  </p>
+                </div>
+              )}
 
               {/* Special instructions */}
               <div>
@@ -767,9 +916,20 @@ const PostJobPage: React.FC = () => {
                   <div className="space-y-3 mb-3">
                     <RoutePoint color="bg-blue-500 ring-blue-200" label="Pickup"   value={form.pickupAddress} />
                     {stops.map((s, i) => (
-                      <RoutePoint key={s.id} color="bg-amber-400 ring-amber-100" label={`Stop ${i + 1}`} value={s.address} />
+                      <RoutePoint
+                        key={s.id}
+                        color="bg-amber-400 ring-amber-100"
+                        label={`Stop ${i + 1}`}
+                        value={s.address}
+                        deliveryTime={stopDeliveryTimes[s.id]}
+                      />
                     ))}
-                    <RoutePoint color="bg-red-500 ring-red-200"   label="Drop-off" value={form.dropAddress} />
+                    <RoutePoint
+                      color="bg-red-500 ring-red-200"
+                      label="Drop-off"
+                      value={form.dropAddress}
+                      deliveryTime={stopDeliveryTimes['final']}
+                    />
                   </div>
                   {(routeCoords.distanceKm || routeCoords.durationMin) && (
                     <div className="flex gap-3 mb-3 pt-3 border-t border-slate-100">
@@ -823,7 +983,7 @@ const PostJobPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
                     <ReviewRow label="Collection Date"  value={form.jobDate} />
                     <ReviewRow label="Est. Delivery"   value={deliveryDate ? new Date(deliveryDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                    <ReviewRow label="Deliver By"      value={TIME_SLOTS.find(t => t.value === form.timeSlot)?.label ?? form.timeSlot} />
+                    <ReviewRow label="Deliver By"      value={form.timeSlot || '—'} />
                     {form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
                     <ReviewRow label="Load Code"       value={form.loadCode} />
                   </div>
@@ -912,12 +1072,18 @@ const ReviewRow: React.FC<{ label: string; value: string }> = ({ label, value })
   </div>
 );
 
-const RoutePoint: React.FC<{ color: string; label: string; value: string }> = ({ color, label, value }) => (
+const RoutePoint: React.FC<{ color: string; label: string; value: string; deliveryTime?: string }> = ({ color, label, value, deliveryTime }) => (
   <div className="flex items-start gap-3">
     <span className={`w-2.5 h-2.5 rounded-full ring-2 shrink-0 mt-1 ${color}`} />
-    <div>
+    <div className="flex-1 min-w-0">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
       <p className="text-sm font-bold text-[#44474C] leading-snug">{value || '—'}</p>
+      {deliveryTime && (
+        <div className="flex items-center gap-1 mt-0.5">
+          <span className="material-symbols-outlined text-amber-500 text-xs">schedule</span>
+          <span className="text-[11px] font-bold text-amber-600">{deliveryTime}</span>
+        </div>
+      )}
     </div>
   </div>
 );

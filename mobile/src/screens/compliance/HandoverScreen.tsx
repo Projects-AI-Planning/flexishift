@@ -32,6 +32,8 @@ interface HandoverScreenProps {
   vehicleUnit?: string;
   haulierSigned?: boolean;
   haulierSignedAt?: string | null;
+  /** Driver's saved e-signature (JSON segments string) — pre-fills the signing box */
+  savedSignature?: string | null;
 }
 
 type ChecklistKey = 'lightsSignals' | 'tirePressure' | 'fluidLevels' | 'bodyDamage';
@@ -180,6 +182,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   vehicleUnit = 'VOL-882',
   haulierSigned: haulierSignedProp = false,
   haulierSignedAt,
+  savedSignature,
 }) => {
   const [checklist, setChecklist] = useState<Record<ChecklistKey, boolean>>({
     lightsSignals: false,
@@ -194,11 +197,8 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   const [driverSigned, setDriverSigned] = useState(false);
   const [showDriverSigModal, setShowDriverSigModal] = useState(false);
   const [driverHasSig, setDriverHasSig] = useState(false);
+  const [sigBoxWidth, setSigBoxWidth] = useState(0);
 
-  const [loadCode, setLoadCode] = useState('');
-  const [loadCodeVerified, setLoadCodeVerified] = useState(false);
-  const [loadCodeLoading, setLoadCodeLoading] = useState(false);
-  const [loadCodeError, setLoadCodeError] = useState<string | null>(null);
 
   const driverSigRef = useRef<SignaturePadHandle>(null);
 
@@ -255,21 +255,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
     Alert.alert('Raise Issue', 'Report a vehicle or load issue before departure.');
   };
 
-  const handleVerifyLoadCode = async () => {
-    if (!loadCode.trim()) {return;}
-    setLoadCodeLoading(true);
-    setLoadCodeError(null);
-    try {
-      await onVerifyLoadCode(loadCode.trim());
-      setLoadCodeVerified(true);
-    } catch (err) {
-      setLoadCodeError(err instanceof Error ? err.message : 'Invalid load code.');
-    } finally {
-      setLoadCodeLoading(false);
-    }
-  };
-
-  const isComplete = driverSigned && loadCodeVerified;
+  const isComplete = driverSigned;
 
   const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
   const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
@@ -411,56 +397,116 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
               </Pressable>
             )}
           </View>
-          <Pressable
-            onPress={() => !driverSigned && setShowDriverSigModal(true)}
-            style={[styles.sigBox, driverSigned && styles.sigBoxSigned]}>
-            {driverSigned ? (
-              <Text style={styles.sigDoneText}>~ Signed ~</Text>
-            ) : (
+
+          {/* ── Case A: Saved signature available & not yet signed ── */}
+          {!driverSigned && savedSignature ? (() => {
+            let segs: {x1:number;y1:number;x2:number;y2:number}[] = [];
+            let storedW = 300;
+            let storedH = 160;
+            try {
+              const p = JSON.parse(savedSignature);
+              segs    = p.segments ?? [];
+              storedW = p.width    ?? 300;
+              storedH = p.height   ?? 160;
+            } catch { /* ignore */ }
+            const hasSegs = segs.length > 0;
+
+            return (
               <>
-                <Text style={styles.sigTapIcon}>✍</Text>
-                <Text style={styles.sigHint}>Tap to Sign</Text>
+                {/* Saved-sig preview box */}
+                <View
+                  onLayout={e => setSigBoxWidth(e.nativeEvent.layout.width)}
+                  style={{
+                    height: 110, backgroundColor: '#EFF6FF',
+                    borderRadius: 12, borderWidth: 1.5, borderColor: '#93C5FD',
+                    overflow: 'hidden', marginBottom: 10,
+                  }}>
+                  {hasSegs && sigBoxWidth > 0 && segs.map((seg, i) => {
+                    const scaleX = sigBoxWidth / storedW;
+                    const scaleY = 110 / storedH;
+                    const x1 = seg.x1 * scaleX; const y1 = seg.y1 * scaleY;
+                    const x2 = seg.x2 * scaleX; const y2 = seg.y2 * scaleY;
+                    const dx = x2 - x1; const dy = y2 - y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    if (len < 1) {return null;}
+                    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                    const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+                    return (
+                      <View key={i} pointerEvents="none" style={{
+                        position: 'absolute',
+                        left: cx - len / 2, top: cy - 1.5,
+                        width: len, height: 3,
+                        backgroundColor: '#1C2E45', borderRadius: 1.5,
+                        transform: [{rotate: `${angle}deg`}],
+                      }} />
+                    );
+                  })}
+                  {(!hasSegs || sigBoxWidth === 0) && (
+                    <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+                      <Text style={{fontSize: 24, marginBottom: 4}}>✍️</Text>
+                      <Text style={{fontSize: 12, color: '#6B7280'}}>Saved Signature</Text>
+                    </View>
+                  )}
+                  {/* Saved badge */}
+                  <View style={{
+                    position: 'absolute', top: 8, right: 8,
+                    backgroundColor: '#DBEAFE', borderRadius: 6,
+                    paddingHorizontal: 8, paddingVertical: 3,
+                  }}>
+                    <Text style={{fontSize: 10, fontWeight: '800', color: '#1E40AF', letterSpacing: 0.5}}>
+                      SAVED
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Two-button row */}
+                <View style={{flexDirection: 'row', gap: 10}}>
+                  <Pressable
+                    style={{
+                      flex: 2, backgroundColor: '#1066B1', borderRadius: 10,
+                      paddingVertical: 13, alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      setDriverSigned(true);
+                      setDriverHasSig(true);
+                    }}>
+                    <Text style={{fontSize: 14, fontWeight: '800', color: '#fff'}}>
+                      ✓  Use This Signature
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={{
+                      flex: 1, borderWidth: 1.5, borderColor: '#D1D5DB',
+                      borderRadius: 10, paddingVertical: 13, alignItems: 'center',
+                    }}
+                    onPress={() => setShowDriverSigModal(true)}>
+                    <Text style={{fontSize: 13, fontWeight: '700', color: '#374151'}}>
+                      Draw New
+                    </Text>
+                  </Pressable>
+                </View>
               </>
-            )}
-          </Pressable>
+            );
+          })() : !driverSigned ? (
+            /* ── Case B: No saved signature — normal Tap to Sign ── */
+            <Pressable
+              onPress={() => setShowDriverSigModal(true)}
+              style={styles.sigBox}>
+              <Text style={styles.sigTapIcon}>✍</Text>
+              <Text style={styles.sigHint}>Tap to Sign</Text>
+            </Pressable>
+          ) : (
+            /* ── Case C: Signed ── */
+            <View style={[styles.sigBox, styles.sigBoxSigned]}>
+              <Text style={styles.sigDoneText}>~ Signed ~</Text>
+            </View>
+          )}
+
           <Text style={styles.sigConfirmText}>
             I CONFIRM THAT I HAVE INSPECTED THE VEHICLE AND LOAD.
           </Text>
         </View>
 
-        {/* ── Load Code Verification ─────────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardHeaderIcon}>🔑</Text>
-            <Text style={styles.cardHeaderTitle}>Load Code Verification</Text>
-            {loadCodeVerified && <Text style={styles.lcVerifiedBadge}>✓ Verified</Text>}
-          </View>
-          {loadCodeVerified ? (
-            <Text style={styles.lcVerifiedText}>Load code accepted. You may now submit the handover.</Text>
-          ) : (
-            <>
-              <TextInput
-                style={styles.lcInput}
-                placeholder="Enter load code"
-                placeholderTextColor="#9AA4B2"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={loadCode}
-                onChangeText={t => { setLoadCode(t.toUpperCase()); setLoadCodeError(null); }}
-                editable={!loadCodeLoading}
-              />
-              {loadCodeError ? <Text style={styles.lcErrorText}>{loadCodeError}</Text> : null}
-              <Pressable
-                onPress={handleVerifyLoadCode}
-                disabled={loadCodeLoading || loadCode.trim().length === 0}
-                style={[styles.lcVerifyBtn, (loadCodeLoading || !loadCode.trim()) && styles.lcVerifyBtnDisabled]}>
-                {loadCodeLoading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.lcVerifyBtnText}>Verify Load Code</Text>}
-              </Pressable>
-            </>
-          )}
-        </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -472,7 +518,7 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
               const sigSegments = driverSigRef.current?.getSegments() ?? [];
               const driverSignatureData = sigSegments.length > 0
                 ? JSON.stringify(sigSegments)
-                : 'driver_signed';
+                : (savedSignature ?? 'driver_signed');
               onSubmit({...checklist, __driverSignature: driverSignatureData}, Object.values(photos));
             }}
             disabled={loading || !isComplete}
@@ -545,8 +591,37 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
                 <Text style={styles.clearText}>Clear</Text>
               </Pressable>
             </View>
+
+            {/* Use saved sig shortcut inside modal */}
+            {savedSignature && (
+              <Pressable
+                style={{
+                  backgroundColor: '#EFF6FF', borderRadius: 10,
+                  borderWidth: 1.5, borderColor: '#93C5FD',
+                  paddingVertical: 11, paddingHorizontal: 14,
+                  flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, marginBottom: 12,
+                }}
+                onPress={() => {
+                  setDriverSigned(true);
+                  setDriverHasSig(true);
+                  setShowDriverSigModal(false);
+                }}>
+                <Text style={{fontSize: 16}}>✍️</Text>
+                <View style={{flex: 1}}>
+                  <Text style={{fontSize: 13, fontWeight: '800', color: '#1E40AF'}}>
+                    Use Saved Signature
+                  </Text>
+                  <Text style={{fontSize: 11, color: '#6B7280', marginTop: 1}}>
+                    Tap to apply your profile signature
+                  </Text>
+                </View>
+                <Text style={{fontSize: 18, color: '#1066B1', fontWeight: '900'}}>›</Text>
+              </Pressable>
+            )}
+
             <Text style={styles.sigModalHint}>
-              Draw your signature in the box below
+              {savedSignature ? '— or draw a new one below —' : 'Draw your signature in the box below'}
             </Text>
             <SignaturePad ref={driverSigRef} onSign={setDriverHasSig} />
             <View style={styles.sigModalActions}>

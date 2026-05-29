@@ -1,4 +1,5 @@
 import React, {useEffect, useRef} from 'react';
+import {fmtMoney} from '../../utils/currency';
 import {
   View,
   Text,
@@ -65,6 +66,16 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
     const isWithdrawn  = statusUpper === 'WITHDRAWN';
     const jobId        = String(item.jobId ?? '');
     const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
+
+    // Disable Withdraw when the job's pickup date is in the past
+    const jobDatePassed = (() => {
+      const jd: string | null = item.job?.jobDate ?? item.jobDate ?? null;
+      if (!jd) {return false;}
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      // Append T00:00:00 so JS parses as local midnight, not UTC midnight
+      const d = new Date(String(jd).slice(0, 10) + 'T00:00:00');
+      return d < today;
+    })();
     // API nests route info under item.job
     const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
     const dropLocation   = item.dropLocation   ?? item.job?.dropLocation   ?? null;
@@ -123,7 +134,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Your Quote</Text>
             <Text style={styles.statValue}>
-              {item.currency ?? '$'} {Number(item.quoteAmount ?? item.amount ?? 0).toLocaleString()}
+              {fmtMoney(Number(item.quoteAmount ?? item.amount ?? 0), item.currency)}
             </Text>
           </View>
           <View style={styles.statDivider} />
@@ -186,10 +197,18 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
         {isPending && (
           <View style={styles.actionRow}>
             <Pressable
-              onPress={() => handleWithdraw(item.quoteId)}
-              style={styles.withdrawBtn}>
-              <Text style={styles.withdrawBtnText}>Withdraw Quote</Text>
+              onPress={() => { if (!jobDatePassed) { handleWithdraw(item.quoteId); } }}
+              disabled={jobDatePassed}
+              style={[styles.withdrawBtn, jobDatePassed && styles.withdrawBtnDisabled]}>
+              <Text style={[styles.withdrawBtnText, jobDatePassed && styles.withdrawBtnTextDisabled]}>
+                {jobDatePassed ? '⏰  Job Date Passed' : 'Withdraw Quote'}
+              </Text>
             </Pressable>
+            {jobDatePassed && (
+              <Text style={styles.expiredNote}>
+                This job's pickup date has passed — withdrawal is no longer available.
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -412,10 +431,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  withdrawBtnDisabled: {
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F1F5F9',
+  },
   withdrawBtnText: {
     color: colors.danger,
     fontSize: 13,
     fontWeight: '800',
+  },
+  withdrawBtnTextDisabled: {
+    color: '#94A3B8',
+  },
+  expiredNote: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 6,
   },
   viewNotifBtn: {
     borderWidth: 1.5,

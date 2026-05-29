@@ -1,3 +1,4 @@
+import { fmtMoney } from '../../utils/currency';
 import React, { useState, useCallback } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
@@ -271,7 +272,7 @@ const AdminJobsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-primary">
-                        {job.agreedAmount != null ? `$${Number(job.agreedAmount).toLocaleString()}` : '—'}
+                        {job.agreedAmount != null ? fmtMoney(Number(job.agreedAmount), job.currency) : '—'}
                       </p>
                       {job.paymentStatus && (
                         <p className="text-[10px] text-slate-400 uppercase font-bold">{job.paymentStatus}</p>

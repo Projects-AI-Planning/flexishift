@@ -57,7 +57,7 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
 
   const pickup    = resolveAddress(b.pickupAddress ?? b.pickupLocation, String(b.pickup ?? ''));
   const drop      = resolveAddress(b.dropAddress   ?? b.dropLocation,   String(b.drop   ?? ''));
-  const stops     = (b.stops as Array<{order?: number; address?: string; litres?: number}> | undefined) ?? [];
+  const stops     = ((b.stops as Array<{order?: number; address?: string; litres?: number; isFinalDestination?: boolean}> | undefined) ?? []).filter(s => !s.isFinalDestination);
 
   const bookingRef = String(b.jobRef ?? b.jobReference ?? b.bookingReference ?? b.bookingId ?? '');
   const amount     = Number(b.agreedAmount ?? b.escrowAmount ?? 0);

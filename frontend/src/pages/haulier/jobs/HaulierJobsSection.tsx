@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useHaulierJobs } from '../../../hooks/useHaulier';
 import haulierService from '../../../api/haulierService';
+import { fmtMoney } from '../../../utils/currency';
 
-type JobStatus = 'OPEN' | 'BOOKED' | 'IN_TRANSIT' | 'COMPLETED';
+type JobStatus = 'OPEN' | 'BOOKED' | 'IN_TRANSIT' | 'COMPLETED' | 'EXPIRED';
 
 type QuoteRow = {
   quoteId: string;
@@ -21,9 +22,14 @@ type QuoteRow = {
     equipmentDetails?: Array<{ id?: number; capacityLitres?: string | number }> | null;
   } | null;
   quoteAmount: number;
+  driverAmount?: number;
+  platformFee?: number;
+  totalAmount?: number;
   currency: string;
   status: string;
   createdAt?: string;
+  deliverBy?: string | null;
+  stopEtas?: Array<{ order: number; eta: string }> | null;
   job?: {
     pickupLocation?: string;
     dropLocation?: string;
@@ -95,6 +101,7 @@ type JobDetail = {
     address?: string;
     litres?: number | null;
     compartment?: number | null;
+    isFinalDestination?: boolean;
   }>;
   driver?: {
     name?: string;
@@ -146,6 +153,14 @@ const SECTIONS: SectionMeta[] = [
     icon: 'check_circle',
     tone: 'bg-[#1066b1]/10 text-[#0a4a8f] border-[#1066b1]/15',
   },
+  {
+    key: 'EXPIRED',
+    label: 'Expired',
+    title: 'Expired Jobs',
+    description: 'Open jobs whose date has passed without a driver being booked.',
+    icon: 'schedule_send',
+    tone: 'bg-orange-50 text-orange-600 border-orange-100',
+  },
 ];
 
 const PAGE_SIZE = 10;
@@ -193,6 +208,19 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
   const drawing = useRef(false);
   const lastPt = useRef<Point | null>(null);
   const [hasStrokes, setHasStrokes] = useState(false);
+  const [savedEsig, setSavedEsig] = useState<string | null>(null);
+  const [useSaved, setUseSaved] = useState(false);
+
+  /* Fetch saved e-signature from profile on mount */
+  useEffect(() => {
+    haulierService.getMe().then((user: { profile?: { esignatureData?: string | null } | null }) => {
+      const esig = user?.profile?.esignatureData;
+      if (esig) {
+        setSavedEsig(esig);
+        setUseSaved(true);
+      }
+    }).catch(() => { /* no saved sig — ignore */ });
+  }, []);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -240,6 +268,16 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
     setHasStrokes(false);
   };
 
+  const handleConfirm = () => {
+    if (useSaved && savedEsig) {
+      onSave(savedEsig);
+    } else if (canvasRef.current && hasStrokes) {
+      onSave(canvasRef.current.toDataURL('image/png'));
+    }
+  };
+
+  const canConfirm = useSaved ? !!savedEsig : hasStrokes;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150">
@@ -254,50 +292,93 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
           </button>
         </div>
 
-        <p className="mb-3 mt-4 text-sm font-medium text-[#44474C]">
-          Draw your signature below to confirm dispatch officer vehicle release.
-        </p>
+        {/* Tab toggle — only shown when a saved e-sig exists */}
+        {savedEsig && (
+          <div className="mt-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1">
+            <button
+              onClick={() => setUseSaved(true)}
+              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Use Saved E-Signature
+            </button>
+            <button
+              onClick={() => setUseSaved(false)}
+              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${!useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Draw New Signature
+            </button>
+          </div>
+        )}
 
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-          <canvas
-            ref={canvasRef}
-            width={560}
-            height={200}
-            className="w-full cursor-crosshair touch-none"
-            onMouseDown={start}
-            onMouseMove={move}
-            onMouseUp={end}
-            onMouseLeave={end}
-            onTouchStart={start}
-            onTouchMove={move}
-            onTouchEnd={end}
-          />
-          {!hasStrokes && (
-            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">
-              Draw your signature here
+        {/* Saved e-signature preview */}
+        {useSaved && savedEsig ? (
+          <div className="mt-4">
+            <div className="overflow-hidden rounded-2xl border-2 border-[#1066b1]/30 bg-slate-50">
+              <img src={savedEsig} alt="Saved e-signature" className="h-40 w-full object-contain" />
+            </div>
+            <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-[#1066b1]">
+              Saved E-Signature · From Profile
             </p>
-          )}
-        </div>
-
-        <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">
-          DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
-        </p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            {!savedEsig && (
+              <p className="mb-3 text-sm font-medium text-[#44474C]">
+                Draw your signature below to confirm dispatch officer vehicle release.
+              </p>
+            )}
+            <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+              <canvas
+                ref={canvasRef}
+                width={560}
+                height={200}
+                className="w-full cursor-crosshair touch-none"
+                onMouseDown={start}
+                onMouseMove={move}
+                onMouseUp={end}
+                onMouseLeave={end}
+                onTouchStart={start}
+                onTouchMove={move}
+                onTouchEnd={end}
+              />
+              {!hasStrokes && (
+                <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">
+                  Draw your signature here
+                </p>
+              )}
+            </div>
+            <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">
+              DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>
         )}
 
         <div className="mt-5 flex gap-3">
+          {!useSaved && (
+            <button
+              onClick={clear}
+              disabled={loading}
+              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Clear
+            </button>
+          )}
+          {useSaved && (
+            <button
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          )}
           <button
-            onClick={clear}
-            disabled={loading}
-            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => { if (canvasRef.current && hasStrokes) onSave(canvasRef.current.toDataURL('image/png')); }}
-            disabled={loading || !hasStrokes}
+            onClick={handleConfirm}
+            disabled={loading || !canConfirm}
             className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40"
           >
             {loading ? 'Submitting…' : 'Confirm Signature'}
@@ -387,7 +468,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
                       <p className="text-sm font-bold text-white">{detail.pickupLocation ?? detail.pickupAddress ?? '—'}</p>
                     </div>
                   </div>
-                  {detail.stops && detail.stops.length > 0 && detail.stops.map((stop, i) => (
+                  {detail.stops && detail.stops.filter(s => !s.isFinalDestination).map((stop, i) => (
                     <React.Fragment key={i}>
                       <div className="ml-[5px] h-4 w-px bg-white/20" />
                       <div className="flex items-start gap-2">
@@ -661,16 +742,57 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
             </div>
           )}
 
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-xl font-black text-[#1066b1]">
-              {'$'} {Number(quote.quoteAmount).toLocaleString('en-US')}
-            </p>
-            {quote.createdAt && (
-              <p className="text-[10px] text-slate-400">
-                {new Date(quote.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </p>
+          {/* Deliver By & Stop ETAs — always visible */}
+          <div className="mt-3 rounded-xl border border-[#1066b1]/15 bg-[#1066b1]/5 px-3 py-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">
+                <span className="material-symbols-outlined text-[13px]">schedule</span>
+                Deliver By
+              </span>
+              <span className="text-xs font-black text-[#041627]">
+                {quote.deliverBy
+                  ? new Date(quote.deliverBy).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                  : '—'}
+              </span>
+            </div>
+            {quote.stopEtas && quote.stopEtas.length > 0 && (
+              <div className="border-t border-[#1066b1]/15 pt-2 space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1] mb-1">Stop ETAs</p>
+                {quote.stopEtas.map((s) => (
+                  <div key={s.order} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-semibold">Stop {s.order}</span>
+                    <span className="font-black text-[#041627]">{s.eta}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
+
+          <div className="mt-3 rounded-xl border border-[#1066b1]/15 bg-[#1066b1]/5 px-3 py-2.5 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px] text-slate-400">person</span>
+                Driver Bid
+              </span>
+              <span className="font-bold">{fmtMoney(Number(quote.driverAmount ?? quote.quoteAmount), quote.currency)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px] text-slate-400">percent</span>
+                Platform Fee (12.5%)
+              </span>
+              <span className="font-semibold">{fmtMoney(Number(quote.platformFee ?? (quote.quoteAmount * 0.125)), quote.currency)}</span>
+            </div>
+            <div className="border-t border-[#1066b1]/20 pt-1.5 flex items-center justify-between">
+              <span className="text-xs font-black text-[#041627] uppercase tracking-wide">Total</span>
+              <span className="text-lg font-black text-[#1066b1]">{fmtMoney(Number(quote.totalAmount ?? (quote.quoteAmount * 1.125)), quote.currency)}</span>
+            </div>
+          </div>
+          {quote.createdAt && (
+            <p className="mt-1.5 text-right text-[10px] text-slate-400">
+              {new Date(quote.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          )}
         </div>
       </div>
 
@@ -883,6 +1005,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
   }, [jobId]);
 
   const handleApprove = async () => {
+    if (!window.confirm('Approve this delivery and release payment to the driver? This will transfer the held funds and cannot be undone.')) return;
     setApproving(true);
     setError('');
     try {
@@ -989,7 +1112,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
                 <div className="rounded-2xl bg-[#041627] p-5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Payment On Hold</p>
                   <p className="text-3xl font-black text-white">
-                    ${Number(details.payment.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {fmtMoney(Number(details.payment.amount ?? 0), details.payment.currency)}
                   </p>
                   <div className="mt-3 flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black text-amber-300">
@@ -1085,8 +1208,8 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
                 )}
               </div>
 
-              {/* Dispute form */}
-              {showDisputeForm && (
+              {/* Dispute form — hidden */}
+              {false && showDisputeForm && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
                   <p className="text-sm font-black text-amber-800">Reason for Dispute</p>
                   <textarea
@@ -1137,6 +1260,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
               )}
               {approving ? 'Processing…' : 'Approve & Release Payment'}
             </button>
+            {/* Raise a Dispute — hidden
             <button
               onClick={() => { setShowDisputeForm(true); setError(''); }}
               className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-black text-red-700 transition hover:bg-red-100"
@@ -1144,6 +1268,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
               <span className="material-symbols-outlined text-base">report</span>
               Raise a Dispute
             </button>
+            */}
           </div>
         )}
       </div>
@@ -1159,16 +1284,41 @@ interface JobDetailPanelProps {
   onClose: () => void;
 }
 
+type HandoverDetail = {
+  checklistSubmitted?: boolean;
+  checklistData?: Record<string, boolean> | null;
+  driverSigned?: boolean;
+  driverSignedAt?: string | null;
+  driverSignatureUrl?: string | null;
+  haulierSigned?: boolean;
+  haulierSignedAt?: string | null;
+  conditionPhotos?: string[];
+};
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  lightsSignals: 'Lights & Signals',
+  tirePressure:  'Tyre Pressure',
+  fluidLevels:   'Fluid Levels',
+  bodyDamage:    'Body Damage OK',
+};
+
 const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose }) => {
   const [detail, setDetail] = React.useState<JobDetail | null>(null);
+  const [handover, setHandover] = React.useState<HandoverDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
     setLoading(true);
     setError('');
-    haulierService.getJobDetails(jobId)
-      .then((d) => setDetail(d as JobDetail))
+    Promise.all([
+      haulierService.getJobDetails(jobId),
+      haulierService.getHandoverStatus(jobId).catch(() => null),
+    ])
+      .then(([d, h]) => {
+        setDetail(d as JobDetail);
+        setHandover(h as HandoverDetail | null);
+      })
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setLoading(false));
   }, [jobId]);
@@ -1217,7 +1367,7 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
                   </div>
 
                   {/* Intermediate stops */}
-                  {detail.stops && detail.stops.length > 0 && detail.stops.map((stop, i) => (
+                  {detail.stops && detail.stops.filter(s => !s.isFinalDestination).map((stop, i) => (
                     <React.Fragment key={i}>
                       <div className="ml-[5px] h-4 w-px bg-white/20" />
                       <div className="flex items-start gap-2">
@@ -1275,7 +1425,7 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
                 {detail.agreedAmount != null && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Amount</p>
-                    <p className="text-xl font-black text-[#1066b1]">${Number(detail.agreedAmount).toLocaleString('en-US')}</p>
+                    <p className="text-xl font-black text-[#1066b1]">{fmtMoney(Number(detail.agreedAmount), detail.currency)}</p>
                   </div>
                 )}
               </div>
@@ -1398,6 +1548,113 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
                   </div>
                 </div>
               )}
+
+              {/* Handover record */}
+              {handover && (handover.checklistSubmitted || handover.driverSigned || (handover.conditionPhotos && handover.conditionPhotos.length > 0)) && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-[#1066b1]">fact_check</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handover Record</p>
+                  </div>
+
+                  {/* Signature status */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`rounded-xl px-3 py-2.5 text-center ${handover.driverSigned ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200'}`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest mb-1 text-slate-400">Driver Signed</p>
+                      {handover.driverSigned ? (
+                        <>
+                          <span className="material-symbols-outlined text-emerald-600 text-base">verified</span>
+                          {handover.driverSignedAt && (
+                            <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                              {new Date(handover.driverSignedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="material-symbols-outlined text-slate-300 text-base">pending</span>
+                      )}
+                    </div>
+                    <div className={`rounded-xl px-3 py-2.5 text-center ${handover.haulierSigned ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200'}`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest mb-1 text-slate-400">Haulier Signed</p>
+                      {handover.haulierSigned ? (
+                        <>
+                          <span className="material-symbols-outlined text-emerald-600 text-base">verified</span>
+                          {handover.haulierSignedAt && (
+                            <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                              {new Date(handover.haulierSignedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="material-symbols-outlined text-slate-300 text-base">pending</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vehicle checklist */}
+                  {handover.checklistData && Object.keys(handover.checklistData).length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Vehicle Checklist</p>
+                      <div className="space-y-1.5">
+                        {Object.entries(handover.checklistData).map(([key, passed]) => (
+                          <div key={key} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <span className="text-sm font-semibold text-[#44474C]">
+                              {CHECKLIST_LABELS[key] ?? key}
+                            </span>
+                            <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-wider ${passed ? 'text-emerald-600' : 'text-red-500'}`}>
+                              <span className="material-symbols-outlined text-[14px]">{passed ? 'check_circle' : 'cancel'}</span>
+                              {passed ? 'OK' : 'Issue'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Driver signature image */}
+                  {handover.driverSignatureUrl && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Driver Signature</p>
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <img
+                          src={handover.driverSignatureUrl}
+                          alt="Driver signature"
+                          className="h-24 w-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Condition photos */}
+                  {handover.conditionPhotos && handover.conditionPhotos.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                        Vehicle Condition Photos · {handover.conditionPhotos.length}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {handover.conditionPhotos.map((url, i) => (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group relative block overflow-hidden rounded-xl border border-slate-200"
+                          >
+                            <img
+                              src={url}
+                              alt={`Condition photo ${i + 1}`}
+                              className="h-32 w-full object-cover transition group-hover:opacity-80"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                              <span className="material-symbols-outlined text-white drop-shadow text-2xl">open_in_new</span>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1417,10 +1674,21 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
   const navigate = useNavigate();
   const [activeStatus, setActiveStatus] = useState<JobStatus>(initialStatus ?? 'OPEN');
   const [page, setPage] = useState(1);
-  const params = useMemo(() => ({ page, per_page: PAGE_SIZE, status: activeStatus }), [page, activeStatus]);
+  const today = useMemo(() => new Date(new Date().toDateString()), []);
+  const isJobExpired = (j: HaulierJobRow) =>
+    j.status?.toUpperCase() === 'OPEN' && !!j.jobDate && new Date(j.jobDate + 'T00:00:00') < today;
+
+  const apiStatus = activeStatus === 'EXPIRED' ? 'OPEN' : activeStatus;
+  const params = useMemo(() => ({ page, per_page: PAGE_SIZE, status: apiStatus }), [page, apiStatus]);
   const { data, loading, error, refresh } = useHaulierJobs(params);
 
-  const jobs = (data?.jobs as HaulierJobRow[] | undefined) ?? [];
+  const rawJobs = (data?.jobs as HaulierJobRow[] | undefined) ?? [];
+  const jobs = useMemo(() => {
+    if (activeStatus === 'EXPIRED') return rawJobs.filter(isJobExpired);
+    if (activeStatus === 'OPEN') return rawJobs.filter((j) => !isJobExpired(j));
+    return rawJobs;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawJobs, activeStatus, today]);
   const activeSection = SECTIONS.find((s) => s.key === activeStatus) ?? SECTIONS[0];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
 
@@ -1773,7 +2041,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job Ref</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
-                {activeStatus !== 'OPEN' && (
+                {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
                 )}
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
@@ -1788,7 +2056,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                 {activeStatus === 'IN_TRANSIT' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
                 )}
-                {activeStatus !== 'OPEN' && (
+                {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">View</th>
                 )}
               </tr>
@@ -1836,10 +2104,10 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                       <p className="text-[10px] text-slate-300 my-1">▼</p>
                       <p className="text-sm text-slate-500 truncate">{job.dropLocation ?? job.dropAddress ?? 'N/A'}</p>
                     </td>
-                    {activeStatus !== 'OPEN' && (
+                    {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
                       <td className="px-6 py-5">
                         <p className="text-sm font-black text-[#1066b1]">
-                          {'$'} {Number(job.agreedAmount ?? 0).toLocaleString('en-US')}
+                          {fmtMoney(Number(job.agreedAmount ?? 0), job.currency)}
                         </p>
                         <p className="text-xs text-slate-400">{job.goodsType ?? 'N/A'}</p>
                       </td>
@@ -1949,8 +2217,8 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                       </td>
                     )}
 
-                    {/* View button — all tabs except OPEN (View Bids already shows full details) */}
-                    {activeStatus !== 'OPEN' && (
+                    {/* View button — all tabs except OPEN and EXPIRED */}
+                    {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
                       <td className="px-6 py-5">
                         <button
                           onClick={() => { setViewJobId(job.jobId); setViewJobRef(job.jobReference ?? job.jobRef ?? job.jobId); }}
@@ -1967,14 +2235,18 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
 
               {!loading && jobs.length === 0 && (
                 <tr>
-                  <td colSpan={activeStatus === 'OPEN' ? 6 : activeStatus === 'BOOKED' || activeStatus === 'IN_TRANSIT' ? 8 : 7} className="px-6 py-20 text-center">
+                  <td colSpan={activeStatus === 'OPEN' ? 6 : activeStatus === 'BOOKED' || activeStatus === 'IN_TRANSIT' ? 8 : activeStatus === 'EXPIRED' ? 5 : 7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                         <span className="material-symbols-outlined text-2xl text-slate-400">search_off</span>
                       </div>
                       <p className="font-black text-[#44474C]">No {activeSection.label.toLowerCase()} jobs found</p>
                       <p className="text-sm text-slate-400">
-                        {activeStatus === 'OPEN' ? 'Post a new job to start receiving quotes.' : 'Try another tab to see jobs with a different status.'}
+                        {activeStatus === 'OPEN'
+                          ? 'Post a new job to start receiving quotes.'
+                          : activeStatus === 'EXPIRED'
+                          ? 'No expired jobs — all open jobs are still within their date.'
+                          : 'Try another tab to see jobs with a different status.'}
                       </p>
                       {activeStatus === 'OPEN' && (
                         <button onClick={() => navigate('/haulier/post-job')} className="mt-1 rounded-2xl bg-[#1066b1]/100 px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#1066b1]">

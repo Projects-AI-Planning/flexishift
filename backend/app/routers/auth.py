@@ -9,6 +9,25 @@ from app.database import get_db
 from app.dependencies import get_redis, get_current_user
 from app.models.user import User
 from app.core.security import verify_password, hash_password
+
+_PHONE_PREFIX_CURRENCY: dict = {
+    '+44': 'GBP', '+1': 'USD', '+91': 'INR', '+92': 'PKR', '+880': 'BDT',
+    '+234': 'NGN', '+233': 'GHS', '+27': 'ZAR', '+48': 'PLN', '+40': 'RON',
+    '+359': 'BGN', '+370': 'EUR', '+371': 'EUR', '+372': 'EUR', '+49': 'EUR',
+    '+33': 'EUR', '+353': 'EUR', '+31': 'EUR', '+32': 'EUR', '+34': 'EUR',
+    '+39': 'EUR', '+351': 'EUR', '+420': 'CZK', '+421': 'EUR', '+36': 'HUF',
+    '+380': 'UAH', '+63': 'PHP', '+61': 'AUD', '+64': 'NZD', '+65': 'SGD',
+    '+971': 'AED', '+966': 'SAR',
+}
+
+def _user_currency(user: User) -> str:
+    if user.currency:
+        return user.currency
+    phone = user.phone or ''
+    for prefix in sorted(_PHONE_PREFIX_CURRENCY, key=len, reverse=True):
+        if phone.startswith(prefix):
+            return _PHONE_PREFIX_CURRENCY[prefix]
+    return settings.PAYMENT_CURRENCY
 from app.schemas.auth import (
     RegisterRequest, VerifyEmailRequest, LoginRequest,
     TokenResponse, RefreshRequest, ForgotPasswordRequest,
@@ -91,7 +110,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), 
             "name": user.full_name,
             "email": user.email,
             "phone": user.phone,
-            "currency": getattr(user, "currency", None) or "GBP",
+            "currency": _user_currency(user),
             "isVerified": user.verified,
             "isProfileComplete": getattr(user, "profile_complete", False),
         },
@@ -114,7 +133,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis
             "name": user.full_name if user else None,
             "email": user.email if user else None,
             "phone": user.phone if user else None,
-            "currency": (getattr(user, "currency", None) or "GBP") if user else "GBP",
+            "currency": _user_currency(user) if user else settings.PAYMENT_CURRENCY,
             "isVerified": user.verified if user else None,
             "isProfileComplete": user.profile_complete if user else None,
             "profilePhoto": profile.photo_url if profile else None,

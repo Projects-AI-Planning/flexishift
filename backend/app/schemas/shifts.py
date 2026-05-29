@@ -5,14 +5,29 @@ from pydantic import BaseModel, Field
 
 
 class ShiftCreateRequest(BaseModel):
-    requirement_type: str = Field(..., alias="requirementType")
-    start_date: date = Field(..., alias="startDate")
-    end_date: date = Field(..., alias="endDate")
-    hours_per_day: int = Field(..., alias="hoursPerDay")
-    pickup_address: str = Field(..., alias="pickupAddress")
-    drop_address: str = Field(..., alias="dropAddress")
-    notes: Optional[str] = None
-    daily_rate: Optional[float] = Field(None, alias="dailyRate")
+    requirement_type:     str                   = Field(...,  alias="requirementType")
+    start_date:           date                  = Field(...,  alias="startDate")
+    end_date:             date                  = Field(...,  alias="endDate")
+    hours_per_day:        int                   = Field(...,  alias="hoursPerDay")
+    pickup_address:       str                   = Field(...,  alias="pickupAddress")
+    pickup_lat:           Optional[float]       = Field(None, alias="pickupLat")
+    pickup_lng:           Optional[float]       = Field(None, alias="pickupLng")
+    drop_address:         str                   = Field(...,  alias="dropAddress")
+    drop_lat:             Optional[float]       = Field(None, alias="dropLat")
+    drop_lng:             Optional[float]       = Field(None, alias="dropLng")
+    goods_type:           Optional[str]         = Field(None, alias="goodsType")
+    total_capacity:       Optional[float]       = Field(None, alias="totalCapacity")
+    compartments:         Optional[int]         = None
+    compartment_details:  Optional[List[dict]]  = Field(None, alias="compartmentDetails")
+    stops:                Optional[List[dict]]  = None
+    access_code:          Optional[str]         = Field(None, alias="accessCode")
+    load_code:            Optional[str]         = Field(None, alias="loadCode")
+    job_time:             Optional[str]         = Field(None, alias="jobTime")
+    special_instructions: Optional[str]         = Field(None, alias="specialInstructions")
+    distance_km:          Optional[float]       = Field(None, alias="distanceKm")
+    duration_min:         Optional[int]         = Field(None, alias="durationMin")
+    notes:                Optional[str]         = None
+    daily_rate:           Optional[float]       = Field(None, alias="dailyRate")
 
     model_config = {"populate_by_name": True}
 

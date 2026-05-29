@@ -1,14 +1,33 @@
-import React, {useState} from 'react';
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
+import React, {useState, useMemo} from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Pressable,
+  Platform,
   ActivityIndicator,
 } from 'react-native';
 import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing, shadow} from '../../theme';
+
+function fmtDateTime(date: Date): string {
+  return date.toLocaleString('en-US', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+}
+
+function calcStopEtas(deliverBy: Date, numStops: number, durationMin: number | null): string[] {
+  if (numStops === 0) return [];
+  const totalSegments = numStops + 1;
+  const durationMs = (durationMin ?? totalSegments * 30) * 60 * 1000;
+  const startMs = deliverBy.getTime() - durationMs;
+  return Array.from({length: numStops}, (_, i) => {
+    const etaMs = startMs + ((i + 1) / totalSegments) * durationMs;
+    return fmtDateTime(new Date(etaMs));
+  });
+}
 
 function formatDriverRequirement(value?: string | null): string {
   switch ((value ?? '').toUpperCase()) {
@@ -21,7 +40,7 @@ function formatDriverRequirement(value?: string | null): string {
 
 interface JobDetailScreenProps {
   job: any;
-  onSubmitQuote: (amount: string, notes: string) => void;
+  onSubmitQuote: (amount: string, notes: string, deliverBy?: string, stopEtas?: Array<{order: number; eta: string}>) => void;
   onBack: () => void;
   loading: boolean;
   error: string | null;
@@ -45,6 +64,34 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
 }) => {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
+  const [deliverByTime, setDeliverByTime] = useState<Date | null>(null);
+  const [deliverByError, setDeliverByError] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [pickerStep, setPickerStep] = useState<'date' | 'time'>('date');
+  const [pickerTemp, setPickerTemp] = useState<Date>(new Date());
+
+  const openPicker = () => {
+    setPickerTemp(deliverByTime ?? new Date());
+    setPickerStep('date');
+    setShowTimePicker(true);
+  };
+
+  const onPickerChange = (_evt: DateTimePickerEvent, selected?: Date) => {
+    if (!selected) { setShowTimePicker(false); return; }
+    if (Platform.OS === 'ios') {
+      setDeliverByTime(selected);
+      return;
+    }
+    if (pickerStep === 'date') {
+      setPickerTemp(selected);
+      setPickerStep('time');
+    } else {
+      const combined = new Date(pickerTemp);
+      combined.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+      setDeliverByTime(combined);
+      setShowTimePicker(false);
+    }
+  };
 
   const pickup = job?.pickupLocation ?? job?.pickupAddress ?? '';
   const drop = job?.dropLocation ?? job?.dropAddress ?? '';
@@ -56,8 +103,20 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   const compartmentCount = job?.compartments ? `${job.compartments}` : '';
   const timeSlot = job?.timeSlot ? String(job.timeSlot).replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : '';
   const specialInstructions = job?.specialInstructions ?? '';
-  const stops: Array<{address: string; order: number; goods_type?: string; litres?: number}> = Array.isArray(job?.stops) ? job.stops : [];
+  const stops: Array<{address: string; order: number; goods_type?: string; litres?: number; deliveryTime?: string; isFinalDestination?: boolean}> = Array.isArray(job?.stops)
+    ? job.stops.filter((s: any) => !s.isFinalDestination)
+    : [];
+  const compartmentDetails: Array<{compartment: number; contents: string; quantity: number; unit: string; stopLabel?: string}> =
+    Array.isArray(job?.compartmentDetails) ? job.compartmentDetails : [];
   const totalLitres = job?.totalLitres ? `${job.totalLitres} L` : '';
+  const durationMin: number | null = job?.durationMin ?? null;
+  const vehicleType: string = job?.vehicleTypeRequired ?? '';
+  const weightKg: number | null = job?.weightKg ?? null;
+
+  const stopEtas = useMemo(
+    () => deliverByTime ? calcStopEtas(deliverByTime, stops.length, durationMin) : [],
+    [deliverByTime, stops.length, durationMin],
+  );
 
   return (
     <ScrollView
@@ -91,6 +150,11 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
                 <View style={styles.routeTextWrap}>
                   <Text style={styles.routeLabel}>STOP {idx + 1}</Text>
                   <Text style={styles.routeValue}>{stop.address}</Text>
+                  {stopEtas[idx] ? (
+                    <Text style={styles.stopEtaBadge}>ETA  {stopEtas[idx]}</Text>
+                  ) : stop.deliveryTime ? (
+                    <Text style={styles.routeSubValue}>Est. {stop.deliveryTime}</Text>
+                  ) : null}
                 </View>
               </View>
             </React.Fragment>
@@ -111,23 +175,40 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
         <Text style={styles.sectionTitle}>Job Details</Text>
         <InfoRow label="Goods Type" value={goodsType} />
         <InfoRow label="Requirement" value={formatDriverRequirement(job?.driverRequirement)} />
+        {vehicleType ? <InfoRow label="Vehicle Type" value={vehicleType} /> : null}
         <InfoRow label="Job Date" value={jobDate} />
         {timeSlot ? <InfoRow label="Collection Time" value={timeSlot} /> : null}
         <InfoRow label="Distance" value={distance} />
+        {durationMin != null ? (
+          <InfoRow label="Est. Duration" value={`${Math.round(durationMin / 60 * 10) / 10} hrs`} />
+        ) : null}
+        {weightKg != null ? <InfoRow label="Weight" value={`${weightKg} kg`} /> : null}
         {totalCapacity ? <InfoRow label="Total Capacity" value={totalCapacity} /> : null}
         {compartmentCount ? <InfoRow label="Compartments" value={compartmentCount} /> : null}
         {totalLitres ? <InfoRow label="Total Litres" value={totalLitres} /> : null}
         {specialInstructions ? <InfoRow label="Special Instructions" value={specialInstructions} /> : null}
-        {stops.some(s => s.goods_type || s.litres) && (
-          stops.map((s, idx) => (s.goods_type || s.litres) ? (
-            <InfoRow
-              key={idx}
-              label={`Stop ${idx + 1} Compartment`}
-              value={[s.goods_type, s.litres ? `${s.litres} L` : ''].filter(Boolean).join(' · ')}
-            />
-          ) : null)
-        )}
       </View>
+
+      {/* Compartment breakdown */}
+      {compartmentDetails.length > 0 && (
+        <View style={styles.detailCard}>
+          <Text style={styles.sectionTitle}>Compartment Breakdown</Text>
+          {compartmentDetails.map((c, i) => (
+            <View key={i} style={styles.compartmentRow}>
+              <View style={styles.compartmentBadge}>
+                <Text style={styles.compartmentBadgeText}>{c.compartment ?? i + 1}</Text>
+              </View>
+              <View style={{flex: 1}}>
+                <Text style={styles.compartmentContents}>{c.contents || '—'}</Text>
+                <Text style={styles.compartmentMeta}>
+                  {Number(c.quantity).toLocaleString()} {c.unit}
+                  {c.stopLabel ? `  ·  ${c.stopLabel}` : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Bid form / Applied status */}
       {isApplied ? (
@@ -164,10 +245,81 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
             numberOfLines={3}
             containerStyle={{marginBottom: 0}}
           />
+
+          {/* Deliver By date & time (required) */}
+          <View style={styles.deliverByRow}>
+            <Text style={styles.deliverByLabel}>
+              Deliver By <Text style={styles.deliverByRequired}>*</Text>
+            </Text>
+            <Pressable
+              onPress={() => { openPicker(); setDeliverByError(false); }}
+              style={[styles.deliverByBtn, deliverByError && styles.deliverByBtnError]}>
+              <Text style={[styles.deliverByBtnText, !deliverByTime && styles.deliverByBtnPlaceholder]}>
+                {deliverByTime ? fmtDateTime(deliverByTime) : 'Select date & time'}
+              </Text>
+              <Text style={styles.deliverByClock}>⏱</Text>
+            </Pressable>
+            {deliverByTime && (
+              <Pressable onPress={() => setDeliverByTime(null)} style={styles.deliverByClear}>
+                <Text style={styles.deliverByClearText}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+          {deliverByError && (
+            <Text style={styles.deliverByErrorText}>Please select a delivery date & time.</Text>
+          )}
+          {showTimePicker && (
+            <>
+              <DateTimePicker
+                value={Platform.OS === 'android' && pickerStep === 'time' ? pickerTemp : (deliverByTime ?? new Date())}
+                mode={Platform.OS === 'ios' ? 'datetime' : pickerStep}
+                is24Hour={false}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onPickerChange}
+              />
+              {Platform.OS === 'ios' && (
+                <Pressable onPress={() => setShowTimePicker(false)} style={styles.pickerDoneBtn}>
+                  <Text style={styles.pickerDoneBtnText}>Done</Text>
+                </Pressable>
+              )}
+            </>
+          )}
+          {stopEtas.length > 0 && (
+            <View style={styles.etaSummary}>
+              <Text style={styles.etaSummaryTitle}>Calculated Stop ETAs</Text>
+              {stops.map((stop, idx) => (
+                <View key={idx} style={styles.etaSummaryRow}>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.etaSummaryStopLabel}>Stop {idx + 1}</Text>
+                    {stop.address ? <Text style={styles.etaSummaryStopAddr}>{stop.address}</Text> : null}
+                  </View>
+                  <Text style={styles.etaSummaryEta}>{stopEtas[idx]}</Text>
+                </View>
+              ))}
+              {deliverByTime && (
+                <View style={[styles.etaSummaryRow, styles.etaSummaryFinal]}>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.etaSummaryStopLabel}>Final Delivery</Text>
+                    {drop ? <Text style={styles.etaSummaryStopAddr}>{drop}</Text> : null}
+                  </View>
+                  <Text style={styles.etaSummaryEta}>{fmtDateTime(deliverByTime)}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
           <Pressable
-            onPress={() => onSubmitQuote(amount, notes)}
-            style={[styles.bidButton, (!amount || loading) && styles.bidButtonDisabled]}
-            disabled={!amount || loading}>
+            onPress={() => {
+              if (!deliverByTime) { setDeliverByError(true); return; }
+              onSubmitQuote(
+                amount,
+                notes,
+                deliverByTime.toISOString(),
+                stops.map((s, i) => ({order: s.order ?? i + 1, eta: stopEtas[i] ?? ''})),
+              );
+            }}
+            style={[styles.bidButton, (!amount || !deliverByTime || loading) && styles.bidButtonDisabled]}
+            disabled={!amount || !deliverByTime || loading}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
@@ -280,6 +432,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
+  routeSubValue: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  compartmentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  compartmentBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#EAF3FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  compartmentBadgeText: {color: '#1066B1', fontSize: 11, fontWeight: '900'},
+  compartmentContents: {color: '#041627', fontSize: 13, fontWeight: '700'},
+  compartmentMeta: {color: '#64748B', fontSize: 11, fontWeight: '600', marginTop: 1},
   detailCard: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,
@@ -412,6 +590,101 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
+
+  stopEtaBadge: {
+    color: '#1066B1',
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 3,
+    backgroundColor: 'rgba(16,102,177,0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+
+  deliverByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  deliverByLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+    width: 76,
+  },
+  deliverByRequired: {color: colors.danger},
+  deliverByBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: '#C9D0DB',
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  deliverByBtnError: {borderColor: colors.danger},
+  deliverByBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  deliverByBtnPlaceholder: {color: '#9CA4B0'},
+  deliverByErrorText: {color: colors.danger, fontSize: 12, fontWeight: '700', marginTop: 2, marginLeft: 80},
+  deliverByClock: {fontSize: 16},
+  deliverByClear: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  deliverByClearText: {color: '#64748B', fontSize: 13, fontWeight: '700'},
+
+  etaSummary: {
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: '#DBEAFE',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    gap: 6,
+  },
+  etaSummaryTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#1066B1',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  etaSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  etaSummaryFinal: {
+    borderTopWidth: 1,
+    borderTopColor: '#BFDBFE',
+    marginTop: 4,
+    paddingTop: 6,
+  },
+  etaSummaryStopLabel: {fontSize: 12, fontWeight: '800', color: '#1E40AF'},
+  etaSummaryStopAddr: {fontSize: 11, fontWeight: '500', color: '#3B82F6', marginTop: 1},
+  etaSummaryEta: {fontSize: 12, fontWeight: '900', color: '#1066B1', flexShrink: 0},
+
+  pickerDoneBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#1066B1',
+    borderRadius: radius.md,
+  },
+  pickerDoneBtnText: {color: '#fff', fontWeight: '800', fontSize: 14},
 });
 
 export default JobDetailScreen;

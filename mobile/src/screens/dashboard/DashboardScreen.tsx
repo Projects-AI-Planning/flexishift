@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useEffect, useRef, useState} from 'react';
+import {currencySymbol} from '../../utils/currency';
 import {
   View,
   Text,
@@ -19,6 +20,7 @@ interface DashboardScreenProps {
   earnings: any;
   averageRating?: number;
   upcomingJobs?: any[];
+  currency?: string;
   refreshing: boolean;
   onRefresh: () => void;
   onViewJob: (job: any) => void;
@@ -78,18 +80,34 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   earnings,
   averageRating = 0,
   upcomingJobs = [],
+  currency = '',
   refreshing,
   onRefresh,
   onViewJob,
   onQuickAction,
 }) => {
+  const sym = currencySymbol(currency);
   const activeJob = dashboard?.activeJob;
-  const totalEarnings = Number(earnings?.summary?.totalEarnings ?? 0);
+  const todayEarnings = Number(dashboard?.todaySummary?.todayEarnings ?? 0);
   const totalJobs = earnings?.summary?.totalJobs ?? 0;
   const onTimeRate = dashboard?.performance?.onTimeRate ?? '0';
   const firstName = (driverName ?? 'Driver').split(' ')[0];
-  const progressPct = Math.min((totalEarnings / DAILY_TARGET) * 100, 100);
+  const progressPct = Math.min((todayEarnings / DAILY_TARGET) * 100, 100);
   const rating = Number(dashboard?.rating ?? averageRating ?? 0);
+
+  /* Auto-refresh today's earnings every 60 seconds */
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    refreshInterval.current = setInterval(() => {
+      onRefresh();
+      setLastUpdated(new Date());
+    }, 60_000);
+    return () => {
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <ScrollView
@@ -125,9 +143,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Today's Earnings */}
       <Card title="Today's Earnings" variant="accent">
         <View style={styles.earningsRow}>
-          <Text style={styles.earningsValue}>${totalEarnings.toFixed(2)}</Text>
+          <Text style={styles.earningsValue}>{sym}{todayEarnings.toFixed(2)}</Text>
           <View style={styles.goalPill}>
-            <Text style={styles.goalPillText}>Target: ${DAILY_TARGET}.00</Text>
+            <Text style={styles.goalPillText}>Target: {sym}{DAILY_TARGET}.00</Text>
           </View>
         </View>
         <View style={styles.progressTrack}>
@@ -135,6 +153,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
         <Text style={styles.progressLabel}>
           {progressPct.toFixed(0)}% of daily target
+        </Text>
+        <Text style={styles.updatedLabel}>
+          Updated {lastUpdated.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}
         </Text>
       </Card>
 
@@ -418,6 +439,14 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     fontSize: 12,
     fontWeight: '600',
+  },
+  updatedLabel: {
+    color: colors.inkSoft,
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'right',
+    opacity: 0.7,
   },
   metricGrid: {
     flexDirection: 'row',

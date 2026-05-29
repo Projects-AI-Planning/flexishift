@@ -6,6 +6,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
@@ -278,6 +279,78 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [vehicleSaving, setVehicleSaving] = useState(false);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
 
+  // ── E-Signature ──────────────────────────────────────────────────────────
+  const [esigModalVisible,  setEsigModalVisible]  = useState(false);
+  const [esigSaving,        setEsigSaving]        = useState(false);
+  const [esigError,         setEsigError]         = useState('');
+  const [esigSuccess,       setEsigSuccess]       = useState(false);
+  const [esigSegments,      setEsigSegments]      = useState<{x1:number;y1:number;x2:number;y2:number}[]>([]);
+  const esigDrawing         = useRef(false);
+  const esigLastPoint       = useRef<{x:number;y:number}|null>(null);
+  const [esigCanvasSize,    setEsigCanvasSize]    = useState({width: 0, height: 0});
+  // Derive saved esig from profile prop
+  const savedEsignature: string | null = (profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null;
+
+  const esigPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder:  () => true,
+        onPanResponderGrant: (e: any) => {
+          const {locationX, locationY} = e.nativeEvent;
+          esigLastPoint.current = {x: locationX, y: locationY};
+        },
+        onPanResponderMove: (e: any) => {
+          if (!esigLastPoint.current) {return;}
+          const {locationX, locationY} = e.nativeEvent;
+          const seg = {
+            x1: esigLastPoint.current.x, y1: esigLastPoint.current.y,
+            x2: locationX,               y2: locationY,
+          };
+          setEsigSegments(prev => [...prev, seg]);
+          esigLastPoint.current = {x: locationX, y: locationY};
+        },
+        onPanResponderRelease: () => { esigLastPoint.current = null; },
+      }),
+    [],
+  );
+
+  const handleEsigSave = async () => {
+    if (esigSegments.length === 0) {return;}
+    // Build a data-URI-like string from segments (we store it as JSON for mobile)
+    // then call the backend
+    const sigData = JSON.stringify({segments: esigSegments, width: esigCanvasSize.width, height: esigCanvasSize.height});
+    setEsigSaving(true);
+    setEsigError('');
+    try {
+      await driverApi.profile.saveEsignature(sigData);
+      setEsigModalVisible(false);
+      setEsigSegments([]);
+      setEsigSuccess(true);
+      setTimeout(() => setEsigSuccess(false), 3000);
+    } catch {
+      setEsigError('Failed to save e-signature. Please try again.');
+    } finally {
+      setEsigSaving(false);
+    }
+  };
+
+  const handleEsigDelete = async () => {
+    Alert.alert('Remove Signature', 'Remove your saved e-signature?', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await driverApi.profile.deleteEsignature();
+            // Force a profile refresh in parent - just clear locally for now
+          } catch { /* ignore */ }
+        },
+      },
+    ]);
+  };
+
   // ── Truck compartments ───────────────────────────────────────────────────
   const [compartments, setCompartments] = useState<TruckCompartment[]>(() =>
     ((profileForm.equipmentDetails ?? []) as any[])
@@ -285,6 +358,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       .map((c: any, i: number) => ({
         id: c.id ?? Date.now() + i,
         capacityLitres: String(c.capacityLitres),
+        fuelType: c.fuelType ?? '',
       })),
   );
   const [cptCapacity, setCptCapacity] = useState('');
@@ -942,7 +1016,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }
                     updateCompartments([
                       ...compartments,
-                      {id: Date.now(), capacityLitres: cap},
+                      {id: Date.now(), capacityLitres: cap, fuelType: ''},
                     ]);
                     setCptCapacity('');
                     setCptError('');
@@ -1082,6 +1156,165 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.manageDocsBtnText}>  Upload / Manage Documents</Text>
         </Pressable>
       </View>
+
+      {/* ── E-Signature ───────────────────────────────────────────────────── */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderIcon}>✍️</Text>
+          <Text style={styles.sectionHeaderText}>E-Signature</Text>
+        </View>
+        <Text style={{fontSize: 12, color: '#6B7280', lineHeight: 18}}>
+          Save your signature once — it will auto-fill whenever you need to sign a handover.
+        </Text>
+
+        {esigSuccess && (
+          <View style={{backgroundColor: '#D1FAE5', borderRadius: 8, padding: 10, marginTop: 4}}>
+            <Text style={{fontSize: 12, fontWeight: '700', color: '#065F46'}}>✓ E-signature saved successfully.</Text>
+          </View>
+        )}
+
+        {/* Preview saved signature */}
+        {savedEsignature && (() => {
+          let segments: {x1:number;y1:number;x2:number;y2:number}[] = [];
+          try { segments = JSON.parse(savedEsignature).segments ?? []; } catch { /* not JSON */ }
+          return (
+            <View style={{marginTop: 4}}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
+                <Text style={{fontSize: 11, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5}}>Saved Signature</Text>
+                <View style={{flexDirection: 'row', gap: 12}}>
+                  <Pressable onPress={() => { setEsigSegments([]); setEsigModalVisible(true); }}>
+                    <Text style={{fontSize: 12, fontWeight: '700', color: '#1066B1'}}>Update</Text>
+                  </Pressable>
+                  <Pressable onPress={handleEsigDelete}>
+                    <Text style={{fontSize: 12, fontWeight: '700', color: '#DC2626'}}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={{
+                height: 100, backgroundColor: '#F8FAFB', borderRadius: 10,
+                borderWidth: 1.5, borderColor: '#D1D5DB', overflow: 'hidden',
+              }}>
+                {segments.map((seg, i) => {
+                  const dx = seg.x2 - seg.x1;
+                  const dy = seg.y2 - seg.y1;
+                  const len = Math.sqrt(dx*dx + dy*dy);
+                  if (len < 1) {return null;}
+                  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                  const cx = (seg.x1 + seg.x2) / 2;
+                  const cy = (seg.y1 + seg.y2) / 2;
+                  return (
+                    <View key={i} pointerEvents="none" style={{
+                      position: 'absolute',
+                      left: cx - len/2, top: cy - 1.5,
+                      width: len, height: 3,
+                      backgroundColor: '#1C2E45', borderRadius: 1.5,
+                      transform: [{rotate: `${angle}deg`}],
+                    }} />
+                  );
+                })}
+                {segments.length === 0 && (
+                  <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+                    <Text style={{fontSize: 12, color: '#9CA3AF'}}>Signature stored</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* Button to add if none saved */}
+        {!savedEsignature && (
+          <Pressable
+            style={{
+              backgroundColor: '#1066B1', borderRadius: 10,
+              paddingVertical: 12, alignItems: 'center', marginTop: 4,
+            }}
+            onPress={() => { setEsigSegments([]); setEsigModalVisible(true); }}>
+            <Text style={{color: '#fff', fontSize: 13, fontWeight: '700'}}>＋  Add E-Signature</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* ── E-Signature Draw Modal ─────────────────────────────────────────── */}
+      <Modal visible={esigModalVisible} animationType="slide" transparent>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end'}}>
+          <View style={{
+            backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: 20, paddingBottom: 36,
+          }}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14}}>
+              <Text style={{fontSize: 17, fontWeight: '900', color: '#111827'}}>Draw E-Signature</Text>
+              <Pressable
+                onPress={() => { setEsigModalVisible(false); setEsigError(''); }}
+                style={{width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{fontSize: 18, color: '#6B7280'}}>×</Text>
+              </Pressable>
+            </View>
+            <Text style={{fontSize: 12, color: '#6B7280', marginBottom: 12}}>
+              Draw your signature in the box below. It will be saved and used to auto-fill handover forms.
+            </Text>
+
+            {/* Drawing canvas */}
+            <View
+              onLayout={e => setEsigCanvasSize({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
+              style={{
+                height: 160, backgroundColor: '#F8FAFB',
+                borderRadius: 12, borderWidth: 1.5, borderColor: '#D1D5DB',
+                borderStyle: 'dashed', overflow: 'hidden', marginBottom: 12,
+              }}
+              {...esigPanResponder.panHandlers}>
+              {esigSegments.map((seg, i) => {
+                const dx = seg.x2 - seg.x1;
+                const dy = seg.y2 - seg.y1;
+                const len = Math.sqrt(dx*dx + dy*dy);
+                if (len < 1) {return null;}
+                const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                const cx = (seg.x1 + seg.x2) / 2;
+                const cy = (seg.y1 + seg.y2) / 2;
+                return (
+                  <View key={i} pointerEvents="none" style={{
+                    position: 'absolute',
+                    left: cx - len/2, top: cy - 1.5,
+                    width: len, height: 3,
+                    backgroundColor: '#1C2E45', borderRadius: 1.5,
+                    transform: [{rotate: `${angle}deg`}],
+                  }} />
+                );
+              })}
+              {esigSegments.length === 0 && (
+                <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+                  <Text style={{fontSize: 13, color: '#9CA3AF'}}>Sign here with your finger</Text>
+                </View>
+              )}
+            </View>
+
+            {esigError ? (
+              <View style={{backgroundColor: '#FEF2F2', borderRadius: 8, padding: 10, marginBottom: 10}}>
+                <Text style={{fontSize: 12, fontWeight: '700', color: '#DC2626'}}>{esigError}</Text>
+              </View>
+            ) : null}
+
+            <View style={{flexDirection: 'row', gap: 10}}>
+              <Pressable
+                style={{flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, paddingVertical: 12, alignItems: 'center'}}
+                onPress={() => setEsigSegments([])}>
+                <Text style={{fontSize: 13, fontWeight: '700', color: '#374151'}}>Clear</Text>
+              </Pressable>
+              <Pressable
+                style={[{
+                  flex: 2, backgroundColor: '#1066B1', borderRadius: 10,
+                  paddingVertical: 12, alignItems: 'center',
+                }, (esigSaving || esigSegments.length === 0) && {opacity: 0.4}]}
+                onPress={handleEsigSave}
+                disabled={esigSaving || esigSegments.length === 0}>
+                {esigSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={{fontSize: 13, fontWeight: '700', color: '#fff'}}>Save E-Signature</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Save Changes ──────────────────────────────────────────────────── */}
       <Pressable

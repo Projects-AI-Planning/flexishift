@@ -232,9 +232,6 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
             <View style={[styles.progressFill, {width: `${progress}%`}]} />
           </View>
           <View style={styles.actionRow}>
-            <Pressable onPress={onReportIncident} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>Report Issue</Text>
-            </Pressable>
             <Pressable onPress={onStopTracking} style={styles.primaryBtn}>
               <Text style={styles.primaryBtnText}>Finish Trip</Text>
             </Pressable>

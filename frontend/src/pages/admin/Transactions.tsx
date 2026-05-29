@@ -20,7 +20,7 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
 };
 
 const fmt = (val: number, _cur = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD' }).format(val);
 
 const TransactionsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });

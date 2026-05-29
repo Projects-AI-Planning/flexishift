@@ -298,6 +298,13 @@ export const driverApi = {
         body: formData,
         isFormData: true,
       }),
+    saveEsignature: (esignatureData: string) =>
+      request<{esignatureData: string}>('/profile/esignature', {
+        method: 'PUT',
+        body: jsonBody({esignatureData}),
+      }),
+    deleteEsignature: () =>
+      request<null>('/profile/esignature', {method: 'DELETE'}),
   },
   quotes: {
     edit: (quoteId: string, payload: Record<string, unknown>) =>
@@ -353,6 +360,53 @@ export const driverApi = {
       request<Record<string, unknown>>(`/shifts/cancel/${shiftId}`, {
         method: 'PUT',
       }),
+    startDay: (shiftId: string) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/days/start`, {
+        method: 'POST',
+      }),
+    updateLocation: (shiftId: string, latitude: number, longitude: number) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/location`, {
+        method: 'POST',
+        body: jsonBody({latitude, longitude}),
+      }),
+    getDriverLocation: (shiftId: string) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/driver-location`),
+    verifyAccessCode: (shiftId: string, code: string) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/compliance/access-code`, {
+        method: 'POST',
+        body: jsonBody({code}),
+      }),
+    endDay: (
+      shiftId: string,
+      dayNum: number,
+      data: {notes?: string; recipientName?: string; proofPhotoUrl?: string; signatureData?: string},
+    ) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/days/${dayNum}/end`, {
+        method: 'POST',
+        body: jsonBody(data),
+      }),
+    submitRating: (
+      shiftId: string,
+      data: {ratedUserId: string; stars: number; review?: string},
+    ) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/rating`, {
+        method: 'POST',
+        body: jsonBody(data),
+      }),
+    submitHandover: (
+      shiftId: string,
+      data: {checklist?: Record<string, boolean>; photoUrls?: string[]; signatureData?: string},
+    ) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/handover`, {
+        method: 'POST',
+        body: jsonBody(data),
+      }),
+    getHandoverStatus: (shiftId: string) =>
+      request<{
+        handoverSubmitted: boolean;
+        handoverHaulierSigned: boolean;
+        handoverHaulierSignedAt: string | null;
+      }>(`/shifts/${shiftId}/handover/status`),
   },
   maps: {
     getRoute: (originLat: number, originLng: number, destLat: number, destLng: number) =>

@@ -1,4 +1,5 @@
 import React, {useMemo, useState} from 'react';
+import {currencySymbol} from '../../utils/currency';
 import {
   ActivityIndicator,
   FlatList,
@@ -41,6 +42,7 @@ interface JobDiscoveryScreenProps {
   availableJobs: any[];
   appliedJobIds?: string[];
   docStatus: 'approved' | 'pending' | 'none';
+  currency?: string;
   onSelectJob: (job: any) => void;
   onGoToDocuments: () => void;
   onRefresh: () => void;
@@ -85,11 +87,13 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   availableJobs,
   appliedJobIds = [],
   docStatus,
+  currency = '',
   onSelectJob,
   onGoToDocuments,
   onRefresh,
   refreshing,
 }) => {
+  const sym = currencySymbol(currency);
   const [search, setSearch] = useState('');
   const [cargoFilter, setCargoFilter]   = useState<string | null>(null);
   const [dateFilter, setDateFilter]     = useState<string | null>(null);
@@ -161,8 +165,13 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 
   const filtered = useMemo(() => {
     const radiusKm = radiusFilter ? parseInt(radiusFilter, 10) : null;
+    // Today's date string "YYYY-MM-DD" for comparison
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const items = availableJobs.filter(j => {
+      // Hide jobs whose pickup date is in the past
+      if (j.jobDate && String(j.jobDate) < todayStr) {return false;}
+
       if (cargoFilter && String(j.goodsType ?? '').trim() !== cargoFilter) {return false;}
       if (dateFilter && !matchesDateFilter(j.jobDate, dateFilter)) {return false;}
 
@@ -244,7 +253,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
             )}
           </View>
           {amount ? (
-            <Text style={styles.jobAmount}>${Number(amount).toLocaleString('en-US')}</Text>
+            <Text style={styles.jobAmount}>{sym}{Number(amount).toLocaleString('en-US')}</Text>
           ) : (
             <View style={styles.openBadge}>
               <Text style={styles.openBadgeText}>OPEN</Text>

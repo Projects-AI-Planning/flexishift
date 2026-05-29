@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -12,7 +14,11 @@ def _has_admin_approved_documents(db: Session, user_id: str) -> bool:
     return bool(docs) and all(doc.status == DocStatus.APPROVED for doc in docs)
 
 
-async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
+async def submit_quote(
+    db: Session, job_id: str, supplier: User, price: float,
+    deliver_by: Optional[datetime] = None,
+    stop_etas: Optional[list] = None,
+) -> Quote:
     if supplier.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
     if not supplier.verified:
@@ -36,7 +42,12 @@ async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -
     if existing:
         raise HTTPException(status_code=409, detail="You already have an active quote on this job")
 
-    quote = Quote(job_id=job_id, supplier_id=supplier.id, price=price, currency=supplier.currency or "GBP")
+    quote = Quote(
+        job_id=job_id, supplier_id=supplier.id, price=price,
+        currency=supplier.currency or "GBP",
+        deliver_by=deliver_by,
+        stop_etas=stop_etas,
+    )
     db.add(quote)
     db.commit()
     db.refresh(quote)

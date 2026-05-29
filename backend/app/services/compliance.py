@@ -64,7 +64,7 @@ def complete_step1(db: Session, job_id: str, supplier_id: str, data: dict) -> Co
     return record
 
 
-def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict) -> ComplianceRecord:
+async def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict) -> ComplianceRecord:
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -89,6 +89,19 @@ def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict) -> Co
     job.status = JobStatus.DELIVERY_SUBMITTED
     db.commit()
     db.refresh(record)
+
+    # Notify haulier to review delivery and release payment
+    if job.haulier_id:
+        driver_name = job.supplier.full_name if job.supplier else "The driver"
+        from app.services.notifications import create_notification
+        await create_notification(
+            db, job.haulier_id, "DELIVERY_SUBMITTED",
+            "Delivery Completed — Release Payment",
+            f"{driver_name} has delivered job {job.job_ref}. Please review the proof and release payment.",
+            {"job_id": job_id, "job_ref": job.job_ref},
+        )
+        db.commit()
+
     return record
 
 

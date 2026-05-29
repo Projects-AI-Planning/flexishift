@@ -1,4 +1,5 @@
 import React, {useMemo, useState} from 'react';
+import {fmtMoney, currencySymbol} from '../../utils/currency';
 import {
   ActivityIndicator,
   Alert,
@@ -17,11 +18,27 @@ import {
   View,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+
 import {colors, spacing, radius, shadow} from '../../theme';
 import Icon from '../../components/common/Icon';
 import JobSearchLockedScreen, {AvailabilityGateInfo} from '../jobs/JobSearchLockedScreen';
 
-type TabKey = 'available' | 'quotes' | 'mine' | 'ongoing' | 'history';
+type TabKey = 'available' | 'quotes' | 'mine' | 'history';
+
+interface CompartmentDetail {
+  compartment: number;
+  contents: string;
+  quantity: number;
+  unit: string;
+  stopLabel?: string;
+}
+
+interface StopItem {
+  address: string;
+  order?: number;
+  deliveryTime?: string;
+  isFinalDestination?: boolean;
+}
 
 interface ShiftItem {
   shiftId: string;
@@ -34,6 +51,17 @@ interface ShiftItem {
   pickupAddress?: string;
   dropAddress?: string;
   location?: string;
+  goodsType?: string;
+  totalCapacity?: number;
+  compartments?: number;
+  compartmentDetails?: CompartmentDetail[];
+  stops?: StopItem[];
+  accessCode?: string;
+  loadCode?: string;
+  jobTime?: string;
+  specialInstructions?: string;
+  distanceKm?: number;
+  durationMin?: number;
   notes?: string;
   dailyRate?: number;
   status: string;
@@ -41,6 +69,7 @@ interface ShiftItem {
   selectedDriverId?: string;
   pickupLat?: number;
   pickupLng?: number;
+  currentDayEscrowed?: boolean;
 }
 
 interface ShiftQuoteItem {
@@ -71,9 +100,11 @@ interface ShiftsScreenProps {
   error: string | null;
   refreshing: boolean;
   onRefresh: () => void;
+  currency?: string;
   onSubmitQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
   onWithdrawQuote: (shiftId: string) => Promise<void>;
   onCancelShift: (shiftId: string) => Promise<void>;
+  onStartDay?: (shiftId: string) => Promise<void>;
   canBrowse?: boolean;
   gateInfo?: AvailabilityGateInfo & {canAccess?: boolean};
   onGoToDocuments?: () => void;
@@ -149,6 +180,9 @@ function AvailableShiftCard({
   onQuote: (shift: ShiftItem) => void;
   onWithdraw: (shiftId: string) => void;
 }) {
+  const sym = currencySymbol(shift.currency);
+  const [expanded, setExpanded] = useState(false);
+
   const qStatus = myQuote?.status?.toUpperCase();
   const qCfg = qStatus ? QUOTE_STATUS[qStatus] : null;
   const canQuote = shift.status === 'OPEN' && !qStatus;
@@ -162,6 +196,24 @@ function AvailableShiftCard({
     driverLocation && shift.pickupLat != null && shift.pickupLng != null
       ? haversineKm(driverLocation.latitude, driverLocation.longitude, shift.pickupLat, shift.pickupLng)
       : null;
+
+  const QuoteAction = () => (
+    canQuote ? (
+      <Pressable onPress={() => onQuote(shift)} style={styles.applyBtn}>
+        <Text style={styles.applyBtnText}>Submit Quote</Text>
+      </Pressable>
+    ) : isPending ? (
+      <Pressable onPress={() => onWithdraw(shift.shiftId)} style={[styles.applyBtn, styles.applyBtnApplied]}>
+        <Text style={styles.applyBtnAppliedText}>✓  Quote Submitted</Text>
+      </Pressable>
+    ) : (
+      <View style={[styles.applyBtn, styles.applyBtnLocked]}>
+        <Text style={styles.applyBtnLockedText}>
+          {qStatus === 'ACCEPTED' ? '✓  Accepted' : '✓  Already Quoted'}
+        </Text>
+      </View>
+    )
+  );
 
   return (
     <View style={styles.jobCard}>
@@ -234,33 +286,182 @@ function AvailableShiftCard({
         <View style={styles.quoteAmountBox}>
           <Text style={styles.quoteAmountLabel}>Your quote</Text>
           <View style={styles.quoteAmountRow}>
-            <Text style={styles.quoteAmountVal}>${myQuote.amountPerDay.toLocaleString()}/day</Text>
+            <Text style={styles.quoteAmountVal}>{sym}{myQuote.amountPerDay.toLocaleString()}/day</Text>
             <Text style={styles.quoteDivider}>·</Text>
-            <Text style={styles.quoteTotal}>Total ${myQuote.totalAmount.toLocaleString()}</Text>
+            <Text style={styles.quoteTotal}>Total {sym}{myQuote.totalAmount.toLocaleString()}</Text>
           </View>
         </View>
       )}
 
       {shift.notes ? <Text style={styles.notesText}>{shift.notes}</Text> : null}
 
-      {/* Actions */}
+      {/* Actions row: Submit Quote + View Details */}
       <View style={styles.cardActions}>
-        {canQuote ? (
-          <Pressable onPress={() => onQuote(shift)} style={styles.applyBtn}>
-            <Text style={styles.applyBtnText}>Submit Quote</Text>
-          </Pressable>
-        ) : isPending ? (
-          <Pressable onPress={() => onWithdraw(shift.shiftId)} style={[styles.applyBtn, styles.applyBtnApplied]}>
-            <Text style={styles.applyBtnAppliedText}>✓  Quote Submitted</Text>
-          </Pressable>
-        ) : (
-          <View style={[styles.applyBtn, styles.applyBtnLocked]}>
-            <Text style={styles.applyBtnLockedText}>
-              {qStatus === 'ACCEPTED' ? '✓  Accepted' : '✓  Already Quoted'}
+        <QuoteAction />
+        <Pressable
+          onPress={() => setExpanded(p => !p)}
+          style={styles.detailsToggleBtn}>
+          <Text style={styles.detailsToggleBtnText}>
+            {expanded ? 'Hide Details' : 'View Details'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* ── Expanded details panel ── */}
+      {expanded && (
+        <View style={styles.expandedPanel}>
+
+          {/* Route */}
+          <Text style={styles.expandedSectionLabel}>Route</Text>
+          <View style={styles.expandedRouteWrap}>
+            {/* Pickup */}
+            <View style={styles.expandedRouteRow}>
+              <View style={styles.expandedRouteLeft}>
+                <View style={[styles.expandedDot, styles.expandedDotBlue]} />
+              </View>
+              <View style={styles.expandedRouteText}>
+                <Text style={styles.expandedRouteTag}>Pickup</Text>
+                <Text style={styles.expandedRouteAddr}>{shift.pickupAddress || '—'}</Text>
+              </View>
+            </View>
+            {(shift.stops ?? []).filter(s => !s.isFinalDestination).map((s, i) => (
+              <React.Fragment key={i}>
+                <View style={styles.expandedRouteLine} />
+                <View style={styles.expandedRouteRow}>
+                  <View style={styles.expandedRouteLeft}>
+                    <View style={[styles.expandedDot, styles.expandedDotAmber]}>
+                      <Text style={styles.expandedDotNum}>{i + 1}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.expandedRouteText}>
+                    <Text style={styles.expandedRouteTag}>Stop {i + 1}</Text>
+                    <Text style={styles.expandedRouteAddr}>{s.address}</Text>
+                    {s.deliveryTime ? (
+                      <Text style={styles.expandedRouteEta}>Est. {s.deliveryTime}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </React.Fragment>
+            ))}
+            <View style={styles.expandedRouteLine} />
+            <View style={styles.expandedRouteRow}>
+              <View style={styles.expandedRouteLeft}>
+                <View style={[styles.expandedDot, styles.expandedDotRed]} />
+              </View>
+              <View style={styles.expandedRouteText}>
+                <Text style={styles.expandedRouteTag}>Drop-off</Text>
+                <Text style={styles.expandedRouteAddr}>{shift.dropAddress || shift.location || '—'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.expandedDivider} />
+
+          {/* Schedule */}
+          <Text style={styles.expandedSectionLabel}>Schedule</Text>
+          <View style={styles.expandedInfoRow}>
+            <Text style={styles.expandedInfoLabel}>Start Date</Text>
+            <Text style={styles.expandedInfoValue}>{shift.startDate}</Text>
+          </View>
+          <View style={styles.expandedInfoRow}>
+            <Text style={styles.expandedInfoLabel}>End Date</Text>
+            <Text style={styles.expandedInfoValue}>{shift.endDate}</Text>
+          </View>
+          <View style={styles.expandedInfoRow}>
+            <Text style={styles.expandedInfoLabel}>Duration</Text>
+            <Text style={styles.expandedInfoValue}>
+              {shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''} · {shift.hoursPerDay}h/day
             </Text>
           </View>
-        )}
-      </View>
+          {shift.jobTime ? (
+            <View style={styles.expandedInfoRow}>
+              <Text style={styles.expandedInfoLabel}>Start Time</Text>
+              <Text style={styles.expandedInfoValue}>{shift.jobTime}</Text>
+            </View>
+          ) : null}
+
+          {/* Divider */}
+          <View style={styles.expandedDivider} />
+
+          {/* Job Info */}
+          <Text style={styles.expandedSectionLabel}>Job Info</Text>
+          <View style={styles.expandedInfoRow}>
+            <Text style={styles.expandedInfoLabel}>Requirement</Text>
+            <Text style={styles.expandedInfoValue}>{REQ_LABELS[shift.requirementType] ?? shift.requirementType}</Text>
+          </View>
+          {(shift.distanceKm != null || shift.durationMin != null) ? (
+            <View style={styles.expandedInfoRow}>
+              <Text style={styles.expandedInfoLabel}>Distance</Text>
+              <Text style={styles.expandedInfoValue}>
+                {[
+                  shift.distanceKm != null ? `${shift.distanceKm} km` : null,
+                  shift.durationMin != null ? `${Math.round(shift.durationMin / 60 * 10) / 10} hrs` : null,
+                ].filter(Boolean).join('  ·  ')}
+              </Text>
+            </View>
+          ) : null}
+          {shift.goodsType ? (
+            <View style={styles.expandedInfoRow}>
+              <Text style={styles.expandedInfoLabel}>Goods Type</Text>
+              <Text style={styles.expandedInfoValue}>{shift.goodsType}</Text>
+            </View>
+          ) : null}
+          {shift.totalCapacity != null ? (
+            <View style={styles.expandedInfoRow}>
+              <Text style={styles.expandedInfoLabel}>Total Capacity</Text>
+              <Text style={styles.expandedInfoValue}>{Number(shift.totalCapacity).toLocaleString()} L</Text>
+            </View>
+          ) : null}
+          {shift.compartments != null ? (
+            <View style={styles.expandedInfoRow}>
+              <Text style={styles.expandedInfoLabel}>Compartments</Text>
+              <Text style={styles.expandedInfoValue}>{shift.compartments}</Text>
+            </View>
+          ) : null}
+          {shift.specialInstructions ? (
+            <>
+              <View style={styles.expandedDivider} />
+              <Text style={styles.expandedSectionLabel}>Instructions</Text>
+              <Text style={styles.expandedInstructions}>{shift.specialInstructions}</Text>
+            </>
+          ) : null}
+          {shift.notes ? (
+            <>
+              <View style={styles.expandedDivider} />
+              <Text style={styles.expandedSectionLabel}>Notes</Text>
+              <Text style={styles.expandedInstructions}>{shift.notes}</Text>
+            </>
+          ) : null}
+
+          {/* Compartment breakdown */}
+          {(shift.compartmentDetails ?? []).length > 0 && (
+            <>
+              <View style={styles.expandedDivider} />
+              <Text style={styles.expandedSectionLabel}>Compartment Breakdown</Text>
+              {(shift.compartmentDetails ?? []).map((c, i) => (
+                <View key={i} style={styles.expandedCompartmentRow}>
+                  <View style={styles.compartmentBadge}>
+                    <Text style={styles.compartmentBadgeText}>{c.compartment ?? i + 1}</Text>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.compartmentContents}>{c.contents || '—'}</Text>
+                    <Text style={styles.compartmentMeta}>
+                      {Number(c.quantity).toLocaleString()} {c.unit}
+                      {c.stopLabel ? `  ·  ${c.stopLabel}` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Submit Quote repeated at bottom */}
+          <View style={[styles.cardActions, {marginTop: 6}]}>
+            <QuoteAction />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -270,14 +471,26 @@ function AvailableShiftCard({
 function QuoteCard({
   quote,
   onWithdraw,
+  onGoToBooked,
 }: {
   quote: ShiftQuoteItem;
   onWithdraw: (shiftId: string) => void;
+  onGoToBooked?: () => void;
 }) {
+  const sym = currencySymbol(quote.currency);
   const statusUpper = (quote.status ?? '').toUpperCase();
   const isAccepted = statusUpper === 'ACCEPTED';
   const isPending  = statusUpper === 'PENDING';
   const isDeclined = statusUpper === 'REJECTED' || statusUpper === 'WITHDRAWN';
+
+  // Disable Withdraw when the shift's start date has passed
+  const shiftDatePassed = (() => {
+    const sd: string | null = quote.startDate ?? null;
+    if (!sd) {return false;}
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = new Date(String(sd).slice(0, 10) + 'T00:00:00');
+    return d < today;
+  })();
 
   const statusLabel =
     isPending  ? 'Pending'   :
@@ -339,12 +552,12 @@ function QuoteCard({
       <View style={styles.qStatsRow}>
         <View style={styles.qStatBox}>
           <Text style={styles.qStatLabel}>Daily Rate</Text>
-          <Text style={styles.qStatValue}>${quote.amountPerDay.toLocaleString()}</Text>
+          <Text style={styles.qStatValue}>{sym}{quote.amountPerDay.toLocaleString()}</Text>
         </View>
         <View style={styles.qStatDivider} />
         <View style={styles.qStatBox}>
           <Text style={styles.qStatLabel}>Total</Text>
-          <Text style={styles.qStatValue}>${quote.totalAmount.toLocaleString()}</Text>
+          <Text style={styles.qStatValue}>{sym}{quote.totalAmount.toLocaleString()}</Text>
         </View>
         {quote.totalDays ? (
           <>
@@ -363,20 +576,41 @@ function QuoteCard({
 
       {/* Accepted */}
       {isAccepted && (
-        <View style={styles.qAcceptedBanner}>
-          <Text style={styles.qAcceptedIcon}>🎉</Text>
-          <View style={{flex: 1}}>
-            <Text style={styles.qAcceptedTitle}>Your quote was accepted!</Text>
-            <Text style={styles.qAcceptedSub}>This shift now appears in My Shifts.</Text>
+        <>
+          <View style={styles.qAcceptedBanner}>
+            <Text style={styles.qAcceptedIcon}>🎉</Text>
+            <View style={{flex: 1}}>
+              <Text style={styles.qAcceptedTitle}>Your quote was accepted!</Text>
+              <Text style={styles.qAcceptedSub}>Shift is booked! Tap below to view it and start each day once the haulier pays.</Text>
+            </View>
           </View>
-        </View>
+          {onGoToBooked && (
+            <Pressable
+              onPress={onGoToBooked}
+              style={styles.startShiftBtn}>
+              <Text style={styles.startShiftBtnText}>🚛  View Booked Shift</Text>
+            </Pressable>
+          )}
+        </>
       )}
 
       {/* Pending — Withdraw */}
       {isPending && (
-        <Pressable onPress={() => onWithdraw(quote.shiftId)} style={styles.qWithdrawBtn}>
-          <Text style={styles.qWithdrawText}>Withdraw Quote</Text>
-        </Pressable>
+        <View>
+          <Pressable
+            onPress={() => { if (!shiftDatePassed) { onWithdraw(quote.shiftId); } }}
+            disabled={shiftDatePassed}
+            style={[styles.qWithdrawBtn, shiftDatePassed && styles.qWithdrawBtnDisabled]}>
+            <Text style={[styles.qWithdrawText, shiftDatePassed && styles.qWithdrawTextDisabled]}>
+              {shiftDatePassed ? '⏰  Shift Date Passed' : 'Withdraw Quote'}
+            </Text>
+          </Pressable>
+          {shiftDatePassed && (
+            <Text style={styles.qExpiredNote}>
+              This shift's start date has passed — withdrawal is no longer available.
+            </Text>
+          )}
+        </View>
       )}
     </View>
   );
@@ -387,22 +621,29 @@ function QuoteCard({
 function BookedShiftCard({
   shift,
   onCancel,
+  isOngoing = false,
+  onStartDay,
 }: {
   shift: ShiftItem;
   onCancel: (shiftId: string) => void;
+  isOngoing?: boolean;
+  onStartDay?: (shiftId: string) => void;
 }) {
+  const sym = currencySymbol(shift.currency);
   const [expanded, setExpanded] = useState(false);
   const canCancel = !['COMPLETED', 'CANCELLED'].includes(shift.status);
   const isInProgress = shift.status === 'IN_PROGRESS';
+  const isBooked     = shift.status === 'BOOKED';
   const progress = shift.totalDays > 0 ? shift.daysCompleted / shift.totalDays : 0;
+  const currentDay = shift.daysCompleted + 1;
 
   const route =
     shift.pickupAddress && shift.dropAddress
       ? `${shift.pickupAddress} → ${shift.dropAddress}`
       : shift.location ?? '—';
 
-  const badgeLabel = isInProgress ? 'IN PROGRESS' : shift.status.replace(/_/g, ' ');
-  const badgeBg    = isInProgress ? '#D97706' : '#1066B1';
+  const badgeLabel = isInProgress ? 'IN PROGRESS' : isBooked ? 'BOOKED' : shift.status.replace(/_/g, ' ');
+  const badgeBg    = isInProgress ? '#D97706' : isBooked ? '#1066B1' : '#6B7280';
 
   return (
     <View style={[styles.listCard, styles.upcomingCard]}>
@@ -434,6 +675,25 @@ function BookedShiftCard({
         </View>
       )}
 
+      {/* ── Day-start panel (shown for all active shifts) ── */}
+      {isOngoing && (
+        shift.currentDayEscrowed ? (
+          <Pressable
+            onPress={() => onStartDay && onStartDay(shift.shiftId)}
+            style={styles.startDayBtn}>
+            <Text style={styles.startDayBtnText}>
+              {isBooked ? `🚛  Start Shift (Day ${currentDay})` : `▶  Start Day ${currentDay}`}
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={styles.awaitingPayBanner}>
+            <Text style={styles.awaitingPayText}>
+              ⏳  Waiting for haulier to pay Day {currentDay} before you can begin
+            </Text>
+          </View>
+        )
+      )}
+
       <View style={styles.listActionRow}>
         <Pressable
           onPress={() => setExpanded(p => !p)}
@@ -445,24 +705,54 @@ function BookedShiftCard({
         {canCancel && (
           <Pressable
             onPress={() => onCancel(shift.shiftId)}
-            style={[styles.listActionPrimary, styles.listActionDanger]}>
-            <Text style={styles.listActionPrimaryText}>Cancel</Text>
+            style={styles.listActionCancel}>
+            <Text style={styles.listActionCancelText}>Cancel Shift</Text>
           </Pressable>
         )}
       </View>
 
       {expanded && (
         <View style={styles.detailsBox}>
+
+          {/* ── Route ── */}
+          <Text style={styles.detailSection}>Route</Text>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Pickup</Text>
             <Text style={styles.detailValue}>{shift.pickupAddress || 'N/A'}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Drop-off</Text>
-            <Text style={styles.detailValue}>
-              {shift.dropAddress || shift.location || 'N/A'}
-            </Text>
+            <Text style={styles.detailValue}>{shift.dropAddress || shift.location || 'N/A'}</Text>
           </View>
+          {(shift.distanceKm != null || shift.durationMin != null) && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Distance / Time</Text>
+              <Text style={styles.detailValue}>
+                {[
+                  shift.distanceKm != null ? `${shift.distanceKm} km` : null,
+                  shift.durationMin != null ? `${Math.round(shift.durationMin / 60 * 10) / 10} hrs` : null,
+                ].filter(Boolean).join('  ·  ')}
+              </Text>
+            </View>
+          )}
+
+          {/* Intermediate stops */}
+          {(shift.stops ?? []).filter(s => !s.isFinalDestination).length > 0 && (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Stops</Text>
+              {(shift.stops ?? []).filter(s => !s.isFinalDestination).map((s, i) => (
+                <View key={i} style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Stop {i + 1}</Text>
+                  <Text style={styles.detailValue}>
+                    {s.address}{s.deliveryTime ? `\nEst. ${s.deliveryTime}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* ── Schedule ── */}
+          <Text style={[styles.detailSection, {marginTop: 10}]}>Schedule</Text>
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Start Date</Text>
             <Text style={styles.detailValue}>{shift.startDate}</Text>
@@ -477,36 +767,120 @@ function BookedShiftCard({
               {shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''} · {shift.hoursPerDay}h/day
             </Text>
           </View>
+          {shift.jobTime ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Start Time</Text>
+              <Text style={styles.detailValue}>{shift.jobTime}</Text>
+            </View>
+          ) : null}
+
+          {/* ── Requirement ── */}
+          <Text style={[styles.detailSection, {marginTop: 10}]}>Requirement</Text>
           <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Requirement</Text>
-            <Text style={styles.detailValue}>
-              {REQ_LABELS[shift.requirementType] ?? shift.requirementType}
-            </Text>
+            <Text style={styles.detailKey}>Type</Text>
+            <Text style={styles.detailValue}>{REQ_LABELS[shift.requirementType] ?? shift.requirementType}</Text>
           </View>
+
+          {/* ── Cargo ── */}
+          {(shift.goodsType || shift.totalCapacity != null || shift.compartments != null) && (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Cargo</Text>
+              {shift.goodsType ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Goods Type</Text>
+                  <Text style={styles.detailValue}>{shift.goodsType}</Text>
+                </View>
+              ) : null}
+              {shift.totalCapacity != null ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Total Capacity</Text>
+                  <Text style={styles.detailValue}>{Number(shift.totalCapacity).toLocaleString()} L</Text>
+                </View>
+              ) : null}
+              {shift.compartments != null ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Compartments</Text>
+                  <Text style={styles.detailValue}>{shift.compartments}</Text>
+                </View>
+              ) : null}
+            </>
+          )}
+
+          {/* Compartment breakdown */}
+          {(shift.compartmentDetails ?? []).length > 0 && (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Compartment Breakdown</Text>
+              {(shift.compartmentDetails ?? []).map((c, i) => (
+                <View key={i} style={styles.compartmentRow}>
+                  <View style={styles.compartmentBadge}>
+                    <Text style={styles.compartmentBadgeText}>{c.compartment ?? i + 1}</Text>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.compartmentContents}>{c.contents || '—'}</Text>
+                    <Text style={styles.compartmentMeta}>
+                      {Number(c.quantity).toLocaleString()} {c.unit}
+                      {c.stopLabel ? `  ·  ${c.stopLabel}` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* ── Codes ── */}
+          {(shift.accessCode || shift.loadCode) && (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Codes</Text>
+              {shift.accessCode ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Access Code</Text>
+                  <Text style={[styles.detailValue, styles.codeText]}>{shift.accessCode}</Text>
+                </View>
+              ) : null}
+              {shift.loadCode ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailKey}>Load Code</Text>
+                  <Text style={[styles.detailValue, styles.codeText]}>{shift.loadCode}</Text>
+                </View>
+              ) : null}
+            </>
+          )}
+
+          {/* ── Pay ── */}
           {shift.dailyRate ? (
             <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Payment</Text>
               <View style={styles.detailRow}>
                 <Text style={styles.detailKey}>Daily Rate</Text>
-                <Text style={styles.detailValue}>
-                  ${shift.dailyRate.toLocaleString()}/day
-                </Text>
+                <Text style={styles.detailValue}>{sym}{shift.dailyRate.toLocaleString()}/day</Text>
               </View>
               {shift.daysCompleted > 0 && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailKey}>Earned So Far</Text>
                   <Text style={[styles.detailValue, {color: '#18794E'}]}>
-                    ${(shift.dailyRate * shift.daysCompleted).toLocaleString()}
+                    {sym}{(shift.dailyRate * shift.daysCompleted).toLocaleString()}
                   </Text>
                 </View>
               )}
             </>
           ) : null}
-          {shift.notes ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Notes</Text>
-              <Text style={styles.detailValue}>{shift.notes}</Text>
-            </View>
+
+          {/* ── Special Instructions ── */}
+          {shift.specialInstructions ? (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Special Instructions</Text>
+              <Text style={styles.specialInstructionsText}>{shift.specialInstructions}</Text>
+            </>
           ) : null}
+
+          {/* ── Notes ── */}
+          {shift.notes ? (
+            <>
+              <Text style={[styles.detailSection, {marginTop: 10}]}>Notes</Text>
+              <Text style={styles.detailValue}>{shift.notes}</Text>
+            </>
+          ) : null}
+
         </View>
       )}
     </View>
@@ -642,11 +1016,13 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   onSubmitQuote,
   onWithdrawQuote,
   onCancelShift,
+  onStartDay,
   canBrowse = true,
   gateInfo,
   onGoToDocuments,
   onGoToProfile,
   onGoToAvailability,
+  currency = '',
 }) => {
   const [tab, setTab] = useState<TabKey>('available');
   const [quotingShift, setQuotingShift] = useState<ShiftItem | null>(null);
@@ -814,7 +1190,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   };
 
   const handleCancelShift = (shiftId: string) => {
-    const shift = [...bookedShifts, ...ongoingShifts].find(s => s.shiftId === shiftId);
+    const shift = activeShifts.find(s => s.shiftId === shiftId);
     const daysWorked = shift?.daysCompleted ?? 0;
     const message = daysWorked > 0
       ? `You have completed ${daysWorked} of ${shift?.totalDays} day${shift?.totalDays !== 1 ? 's' : ''}. Cancelling now will end the shift early. This cannot be undone.`
@@ -829,9 +1205,17 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
     );
   };
 
+  // Sort quotes newest-first
+  const sortedQuotes = useMemo(
+    () => [...myShiftQuotes].sort(
+      (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+    ),
+    [myShiftQuotes],
+  );
+
   const pendingQuotes  = myShiftQuotes.filter(q => q.status?.toUpperCase() === 'PENDING');
-  const bookedShifts   = myShifts.filter(s => s.status === 'BOOKED');
-  const ongoingShifts  = myShifts.filter(s => s.status === 'IN_PROGRESS');
+  // Combine BOOKED and IN_PROGRESS — driver sees all active shifts together
+  const activeShifts   = myShifts.filter(s => ['BOOKED', 'IN_PROGRESS'].includes(s.status));
   const historyShifts  = myShifts.filter(s => ['COMPLETED', 'CANCELLED'].includes(s.status));
   const isFiltering = !!(search.trim() || reqFilter || dateFilter || radiusFilter);
 
@@ -862,14 +1246,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           onPress={() => setTab('mine')}
           style={[styles.tabBtn, tab === 'mine' && styles.tabBtnActive]}>
           <Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>
-            Booked{bookedShifts.length > 0 ? ` (${bookedShifts.length})` : ''}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setTab('ongoing')}
-          style={[styles.tabBtn, tab === 'ongoing' && styles.tabBtnActive]}>
-          <Text style={[styles.tabText, tab === 'ongoing' && styles.tabTextActive]}>
-            Ongoing{ongoingShifts.length > 0 ? ` (${ongoingShifts.length})` : ''}
+            My Shifts{activeShifts.length > 0 ? ` (${activeShifts.length})` : ''}
           </Text>
         </Pressable>
         <Pressable
@@ -1034,7 +1411,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
               showsVerticalScrollIndicator={false}>
               <Text style={styles.screenTitle}>My Shift Quotes</Text>
-              {myShiftQuotes.length === 0 ? (
+              {sortedQuotes.length === 0 ? (
                 <View style={styles.emptyWrap}>
                   <Text style={styles.emptyIcon}>✏️</Text>
                   <Text style={styles.emptyTitle}>No quotes submitted yet</Text>
@@ -1043,67 +1420,49 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
                   </Text>
                 </View>
               ) : (
-                myShiftQuotes.map(quote => (
+                sortedQuotes.map(quote => (
                   <QuoteCard
                     key={quote.quoteId}
                     quote={quote}
                     onWithdraw={handleWithdraw}
+                    onGoToBooked={
+                      (quote.status ?? '').toUpperCase() === 'ACCEPTED'
+                        ? () => setTab('mine')
+                        : undefined
+                    }
                   />
                 ))
               )}
             </ScrollView>
           )}
 
-          {/* ── Booked Tab ────────────────────────────────────────────────── */}
+          {/* ── My Shifts Tab (BOOKED + IN_PROGRESS) ─────────────────────── */}
           {tab === 'mine' && (
             <ScrollView
               style={styles.list}
               contentContainerStyle={styles.listContent}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
               showsVerticalScrollIndicator={false}>
-              <Text style={styles.screenTitle}>Booked Shifts</Text>
-              {bookedShifts.length === 0 ? (
+              <Text style={styles.screenTitle}>My Shifts</Text>
+              {activeShifts.length === 0 ? (
                 <View style={styles.emptyWrap}>
                   <Text style={styles.emptyIcon}>📋</Text>
-                  <Text style={styles.emptyTitle}>No booked shifts</Text>
+                  <Text style={styles.emptyTitle}>No active shifts</Text>
                   <Text style={styles.emptyBody}>
-                    When a haulier accepts your quote, the shift will appear here before work begins.
+                    When a haulier accepts your quote the shift will appear here. You can start each day once the haulier releases payment.
                   </Text>
                 </View>
               ) : (
-                bookedShifts.map(shift => (
+                activeShifts.map(shift => (
                   <BookedShiftCard
                     key={shift.shiftId}
                     shift={shift}
                     onCancel={handleCancelShift}
-                  />
-                ))
-              )}
-            </ScrollView>
-          )}
-
-          {/* ── Ongoing Tab ───────────────────────────────────────────────── */}
-          {tab === 'ongoing' && (
-            <ScrollView
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-              showsVerticalScrollIndicator={false}>
-              <Text style={styles.screenTitle}>Ongoing Shifts</Text>
-              {ongoingShifts.length === 0 ? (
-                <View style={styles.emptyWrap}>
-                  <Text style={styles.emptyIcon}>🚛</Text>
-                  <Text style={styles.emptyTitle}>No ongoing shifts</Text>
-                  <Text style={styles.emptyBody}>
-                    Shifts that are currently in progress will appear here.
-                  </Text>
-                </View>
-              ) : (
-                ongoingShifts.map(shift => (
-                  <BookedShiftCard
-                    key={shift.shiftId}
-                    shift={shift}
-                    onCancel={handleCancelShift}
+                    isOngoing
+                    onStartDay={onStartDay
+                      ? (id) => { void onStartDay(id); }
+                      : undefined
+                    }
                   />
                 ))
               )}
@@ -1286,6 +1645,20 @@ const styles = StyleSheet.create({
   applyBtnText:         {color: colors.card, fontSize: 15, fontWeight: '900'},
   applyBtnLockedText:   {color: '#64748B', fontSize: 14, fontWeight: '700'},
   applyBtnAppliedText:  {color: '#1066B1', fontSize: 14, fontWeight: '800'},
+  detailsToggleBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: '#1066B1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailsToggleBtnText: {
+    color: '#1066B1',
+    fontSize: 14,
+    fontWeight: '800',
+  },
 
   quoteAmountBox: {
     backgroundColor: '#EFF6FF', borderRadius: radius.md,
@@ -1371,7 +1744,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
   },
-  listActionDanger: {backgroundColor: '#A53A32', borderColor: '#A53A32'},
+  listActionCancel: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderColor: colors.accent,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionCancelText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
   detailsBox: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E4DED0',
@@ -1380,6 +1770,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 12,
     gap: 8,
+  },
+  detailSection: {
+    color: '#1066B1',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
   },
   detailRow: {flexDirection: 'row', justifyContent: 'space-between', gap: 12},
   detailKey: {
@@ -1394,6 +1792,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'right',
+  },
+  compartmentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  compartmentBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#EAF3FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  compartmentBadgeText: {color: '#1066B1', fontSize: 11, fontWeight: '900'},
+  compartmentContents: {color: '#041627', fontSize: 13, fontWeight: '700'},
+  compartmentMeta: {color: '#64748B', fontSize: 11, fontWeight: '600', marginTop: 1},
+  codeText: {
+    fontFamily: 'monospace' as const,
+    fontWeight: '900',
+    color: '#1066B1',
+    letterSpacing: 1,
+    textAlign: 'right',
+  },
+  specialInstructionsText: {
+    color: '#44474C',
+    fontSize: 12,
+    lineHeight: 18,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   infoBanner: {
     flexDirection: 'row',
@@ -1501,7 +1936,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, minHeight: 44,
     justifyContent: 'center', alignItems: 'center',
   },
+  qWithdrawBtnDisabled: {borderColor: '#CBD5E1', backgroundColor: '#F1F5F9'},
   qWithdrawText: {color: colors.danger, fontSize: 13, fontWeight: '800'},
+  qWithdrawTextDisabled: {color: '#94A3B8'},
+  qExpiredNote: {
+    color: '#94A3B8', fontSize: 11, fontWeight: '600',
+    textAlign: 'center', marginTop: 6,
+  },
 
   statusPill: {
     borderRadius: radius.pill, borderWidth: 1,
@@ -1569,11 +2010,107 @@ const styles = StyleSheet.create({
     height: 44, alignItems: 'center', justifyContent: 'center',
   },
   primaryBtnText: {color: '#fff', fontWeight: '900', fontSize: 13},
+
   outlineBtn: {
     flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg,
     height: 44, alignItems: 'center', justifyContent: 'center',
   },
   outlineBtnText: {color: colors.inkSoft, fontWeight: '800', fontSize: 13},
+
+  // ── Expanded detail panel (available shift "View Details") ───────────────
+  expandedPanel: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  expandedSectionLabel: {
+    fontSize: 10, fontWeight: '900', color: '#1066B1',
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    marginTop: 4, marginBottom: 6,
+  },
+  expandedDivider: {
+    height: 1, backgroundColor: '#F1F5F9', marginVertical: 10,
+  },
+  // Route
+  expandedRouteWrap: {gap: 0},
+  expandedRouteRow: {flexDirection: 'row', alignItems: 'flex-start'},
+  expandedRouteLeft: {
+    width: 24, alignItems: 'center', paddingTop: 3, flexShrink: 0,
+  },
+  expandedDot: {
+    width: 10, height: 10, borderRadius: 5,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  expandedDotBlue:  {backgroundColor: '#1066B1'},
+  expandedDotAmber: {backgroundColor: '#F59E0B', width: 14, height: 14, borderRadius: 7},
+  expandedDotRed:   {backgroundColor: '#EF4444'},
+  expandedDotNum:   {color: '#fff', fontSize: 7, fontWeight: '900'},
+  expandedRouteLine: {
+    width: 1.5, height: 18, backgroundColor: '#D1D9E6', marginLeft: 11,
+  },
+  expandedRouteText: {flex: 1, paddingBottom: 2, paddingLeft: 8},
+  expandedRouteTag: {
+    fontSize: 10, fontWeight: '800', color: colors.inkSoft,
+    textTransform: 'uppercase', letterSpacing: 0.4,
+  },
+  expandedRouteAddr: {fontSize: 13, fontWeight: '700', color: colors.navy, marginTop: 1},
+  expandedRouteEta:  {fontSize: 11, fontWeight: '600', color: '#F59E0B', marginTop: 1},
+  // Info rows
+  expandedInfoRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingVertical: 6,
+  },
+  expandedInfoLabel: {fontSize: 13, fontWeight: '700', color: colors.inkSoft},
+  expandedInfoValue: {
+    fontSize: 13, fontWeight: '800', color: colors.navy,
+    textAlign: 'right', flex: 1, marginLeft: spacing.md,
+  },
+  // Instructions / notes
+  expandedInstructions: {
+    fontSize: 12, fontWeight: '600', color: '#44474C',
+    lineHeight: 18, backgroundColor: '#FAFBFC',
+    borderRadius: 8, padding: 10,
+    borderWidth: 1, borderColor: '#EDEEF2',
+  },
+  expandedCompartmentRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    gap: 10, paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+
+  // ── Start Shift / Start Day ───────────────────────────────────────────────
+  startShiftBtn: {
+    marginTop: 10,
+    backgroundColor: colors.accent,
+    borderRadius: radius.lg,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  startShiftBtnText: {color: '#FFFFFF', fontWeight: '900', fontSize: 14},
+
+  startDayBtn: {
+    marginTop: 16,
+    marginBottom: 10,
+    backgroundColor: colors.accent,
+    borderRadius: radius.lg,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  startDayBtnText: {color: '#FFFFFF', fontWeight: '900', fontSize: 14},
+
+  awaitingPayBanner: {
+    marginTop: 16,
+    marginBottom: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  awaitingPayText: {color: '#92400E', fontSize: 13, fontWeight: '700', textAlign: 'center'},
 });
 
 export default ShiftsScreen;

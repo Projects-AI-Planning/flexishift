@@ -36,6 +36,8 @@ const haulierService = {
   },
   uploadLogo: (formData: FormData) => client.post('/profile/photo/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data),
   deactivateAccount: (data: Record<string, unknown>) => client.put('/profile/deactivate', data).then(res => res.data),
+  saveEsignature: (esignatureData: string) => client.put('/profile/esignature', { esignatureData }).then(res => res.data),
+  deleteEsignature: () => client.delete('/profile/esignature').then(res => res.data),
 
   // EPIC 2: Supplier Availability View
   getSupplierAvailability: (supplierId: string) => client.get(`/supplier/availability/${supplierId}`).then(res => res.data.data),
@@ -156,6 +158,29 @@ const haulierService = {
   listShiftQuotes: (shiftId: string) => client.get(`/shifts/${shiftId}/quotes`).then(res => res.data.data),
   acceptShiftQuote: (shiftId: string, quoteId: string) => client.post(`/shifts/${shiftId}/quotes/${quoteId}/accept`).then(res => res.data.data),
   completeShiftDay: (shiftId: string) => client.post(`/shifts/${shiftId}/days/complete`).then(res => res.data.data),
+  // Shift day payments
+  createShiftDayPayment: (shiftId: string) =>
+    client.post(`/shifts/${shiftId}/days/payment`).then(res => res.data.data) as Promise<{
+      paymentId: string; dayNumber: number; totalDays: number;
+      gatewayOrderId: string; clientSecret: string;
+      amount: number; currency: string; publishableKey: string;
+      driverAmount: number; platformFee: number;
+    }>,
+  verifyShiftDayPayment: (shiftId: string, dayNumber: number, paymentIntentId: string) =>
+    client.post(`/shifts/${shiftId}/days/payment/verify`, { dayNumber, paymentIntentId }).then(res => res.data.data),
+  getShiftDriverLocation: (shiftId: string) =>
+    client.get(`/shifts/${shiftId}/driver-location`).then(res => res.data.data) as Promise<{
+      driverId: string; driverName: string;
+      latitude: number | null; longitude: number | null;
+    }>,
+  signShiftHandover: (shiftId: string, signatureData: string) =>
+    client.post(`/shifts/${shiftId}/handover/sign`, { signatureData }).then(res => res.data),
+  getShiftHandoverStatus: (shiftId: string) =>
+    client.get(`/shifts/${shiftId}/handover/status`).then(res => res.data.data) as Promise<{
+      handoverSubmitted: boolean;
+      handoverHaulierSigned: boolean;
+      handoverHaulierSignedAt: string | null;
+    }>,
 
   // File Management
   uploadFile: (formData: FormData) => client.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data),

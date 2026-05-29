@@ -62,7 +62,13 @@ import DriverPaymentsScreen from './screens/profile/DriverPaymentsScreen';
 import SupportScreen from './screens/support/SupportScreen';
 import BookingAcceptanceScreen from './screens/bookings/BookingAcceptanceScreen';
 import ShiftsScreen from './screens/shifts/ShiftsScreen';
+import ShiftHandoverScreen from './screens/shifts/ShiftHandoverScreen';
+import ShiftTrackingScreen from './screens/shifts/ShiftTrackingScreen';
+import ShiftAccessCodeScreen from './screens/shifts/ShiftAccessCodeScreen';
+import ShiftEndOfDayScreen from './screens/shifts/ShiftEndOfDayScreen';
+import ShiftDayCompleteScreen from './screens/shifts/ShiftDayCompleteScreen';
 import {bottomTabs} from './navigation/driverNavigation';
+import {COUNTRIES} from './data/countries';
 import type {
   AvailabilityResponse,
   BookingDetail,
@@ -262,7 +268,7 @@ function getAvailabilityGate(
 }
 
 const defaultLogin = {email: '', password: ''};
-const defaultRegister = {email: '', name: '', password: '', phone: '', currency: 'GBP'};
+const defaultRegister = {email: '', name: '', password: '', phone: '', currency: COUNTRIES[0].currency, fSkatNumber: ''};
 const defaultVerify = {email: '', otp: ''};
 const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
 const defaultQuoteForm = {
@@ -568,6 +574,28 @@ function DriverApp(): React.JSX.Element {
   const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
   const [complianceJobRef, setComplianceJobRef] = useState<string | null>(null);
   const [handoverStatus, setHandoverStatus] = useState<{haulierSigned?: boolean; haulierSignedAt?: string | null} | null>(null);
+
+  // Shift handover / tracking context — set when driver starts a day
+  const [shiftHandoverInfo, setShiftHandoverInfo] = useState<{
+    shiftId: string; shiftRef: string; dayNumber: number;
+    totalDays: number; daysCompleted: number;
+    pickupAddress: string; dropAddress: string;
+    pickupLat?: number | null; pickupLng?: number | null;
+    dropLat?: number | null;   dropLng?: number | null;
+    haulierId: string;
+    accessCode?: string | null;
+  } | null>(null);
+
+  // Live handover status — polled while driver is on the shifts.handover screen
+  const [shiftHandoverStatus, setShiftHandoverStatus] = useState<{
+    haulierSigned: boolean;
+    haulierSignedAt: string | null;
+  } | null>(null);
+
+  // Shift rating pending after last day
+  const [pendingShiftRating, setPendingShiftRating] = useState<{
+    shiftId: string; shiftRef: string; haulierId: string;
+  } | null>(null);
 
   // Profile
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -1516,7 +1544,8 @@ function DriverApp(): React.JSX.Element {
     licenceNumber: string;
     vehicleType: string;
     vehicleRegistration: string;
-    compartments?: Array<{id: number; capacityLitres: string}>;
+    truckCapacity?: string;
+    compartments?: Array<{id: number; capacityLitres: string; fuelType: string}>;
     photoFile?: {uri: string; fileName: string; type: string};
     extraDocs: {name: string; docNumber: string}[];
   }) => {
@@ -1714,7 +1743,7 @@ function DriverApp(): React.JSX.Element {
 
   // ─── Job & Quote handlers ────────────────────────────────────────────────────
 
-  const handleQuoteSubmit = async (amount: string, notes: string) => {
+  const handleQuoteSubmit = async (amount: string, notes: string, deliverBy?: string, stopEtas?: Array<{order: number; eta: string}>) => {
     const jobForQuote = selectedJobDetails ?? selectedJob;
     const jobId = String(jobForQuote?.jobId ?? '');
     await runAction(async () => {
@@ -1724,6 +1753,7 @@ function DriverApp(): React.JSX.Element {
           jobId,
           notes,
           quoteAmount: Number(amount),
+          ...(deliverBy ? {deliverBy, stopEtas} : {}),
         });
       } catch (err) {
         // Treat "already active quote" as success — the goal (applying) was achieved
@@ -1866,6 +1896,32 @@ function DriverApp(): React.JSX.Element {
       clearInterval(interval);
     };
   }, [activeRoute, complianceJobId, dashboard?.activeJob?.jobId]);
+
+  // ─── Poll haulier signature when driver is on SHIFT handover screen ──────────
+
+  useEffect(() => {
+    if (activeRoute !== 'shifts.handover') {return;}
+    const shiftId = shiftHandoverInfo?.shiftId;
+    if (!shiftId) {return;}
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await driverApi.shifts.getHandoverStatus(shiftId);
+        if (!cancelled) {
+          setShiftHandoverStatus({
+            haulierSigned:   status.handoverHaulierSigned ?? false,
+            haulierSignedAt: status.handoverHaulierSignedAt ?? null,
+          });
+        }
+      } catch {/* ignore */}
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeRoute, shiftHandoverInfo?.shiftId]);
 
   // ─── Compliance handlers ─────────────────────────────────────────────────────
 
@@ -2272,6 +2328,178 @@ function DriverApp(): React.JSX.Element {
       await driverApi.shifts.cancel(shiftId);
       setSuccessBanner('Shift booking cancelled.');
       await loadShifts();
+    });
+  };
+
+  const handleShiftStartDay = async (shiftId: string) => {
+    const shift = (myShifts as Array<Record<string, unknown>>).find(
+      s => s.shiftId === shiftId,
+    );
+    const dayNum        = shift ? (Number(shift.daysCompleted ?? 0) + 1) : 1;
+    const ref           = String(shift?.shiftRef ?? shiftId);
+    const totalDays     = Number(shift?.totalDays ?? 1);
+    const daysCompleted = Number(shift?.daysCompleted ?? 0);
+    const haulierId     = String(shift?.haulierId ?? '');
+    const accessCode    = shift?.accessCode ? String(shift.accessCode) : null;
+
+    await runAction(async () => {
+      await driverApi.shifts.startDay(shiftId);
+      await loadShifts();
+      const info = {
+        shiftId,
+        shiftRef:      ref,
+        dayNumber:     dayNum,
+        totalDays,
+        daysCompleted,
+        pickupAddress: String(shift?.pickupAddress ?? shift?.location ?? ''),
+        dropAddress:   String(shift?.dropAddress ?? ''),
+        pickupLat:     shift?.pickupLat != null ? Number(shift.pickupLat) : null,
+        pickupLng:     shift?.pickupLng != null ? Number(shift.pickupLng) : null,
+        dropLat:       shift?.dropLat   != null ? Number(shift.dropLat)  : null,
+        dropLng:       shift?.dropLng   != null ? Number(shift.dropLng)  : null,
+        haulierId,
+        accessCode,
+      };
+      setShiftHandoverInfo(info);
+      // Day 1 with an access code → verify it first; otherwise go straight to handover
+      if (dayNum === 1 && accessCode) {
+        navigate('shifts', 'shifts.accessCode');
+      } else {
+        navigate('shifts', 'shifts.handover');
+      }
+    });
+  };
+
+  const handleShiftVerifyAccessCode = async (code: string) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.shifts.verifyAccessCode(shiftHandoverInfo.shiftId, code);
+      setSuccessBanner('Access code verified! Proceed to vehicle checklist.');
+      navigate('shifts', 'shifts.handover');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Invalid access code.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftSubmitHandover = async (
+    checklist: Record<string, boolean>,
+    photos: any[],
+  ) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      // Upload handover photos via the shared compliance endpoint
+      const photoUrls: string[] = [];
+      if (photos.length > 0) {
+        try {
+          const formData = new FormData();
+          photos.forEach(asset => {
+            formData.append('photos', {
+              uri:  asset.uri,
+              name: asset.fileName ?? 'handover_photo.jpg',
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+          });
+          const uploadResult = await driverApi.compliance.submitHandoverPhotos(formData) as any;
+          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+          uploaded.forEach((u: any) => {
+            const url = String(u.fileUrl ?? u.url ?? '');
+            if (url) {photoUrls.push(url);}
+          });
+        } catch {
+          // If upload fails, fall back to local URIs (non-blocking)
+          photos.forEach(a => photoUrls.push(String(a.uri)));
+        }
+      }
+
+      // Extract the driver signature from the augmented checklist
+      const {__driverSignature, ...cleanChecklist} = checklist as any;
+
+      await driverApi.shifts.submitHandover(shiftHandoverInfo.shiftId, {
+        checklist:     cleanChecklist,
+        photoUrls,
+        signatureData: typeof __driverSignature === 'string' ? __driverSignature : undefined,
+      });
+
+      // Reset any stale handover status so polling can pick it up fresh
+      setShiftHandoverStatus(null);
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Handover submission failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftProceedAfterHandover = () => {
+    setShiftHandoverStatus(null);
+    navigate('shifts', 'shifts.tracking');
+  };
+
+  const handleShiftEndOfDay = async (data: {
+    notes: string; recipientName: string;
+    proofPhotoUrl?: string; signatureData?: string;
+    photoAssets?: any[];
+  }) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      // Upload proof photo if present
+      let proofPhotoUrl: string | undefined;
+      const photoAssets: any[] = data.photoAssets ?? [];
+      if (photoAssets.length > 0) {
+        try {
+          const formData = new FormData();
+          const asset = photoAssets[0];
+          formData.append('photos', {
+            uri:  asset.uri,
+            name: asset.fileName ?? 'eod_photo.jpg',
+            type: asset.type ?? 'image/jpeg',
+          } as any);
+          const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData) as any;
+          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+          proofPhotoUrl = Array.isArray(uploaded) && uploaded[0]
+            ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? asset.uri)
+            : String(asset.uri);
+        } catch {
+          proofPhotoUrl = String(photoAssets[0].uri);
+        }
+      }
+
+      await driverApi.shifts.endDay(
+        shiftHandoverInfo.shiftId,
+        shiftHandoverInfo.dayNumber,
+        {
+          notes:          data.notes || undefined,
+          recipientName:  data.recipientName || undefined,
+          proofPhotoUrl,
+          signatureData:  data.signatureData,
+        },
+      );
+      navigate('shifts', 'shifts.dayComplete');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'End-of-day submission failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftRatingSubmit = async (rating: number, comment: string) => {
+    if (!pendingShiftRating) {return;}
+    await runAction(async () => {
+      await driverApi.shifts.submitRating(pendingShiftRating.shiftId, {
+        ratedUserId: pendingShiftRating.haulierId,
+        stars:       rating,
+        review:      comment || undefined,
+      });
+      setPendingShiftRating(null);
+      setSuccessBanner('Rating submitted! Thank you.');
+      navigate('shifts', 'shifts.myShifts');
     });
   };
 
@@ -2731,6 +2959,7 @@ function DriverApp(): React.JSX.Element {
           earnings={earnings}
           averageRating={Number(ratings?.averageRating ?? dashboard?.rating ?? 0)}
           upcomingJobs={upcomingJobs}
+          currency={session?.currency}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
@@ -2771,6 +3000,139 @@ function DriverApp(): React.JSX.Element {
         driverApi.documents.list().then(d => setDocuments(mapDocumentItems(d as Record<string, unknown>))).catch(() => undefined);
       };
 
+      // ── Shift handover screen (after driver starts a day) ──────────────
+      if (activeRoute === 'shifts.handover' && shiftHandoverInfo) {
+        return (
+          <ShiftHandoverScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            pickupAddress={shiftHandoverInfo.pickupAddress}
+            dropAddress={shiftHandoverInfo.dropAddress}
+            pickupLat={shiftHandoverInfo.pickupLat}
+            pickupLng={shiftHandoverInfo.pickupLng}
+            dropLat={shiftHandoverInfo.dropLat}
+            dropLng={shiftHandoverInfo.dropLng}
+            onSubmit={handleShiftSubmitHandover}
+            onProceed={handleShiftProceedAfterHandover}
+            loading={actionLoading}
+            error={errorBanner}
+            haulierSigned={shiftHandoverStatus?.haulierSigned ?? false}
+            haulierSignedAt={shiftHandoverStatus?.haulierSignedAt ?? null}
+            savedSignature={(profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              setShiftHandoverStatus(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      if (activeRoute === 'shifts.tracking' && shiftHandoverInfo) {
+        return (
+          <ShiftTrackingScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            daysCompleted={shiftHandoverInfo.daysCompleted}
+            pickupAddress={shiftHandoverInfo.pickupAddress}
+            dropAddress={shiftHandoverInfo.dropAddress}
+            pickupLat={shiftHandoverInfo.pickupLat}
+            pickupLng={shiftHandoverInfo.pickupLng}
+            dropLat={shiftHandoverInfo.dropLat}
+            dropLng={shiftHandoverInfo.dropLng}
+            onEndDay={() => navigate('shifts', 'shifts.endOfDay')}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              setSuccessBanner(`Day ${shiftHandoverInfo.dayNumber} underway — drive safe! 🚛`);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── Access Code screen (Day 1, if shift has an access code) ───────────
+      if (activeRoute === 'shifts.accessCode' && shiftHandoverInfo) {
+        return (
+          <ShiftAccessCodeScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            onVerify={handleShiftVerifyAccessCode}
+            loading={actionLoading}
+            error={errorBanner}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── End of Day screen ─────────────────────────────────────────────────
+      if (activeRoute === 'shifts.endOfDay' && shiftHandoverInfo) {
+        return (
+          <ShiftEndOfDayScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            onSubmit={handleShiftEndOfDay}
+            loading={actionLoading}
+            error={errorBanner}
+            onBack={() => navigate('shifts', 'shifts.tracking')}
+          />
+        );
+      }
+
+      // ── Day Complete screen ───────────────────────────────────────────────
+      if (activeRoute === 'shifts.dayComplete' && shiftHandoverInfo) {
+        const isLastDay = shiftHandoverInfo.dayNumber >= shiftHandoverInfo.totalDays;
+        return (
+          <ShiftDayCompleteScreen
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            isLastDay={isLastDay}
+            onRate={() => {
+              setPendingShiftRating({
+                shiftId:   shiftHandoverInfo.shiftId,
+                shiftRef:  shiftHandoverInfo.shiftRef,
+                haulierId: shiftHandoverInfo.haulierId,
+              });
+              setShiftHandoverInfo(null);
+              navigate('shifts', 'shifts.rating');
+            }}
+            onDone={() => {
+              setShiftHandoverInfo(null);
+              loadShifts().catch(() => undefined);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── Shift Rating screen ───────────────────────────────────────────────
+      if (activeRoute === 'shifts.rating' && pendingShiftRating) {
+        return (
+          <RatingSubmissionScreen
+            jobId={pendingShiftRating.shiftId}
+            jobReference={pendingShiftRating.shiftRef}
+            onSubmit={handleShiftRatingSubmit}
+            loading={actionLoading}
+            error={errorBanner}
+            onCancel={() => {
+              setPendingShiftRating(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
       return (
         <ShiftsScreen
           availableShifts={availableShifts as any}
@@ -2780,6 +3142,7 @@ function DriverApp(): React.JSX.Element {
           actionLoading={actionLoading}
           error={errorBanner}
           refreshing={refreshing}
+          currency={session?.currency}
           onRefresh={async () => {
             setRefreshing(true);
             await loadShifts();
@@ -2788,6 +3151,7 @@ function DriverApp(): React.JSX.Element {
           onSubmitQuote={handleShiftQuoteSubmit}
           onWithdrawQuote={handleShiftQuoteWithdraw}
           onCancelShift={handleShiftCancel}
+          onStartDay={handleShiftStartDay}
           canBrowse={docsChecked ? shiftGate.canAccess : true}
           gateInfo={shiftGate}
           onGoToDocuments={goToShiftDocuments}
@@ -2829,6 +3193,7 @@ function DriverApp(): React.JSX.Element {
           error={errorBanner}
           haulierSigned={handoverStatus?.haulierSigned ?? false}
           haulierSignedAt={handoverStatus?.haulierSignedAt}
+          savedSignature={(profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null}
         />
       );
     }
@@ -3057,7 +3422,7 @@ function DriverApp(): React.JSX.Element {
                     jobRef: String(d.jobRef ?? ''),
                     pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
                     dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
-                    stops: Array.isArray(d.stops) ? (d.stops as Array<{order?: number; address?: string; litres?: number}>) : [],
+                    stops: Array.isArray(d.stops) ? (d.stops as Array<{order?: number; address?: string; litres?: number; isFinalDestination?: boolean}>).filter(s => !s.isFinalDestination) : [],
                     goodsType: d.goodsType ? String(d.goodsType) : undefined,
                     jobDate: d.jobDate ? String(d.jobDate) : undefined,
                     timeSlot: d.timeSlot ? String(d.timeSlot) : undefined,
@@ -3160,6 +3525,7 @@ function DriverApp(): React.JSX.Element {
           availableJobs={availableJobs}
           appliedJobIds={myQuotes.map(q => String(q.jobId ?? ''))}
           docStatus={docStatus}
+          currency={session?.currency}
           onSelectJob={(job: any) => {
             setSelectedJob(job);
             setSelectedJobDetails(job);
@@ -3276,6 +3642,7 @@ function DriverApp(): React.JSX.Element {
           <EarningsHistoryScreen
             payments={payments}
             totalEarnings={earnings?.allTimeEarnings ?? 0}
+            currency={session?.currency}
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
@@ -3464,6 +3831,7 @@ function DriverApp(): React.JSX.Element {
             totalEarnings={earnings?.allTimeEarnings ?? earnings?.summary?.totalEarnings ?? 0}
             totalJobs={earnings?.allTimeJobs ?? earnings?.summary?.totalJobs ?? 0}
             payments={payments as any[]}
+            currency={session?.currency}
             loading={actionLoading}
             refreshing={refreshing}
             onRefresh={async () => {

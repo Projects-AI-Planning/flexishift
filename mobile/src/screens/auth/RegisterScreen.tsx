@@ -6,60 +6,16 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon} from '../../components/common/FieldIcon';
+import {AccountIcon, MailIcon, PhoneIcon, LockIcon, LockCheckIcon, BoxIcon} from '../../components/common/FieldIcon';
 import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
 
-// ─── Country list ─────────────────────────────────────────────────────────────
-
-interface Country {
-  flag: string;
-  name: string;
-  code: string; // e.g. "+44"
-  currency: string; // ISO 4217 e.g. "GBP"
-  minDigits: number;
-  maxDigits: number;
-}
-
-const COUNTRIES: Country[] = [
-  {flag: '🇬🇧', name: 'United Kingdom',   code: '+44',  currency: 'GBP', minDigits: 10, maxDigits: 10},
-  {flag: '🇺🇸', name: 'United States',    code: '+1',   currency: 'USD', minDigits: 10, maxDigits: 10},
-  {flag: '🇨🇦', name: 'Canada',           code: '+1',   currency: 'CAD', minDigits: 10, maxDigits: 10},
-  {flag: '🇮🇳', name: 'India',            code: '+91',  currency: 'INR', minDigits: 10, maxDigits: 10},
-  {flag: '🇵🇰', name: 'Pakistan',         code: '+92',  currency: 'PKR', minDigits: 10, maxDigits: 11},
-  {flag: '🇧🇩', name: 'Bangladesh',       code: '+880', currency: 'BDT', minDigits: 10, maxDigits: 10},
-  {flag: '🇳🇬', name: 'Nigeria',          code: '+234', currency: 'NGN', minDigits: 10, maxDigits: 10},
-  {flag: '🇬🇭', name: 'Ghana',            code: '+233', currency: 'GHS', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇿🇦', name: 'South Africa',     code: '+27',  currency: 'ZAR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇵🇱', name: 'Poland',           code: '+48',  currency: 'PLN', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇷🇴', name: 'Romania',          code: '+40',  currency: 'RON', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇧🇬', name: 'Bulgaria',         code: '+359', currency: 'BGN', minDigits: 8,  maxDigits: 9 },
-  {flag: '🇱🇹', name: 'Lithuania',        code: '+370', currency: 'EUR', minDigits: 8,  maxDigits: 8 },
-  {flag: '🇱🇻', name: 'Latvia',           code: '+371', currency: 'EUR', minDigits: 8,  maxDigits: 8 },
-  {flag: '🇪🇪', name: 'Estonia',          code: '+372', currency: 'EUR', minDigits: 7,  maxDigits: 8 },
-  {flag: '🇩🇪', name: 'Germany',          code: '+49',  currency: 'EUR', minDigits: 10, maxDigits: 12},
-  {flag: '🇫🇷', name: 'France',           code: '+33',  currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇮🇪', name: 'Ireland',          code: '+353', currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇳🇱', name: 'Netherlands',      code: '+31',  currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇧🇪', name: 'Belgium',          code: '+32',  currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇪🇸', name: 'Spain',            code: '+34',  currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇮🇹', name: 'Italy',            code: '+39',  currency: 'EUR', minDigits: 9,  maxDigits: 10},
-  {flag: '🇵🇹', name: 'Portugal',         code: '+351', currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇨🇿', name: 'Czech Republic',   code: '+420', currency: 'CZK', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇸🇰', name: 'Slovakia',         code: '+421', currency: 'EUR', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇭🇺', name: 'Hungary',          code: '+36',  currency: 'HUF', minDigits: 8,  maxDigits: 9 },
-  {flag: '🇺🇦', name: 'Ukraine',          code: '+380', currency: 'UAH', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇵🇭', name: 'Philippines',      code: '+63',  currency: 'PHP', minDigits: 10, maxDigits: 10},
-  {flag: '🇦🇺', name: 'Australia',        code: '+61',  currency: 'AUD', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇳🇿', name: 'New Zealand',      code: '+64',  currency: 'NZD', minDigits: 8,  maxDigits: 9 },
-  {flag: '🇸🇬', name: 'Singapore',        code: '+65',  currency: 'SGD', minDigits: 8,  maxDigits: 8 },
-  {flag: '🇦🇪', name: 'UAE',              code: '+971', currency: 'AED', minDigits: 9,  maxDigits: 9 },
-  {flag: '🇸🇦', name: 'Saudi Arabia',     code: '+966', currency: 'SAR', minDigits: 9,  maxDigits: 9 },
-];
+import {COUNTRIES, type Country} from '../../data/countries';
 
 // ─── Country Picker Modal ────────────────────────────────────────────────────
 
@@ -146,7 +102,7 @@ function validatePhone(localNumber: string, country: Country): string | null {
 }
 
 function validate(
-  form: {email: string; name: string; password: string; phone: string},
+  form: {email: string; name: string; password: string; phone: string; fSkatNumber?: string},
   localPhone: string,
   selectedCountry: Country,
   confirmPassword: string,
@@ -173,6 +129,9 @@ function validate(
   } else if (confirmPassword !== form.password) {
     e.confirmPassword = 'Passwords do not match.';
   }
+  if (!form.fSkatNumber?.trim()) {
+    e.fSkatNumber = 'F-Skat number is required.';
+  }
   if (!agreed) {
     e.terms = 'You must agree to the Terms of Service and Privacy Policy.';
   }
@@ -182,7 +141,7 @@ function validate(
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 interface RegisterScreenProps {
-  registerForm: {email: string; name: string; password: string; phone: string};
+  registerForm: {email: string; name: string; password: string; phone: string; fSkatNumber?: string};
   setRegisterForm: (updater: (prev: any) => any) => void;
   handleRegister: () => void;
   authLoading: boolean;
@@ -208,6 +167,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [selectedCountry, setSelectedCountry] = useState<Country>(COUNTRIES[0]);
   const [localPhone, setLocalPhone] = useState('');
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
+  const [hasVat, setHasVat] = useState<'yes' | 'no' | ''>('');
 
   const clearErr = (field: string) =>
     setFieldErrors(prev => {
@@ -393,6 +353,33 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
               })}
             </View>
           )}
+
+          {/* F-Skat Number */}
+          <AppInput
+            leftIcon={<BoxIcon size={20} color="#9CA4B0" />}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            onChangeText={update('fSkatNumber')}
+            placeholder="F-Skat Number"
+            value={registerForm.fSkatNumber ?? ''}
+            error={fieldErrors.fSkatNumber}
+            containerStyle={{marginBottom: 0}}
+          />
+
+          {/* VAT Number question */}
+          <View style={styles.vatCard}>
+            <Text style={styles.vatQuestion}>Do you have a VAT number?</Text>
+            <View style={styles.vatToggleRow}>
+              <Text style={[styles.vatOptionText, hasVat !== 'yes' && styles.vatOptionTextActive]}>No</Text>
+              <Switch
+                value={hasVat === 'yes'}
+                onValueChange={(val) => setHasVat(val ? 'yes' : 'no')}
+                trackColor={{false: '#E2E8F0', true: '#1066B1'}}
+                thumbColor="#ffffff"
+              />
+              <Text style={[styles.vatOptionText, hasVat === 'yes' && styles.vatOptionTextActive]}>Yes</Text>
+            </View>
+          </View>
 
           {/* Terms of Service */}
           <View style={styles.termsBlock}>
@@ -611,6 +598,22 @@ const styles = StyleSheet.create({
   },
   footerText: {color: colors.inkSoft, fontSize: 15},
   footerLink: {color: colors.accent, fontSize: 15, fontWeight: '800'},
+
+  vatCard: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#C9D0DB',
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+  },
+  vatQuestion: {color: colors.ink, fontSize: 15, fontWeight: '600', flex: 1},
+  vatToggleRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2},
+  vatOptionText: {color: '#94A3B8', fontSize: 14, fontWeight: '700'},
+  vatOptionTextActive: {color: '#1066B1'},
 });
 
 // ─── Modal styles ─────────────────────────────────────────────────────────────

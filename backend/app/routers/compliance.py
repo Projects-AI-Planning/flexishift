@@ -44,13 +44,13 @@ def complete_step1(
 
 
 @router.post("/{job_id}/compliance/step2", response_model=ComplianceOut)
-def complete_step2(
+async def complete_step2(
     job_id: str,
     body: Step2Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    return comp_svc.complete_step2(db, job_id, current_user.id, body.model_dump())
+    return await comp_svc.complete_step2(db, job_id, current_user.id, body.model_dump())
 
 
 @router.post("/{job_id}/compliance/approve", response_model=ComplianceOut)

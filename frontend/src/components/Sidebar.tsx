@@ -219,7 +219,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/jobs/handover', label: 'Handover' },
       ],
     },
-    { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
+    // { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     {
       icon: 'monitoring',

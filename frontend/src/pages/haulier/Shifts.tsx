@@ -1,25 +1,76 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
+import { fmtMoney } from '../../utils/currency';
 
-type ShiftStatus = 'OPEN' | 'BOOKED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+// ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
+declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
+interface StripeCardEl { mount(el: HTMLElement): void; unmount(): void; on(ev: string, fn: (e: { error?: { message: string } }) => void): void; }
+interface StripeInst { elements(o?: object): { create(t: 'card', o?: object): StripeCardEl }; confirmCardPayment(cs: string, d?: { payment_method: string | { card: StripeCardEl } }): Promise<{ paymentIntent?: { id: string; status: string }; error?: { message: string } }>; }
+const loadStripe = (): Promise<void> => {
+  if (window.Stripe) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://js.stripe.com/v3/';
+    s.onload = () => res();
+    s.onerror = () => rej(new Error('Stripe.js failed to load'));
+    document.body.appendChild(s);
+  });
+};
+
+type ShiftStatus = 'OPEN' | 'BOOKED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 type RequirementType = 'DRIVER_ONLY' | 'TRUCK_WITH_DRIVER' | 'TRUCK_ONLY';
 
+interface StopItem {
+  address:       string;
+  lat?:          number;
+  lng?:          number;
+  order?:        number;
+  deliveryTime?: string;
+  isFinalDestination?: boolean;
+}
+
+interface CompartmentDetailItem {
+  compartment: number;
+  contents:    string;
+  quantity:    number;
+  unit:        string;
+  stopId?:     string;
+  stopLabel?:  string;
+}
+
 interface ShiftItem {
-  shiftId: string;
-  shiftRef: string;
-  requirementType: string;
-  startDate: string;
-  endDate: string;
-  totalDays: number;
-  hoursPerDay: number;
-  pickupAddress?: string;
-  dropAddress?: string;
-  location?: string;
-  notes?: string;
-  status: string;
-  daysCompleted: number;
-  dailyRate?: number;
-  selectedDriverId?: string;
+  shiftId:             string;
+  shiftRef:            string;
+  requirementType:     string;
+  startDate:           string;
+  endDate:             string;
+  totalDays:           number;
+  hoursPerDay:         number;
+  pickupAddress?:      string;
+  dropAddress?:        string;
+  location?:           string;
+  goodsType?:          string;
+  totalCapacity?:      number;
+  compartments?:       number;
+  compartmentDetails?: CompartmentDetailItem[];
+  stops?:              StopItem[];
+  accessCode?:         string;
+  loadCode?:           string;
+  jobTime?:            string;
+  specialInstructions?: string;
+  distanceKm?:         number;
+  durationMin?:        number;
+  notes?:              string;
+  status:                  string;
+  daysCompleted:           number;
+  dailyRate?:              number;
+  currency?:               string;
+  selectedDriverId?:       string;
+  currentDayEscrowed?:     boolean;
+  handoverSubmitted?:      boolean;
+  handoverHaulierSigned?:  boolean;
+  handoverHaulierSignedAt?: string | null;
 }
 
 interface QuoteItem {
@@ -31,6 +82,7 @@ interface QuoteItem {
   status: string;
   notes?: string;
   createdAt?: string;
+  currency?: string;
 }
 
 const REQUIREMENT_OPTIONS: { value: RequirementType; label: string; desc: string; icon: string }[] = [
@@ -89,6 +141,14 @@ const SECTIONS: SectionMeta[] = [
     icon: 'cancel',
     tone: 'bg-red-50 text-red-600 border-red-100',
   },
+  {
+    key: 'EXPIRED',
+    label: 'Expired',
+    title: 'Expired Shifts',
+    description: 'Open shifts whose start date has passed without a driver being booked.',
+    icon: 'schedule_send',
+    tone: 'bg-orange-50 text-orange-600 border-orange-100',
+  },
 ];
 
 const PAGE_SIZE = 10;
@@ -112,27 +172,175 @@ const quoteBadge = (status: string) => {
   return 'bg-slate-100 text-slate-500';
 };
 
-const inputCls =
-  'w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm ' +
-  'focus:ring-2 focus:ring-[#1066b1]/20 focus:border-[#1066b1] outline-none transition-all ' +
-  'placeholder:text-slate-400 text-[#041627] font-medium';
 
-const Label: React.FC<{ text: string; required?: boolean; hint?: string }> = ({ text, required, hint }) => (
-  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-    {text}
-    {required && <span className="text-red-500 ml-0.5">*</span>}
-    {hint && <span className="ml-2 normal-case font-medium text-slate-400 tracking-normal">{hint}</span>}
-  </label>
-);
+/* ── Shift Day Payment Modal ────────────────────────────────────────────────── */
 
-const defaultForm = {
-  requirementType: 'TRUCK_WITH_DRIVER' as RequirementType,
-  startDate: '',
-  endDate: '',
-  hoursPerDay: '8',
-  pickupAddress: '',
-  dropAddress: '',
-  notes: '',
+interface ShiftDayPaymentOrder {
+  paymentId:       string;
+  dayNumber:       number;
+  totalDays:       number;
+  gatewayOrderId:  string;
+  clientSecret:    string;
+  amount:          number;
+  currency:        string;
+  publishableKey:  string;
+  driverAmount:    number;
+  platformFee:     number;
+}
+
+interface ShiftPaymentModalProps {
+  shiftRef: string;
+  shiftId:  string;
+  order:    ShiftDayPaymentOrder;
+  onSuccess: () => void;
+  onCancel:  () => void;
+  onError:   (msg: string) => void;
+}
+
+const ShiftPaymentModal: React.FC<ShiftPaymentModalProps> = ({
+  shiftRef, shiftId, order, onSuccess, onCancel, onError,
+}) => {
+  const cardRef     = useRef<HTMLDivElement>(null);
+  const mountedRef  = useRef<StripeCardEl | null>(null);
+  const [stripe, setStripe]         = useState<StripeInst | null>(null);
+  const [card, setCard]             = useState<StripeCardEl | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cardError, setCardError]   = useState('');
+  const isTest = order.publishableKey.startsWith('pk_test');
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await loadStripe();
+        if (!alive) return;
+        const si = window.Stripe!(order.publishableKey);
+        setStripe(si);
+        if (cardRef.current) {
+          const el = si.elements().create('card', {
+            style: { base: { fontSize: '15px', color: '#041627', '::placeholder': { color: '#94a3b8' } } },
+          });
+          el.mount(cardRef.current);
+          el.on('change', (e) => setCardError(e.error?.message ?? ''));
+          setCard(el);
+          mountedRef.current = el;
+        }
+      } catch { onError('Failed to load payment SDK. Please refresh and try again.'); }
+    })();
+    return () => { alive = false; mountedRef.current?.unmount(); mountedRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleConfirm = async () => {
+    if (!stripe || !card) return;
+    setConfirming(true);
+    setCardError('');
+    try {
+      const result = await stripe.confirmCardPayment(order.clientSecret, { payment_method: { card } });
+      if (result.error) { setCardError(result.error.message); setConfirming(false); return; }
+      const status = result.paymentIntent?.status;
+      if (status === 'requires_capture' || status === 'succeeded') {
+        await haulierService.verifyShiftDayPayment(shiftId, order.dayNumber, result.paymentIntent!.id);
+        onSuccess();
+      } else {
+        setCardError(`Unexpected payment status: ${status ?? 'unknown'}`);
+        setConfirming(false);
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      onError(e.response?.data?.message ?? e.message ?? 'Payment failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#1066b1] to-[#0a4a8f] px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Daily Payment</p>
+              <h3 className="text-lg font-black text-white font-mono">{shiftRef}</h3>
+              <p className="text-sm font-bold text-white/70 mt-0.5">
+                Day {order.dayNumber} of {order.totalDays}
+              </p>
+            </div>
+            <button onClick={onCancel} disabled={confirming} className="rounded-full p-1.5 text-white/60 hover:bg-white/15 transition-colors disabled:opacity-40">
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Fee breakdown */}
+          <div className="rounded-xl border border-slate-100 overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Day {order.dayNumber} Breakdown</span>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-50 bg-white">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#1066b1] text-[15px]">person</span>
+                <span className="text-sm font-bold text-[#041627]">Driver Fee</span>
+              </div>
+              <span className="text-sm font-black text-[#1066b1]">{fmtMoney(order.driverAmount, order.currency)}</span>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-50 bg-white">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-500 text-[15px]">bolt</span>
+                <span className="text-sm font-bold text-[#041627]">Platform Fee <span className="text-slate-400 font-medium">(12.5%)</span></span>
+              </div>
+              <span className="text-sm font-black text-amber-600">{fmtMoney(order.platformFee, order.currency)}</span>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3.5 bg-[#1066b1]/5">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#1066b1] text-[15px]">calculate</span>
+                <span className="text-sm font-black text-[#041627]">Today's Charge</span>
+              </div>
+              <span className="text-base font-black text-[#041627]">{fmtMoney(order.amount, order.currency)}</span>
+            </div>
+          </div>
+
+          {/* Test mode banner */}
+          {isTest && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <span className="material-symbols-outlined text-amber-500 text-base mt-0.5 shrink-0">science</span>
+              <div className="text-xs text-amber-800">
+                <p className="font-black mb-0.5">Test Mode</p>
+                <p>Use <span className="font-mono font-black">4242 4242 4242 4242</span>, any future expiry, any CVC.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Card input */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
+            <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
+            {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+          </div>
+
+          {/* Escrow notice */}
+          <div className="flex items-start gap-2 text-xs text-slate-500">
+            <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
+            <span>Funds are held securely in escrow and released to the driver when you mark the day complete.</span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button onClick={onCancel} disabled={confirming}
+              className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-[#44474C] hover:bg-slate-50 transition-colors disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={() => void handleConfirm()} disabled={confirming || !stripe || !card}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition-colors shadow-md shadow-[#1066b1]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>
+              {confirming ? 'Processing…' : `Pay ${fmtMoney(order.amount, order.currency)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 /* ── Quotes Panel ───────────────────────────────────────────────────────────── */
@@ -148,78 +356,363 @@ interface QuotesPanelProps {
   onClose: () => void;
 }
 
+/* Small helper sub-components */
+const InfoRow: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) =>
+  value != null && value !== '' ? (
+    <div>
+      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
+      <p className="text-sm font-bold text-[#041627]">{String(value)}</p>
+    </div>
+  ) : null;
+
+const SectionTitle: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
+  <div className="flex items-center gap-2 mb-3">
+    <span className="material-symbols-outlined text-[#1066b1] text-base">{icon}</span>
+    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+    <div className="flex-1 h-px bg-slate-100" />
+  </div>
+);
+
 const QuotesPanel: React.FC<QuotesPanelProps> = ({
   shiftRef, shift, quotes, loading, error, actionLoading, onAccept, onClose,
 }) => {
   const pendingQuotes = quotes.filter((q) => q.status.toUpperCase() === 'PENDING');
   const otherQuotes   = quotes.filter((q) => q.status.toUpperCase() !== 'PENDING');
   const reqOpt = REQUIREMENT_OPTIONS.find((o) => o.value === shift.requirementType);
+  const intermStops = (shift.stops ?? []).filter(s => !s.isFinalDestination);
+
+  const fmtDate = (d: string) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-slate-100 px-6 py-5">
+      <div className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="border-b border-slate-100 px-6 py-5 shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Driver Quotes</p>
-              <h2 className="text-xl font-black text-[#041627]">{shiftRef}</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Shift Details &amp; Quotes</p>
+              <h2 className="text-xl font-black text-[#041627] font-mono">{shiftRef}</h2>
             </div>
-            <button
-              onClick={onClose}
-              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-
-          {/* Shift details card */}
-          <div className="mt-4 rounded-2xl bg-[#041627] p-4 space-y-3">
-            <div className="space-y-1.5">
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#1066b1]" />
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
-                  <p className="text-sm font-bold text-white">{shift.pickupAddress ?? shift.location ?? '—'}</p>
-                </div>
-              </div>
-              <div className="ml-[5px] h-4 w-px bg-white/20" />
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
-                  <p className="text-sm font-bold text-white">{shift.dropAddress ?? '—'}</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2 rounded-xl bg-white/8 p-3">
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Start</p>
-                <p className="text-[11px] font-black text-white">{shift.startDate}</p>
-              </div>
-              <div className="text-center border-x border-white/10">
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">End</p>
-                <p className="text-[11px] font-black text-white">{shift.endDate}</p>
-              </div>
-              <div className="text-center border-r border-white/10">
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Days</p>
-                <p className="text-[11px] font-black text-white">{shift.totalDays}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Type</p>
-                <p className="text-[11px] font-black text-white">{reqOpt?.label ?? shift.requirementType}</p>
-              </div>
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadge(shift.status)}`}>
+                {shift.status.replace(/_/g, ' ')}
+              </span>
+              <button
+                onClick={onClose}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+          {/* ─ Route card (dark) ─ */}
+          <div className="rounded-2xl bg-[#041627] p-5 space-y-4">
+            {/* Pickup → Stops → Drop */}
+            <div className="space-y-0">
+              {/* Pickup */}
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center shrink-0 mt-1">
+                  <span className="h-3 w-3 rounded-full bg-[#1066b1] ring-2 ring-[#1066b1]/40" />
+                  <span className="w-px flex-1 bg-white/15 min-h-[20px]" />
+                </div>
+                <div className="pb-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
+                  <p className="text-sm font-bold text-white leading-snug">{shift.pickupAddress ?? shift.location ?? '—'}</p>
+                </div>
+              </div>
+
+              {/* Intermediate stops */}
+              {intermStops.map((s, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="flex flex-col items-center shrink-0 mt-1">
+                    <span className="h-3 w-3 rounded-full bg-amber-400 ring-2 ring-amber-400/40" />
+                    <span className="w-px flex-1 bg-white/15 min-h-[20px]" />
+                  </div>
+                  <div className="pb-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stop {i + 1}</p>
+                    <p className="text-sm font-bold text-white leading-snug">{s.address}</p>
+                    {s.deliveryTime && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="material-symbols-outlined text-amber-400 text-xs">schedule</span>
+                        <span className="text-[11px] font-bold text-amber-400">Est. {s.deliveryTime}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Drop */}
+              <div className="flex items-start gap-3">
+                <span className="h-3 w-3 rounded-full bg-red-400 ring-2 ring-red-400/40 shrink-0 mt-1" />
+                <div className="flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
+                  <p className="text-sm font-bold text-white leading-snug">{shift.dropAddress ?? '—'}</p>
+                  {(() => {
+                    const fin = (shift.stops ?? []).find(s => s.isFinalDestination);
+                    return fin?.deliveryTime ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="material-symbols-outlined text-emerald-400 text-xs">schedule</span>
+                        <span className="text-[11px] font-bold text-emerald-400">Est. {fin.deliveryTime}</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  {/* Final-destination cargo */}
+                  {(() => {
+                    const finalCargo = (shift.compartmentDetails ?? []).filter(c =>
+                      c.stopLabel?.startsWith('Final Destination:')
+                    );
+                    return finalCargo.length > 0 ? (
+                      <div className="mt-1.5 space-y-1">
+                        {finalCargo.map((c, ci) => (
+                          <div key={ci} className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-md bg-white/15 flex items-center justify-center text-[10px] font-black text-white/70 shrink-0">
+                              {c.compartment}
+                            </span>
+                            <span className="text-[11px] text-white/60">{c.contents}</span>
+                            <span className="text-[11px] font-black text-white/80 ml-auto">{Number(c.quantity).toLocaleString()} {c.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Distance / Duration */}
+            {(shift.distanceKm != null || shift.durationMin != null) && (
+              <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/10">
+                {shift.distanceKm != null && (
+                  <div className="rounded-xl bg-white/8 px-3 py-2.5 text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Distance</p>
+                    <p className="text-sm font-black text-white">{shift.distanceKm} km</p>
+                  </div>
+                )}
+                {shift.durationMin != null && (
+                  <div className="rounded-xl bg-white/8 px-3 py-2.5 text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-0.5">Est. Drive Time</p>
+                    <p className="text-sm font-black text-white">{Math.round(shift.durationMin / 60 * 10) / 10} hrs</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ─ Schedule ─ */}
+          <div>
+            <SectionTitle icon="calendar_month" label="Schedule" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-3 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Start</p>
+                <p className="text-sm font-black text-emerald-800">{fmtDate(shift.startDate)}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">End</p>
+                <p className="text-sm font-black text-[#041627]">{fmtDate(shift.endDate)}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Days</p>
+                <p className="text-sm font-black text-[#041627]">{shift.totalDays}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Hrs/Day</p>
+                <p className="text-sm font-black text-[#041627]">{shift.hoursPerDay}h</p>
+              </div>
+            </div>
+            {shift.jobTime && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+                <span className="material-symbols-outlined text-[#1066b1] text-base">schedule</span>
+                <span className="font-bold text-[#041627]">Start time:</span>
+                <span className="font-mono font-black text-[#1066b1]">{shift.jobTime}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ─ Requirement ─ */}
+          <div>
+            <SectionTitle icon="person_search" label="Requirement" />
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1066b1]/10 shrink-0">
+                <span className="material-symbols-outlined text-[#1066b1] text-base">{reqOpt?.icon ?? 'person'}</span>
+              </div>
+              <div>
+                <p className="font-black text-[#041627] text-sm">{reqOpt?.label ?? shift.requirementType}</p>
+                <p className="text-xs text-slate-400">{reqOpt?.desc ?? ''}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ─ Cargo ─ */}
+          {(shift.goodsType || shift.totalCapacity != null || shift.compartments != null || shift.dailyRate != null) && (
+            <div>
+              <SectionTitle icon="inventory_2" label="Cargo &amp; Rate" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {shift.goodsType && (
+                  <div className="col-span-2 sm:col-span-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Goods Type</p>
+                    <p className="text-sm font-bold text-[#041627]">{shift.goodsType}</p>
+                  </div>
+                )}
+                {shift.totalCapacity != null && (
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Total Capacity</p>
+                    <p className="text-sm font-bold text-[#041627]">{Number(shift.totalCapacity).toLocaleString()} L</p>
+                  </div>
+                )}
+                {shift.compartments != null && (
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Compartments</p>
+                    <p className="text-sm font-bold text-[#041627]">{shift.compartments}</p>
+                  </div>
+                )}
+                {shift.dailyRate != null && (
+                  <div className="col-span-2 sm:col-span-2 rounded-xl bg-[#1066b1]/5 border border-[#1066b1]/20 px-3 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]/60 mb-0.5">Your Daily Rate</p>
+                    <p className="text-base font-black text-[#1066b1]">
+                      {fmtMoney(Number(shift.dailyRate), shift.currency)}<span className="text-sm font-bold text-slate-400">/day</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─ Compartment Details ─ */}
+          {shift.compartmentDetails && shift.compartmentDetails.length > 0 && (
+            <div>
+              <SectionTitle icon="view_column" label="Compartment Breakdown" />
+              <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                <div className="hidden sm:grid sm:grid-cols-[36px_1fr_90px_60px_1fr] gap-3 px-4 py-2 bg-slate-50">
+                  {['#', 'Contents', 'Qty', 'Unit', 'Destination'].map(h => (
+                    <span key={h} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{h}</span>
+                  ))}
+                </div>
+                {shift.compartmentDetails.map((c, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-[36px_1fr_90px_60px_1fr] gap-2 sm:gap-3 px-4 py-3 bg-white items-center">
+                    <div className="w-7 h-7 rounded-lg bg-[#1066b1]/10 flex items-center justify-center">
+                      <span className="text-[11px] font-black text-[#1066b1]">{c.compartment ?? i + 1}</span>
+                    </div>
+                    <p className="text-sm font-bold text-[#041627]">{c.contents || '—'}</p>
+                    <p className="text-sm text-[#1066b1] font-black">{c.quantity}</p>
+                    <p className="text-xs text-slate-500 font-bold">{c.unit}</p>
+                    <p className="text-xs text-slate-500 truncate">{c.stopLabel || '—'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─ Intermediate Stops (with delivery times + per-stop cargo) ─ */}
+          {intermStops.length > 0 && (
+            <div>
+              <SectionTitle icon="add_location_alt" label="Intermediate Stops" />
+              <div className="space-y-3">
+                {intermStops.map((s, i) => {
+                  const stopCargo = (shift.compartmentDetails ?? []).filter(c =>
+                    c.stopLabel?.startsWith(`Stop ${i + 1}:`)
+                  );
+                  return (
+                    <div key={i} className="rounded-xl border border-slate-200 overflow-hidden">
+                      {/* Stop header row */}
+                      <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-[11px] font-black shrink-0">{i + 1}</span>
+                          <span className="text-sm font-medium text-[#44474C] truncate">{s.address}</span>
+                        </div>
+                        {s.deliveryTime && (
+                          <div className="flex items-center gap-1.5 shrink-0 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                            <span className="material-symbols-outlined text-amber-500 text-[13px]">schedule</span>
+                            <span className="text-xs font-black text-amber-700">{s.deliveryTime}</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Per-stop cargo breakdown */}
+                      {stopCargo.length > 0 && (
+                        <div className="divide-y divide-slate-100 bg-white">
+                          {stopCargo.map((c, ci) => (
+                            <div key={ci} className="flex items-center justify-between px-4 py-2.5">
+                              <div className="flex items-center gap-2.5">
+                                <span className="w-6 h-6 rounded-md bg-[#1066b1]/10 flex items-center justify-center text-[10px] font-black text-[#1066b1] shrink-0">
+                                  {c.compartment}
+                                </span>
+                                <span className="text-sm font-medium text-[#44474C]">{c.contents}</span>
+                              </div>
+                              <span className="text-sm font-black text-[#1066b1] shrink-0">
+                                {Number(c.quantity).toLocaleString()} {c.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ─ Codes ─ */}
+          {(shift.accessCode || shift.loadCode) && (
+            <div>
+              <SectionTitle icon="key" label="Codes" />
+              <div className="grid grid-cols-2 gap-3">
+                {shift.accessCode && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Access Code</p>
+                    <p className="font-mono font-black text-[#1066b1] text-base tracking-widest">{shift.accessCode}</p>
+                  </div>
+                )}
+                {shift.loadCode && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Load Code</p>
+                    <p className="font-mono font-black text-[#1066b1] text-base tracking-widest">{shift.loadCode}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─ Special Instructions ─ */}
+          {shift.specialInstructions && (
+            <div>
+              <SectionTitle icon="assignment" label="Special Instructions" />
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                <p className="text-sm text-[#44474C] leading-relaxed">{shift.specialInstructions}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Notes ─ */}
+          {shift.notes && (
+            <div>
+              <SectionTitle icon="notes" label="Notes" />
+              <p className="text-sm text-slate-600 leading-relaxed">{shift.notes}</p>
+            </div>
+          )}
+
+          {/* ══════════ DIVIDER ══════════ */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-slate-200" />
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5">
+              <span className="material-symbols-outlined text-[#1066b1] text-base">gavel</span>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Driver Quotes</p>
+            </div>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* ─ Quotes ─ */}
           {loading && (
-            <div className="flex items-center justify-center py-20">
+            <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
             </div>
           )}
@@ -229,7 +722,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
           )}
 
           {!loading && !error && quotes.length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-20 text-center">
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                 <span className="material-symbols-outlined text-2xl text-slate-400">inbox</span>
               </span>
@@ -240,39 +733,32 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
 
           {!loading && pendingQuotes.length > 0 && (
             <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Pending Review · {pendingQuotes.length}
               </p>
               <div className="space-y-3">
                 {pendingQuotes.map((q) => (
-                  <QuoteCard
-                    key={q.quoteId}
-                    quote={q}
-                    actionLoading={actionLoading}
-                    onAccept={onAccept}
-                  />
+                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} />
                 ))}
               </div>
             </div>
           )}
 
           {!loading && otherQuotes.length > 0 && (
-            <div className={pendingQuotes.length > 0 ? 'mt-6' : ''}>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className={pendingQuotes.length > 0 ? 'mt-4' : ''}>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Previous · {otherQuotes.length}
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <QuoteCard
-                    key={q.quoteId}
-                    quote={q}
-                    actionLoading={actionLoading}
-                    onAccept={onAccept}
-                  />
+                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} />
                 ))}
               </div>
             </div>
           )}
+
+          {/* bottom padding */}
+          <div className="h-4" />
         </div>
       </div>
     </div>
@@ -285,47 +771,96 @@ interface QuoteCardProps {
   onAccept: (quoteId: string) => void;
 }
 
+const PLATFORM_FEE_RATE = 0.125; // 12.5 %
+
 const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept }) => {
   const isPending  = quote.status.toUpperCase() === 'PENDING';
   const isWorking  = actionLoading === quote.quoteId;
 
+  const driverFeePerDay  = Number(quote.amountPerDay);
+  const platformFeePerDay = Math.round(driverFeePerDay * PLATFORM_FEE_RATE * 100) / 100;
+  const totalPerDay      = driverFeePerDay + platformFeePerDay;
+
+  const driverTotal   = Number(quote.totalAmount);
+  const platformTotal = Math.round(driverTotal * PLATFORM_FEE_RATE * 100) / 100;
+  const grandTotal    = driverTotal + platformTotal;
+
+  // Derive number of days from totalAmount ÷ amountPerDay
+  const numDays = driverFeePerDay > 0 ? Math.round(driverTotal / driverFeePerDay) : 1;
+
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className={`rounded-2xl border p-4 transition ${isPending ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60'}`}>
+      {/* Driver header */}
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1066b1]/10 text-[#1066b1] font-black text-sm">
           {quote.driverName ? quote.driverName.charAt(0).toUpperCase() : '?'}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-black text-[#041627] truncate">{quote.driverName ?? 'Driver'}</p>
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${quoteBadge(quote.status)}`}>
-              {quote.status}
-            </span>
-          </div>
-
-          {quote.notes && (
-            <p className="mt-1 text-xs text-slate-500">{quote.notes}</p>
-          )}
-
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xl font-black text-[#1066b1]">
-                ${Number(quote.amountPerDay).toLocaleString('en-US')}<span className="text-sm font-bold text-slate-400">/day</span>
-              </p>
-              <p className="text-xs text-slate-400">Total: ${Number(quote.totalAmount).toLocaleString('en-US')}</p>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <p className="font-black text-[#041627] truncate">{quote.driverName ?? 'Driver'}</p>
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${quoteBadge(quote.status)}`}>
+                {quote.status}
+              </span>
             </div>
             {quote.createdAt && (
-              <p className="text-[10px] text-slate-400">
+              <p className="text-[10px] text-slate-400 shrink-0">
                 {new Date(quote.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             )}
           </div>
+
+          {quote.notes && (
+            <p className="mt-1 text-xs text-slate-500 italic">&ldquo;{quote.notes}&rdquo;</p>
+          )}
+        </div>
+      </div>
+
+      {/* Fee breakdown table */}
+      <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
+        {/* Header */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 bg-slate-50 px-4 py-2 border-b border-slate-100">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fee</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Per Day</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">{numDays} Day{numDays !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Driver fee row */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#1066b1] text-[15px]">person</span>
+            <span className="text-sm font-bold text-[#041627]">Driver Fee</span>
+          </div>
+          <span className="text-sm font-black text-[#1066b1] text-right">{fmtMoney(driverFeePerDay, quote.currency)}</span>
+          <span className="text-sm font-black text-[#1066b1] text-right">{fmtMoney(driverTotal, quote.currency)}</span>
+        </div>
+
+        {/* Platform fee row */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-500 text-[15px]">bolt</span>
+            <span className="text-sm font-bold text-[#041627]">Platform Fee <span className="text-slate-400 font-medium">(12.5%)</span></span>
+          </div>
+          <span className="text-sm font-black text-amber-600 text-right">{fmtMoney(platformFeePerDay, quote.currency)}</span>
+          <span className="text-sm font-black text-amber-600 text-right">{fmtMoney(platformTotal, quote.currency)}</span>
+        </div>
+
+        {/* Total row */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 bg-[#1066b1]/5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#1066b1] text-[15px]">calculate</span>
+            <span className="text-sm font-black text-[#041627]">Total</span>
+          </div>
+          <span className="text-sm font-black text-[#041627] text-right">{fmtMoney(totalPerDay, quote.currency)}<span className="text-[10px] text-slate-400 font-bold">/day</span></span>
+          <span className="text-base font-black text-[#041627] text-right">{fmtMoney(grandTotal, quote.currency)}</span>
         </div>
       </div>
 
       {isPending && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
+        <div className="mt-3">
           <button
             onClick={() => onAccept(quote.quoteId)}
             disabled={!!actionLoading}
@@ -344,10 +879,240 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept })
   );
 };
 
+/* ── Signature Canvas (haulier counter-sign for shift handover) ─────────────── */
+
+type Point = { x: number; y: number };
+
+function ShiftSignatureCanvas({
+  shiftRef,
+  onSave,
+  onCancel,
+  loading,
+  error,
+  savedSignature,
+}: {
+  shiftRef:        string;
+  onSave:          (dataUrl: string) => void;
+  onCancel:        () => void;
+  loading:         boolean;
+  error:           string;
+  savedSignature?: string | null;
+}) {
+  // 'saved' = show saved sig preview; 'draw' = show canvas
+  const [mode, setMode]           = React.useState<'saved' | 'draw'>(savedSignature ? 'saved' : 'draw');
+  const canvasRef                 = React.useRef<HTMLCanvasElement>(null);
+  const drawing                   = React.useRef(false);
+  const lastPoint                 = React.useRef<Point | null>(null);
+  const [hasStrokes, setHasStrokes] = React.useState(false);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
+    const canvas = canvasRef.current!;
+    const rect   = canvas.getBoundingClientRect();
+    if ('touches' in e) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    drawing.current   = true;
+    lastPoint.current = getPos(e);
+    setHasStrokes(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1e3a5f';
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.stroke();
+    lastPoint.current = pos;
+  };
+
+  const endDraw = () => {
+    drawing.current   = false;
+    lastPoint.current = null;
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    setHasStrokes(false);
+  };
+
+  const save = () => {
+    if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
+    if (!canvasRef.current || !hasStrokes) return;
+    onSave(canvasRef.current.toDataURL('image/png'));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="bg-gradient-to-r from-[#1066b1] to-[#0a4a8f] px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Shift Handover</p>
+              <h2 className="text-xl font-black text-white font-mono">{shiftRef}</h2>
+              <p className="text-sm text-white/70 mt-0.5">Haulier Counter-Signature</p>
+            </div>
+            <button onClick={onCancel} disabled={loading}
+              className="rounded-full p-2 text-white/60 transition hover:bg-white/15 disabled:opacity-40">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+
+          {/* ── MODE: saved signature ── */}
+          {mode === 'saved' && savedSignature ? (
+            <>
+              <p className="text-sm text-slate-500">
+                Your saved e-signature is ready. Tap <strong>Sign with This</strong> to confirm, or draw a new one.
+              </p>
+
+              {/* Saved sig preview */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-[#1066b1]/40 bg-[#f0f7ff]">
+                <img
+                  src={savedSignature}
+                  alt="Your saved e-signature"
+                  className="max-h-36 w-full object-contain p-4"
+                />
+                <span className="absolute right-3 top-3 rounded-md bg-[#1066b1]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#1066b1]">
+                  Saved
+                </span>
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                AUTHORISING OFFICER — SHIFT VEHICLE RELEASE
+              </p>
+
+              {error && (
+                <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">{error}</p>
+              )}
+
+              {/* Primary action row */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMode('draw')}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Draw New
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading}
+                  className="flex-[2] rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0] disabled:opacity-40"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Submitting…
+                    </span>
+                  ) : (
+                    '✓  Sign with This'
+                  )}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── MODE: draw canvas ── */
+            <>
+              <p className="text-sm text-slate-500">
+                Sign below to confirm you have reviewed the driver's pre-trip handover and authorise departure.
+              </p>
+
+              {/* "← Use Saved" link when a saved sig exists */}
+              {savedSignature && (
+                <button
+                  onClick={() => { clear(); setMode('saved'); }}
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/5 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1]/10 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                  Use Saved E-Signature
+                </button>
+              )}
+
+              {/* Canvas */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+                <canvas
+                  ref={canvasRef}
+                  width={480}
+                  height={180}
+                  className="w-full cursor-crosshair touch-none"
+                  onMouseDown={startDraw}
+                  onMouseMove={draw}
+                  onMouseUp={endDraw}
+                  onMouseLeave={endDraw}
+                  onTouchStart={startDraw}
+                  onTouchMove={draw}
+                  onTouchEnd={endDraw}
+                />
+                {!hasStrokes && (
+                  <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
+                    Draw your signature here
+                  </p>
+                )}
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                AUTHORISING OFFICER — SHIFT VEHICLE RELEASE
+              </p>
+
+              {error && (
+                <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">{error}</p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={clear}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading || !hasStrokes}
+                  className="flex-[2] rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Submitting…
+                    </span>
+                  ) : (
+                    'Confirm Signature'
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Component ─────────────────────────────────────────────────────────── */
 
 const HaulierShiftsPage: React.FC = () => {
-  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
   const [activeStatus, setActiveStatus] = useState<ShiftStatus>('OPEN');
   const [page, setPage] = useState(1);
   const [allShifts, setAllShifts] = useState<ShiftItem[]>([]);
@@ -355,8 +1120,6 @@ const HaulierShiftsPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [form, setForm] = useState(defaultForm);
-  const [formError, setFormError] = useState('');
 
   /* Quotes panel state */
   const [quotesShiftId, setQuotesShiftId]   = useState<string | null>(null);
@@ -365,6 +1128,57 @@ const HaulierShiftsPage: React.FC = () => {
   const [quotesLoading, setQuotesLoading]    = useState(false);
   const [quotesError, setQuotesError]        = useState('');
   const [quoteActionLoading, setQuoteActionLoading] = useState<string | null>(null);
+
+  /* Day payment modal state */
+  const [payingEntry, setPayingEntry] = useState<{
+    shift: ShiftItem; order: ShiftDayPaymentOrder;
+  } | null>(null);
+  const [dayPaymentLoading, setDayPaymentLoading] = useState<string | null>(null); // shiftId
+
+  /* Handover signature modal */
+  const [signModalShift, setSignModalShift] = useState<ShiftItem | null>(null);
+  const [signLoading,    setSignLoading]    = useState(false);
+  const [signError,      setSignError]      = useState('');
+  const [savedEsignature, setSavedEsignature] = useState<string | null>(null);
+
+  /* Driver live-tracking panel */
+  const [trackingShift, setTrackingShift] = useState<ShiftItem | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{
+    driverName: string; latitude: number | null; longitude: number | null;
+  } | null>(null);
+  const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const openTrackingPanel = async (shift: ShiftItem) => {
+    setTrackingShift(shift);
+    setDriverLocation(null);
+    try {
+      const loc = await haulierService.getShiftDriverLocation(shift.shiftId);
+      setDriverLocation(loc);
+    } catch { /* ignore */ }
+  };
+
+  const closeTrackingPanel = () => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
+    setTrackingShift(null);
+    setDriverLocation(null);
+  };
+
+  // Poll driver location every 10 s while panel is open
+  useEffect(() => {
+    if (!trackingShift) return;
+    trackingIntervalRef.current = setInterval(async () => {
+      try {
+        const loc = await haulierService.getShiftDriverLocation(trackingShift.shiftId);
+        setDriverLocation(loc);
+      } catch { /* ignore */ }
+    }, 10_000);
+    return () => {
+      if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+    };
+  }, [trackingShift]);
 
   const loadShifts = async () => {
     setLoading(true);
@@ -379,12 +1193,26 @@ const HaulierShiftsPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadShifts(); }, []);
+  useEffect(() => {
+    loadShifts();
+    // Load saved e-signature from profile
+    haulierService.getMe().then((me: { profile?: { esignatureData?: string | null } | null }) => {
+      if (me?.profile?.esignatureData) setSavedEsignature(me.profile.esignatureData);
+    }).catch(() => undefined);
+  }, []);
 
-  const filteredShifts = useMemo(
-    () => allShifts.filter((s) => s.status.toUpperCase() === activeStatus),
-    [allShifts, activeStatus],
-  );
+  const today = useMemo(() => new Date(new Date().toDateString()), []);
+  const isShiftExpired = (s: ShiftItem) =>
+    s.status.toUpperCase() === 'OPEN' && new Date(s.startDate + 'T00:00:00') < today;
+
+  const filteredShifts = useMemo(() => {
+    if (activeStatus === 'EXPIRED')
+      return allShifts.filter(isShiftExpired);
+    if (activeStatus === 'OPEN')
+      return allShifts.filter((s) => s.status.toUpperCase() === 'OPEN' && !isShiftExpired(s));
+    return allShifts.filter((s) => s.status.toUpperCase() === activeStatus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allShifts, activeStatus, today]);
 
   const totalPages = Math.max(1, Math.ceil(filteredShifts.length / PAGE_SIZE));
   const pagedShifts = filteredShifts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -392,53 +1220,6 @@ const HaulierShiftsPage: React.FC = () => {
 
   const openCount      = allShifts.filter((s) => s.status.toUpperCase() === 'OPEN').length;
   const completedCount = allShifts.filter((s) => s.status.toUpperCase() === 'COMPLETED').length;
-
-  /* Form helpers */
-  const set = (k: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setForm(f => ({ ...f, [k]: e.target.value }));
-      setFormError('');
-    };
-
-  const validate = (): string => {
-    if (!form.requirementType) return 'Please select a requirement type.';
-    if (!form.startDate) return 'Start date is required.';
-    if (!form.endDate) return 'End date is required.';
-    if (form.endDate < form.startDate) return 'End date must be on or after start date.';
-    if (!form.hoursPerDay || Number(form.hoursPerDay) < 1 || Number(form.hoursPerDay) > 24)
-      return 'Hours per day must be between 1 and 24.';
-    if (!form.pickupAddress.trim()) return 'Pickup address is required.';
-    if (!form.dropAddress.trim()) return 'Drop-off address is required.';
-    return '';
-  };
-
-  const handlePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const err = validate();
-    if (err) { setFormError(err); return; }
-    setActionLoading(true);
-    setFormError('');
-    setSuccess(null);
-    try {
-      await haulierService.createShift({
-        requirementType: form.requirementType,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        hoursPerDay: Number(form.hoursPerDay),
-        pickupAddress: form.pickupAddress.trim(),
-        dropAddress: form.dropAddress.trim(),
-        notes: form.notes.trim() || undefined,
-      });
-      setSuccess('Shift posted! Drivers can now view and submit quotes.');
-      setForm(defaultForm);
-      setShowForm(false);
-      await loadShifts();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to create shift');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   /* Quotes panel */
   const openQuotesPanel = async (shift: ShiftItem) => {
@@ -470,7 +1251,7 @@ const HaulierShiftsPage: React.FC = () => {
     try {
       await haulierService.acceptShiftQuote(quotesShiftId, quoteId);
       closeQuotesPanel();
-      setSuccess('Quote accepted — shift is now booked.');
+      setSuccess('Quote accepted — shift is now booked. Pay for Day 1 to start the shift.');
       await loadShifts();
     } catch (err) {
       setQuotesError(err instanceof Error ? err.message : 'Failed to accept quote');
@@ -479,19 +1260,67 @@ const HaulierShiftsPage: React.FC = () => {
     }
   };
 
+  /* Day payment */
+  const handlePayDay = async (shift: ShiftItem) => {
+    setDayPaymentLoading(shift.shiftId);
+    setError(null);
+    try {
+      const order = await haulierService.createShiftDayPayment(shift.shiftId);
+      setPayingEntry({ shift, order: order as ShiftDayPaymentOrder });
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message ?? (err instanceof Error ? err.message : 'Failed to initiate payment'));
+    } finally {
+      setDayPaymentLoading(null);
+    }
+  };
+
+  const handleDayPaymentSuccess = async () => {
+    const day = payingEntry?.order.dayNumber;
+    setPayingEntry(null);
+    setSuccess(`Day ${day} payment confirmed — funds held in escrow. Mark the day complete at EOD to release payment.`);
+    await loadShifts();
+  };
+
   /* Row actions */
-  const handleCompleteDay = async (shiftId: string) => {
+  const handleCompleteDay = async (shiftId: string, dayNum: number) => {
+    if (!window.confirm(`Release payment for Day ${dayNum} to the driver? This will transfer the escrowed funds and cannot be undone.`)) return;
     setActionLoading(true);
     setSuccess(null);
     setError(null);
     try {
       await haulierService.completeShiftDay(shiftId);
-      setSuccess('Day marked complete.');
+      setSuccess(`Day ${dayNum} complete — driver payment released.`);
       await loadShifts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete day');
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message ?? (err instanceof Error ? err.message : 'Failed to complete day'));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  /** Open the signature canvas modal for the chosen shift */
+  const openSignModal = (shift: ShiftItem) => {
+    setSignModalShift(shift);
+    setSignError('');
+  };
+
+  /** Called when the haulier confirms their drawn signature */
+  const handleHaulierSignShift = async (signatureDataUrl: string) => {
+    if (!signModalShift) return;
+    setSignLoading(true);
+    setSignError('');
+    try {
+      await haulierService.signShiftHandover(signModalShift.shiftId, signatureDataUrl);
+      setSignModalShift(null);
+      setSuccess(`Handover signed for ${signModalShift.shiftRef} — driver can now start their trip.`);
+      await loadShifts();
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string; detail?: string } }; message?: string };
+      setSignError(e.response?.data?.message ?? e.response?.data?.detail ?? (err instanceof Error ? err.message : 'Failed to sign handover. Please try again.'));
+    } finally {
+      setSignLoading(false);
     }
   };
 
@@ -511,22 +1340,29 @@ const HaulierShiftsPage: React.FC = () => {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
-  const totalDaysPreview =
-    form.startDate && form.endDate && form.endDate >= form.startDate
-      ? Math.floor((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / 86_400_000) + 1
-      : null;
-
   /* Column count for empty state colspan */
   const colCount =
     activeStatus === 'OPEN'        ? 6 :
     activeStatus === 'BOOKED'      ? 7 :
     activeStatus === 'IN_PROGRESS' ? 7 :
+    activeStatus === 'EXPIRED'     ? 5 :
     activeStatus === 'COMPLETED'   ? 6 :
     /* CANCELLED */                  6;
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+
+      {/* ── Handover signature modal ── */}
+      {signModalShift && (
+        <ShiftSignatureCanvas
+          shiftRef={signModalShift.shiftRef}
+          onSave={handleHaulierSignShift}
+          onCancel={() => { setSignModalShift(null); setSignError(''); }}
+          loading={signLoading}
+          error={signError}
+          savedSignature={savedEsignature}
+        />
+      )}
 
       {/* Quotes panel */}
       {quotesShiftId && quotesShift && (
@@ -542,117 +1378,93 @@ const HaulierShiftsPage: React.FC = () => {
         />
       )}
 
-      {/* Post shift form */}
-      {showForm && (
-        <div className="fixed inset-0 z-40 flex items-start justify-end bg-black/40 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="relative w-full max-w-2xl bg-white shadow-2xl min-h-full p-6 sm:p-8 space-y-6 overflow-y-auto">
-            <div className="flex items-center justify-between">
+      {/* Day payment modal */}
+      {payingEntry && (
+        <ShiftPaymentModal
+          shiftRef={payingEntry.shift.shiftRef}
+          shiftId={payingEntry.shift.shiftId}
+          order={payingEntry.order}
+          onSuccess={() => void handleDayPaymentSuccess()}
+          onCancel={() => setPayingEntry(null)}
+          onError={(msg) => { setPayingEntry(null); setError(msg); }}
+        />
+      )}
+
+      {/* ── Driver live-tracking panel ────────────────────────────────────── */}
+      {trackingShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">New Shift</p>
-                <h2 className="text-xl font-black text-[#041627]">Post a Shift</h2>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Live Tracking</p>
+                <h3 className="text-lg font-black text-[#041627]">{trackingShift.shiftRef}</h3>
+                <p className="text-xs font-semibold text-slate-500">
+                  Day {trackingShift.daysCompleted + 1} of {trackingShift.totalDays} · {trackingShift.pickupAddress ?? '—'} → {trackingShift.dropAddress ?? '—'}
+                </p>
               </div>
-              <button onClick={() => setShowForm(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100">
-                <span className="material-symbols-outlined">close</span>
+              <button onClick={closeTrackingPanel} className="ml-4 flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100">
+                <span className="material-symbols-outlined text-slate-500">close</span>
               </button>
             </div>
 
-            <form onSubmit={handlePost} className="space-y-6">
-              {/* Requirement type */}
-              <div>
-                <Label text="Requirement Type" required />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
-                  {REQUIREMENT_OPTIONS.map(opt => {
-                    const active = form.requirementType === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => { setForm(f => ({ ...f, requirementType: opt.value })); setFormError(''); }}
-                        className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                          active ? 'border-[#1066b1] bg-[#1066b1]/5 shadow-sm' : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                      >
-                        <span className={`material-symbols-outlined text-xl mt-0.5 ${active ? 'text-[#1066b1]' : 'text-slate-400'}`}>
-                          {opt.icon}
-                        </span>
-                        <div>
-                          <p className={`text-sm font-black ${active ? 'text-[#1066b1]' : 'text-[#041627]'}`}>{opt.label}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 font-medium">{opt.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label text="Start Date" required />
-                  <input type="date" min={today} value={form.startDate} onChange={set('startDate')} required className={inputCls} />
-                </div>
-                <div>
-                  <Label text="End Date" required />
-                  <input type="date" min={form.startDate || today} value={form.endDate} onChange={set('endDate')} required className={inputCls} />
-                </div>
-              </div>
-
-              {totalDaysPreview && (
-                <div className="flex items-center gap-3 bg-[#1066b1]/5 border border-[#1066b1]/15 rounded-xl px-4 py-3">
-                  <span className="material-symbols-outlined text-[#1066b1] text-base">event_available</span>
-                  <p className="text-sm font-bold text-[#1066b1]">
-                    {totalDaysPreview} day{totalDaysPreview !== 1 ? 's' : ''} scheduled
-                    {form.hoursPerDay ? ` · ${Number(form.hoursPerDay) * totalDaysPreview} total hours` : ''}
-                  </p>
+            {/* Map / location panel */}
+            <div className="p-5 space-y-4">
+              {driverLocation ? (
+                driverLocation.latitude != null && driverLocation.longitude != null ? (
+                  <>
+                    {/* Live pulse + coordinates */}
+                    <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 border border-blue-100">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1066b1] opacity-75" />
+                        <span className="relative inline-flex h-3 w-3 rounded-full bg-[#1066b1]" />
+                      </span>
+                      <p className="text-sm font-bold text-[#1066b1]">
+                        {driverLocation.driverName} is active · last updated just now
+                      </p>
+                    </div>
+                    {/* Coordinates card */}
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Latitude</p>
+                        <p className="text-sm font-black text-[#041627]">{driverLocation.latitude.toFixed(6)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Longitude</p>
+                        <p className="text-sm font-black text-[#041627]">{driverLocation.longitude.toFixed(6)}</p>
+                      </div>
+                    </div>
+                    {/* Open in Google Maps */}
+                    <a
+                      href={`https://www.google.com/maps?q=${driverLocation.latitude},${driverLocation.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1066b1] px-4 py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                      Open in Google Maps
+                    </a>
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-5 text-center">
+                    <span className="material-symbols-outlined text-3xl text-amber-400 mb-2 block">location_off</span>
+                    <p className="text-sm font-bold text-amber-700">
+                      {driverLocation.driverName} hasn't shared their location yet.
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">Location updates automatically when the driver starts their day.</p>
+                  </div>
+                )
+              ) : (
+                <div className="flex items-center justify-center py-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1066b1] border-t-transparent" />
+                  <span className="ml-3 text-sm font-semibold text-slate-500">Loading location…</span>
                 </div>
               )}
 
-              {/* Hours per day */}
-              <div>
-                <Label text="Working Hours per Day" required />
-                <input type="number" min={1} max={24} value={form.hoursPerDay} onChange={set('hoursPerDay')} required placeholder="8" className={inputCls} style={{ maxWidth: '240px' }} />
-              </div>
-
-              {/* Addresses */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label text="Pickup Location" required />
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">trip_origin</span>
-                    <input type="text" value={form.pickupAddress} onChange={set('pickupAddress')} required placeholder="e.g. Andheri Industrial Zone, Mumbai" className={inputCls + ' pl-9'} />
-                  </div>
-                </div>
-                <div>
-                  <Label text="Drop-off Location" required />
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">place</span>
-                    <input type="text" value={form.dropAddress} onChange={set('dropAddress')} required placeholder="e.g. Bhiwandi Warehouse, Thane" className={inputCls + ' pl-9'} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <Label text="Additional Notes" hint="(optional)" />
-                <textarea value={form.notes} onChange={set('notes')} rows={3} placeholder="Any specific requirements, schedule details, equipment needed…" className={inputCls + ' resize-none'} />
-              </div>
-
-              {formError && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                  <span className="material-symbols-outlined text-red-500 text-base">error</span>
-                  <p className="text-sm font-bold text-red-700">{formError}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={actionLoading} className="flex-1 sm:flex-none sm:px-10 bg-[#1066b1] hover:bg-[#0e57a0] disabled:opacity-50 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-sm">
-                  {actionLoading ? 'Posting…' : 'Post Shift'}
-                </button>
-                <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} className="flex-1 sm:flex-none sm:px-8 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl text-sm transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </form>
+              <p className="text-center text-[10px] font-semibold text-slate-400">
+                Location refreshes every 10 seconds
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -694,7 +1506,7 @@ const HaulierShiftsPage: React.FC = () => {
         ))}
         {activeStatus === 'OPEN' && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => navigate('/haulier/shifts/post')}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#1066b1] px-4 py-3 text-sm font-black text-white transition hover:bg-[#0e57a0]"
           >
             <span className="material-symbols-outlined text-[18px]">add_circle</span>
@@ -746,7 +1558,7 @@ const HaulierShiftsPage: React.FC = () => {
           </div>
           {activeStatus === 'OPEN' && (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => navigate('/haulier/shifts/post')}
               className="hidden rounded-2xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#0e57a0] md:inline-flex"
             >
               Post New Shift
@@ -762,12 +1574,12 @@ const HaulierShiftsPage: React.FC = () => {
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Requirement</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
-                {activeStatus !== 'OPEN' && (
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Progress</th>
+                {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
+                  <th className="pl-6 pr-14 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-r border-slate-200">Progress</th>
                 )}
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && (
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
+                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
+                {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
+                  <th className="pl-10 pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
                 )}
               </tr>
             </thead>
@@ -813,14 +1625,14 @@ const HaulierShiftsPage: React.FC = () => {
                       <p className="text-xs text-slate-400 mt-0.5">{shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''}</p>
                     </td>
 
-                    {/* Progress (all tabs except OPEN) */}
-                    {activeStatus !== 'OPEN' && (
-                      <td className="px-6 py-5 min-w-[160px]">
+                    {/* Progress (all tabs except OPEN and EXPIRED) */}
+                    {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
+                      <td className="pl-6 pr-14 py-5 min-w-[210px] border-r border-slate-100">
                         <p className="text-sm font-black text-[#041627]">
                           {shift.daysCompleted}
                           <span className="text-slate-400 text-xs font-bold">/{shift.totalDays}</span>
                         </p>
-                        <div className="mt-1.5 h-1.5 w-28 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="mt-1.5 h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${activeStatus === 'CANCELLED' ? 'bg-red-400' : 'bg-[#1066b1]'}`}
                             style={{ width: `${progress}%` }}
@@ -829,26 +1641,26 @@ const HaulierShiftsPage: React.FC = () => {
                         {shift.dailyRate && shift.daysCompleted > 0 && (
                           <p className={`text-xs font-black mt-1 ${activeStatus === 'CANCELLED' ? 'text-slate-500' : 'text-[#1066b1]'}`}>
                             {activeStatus === 'CANCELLED'
-                              ? `Partial: $${(shift.dailyRate * shift.daysCompleted).toLocaleString()}`
-                              : `$${shift.dailyRate.toLocaleString()}/day`}
+                              ? `Partial: ${fmtMoney(shift.dailyRate * shift.daysCompleted, shift.currency)}`
+                              : `${fmtMoney(shift.dailyRate, shift.currency)}/day`}
                           </p>
                         )}
                         {shift.dailyRate && shift.daysCompleted === 0 && (
-                          <p className="text-xs font-black text-[#1066b1] mt-1">${shift.dailyRate.toLocaleString()}/day</p>
+                          <p className="text-xs font-black text-[#1066b1] mt-1">{fmtMoney(shift.dailyRate, shift.currency)}/day</p>
                         )}
                       </td>
                     )}
 
                     {/* Status */}
-                    <td className="px-6 py-5">
+                    <td className="px-8 py-5">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadge(shift.status)}`}>
                         {shift.status.replace(/_/g, ' ')}
                       </span>
                     </td>
 
                     {/* Action */}
-                    {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && (
-                      <td className="px-6 py-5 min-w-[180px]">
+                    {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
+                      <td className="pl-10 pr-6 py-5 min-w-[210px]">
                         {activeStatus === 'OPEN' ? (
                           <button
                             onClick={() => openQuotesPanel(shift)}
@@ -858,14 +1670,57 @@ const HaulierShiftsPage: React.FC = () => {
                             View Quotes
                           </button>
                         ) : (
-                          <div className="flex flex-col gap-2">
-                            {canComplete && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            {/* Pay Day N — shown when day is not yet escrowed */}
+                            {canComplete && !shift.currentDayEscrowed && (
                               <button
-                                onClick={() => handleCompleteDay(shift.shiftId)}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
+                                onClick={() => void handlePayDay(shift)}
+                                disabled={dayPaymentLoading === shift.shiftId || !!actionLoading}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white transition hover:bg-[#0e57a0] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {dayPaymentLoading === shift.shiftId
+                                  ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                  : <span className="material-symbols-outlined text-[15px]">payment</span>}
+                                Pay Day {shift.daysCompleted + 1}
+                              </button>
+                            )}
+                            {/* Complete Day N — shown when that day's payment is escrowed */}
+                            {canComplete && shift.currentDayEscrowed && (
+                              <button
+                                onClick={() => void handleCompleteDay(shift.shiftId, shift.daysCompleted + 1)}
+                                disabled={!!actionLoading}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
                               >
                                 <span className="material-symbols-outlined text-[15px]">check_circle</span>
                                 Complete Day {shift.daysCompleted + 1}
+                              </button>
+                            )}
+                            {/* Sign Handover — driver has submitted; haulier must counter-sign */}
+                            {shift.handoverSubmitted && !shift.handoverHaulierSigned && (
+                              <button
+                                onClick={() => openSignModal(shift)}
+                                disabled={!!actionLoading || signLoading}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed animate-pulse"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">draw</span>
+                                Sign Handover
+                              </button>
+                            )}
+                            {/* Handover signed badge */}
+                            {shift.handoverHaulierSigned && (
+                              <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700">
+                                <span className="material-symbols-outlined text-[15px]">verified</span>
+                                Handover Signed
+                              </span>
+                            )}
+                            {/* Track Driver — available for IN_PROGRESS shifts with a driver */}
+                            {shift.status.toUpperCase() === 'IN_PROGRESS' && shift.selectedDriverId && (
+                              <button
+                                onClick={() => void openTrackingPanel(shift)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white transition hover:bg-[#0e57a0]"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">location_on</span>
+                                Track Driver
                               </button>
                             )}
                             {canCancel && (
@@ -894,10 +1749,14 @@ const HaulierShiftsPage: React.FC = () => {
                       </div>
                       <p className="font-black text-[#44474C]">No {activeSection.label.toLowerCase()} shifts found</p>
                       <p className="text-sm text-slate-400">
-                        {activeStatus === 'OPEN' ? 'Post a new shift to start receiving quotes.' : 'Try another tab to see shifts with a different status.'}
+                        {activeStatus === 'OPEN'
+                          ? 'Post a new shift to start receiving quotes.'
+                          : activeStatus === 'EXPIRED'
+                          ? 'No expired shifts — all open shifts are still active.'
+                          : 'Try another tab to see shifts with a different status.'}
                       </p>
                       {activeStatus === 'OPEN' && (
-                        <button onClick={() => setShowForm(true)} className="mt-1 rounded-2xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#0e57a0]">
+                        <button onClick={() => navigate('/haulier/shifts/post')} className="mt-1 rounded-2xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#0e57a0]">
                           Post New Shift
                         </button>
                       )}

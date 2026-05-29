@@ -28,7 +28,7 @@ const jobStatusStyle: Record<string, string> = {
 const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: _cur || 'USD',
     maximumFractionDigits: 2,
   }).format(val);
 

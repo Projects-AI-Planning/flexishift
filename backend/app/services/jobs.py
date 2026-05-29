@@ -85,14 +85,16 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         addr = stop.get("address", "").strip()
         if not addr:
             continue
-        delivery_qty = stop.get("deliveryQty")
+        delivery_qty  = stop.get("deliveryQty")
+        delivery_time = stop.get("deliveryTime")
         if stop.get("lat") and stop.get("lng"):
             geocoded_stops.append({
                 "address": addr,
                 "lat": float(stop["lat"]),
                 "lng": float(stop["lng"]),
                 "order": i + 1,
-                **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
+                **({"deliveryQty": delivery_qty}   if delivery_qty  is not None else {}),
+                **({"deliveryTime": delivery_time} if delivery_time is not None else {}),
             })
         else:
             try:
@@ -102,13 +104,27 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
                     "lat": float(geo["lat"]),
                     "lng": float(geo["lng"]),
                     "order": i + 1,
-                    **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
+                    **({"deliveryQty": delivery_qty}   if delivery_qty  is not None else {}),
+                    **({"deliveryTime": delivery_time} if delivery_time is not None else {}),
                 })
             except Exception:
                 geocoded_stops.append({
                     "address": addr, "lat": None, "lng": None, "order": i + 1,
-                    **({"deliveryQty": delivery_qty} if delivery_qty is not None else {}),
+                    **({"deliveryQty": delivery_qty}   if delivery_qty  is not None else {}),
+                    **({"deliveryTime": delivery_time} if delivery_time is not None else {}),
                 })
+
+    # Append final destination delivery time as a special entry if provided
+    final_delivery_time = data.get("final_delivery_time")
+    if final_delivery_time:
+        geocoded_stops.append({
+            "address": data["drop_address"],
+            "lat": float(data["drop_lat"]),
+            "lng": float(data["drop_lng"]),
+            "order": len(geocoded_stops) + 1,
+            "isFinalDestination": True,
+            "deliveryTime": final_delivery_time,
+        })
 
     data["duration_min"] = route["duration_min"]
 
@@ -266,7 +282,13 @@ def list_available_jobs(
     driver_avail = profile.driver_availability if profile else None
     if current_user.role in (Role.DRIVER, Role.FIRM) and not _has_required_docs_for_availability(db, current_user.id, driver_avail):
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
-    q = db.query(Job).filter(Job.status == JobStatus.OPEN, Job.deleted_at.is_(None))
+    from datetime import date as _date
+    today = _date.today()
+    q = db.query(Job).filter(
+        Job.status == JobStatus.OPEN,
+        Job.deleted_at.is_(None),
+        Job.job_date >= today,          # hide jobs whose pickup date has passed
+    )
     if vehicle_type:
         q = q.filter(Job.vehicle_type == vehicle_type)
     if driver_avail == 'DRIVER_ONLY':

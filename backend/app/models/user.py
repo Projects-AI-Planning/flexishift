@@ -2,7 +2,7 @@ import enum
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, Enum, DECIMAL, Integer, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Boolean, Enum, DECIMAL, Integer, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -74,6 +74,7 @@ class UserProfile(Base):
     driver_availability:  Mapped[str] = mapped_column(String(50), nullable=True)
     equipment_details:    Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     driver_assignments:   Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    esignature_data:      Mapped[str | None]        = mapped_column(Text, nullable=True)
     created_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                             onupdate=datetime.utcnow)

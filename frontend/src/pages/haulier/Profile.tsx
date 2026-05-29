@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import haulierService from '../../api/haulierService';
 
 const DIAL_CODES = [
@@ -89,6 +89,7 @@ type HaulierProfile = {
     vehicleType?: string | null;
     vehicleRegistration?: string | null;
     licenceNumber?: string | null;
+    esignatureData?: string | null;
   } | null;
 };
 
@@ -137,6 +138,16 @@ export default function HaulierProfilePage() {
   const [success, setSuccess] = useState(false);
   const [phoneDialCode, setPhoneDialCode] = useState('+44');
   const [phoneNumber, setPhoneNumber] = useState('');
+
+  // E-Signature state
+  const [showEsigDraw, setShowEsigDraw] = useState(false);
+  const [esigSaving, setEsigSaving] = useState(false);
+  const [esigError, setEsigError] = useState('');
+  const [esigSuccess, setEsigSuccess] = useState(false);
+  const esigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const esigDrawing = useRef(false);
+  const esigLastPoint = useRef<{ x: number; y: number } | null>(null);
+  const [esigHasStrokes, setEsigHasStrokes] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -201,10 +212,6 @@ export default function HaulierProfilePage() {
         currency: profile.currency ?? '',
         companyName: profile.profile?.companyName ?? '',
         companyAddress: profile.profile?.companyAddress ?? '',
-        coverageArea: profile.profile?.coverageArea ?? '',
-        vehicleType: profile.profile?.vehicleType ?? '',
-        vehicleRegistration: profile.profile?.vehicleRegistration ?? '',
-        licenceNumber: profile.profile?.licenceNumber ?? '',
       });
       await fetchProfile();
       setSuccess(true);
@@ -214,6 +221,92 @@ export default function HaulierProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── E-Signature helpers ────────────────────────────────────────────────────
+  const esigGetPos = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
+    const canvas = esigCanvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: ((e as React.MouseEvent).clientX - rect.left) * scaleX,
+      y: ((e as React.MouseEvent).clientY - rect.top) * scaleY,
+    };
+  };
+
+  const esigStartDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    esigDrawing.current = true;
+    esigLastPoint.current = esigGetPos(e);
+    setEsigHasStrokes(true);
+  };
+
+  const esigDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!esigDrawing.current || !esigCanvasRef.current) return;
+    const ctx = esigCanvasRef.current.getContext('2d')!;
+    const pos = esigGetPos(e);
+    ctx.beginPath();
+    ctx.moveTo(esigLastPoint.current!.x, esigLastPoint.current!.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1e3a5f';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    esigLastPoint.current = pos;
+  };
+
+  const esigEndDraw = () => {
+    esigDrawing.current = false;
+    esigLastPoint.current = null;
+  };
+
+  const esigClear = () => {
+    const canvas = esigCanvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    setEsigHasStrokes(false);
+  };
+
+  const saveEsignature = async () => {
+    if (!esigCanvasRef.current || !esigHasStrokes) return;
+    const dataUrl = esigCanvasRef.current.toDataURL('image/png');
+    setEsigSaving(true);
+    setEsigError('');
+    try {
+      await haulierService.saveEsignature(dataUrl);
+      setProfile(curr => curr ? {
+        ...curr,
+        profile: { ...(curr.profile ?? {}), esignatureData: dataUrl },
+      } : curr);
+      setShowEsigDraw(false);
+      setEsigHasStrokes(false);
+      setEsigSuccess(true);
+      setTimeout(() => setEsigSuccess(false), 3000);
+    } catch {
+      setEsigError('Failed to save e-signature. Please try again.');
+    } finally {
+      setEsigSaving(false);
+    }
+  };
+
+  const deleteEsignature = async () => {
+    if (!window.confirm('Remove your saved e-signature?')) return;
+    try {
+      await haulierService.deleteEsignature();
+      setProfile(curr => curr ? {
+        ...curr,
+        profile: { ...(curr.profile ?? {}), esignatureData: null },
+      } : curr);
+    } catch { /* ignore */ }
   };
 
   const uploadPhoto = async (file: File) => {
@@ -404,14 +497,6 @@ export default function HaulierProfilePage() {
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
                 />
               </label>
-              <label className="space-y-2">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Coverage Area</span>
-                <input
-                  value={profile?.profile?.coverageArea ?? ''}
-                  onChange={(e) => updateField('coverageArea', e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-                />
-              </label>
               <label className="space-y-2 md:col-span-2">
                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Company Address</span>
                 <input
@@ -423,35 +508,108 @@ export default function HaulierProfilePage() {
             </div>
           </div>
 
-          {/* Vehicle Details */}
+          {/* E-Signature */}
           <div>
-            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Vehicle Details</p>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Type</span>
-                <input
-                  value={profile?.profile?.vehicleType ?? ''}
-                  onChange={(e) => updateField('vehicleType', e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">E-Signature</p>
+            <p className="mb-4 text-xs text-slate-500">
+              Save your signature once — it will auto-fill whenever you need to sign a handover.
+            </p>
+
+            {esigSuccess && (
+              <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                ✓ E-signature saved successfully.
+              </div>
+            )}
+
+            {/* Saved signature preview */}
+            {profile?.profile?.esignatureData && !showEsigDraw && (
+              <div className="mb-4 overflow-hidden rounded-2xl border-2 border-[#1066b1]/30 bg-slate-50">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saved Signature</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowEsigDraw(true); setEsigHasStrokes(false); }}
+                      className="text-xs font-black text-[#1066b1] hover:underline"
+                    >
+                      Update
+                    </button>
+                    <button
+                      onClick={() => void deleteEsignature()}
+                      className="text-xs font-black text-rose-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <img
+                  src={profile.profile.esignatureData}
+                  alt="Your saved e-signature"
+                  className="max-h-28 w-full object-contain p-4"
                 />
-              </label>
-              <label className="space-y-2">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle Registration</span>
-                <input
-                  value={profile?.profile?.vehicleRegistration ?? ''}
-                  onChange={(e) => updateField('vehicleRegistration', e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Licence Number</span>
-                <input
-                  value={profile?.profile?.licenceNumber ?? ''}
-                  onChange={(e) => updateField('licenceNumber', e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-                />
-              </label>
-            </div>
+              </div>
+            )}
+
+            {/* Canvas drawing area */}
+            {(showEsigDraw || !profile?.profile?.esignatureData) && (
+              <div className="space-y-3">
+                <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+                  <canvas
+                    ref={esigCanvasRef}
+                    width={480}
+                    height={160}
+                    className="w-full cursor-crosshair touch-none"
+                    onMouseDown={esigStartDraw}
+                    onMouseMove={esigDraw}
+                    onMouseUp={esigEndDraw}
+                    onMouseLeave={esigEndDraw}
+                    onTouchStart={esigStartDraw}
+                    onTouchMove={esigDraw}
+                    onTouchEnd={esigEndDraw}
+                  />
+                  {!esigHasStrokes && (
+                    <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
+                      Draw your signature here
+                    </p>
+                  )}
+                </div>
+
+                {esigError && (
+                  <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+                    {esigError}
+                  </p>
+                )}
+
+                <div className="flex gap-3">
+                  {showEsigDraw && (
+                    <button
+                      onClick={() => { setShowEsigDraw(false); setEsigHasStrokes(false); }}
+                      className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-black text-[#44474C] hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    onClick={esigClear}
+                    disabled={esigSaving}
+                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-black text-[#44474C] hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => void saveEsignature()}
+                    disabled={esigSaving || !esigHasStrokes}
+                    className="flex-[2] rounded-xl bg-[#1066b1] py-2.5 text-xs font-black text-white shadow-md shadow-[#1066b1]/20 hover:bg-[#0e57a0] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {esigSaving ? 'Saving…' : 'Save E-Signature'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Button to draw new when no canvas shown yet but sig exists */}
+            {!showEsigDraw && profile?.profile?.esignatureData && (
+              <div /> // spacer — buttons already shown in preview header
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-4 border-t border-slate-100 pt-4">

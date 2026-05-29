@@ -25,6 +25,7 @@ class JobCreateRequest(BaseModel):
     access_code: str = Field(..., alias="accessCode")
     load_code: str = Field(..., alias="loadCode")
     estimated_delivery: Optional[date] = Field(None, alias="estimatedDelivery")
+    final_delivery_time: Optional[str] = Field(None, alias="finalDeliveryTime")
 
     model_config = {"populate_by_name": True}
 

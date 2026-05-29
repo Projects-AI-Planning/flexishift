@@ -27,6 +27,7 @@ _PROFILE_FIELDS = {
     "driver_availability",
     "equipment_details",
     "driver_assignments",
+    "esignature_data",
 }
 
 
@@ -174,6 +175,7 @@ def _user_data(user: User) -> dict:
             "driverAvailability": profile.driver_availability if profile else None,
             "equipmentDetails": profile.equipment_details if profile else [],
             "driverAssignments": profile.driver_assignments if profile else [],
+            "esignatureData": profile.esignature_data if profile else None,
         } if profile else None,
     }
 
@@ -358,6 +360,43 @@ def submit_photo_upload(
 
 class DeactivateRequest(BaseModel):
     password: Optional[str] = None
+
+
+class SaveEsignatureRequest(BaseModel):
+    esignatureData: str
+
+
+@router.put("/esignature")
+def save_esignature(
+    body: SaveEsignatureRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save (or update) the user's persistent e-signature drawn on device/browser."""
+    from app.models.user import UserProfile
+    if not current_user.profile:
+        current_user.profile = UserProfile(user_id=current_user.id)
+        db.add(current_user.profile)
+        db.flush()
+    current_user.profile.esignature_data = body.esignatureData
+    db.commit()
+    db.refresh(current_user)
+    return ok(
+        data={"esignatureData": current_user.profile.esignature_data},
+        message="E-signature saved",
+    )
+
+
+@router.delete("/esignature")
+def delete_esignature(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove the stored e-signature."""
+    if current_user.profile:
+        current_user.profile.esignature_data = None
+        db.commit()
+    return ok(data=None, message="E-signature removed")
 
 
 @router.put("/deactivate")

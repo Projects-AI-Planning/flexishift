@@ -36,6 +36,12 @@ export type DrawerRouteKey =
   | 'profile.payments'
   | 'shifts.available'
   | 'shifts.myShifts'
+  | 'shifts.accessCode'
+  | 'shifts.handover'
+  | 'shifts.tracking'
+  | 'shifts.endOfDay'
+  | 'shifts.dayComplete'
+  | 'shifts.rating'
   | 'payment.escrow';
 
 export interface ApiResponse<T> {
@@ -136,11 +142,14 @@ export interface ProfileResponse {
     licenceNumber?: string;
     vehicleType?: string;
     vehicleRegistration?: string;
+    truckCapacity?: string;
     companyName?: string;
     companyAddress?: string;
     coverageArea?: string;
+    driverAvailability?: string;
     equipmentDetails?: Array<Record<string, unknown>>;
     driverAssignments?: Array<Record<string, unknown>>;
+    esignatureData?: string | null;
   } | null;
   stripeConnect?: {
     hasAccount: boolean;

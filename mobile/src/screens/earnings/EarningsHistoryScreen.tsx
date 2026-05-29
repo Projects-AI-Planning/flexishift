@@ -1,4 +1,5 @@
 import React from 'react';
+import {currencySymbol} from '../../utils/currency';
 import {
   View,
   Text,
@@ -16,6 +17,7 @@ import {colors, radius, spacing} from '../../theme';
 interface EarningsHistoryScreenProps {
   payments: any[];
   totalEarnings: number;
+  currency?: string;
   refreshing: boolean;
   onRefresh: () => void;
   onViewInvoice: (invoiceId: string) => Promise<string | void>;
@@ -24,10 +26,12 @@ interface EarningsHistoryScreenProps {
 const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
   payments,
   totalEarnings,
+  currency = '',
   refreshing,
   onRefresh,
   onViewInvoice,
 }) => {
+  const sym = currencySymbol(currency);
   const handleDownloadInvoice = async (invoiceId: string) => {
     try {
       const url = await onViewInvoice(invoiceId);
@@ -75,7 +79,7 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
       <View style={styles.header}>
         <View style={styles.totalBox}>
           <Text style={styles.totalLabel}>All Time Total</Text>
-          <Text style={styles.totalValue}>$ {totalEarnings.toLocaleString()}</Text>
+          <Text style={styles.totalValue}>{sym}{totalEarnings.toLocaleString()}</Text>
         </View>
       </View>
 

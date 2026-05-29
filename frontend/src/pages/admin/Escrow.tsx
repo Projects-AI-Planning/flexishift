@@ -4,7 +4,7 @@ import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
 const fmt = (val: number, _cur = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD' }).format(val);
 
 const EscrowPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: 'ESCROWED', search: '', limit: 10 });

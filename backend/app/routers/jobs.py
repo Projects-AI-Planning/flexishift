@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -121,13 +121,16 @@ def list_jobs(
 
 
 @router.get("/available")
-def available_jobs(
+async def available_jobs(
+    background_tasks: BackgroundTasks,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     vehicle_type: str = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
+    from app.services.expiry import expire_stale_jobs
+    background_tasks.add_task(expire_stale_jobs, db)
     result = jobs_svc.list_available_jobs(db, current_user, page, per_page, vehicle_type)
     return ok(
         data={

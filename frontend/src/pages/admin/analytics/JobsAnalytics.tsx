@@ -15,7 +15,7 @@ const STATUS_OPTIONS = [
 
 const fmtMoney = (value?: number) =>
   typeof value === 'number'
-    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(value)
     : '—';
 
 const statusTone = (status: string) => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
+import { fmtMoney } from '../../utils/currency';
 
 type Section = 'matching' | 'bids' | 'awarded';
 
@@ -93,7 +94,7 @@ const sections: Array<{ key: Section; label: string; path: string; icon: string 
   { key: 'awarded', label: 'Awarded', path: '/haulier/loads/awarded', icon: 'task_alt' },
 ];
 
-const money = (value?: number | null) => (value == null ? 'N/A' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`);
+const money = (value?: number | null, currency?: string) => (value == null ? 'N/A' : fmtMoney(value, currency));
 const prettyDate = (value?: string) => (value ? new Date(value).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
 const badgeClass = (status: string) => {
@@ -418,7 +419,7 @@ const HaulierLoadsPage: React.FC = () => {
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Lowest active quote</p>
-                  <p className="mt-1 font-bold text-[#041627]">{money(load.lowestQuote ?? null)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{money(load.lowestQuote ?? null, load.currency)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Selected</p>
@@ -440,7 +441,7 @@ const HaulierLoadsPage: React.FC = () => {
                     </div>
                     <div className="mt-4 flex items-end justify-between">
                       <p className="text-xs text-slate-500">Submitted {prettyDate(quote.createdAt)}</p>
-                      <p className="text-lg font-black text-primary">{money(quote.amount)}</p>
+                      <p className="text-lg font-black text-primary">{money(quote.amount, quote.currency)}</p>
                     </div>
                   </div>
                 ))}
@@ -473,7 +474,7 @@ const HaulierLoadsPage: React.FC = () => {
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Amount</p>
-                  <p className="mt-1 font-bold text-[#041627]">{money(load.agreedAmount ?? null)}</p>
+                  <p className="mt-1 font-bold text-[#041627]">{money(load.agreedAmount ?? null, load.currency)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Stage</p>

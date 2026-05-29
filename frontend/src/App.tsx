@@ -57,6 +57,7 @@ import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
 import HaulierHandoverPage from './pages/haulier/Handover';
 import HaulierShiftsPage from './pages/haulier/Shifts';
+import PostShiftPage from './pages/haulier/PostShift';
 import HaulierDisputesPage from './pages/haulier/Disputes';
 
 // Auth Pages
@@ -162,6 +163,7 @@ function AppRoutes() {
               <Route index element={<HaulierOverview />} />
               <Route path="post-job" element={<PostJobPage />} />
               <Route path="shifts" element={<HaulierShiftsPage />} />
+              <Route path="shifts/post" element={<PostShiftPage />} />
               <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
               <Route path="jobs/handover" element={<HaulierHandoverPage />} />

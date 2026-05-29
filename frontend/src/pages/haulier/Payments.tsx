@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
+import { fmtMoney as fmtCurrency } from '../../utils/currency';
+import { useAuth } from '../../hooks/useAuth';
 
 // ── Stripe types (CDN-loaded Stripe.js) ─────────────────────────────────────
 
@@ -101,8 +103,8 @@ interface PaymentOrder {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const fmtMoney = (value?: number | null) =>
-  value != null ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
+const fmtMoney = (value?: number | null, currency?: string) =>
+  value != null ? fmtCurrency(value, currency) : '—';
 
 const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -238,7 +240,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
           {[
             { label: 'Job', value: job.jobRef, mono: true },
-            { label: 'Amount', value: `$${order.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bold: true },
+            { label: 'Amount', value: fmtMoney(order.amount, order.currency), bold: true },
             { label: 'Currency', value: order.currency.toUpperCase() },
           ].map(({ label, value, mono, bold }) => (
             <div key={label} className="flex justify-between text-sm">
@@ -568,7 +570,7 @@ const CreatePaymentTab: React.FC = () => {
                         </div>
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Amount</p>
-                          <p className="font-bold text-[#44474C]">{job.agreedAmount != null ? fmtMoney(job.agreedAmount) : '—'}</p>
+                          <p className="font-bold text-[#44474C]">{job.agreedAmount != null ? fmtMoney(job.agreedAmount, job.currency) : '—'}</p>
                         </div>
                       </div>
 
@@ -605,6 +607,8 @@ const CreatePaymentTab: React.FC = () => {
 // ── Escrow Tab ───────────────────────────────────────────────────────────────
 
 const EscrowTab: React.FC = () => {
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const [items, setItems] = useState<EscrowPaymentItem[]>([]);
   const [summary, setSummary] = useState<SpendSummary>({});
   const [total, setTotal] = useState(0);
@@ -649,13 +653,13 @@ const EscrowTab: React.FC = () => {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
             Total Spent {summary.period ? `- ${summary.period}` : ''}
           </p>
-          <p className="text-4xl font-black text-primary">{loading ? '...' : fmtMoney(summary.totalSpent)}</p>
+          <p className="text-4xl font-black text-primary">{loading ? '...' : fmtMoney(summary.totalSpent, items[0]?.currency ?? userCurrency)}</p>
           <p className="text-xs text-slate-400 mt-1 font-medium">Spend summary from backend</p>
         </div>
         <div className="md:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 relative overflow-hidden">
           <span className="material-symbols-outlined absolute -bottom-6 -right-6 text-white/10 text-[140px] pointer-events-none">lock</span>
           <p className="text-indigo-200 text-xs font-black uppercase tracking-widest mb-1">Secured Funds</p>
-          <p className="text-4xl font-black">{loading ? '...' : fmtMoney(escrowTotal)}</p>
+          <p className="text-4xl font-black">{loading ? '...' : fmtMoney(escrowTotal, items[0]?.currency ?? userCurrency)}</p>
           <p className="text-indigo-200 text-xs mt-2 font-medium">Held until delivery is approved — {total} active record{total !== 1 ? 's' : ''}.</p>
         </div>
       </div>
@@ -693,7 +697,7 @@ const EscrowTab: React.FC = () => {
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
                     <td className="px-5 py-4 text-xs text-[#44474C] font-medium">{item.goodsType || '—'}</td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount, item.currency)}</td>
                     <td className="px-5 py-4 text-xs text-slate-500">{fmtDate(item.escrowedAt)}</td>
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
@@ -722,6 +726,8 @@ const EscrowTab: React.FC = () => {
 // ── History Tab ─────────────────────────────────────────────────────────────
 
 const HistoryTab: React.FC = () => {
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const [items, setItems] = useState<EscrowPaymentItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -763,7 +769,7 @@ const HistoryTab: React.FC = () => {
           <div key={stat.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-[0_1px_4px_rgba(26,43,60,0.04)]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
             <p className={`text-2xl font-black ${stat.color}`}>
-              {loading ? '...' : stat.money ? fmtMoney(stat.value as number) : stat.value}
+              {loading ? '...' : stat.money ? fmtMoney(stat.value as number, items[0]?.currency ?? userCurrency) : stat.value}
             </p>
           </div>
         ))}
@@ -811,7 +817,7 @@ const HistoryTab: React.FC = () => {
                       <p className="text-xs font-bold text-[#44474C] truncate">{item.pickupAddress || '—'}</p>
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount, item.currency)}</td>
                     <td className="px-5 py-4 text-sm text-slate-500 font-mono">{item.currency}</td>
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
@@ -903,7 +909,7 @@ const InvoicesTab: React.FC = () => {
                 {items.map((invoice) => (
                   <tr key={invoice.jobId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-4 font-mono text-sm font-bold text-primary">#{invoice.jobRef}</td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(invoice.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(invoice.amount, invoice.currency)}</td>
                     <td className="px-5 py-4 text-sm text-slate-500 font-mono">{invoice.currency}</td>
                     <td className="px-5 py-4">
                       {invoice.invoiceUrl ? (

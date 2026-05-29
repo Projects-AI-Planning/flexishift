@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useAdminStats } from '../../hooks/useAdmin';
 
-const fmtCurrency = (value: number) =>
+const fmtCurrency = (value: number, currency = 'USD') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency || 'USD',
     maximumFractionDigits: 0,
   }).format(value);
 

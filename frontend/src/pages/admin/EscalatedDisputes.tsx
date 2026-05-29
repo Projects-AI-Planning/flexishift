@@ -4,7 +4,7 @@ import adminService from '../../api/adminService';
 import type { Dispute } from '../../types';
 
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD', maximumFractionDigits: 0 }).format(n);
 
 function urgencyColor(hours: number) {
   if (hours >= 168) return 'bg-red-600 text-white';

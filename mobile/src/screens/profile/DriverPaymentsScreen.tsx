@@ -1,4 +1,5 @@
 import React from 'react';
+import {currencySymbol} from '../../utils/currency';
 import {
   ActivityIndicator,
   Linking,
@@ -42,6 +43,7 @@ interface DriverPaymentsScreenProps {
   totalEarnings?: number;
   totalJobs?: number;
   payments: PaymentRecord[];
+  currency?: string;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -59,8 +61,8 @@ function fmtDate(iso?: string) {
   });
 }
 
-function fmtAmount(amount: number, _currency?: string) {
-  return `$${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+function fmtAmount(amount: number, currency?: string) {
+  return `${currencySymbol(currency)}${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
 function statusColor(status: string): string {
@@ -177,6 +179,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
   totalEarnings = 0,
   totalJobs = 0,
   payments,
+  currency: propCurrency = '',
   loading,
   refreshing,
   onRefresh,
@@ -185,7 +188,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
   const released = payments.filter(p => p.status?.toUpperCase() === 'RELEASED');
   const escrowed = payments.filter(p => p.status?.toUpperCase() === 'ESCROWED');
   const escrowedTotal = escrowed.reduce((sum, p) => sum + (p.amount ?? 0), 0);
-  const currency = payments[0]?.currency ?? 'USD';
+  const currency = propCurrency || payments[0]?.currency || '';
 
   return (
     <ScrollView

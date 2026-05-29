@@ -10,7 +10,7 @@ const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD', maximumFractionDigits: 2 }).format(n);
 
 const fmtNum = (n: number) =>
   new Intl.NumberFormat('en-US').format(n);

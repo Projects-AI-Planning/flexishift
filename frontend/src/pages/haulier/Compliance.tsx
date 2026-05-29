@@ -84,24 +84,25 @@ function SignatureCanvas({
   onSave,
   onCancel,
   loading,
+  savedSignature,
 }: {
   onSave: (dataUrl: string) => void;
   onCancel: () => void;
   loading: boolean;
+  savedSignature?: string | null;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const lastPoint = useRef<Point | null>(null);
+  // 'saved' = show saved sig preview; 'draw' = show canvas
+  const [mode, setMode] = useState<'saved' | 'draw'>(savedSignature ? 'saved' : 'draw');
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const drawing     = useRef(false);
+  const lastPoint   = useRef<Point | null>(null);
   const [hasStrokes, setHasStrokes] = useState(false);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
     }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
@@ -142,73 +143,138 @@ function SignatureCanvas({
   };
 
   const save = () => {
+    if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
     if (!canvasRef.current || !hasStrokes) return;
     onSave(canvasRef.current.toDataURL('image/png'));
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">
-              Step 2 · Handover
-            </p>
-            <h2 className="text-xl font-black text-primary">Haulier Signature</h2>
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="bg-gradient-to-r from-[#1066b1] to-[#0a4a8f] px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Step 2 · Handover</p>
+              <h2 className="text-xl font-black text-white">Haulier Signature</h2>
+            </div>
+            <button
+              onClick={onCancel}
+              className="rounded-full p-2 text-white/60 transition hover:bg-white/15"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
           </div>
-          <button
-            onClick={onCancel}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#44474C]"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
         </div>
 
-        <p className="mb-3 text-sm text-slate-500">
-          Sign below to confirm dispatch officer vehicle release approval.
-        </p>
+        <div className="p-6 space-y-4">
 
-        {/* Canvas */}
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-          <canvas
-            ref={canvasRef}
-            width={480}
-            height={180}
-            className="w-full cursor-crosshair touch-none"
-            onMouseDown={startDraw}
-            onMouseMove={draw}
-            onMouseUp={endDraw}
-            onMouseLeave={endDraw}
-            onTouchStart={startDraw}
-            onTouchMove={draw}
-            onTouchEnd={endDraw}
-          />
-          {!hasStrokes && (
-            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
-              Draw your signature here
-            </p>
+          {/* ── MODE: saved signature ── */}
+          {mode === 'saved' && savedSignature ? (
+            <>
+              <p className="text-sm text-slate-500">
+                Your saved e-signature is ready. Tap <strong>Sign with This</strong> to confirm, or draw a new one.
+              </p>
+
+              {/* Saved sig preview */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-[#1066b1]/40 bg-[#f0f7ff]">
+                <img
+                  src={savedSignature}
+                  alt="Your saved e-signature"
+                  className="max-h-36 w-full object-contain p-4"
+                />
+                <span className="absolute right-3 top-3 rounded-md bg-[#1066b1]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#1066b1]">
+                  Saved
+                </span>
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+              </p>
+
+              {/* Action row */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMode('draw')}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Draw New
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading}
+                  className="flex-[2] rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {loading ? 'Submitting…' : '✓  Sign with This'}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── MODE: draw canvas ── */
+            <>
+              <p className="text-sm text-slate-500">
+                Sign below to confirm dispatch officer vehicle release approval.
+              </p>
+
+              {/* "← Use Saved" when a saved sig exists */}
+              {savedSignature && (
+                <button
+                  onClick={() => { clear(); setMode('saved'); }}
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/5 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1]/10 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                  Use Saved E-Signature
+                </button>
+              )}
+
+              {/* Canvas */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+                <canvas
+                  ref={canvasRef}
+                  width={480}
+                  height={180}
+                  className="w-full cursor-crosshair touch-none"
+                  onMouseDown={startDraw}
+                  onMouseMove={draw}
+                  onMouseUp={endDraw}
+                  onMouseLeave={endDraw}
+                  onTouchStart={startDraw}
+                  onTouchMove={draw}
+                  onTouchEnd={endDraw}
+                />
+                {!hasStrokes && (
+                  <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
+                    Draw your signature here
+                  </p>
+                )}
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={clear}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading || !hasStrokes}
+                  className="flex-[2] rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {loading ? 'Submitting…' : 'Confirm Signature'}
+                </button>
+              </div>
+            </>
           )}
-        </div>
 
-        <p className="mt-2 text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
-          DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
-        </p>
-
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={clear}
-            disabled={loading}
-            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50"
-          >
-            Clear
-          </button>
-          <button
-            onClick={save}
-            disabled={loading || !hasStrokes}
-            className="flex-1 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
-          >
-            {loading ? 'Submitting…' : 'Confirm Signature'}
-          </button>
         </div>
       </div>
     </div>
@@ -236,6 +302,14 @@ export default function HaulierCompliancePage() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [signLoading, setSignLoading] = useState(false);
   const [signError, setSignError] = useState('');
+  const [savedEsignature, setSavedEsignature] = useState<string | null>(null);
+
+  // Load saved e-signature once on mount
+  useEffect(() => {
+    haulierService.getMe().then((me: { profile?: { esignatureData?: string | null } | null }) => {
+      if (me?.profile?.esignatureData) setSavedEsignature(me.profile.esignatureData);
+    }).catch(() => undefined);
+  }, []);
 
   const loadJobs = async () => {
     setLoading(true);
@@ -345,6 +419,7 @@ export default function HaulierCompliancePage() {
           onSave={handleHaulierSign}
           onCancel={() => { setShowSignModal(false); setSignError(''); }}
           loading={signLoading}
+          savedSignature={savedEsignature}
         />
       )}
 

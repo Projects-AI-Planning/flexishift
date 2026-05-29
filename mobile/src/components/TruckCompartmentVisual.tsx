@@ -1,9 +1,22 @@
 import React from 'react';
 import {ScrollView, StyleSheet, Text, View} from 'react-native';
 
+export const FUEL_TYPES = ['Diesel', 'Petrol', 'AdBlue', 'Kerosene', 'Jet Fuel', 'Chemical', 'Other'] as const;
+
+export const FUEL_COLORS: Record<string, string> = {
+  Diesel:    '#F59E0B',
+  Petrol:    '#EF4444',
+  AdBlue:    '#3B82F6',
+  Kerosene:  '#8B5CF6',
+  'Jet Fuel':'#0EA5E9',
+  Chemical:  '#10B981',
+  Other:     '#6B7280',
+};
+
 export interface TruckCompartment {
   id: number;
   capacityLitres: string;
+  fuelType: string;
 }
 
 interface Props {
@@ -44,11 +57,12 @@ export default function TruckCompartmentVisual({compartments}: Props) {
                 const label = cap >= 1000
                   ? `${(cap / 1000).toFixed(cap % 1000 === 0 ? 0 : 1)}k L`
                   : `${cap} L`;
+                const stripeColor = FUEL_COLORS[cpt.fuelType] ?? FUEL_COLORS.Other;
                 return (
                   <View
                     key={cpt.id}
                     style={[s.compartment, idx > 0 && s.divider]}>
-                    <View style={s.stripe} />
+                    <View style={[s.stripe, {backgroundColor: stripeColor}]} />
                     <Text style={s.cptNum}>C{idx + 1}</Text>
                     <Text style={s.cptCap}>{label}</Text>
                   </View>

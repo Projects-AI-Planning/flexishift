@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 from app.core.response import ok, created
 from app.database import get_db
@@ -15,9 +16,17 @@ router = APIRouter(prefix="/quotes", tags=["Quotes"])
 SupplierDep = require_role(Role.DRIVER, Role.FIRM)
 
 
+class StopEtaItem(BaseModel):
+    order: int
+    eta: str
+
+
 class SubmitQuoteRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
     price: float = Field(..., alias="quoteAmount")
+    deliver_by: Optional[str] = Field(None, alias="deliverBy")
+    stop_etas: Optional[List[StopEtaItem]] = Field(None, alias="stopEtas")
+    notes: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
@@ -54,16 +63,24 @@ def _quote_dict(quote: Quote, include_job: bool = False) -> dict:
         if quote.status == QuoteStatus.WITHDRAWN and quote.updated_at
         else None
     )
+    driver_amount = float(quote.price)
+    platform_fee = round(driver_amount * 0.125, 2)
+    total_amount = round(driver_amount + platform_fee, 2)
     d = {
         "quoteId": quote.id,
         "jobId": quote.job_id,
         "jobReference": job.job_ref if job else None,
         "supplierId": quote.supplier_id,
         "supplier": _supplier_snippet(quote),
-        "quoteAmount": float(quote.price),
+        "quoteAmount": driver_amount,
+        "driverAmount": driver_amount,
+        "platformFee": platform_fee,
+        "totalAmount": total_amount,
         "currency": quote.currency,
         "status": quote.status,
         "withdrawnAt": withdrawn_at,
+        "deliverBy": quote.deliver_by.isoformat() if quote.deliver_by else None,
+        "stopEtas": quote.stop_etas,
         "createdAt": quote.created_at.isoformat() if quote.created_at else None,
         "updatedAt": quote.updated_at.isoformat() if quote.updated_at else None,
     }
@@ -89,7 +106,17 @@ async def submit_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    quote = await quotes_svc.submit_quote(db, body.job_id, current_user, body.price)
+    deliver_by_dt: Optional[datetime] = None
+    if body.deliver_by:
+        try:
+            deliver_by_dt = datetime.fromisoformat(body.deliver_by.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    stop_etas_data = [s.model_dump() for s in body.stop_etas] if body.stop_etas else None
+    quote = await quotes_svc.submit_quote(
+        db, body.job_id, current_user, body.price,
+        deliver_by=deliver_by_dt, stop_etas=stop_etas_data,
+    )
     return created(data=_quote_dict(quote), message="Quote submitted successfully")
 
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import {fmtMoney} from '../../utils/currency';
 import {
   Pressable,
   SafeAreaView,
@@ -120,7 +121,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Amount</Text>
             <Text style={styles.amountValue}>
-              $ {amount.toLocaleString('en-US', {minimumFractionDigits: 2})}
+              {fmtMoney(amount, currency)}
             </Text>
           </View>
         </View>

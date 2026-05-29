@@ -5,6 +5,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useHaulierOverview } from '../../hooks/useHaulier';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/currency';
 import type { LiveDelivery } from '../../types';
 
 /* ── Signature Modal ─────────────────────────────────────────────────────────── */
@@ -153,7 +155,7 @@ type ActiveMapData = {
   deliveries: LiveDelivery[];
 };
 
-const formatCurrency = (value: number) => `$${value.toLocaleString('en-US')}`;
+const formatCurrency = (value: number, currency?: string) => fmtMoney(value, currency);
 
 const toneForStatus = (status?: string) => {
   if (!status) return 'bg-[#1066b1]/15 text-[#083d7a]';
@@ -223,6 +225,8 @@ type PendingApprovalJob = {
 
 const HaulierOverview: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const { data, loading, error, refresh } = useHaulierOverview();
   const [mapData, setMapData] = useState<ActiveMapData | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
@@ -562,7 +566,7 @@ const HaulierOverview: React.FC = () => {
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Payment Amount</p>
                           <p className="font-black text-emerald-700 text-sm">
-                            {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : '—'}
+                            {job.agreedAmount != null ? fmtMoney(job.agreedAmount, job.currency ?? userCurrency) : '—'}
                           </p>
                         </div>
                         <div>
@@ -606,14 +610,6 @@ const HaulierOverview: React.FC = () => {
                           {isApproving ? 'hourglass_top' : 'payments'}
                         </span>
                         {isApproving ? 'Releasing…' : 'Approve & Release'}
-                      </button>
-                      <button
-                        onClick={() => { setDisputeModal(job); setDisputeReason(''); setDisputeError(''); }}
-                        disabled={isApproving || approvingJobId !== null}
-                        className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-black text-rose-600 hover:bg-rose-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="material-symbols-outlined text-base">flag</span>
-                        Dispute
                       </button>
                     </div>
                   </div>
@@ -761,7 +757,7 @@ const HaulierOverview: React.FC = () => {
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">+12.5%</span>
           </div>
           <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total Spend</p>
-          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627] truncate">{formatCurrency(stats.totalSpend)}</h3>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627] truncate">{formatCurrency(stats.totalSpend, userCurrency)}</h3>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">

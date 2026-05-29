@@ -10,12 +10,12 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, currency = 'GBP') =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+const fmt = (value: number, currency?: string) => {
+  if (!currency) return value.toLocaleString('en-US', {maximumFractionDigits: 0});
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
+  } catch { return value.toLocaleString(); }
+};
 
 type CostReport = {
   period?: string;

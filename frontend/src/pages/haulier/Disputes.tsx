@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/currency';
 
 type HaulierDispute = {
   disputeId: string;
@@ -25,6 +27,8 @@ const formatDate = (value?: string | null) => (
 );
 
 const HaulierDisputesPage: React.FC = () => {
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const [items, setItems] = useState<HaulierDispute[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -75,7 +79,7 @@ const HaulierDisputesPage: React.FC = () => {
         <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
           <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Payment On Hold</p>
           <p className="text-3xl font-black text-[#1066b1]">
-            ${items.reduce((sum, item) => sum + Number(item.paymentOnHold ?? 0), 0).toLocaleString('en-US')}
+            {fmtMoney(items.reduce((sum, item) => sum + Number(item.paymentOnHold ?? 0), 0), items[0]?.currency ?? userCurrency)}
           </p>
         </div>
         <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-[0_4px_12px_rgba(26,43,60,0.05)]">
@@ -147,7 +151,7 @@ const HaulierDisputesPage: React.FC = () => {
               <div className="shrink-0 rounded-xl bg-[#1066b1]/10 px-4 py-3 text-right">
                 <p className="text-[10px] font-black uppercase tracking-widest text-[#0a4a8f]">Held Amount</p>
                 <p className="mt-1 text-xl font-black text-primary">
-                  ${Number(item.paymentOnHold ?? 0).toLocaleString('en-US')}
+                  {fmtMoney(Number(item.paymentOnHold ?? 0), item.currency ?? userCurrency)}
                 </p>
               </div>
             </div>

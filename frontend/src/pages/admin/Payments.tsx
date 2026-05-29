@@ -5,7 +5,7 @@ import type { AdminPayment } from '../../types';
 const fmt = (val: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: _cur || 'USD',
     maximumFractionDigits: 0,
   }).format(val);
 

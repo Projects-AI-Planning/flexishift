@@ -1,4 +1,5 @@
 import React from 'react';
+import {fmtMoney} from '../../utils/currency';
 import {
   ActivityIndicator,
   Pressable,
@@ -35,8 +36,8 @@ const InvoiceDetailScreen: React.FC<InvoiceDetailScreenProps> = ({
     invoice?.reference ??
     invoice?.invoiceNumber ??
     'Invoice';
-  const amount = invoice?.amount != null ? `$${invoice.amount}` : '—';
-  const currency = invoice?.currency ?? 'USD';
+  const currency = invoice?.currency ?? '';
+  const amount = invoice?.amount != null ? fmtMoney(invoice.amount, currency) : '—';
   const status = String(invoice?.status ?? 'issued').toUpperCase();
 
   return (
