@@ -117,6 +117,42 @@ function AppRoutes() {
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
       <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
 
+      {/* Stripe Connect return/refresh — accessible without auth so Stripe can redirect here */}
+      <Route path="/stripe-connect/return" element={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-10 max-w-md w-full text-center space-y-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mx-auto">
+              <span className="material-symbols-outlined text-emerald-600 text-3xl">check_circle</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#041627]">Payment Setup Complete</h1>
+            <p className="text-slate-500 text-sm">Your bank account has been connected. You can now receive payments for completed jobs.</p>
+            <button
+              onClick={() => window.location.href = user ? (user.role === 'ADMIN' ? '/admin' : '/haulier') : '/login'}
+              className="mt-2 w-full rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
+            >
+              Return to App
+            </button>
+          </div>
+        </div>
+      } />
+      <Route path="/stripe-connect/refresh" element={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-10 max-w-md w-full text-center space-y-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 mx-auto">
+              <span className="material-symbols-outlined text-amber-600 text-3xl">refresh</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#041627]">Session Expired</h1>
+            <p className="text-slate-500 text-sm">Your Stripe onboarding session expired. Please go back to the app and try again.</p>
+            <button
+              onClick={() => window.location.href = user ? (user.role === 'ADMIN' ? '/admin' : '/haulier') : '/login'}
+              className="mt-2 w-full rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
+            >
+              Return to App
+            </button>
+          </div>
+        </div>
+      } />
+
       {/* Admin Section */}
       <Route 
         path="/admin/*" 

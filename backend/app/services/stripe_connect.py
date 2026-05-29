@@ -94,8 +94,9 @@ def get_onboarding_link(
         create_connect_account(db, user)
 
     from urllib.parse import quote
-    dest_return = client_return_url or f"{settings.FRONTEND_URL}/stripe-connect/return"
-    dest_refresh = client_refresh_url or f"{settings.FRONTEND_URL}/stripe-connect/refresh"
+    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
+    dest_return = client_return_url or f"{frontend}/stripe-connect/return"
+    dest_refresh = client_refresh_url or f"{frontend}/stripe-connect/refresh"
 
     stripe_base = (settings.STRIPE_BACKEND_URL or settings.BACKEND_URL).rstrip("/")
     return_url = f"{stripe_base}/stripe-connect/return?redirect_to={quote(dest_return, safe='')}"

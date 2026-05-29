@@ -61,14 +61,16 @@ def refresh_onboarding_link(
 @router.get("/return")
 def stripe_return_redirect(redirect_to: Optional[str] = Query(default=None)):
     """Stripe redirects here after onboarding; we forward to the real destination."""
-    target = redirect_to or f"{settings.FRONTEND_URL}/stripe-connect/return"
+    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
+    target = redirect_to or f"{frontend}/stripe-connect/return"
     return RedirectResponse(url=target, status_code=302)
 
 
 @router.get("/refresh")
 def stripe_refresh_redirect(redirect_to: Optional[str] = Query(default=None)):
     """Stripe redirects here when the onboarding link expires; forward to real destination."""
-    target = redirect_to or f"{settings.FRONTEND_URL}/stripe-connect/refresh"
+    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
+    target = redirect_to or f"{frontend}/stripe-connect/refresh"
     return RedirectResponse(url=target, status_code=302)
 
 
