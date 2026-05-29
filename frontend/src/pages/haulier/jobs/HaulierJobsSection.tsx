@@ -431,7 +431,10 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
   React.useEffect(() => {
     setDetailLoading(true);
     haulierService.getJobDetails(jobId)
-      .then((d) => setDetail(d as JobDetail))
+      .then((d) => {
+        console.log('[BidsPanel] compartmentDetails:', (d as JobDetail).compartmentDetails);
+        setDetail(d as JobDetail);
+      })
       .catch(() => setDetail(null))
       .finally(() => setDetailLoading(false));
   }, [jobId]);
@@ -1349,6 +1352,7 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
       haulierService.getHandoverStatus(jobId).catch(() => null),
     ])
       .then(([d, h]) => {
+        console.log('[JobDetail] compartmentDetails:', (d as JobDetail).compartmentDetails);
         setDetail(d as JobDetail);
         setHandover(h as HandoverDetail | null);
       })
