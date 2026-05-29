@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.response import created
 from app.database import get_db
 from app.services import local_storage as local_svc
@@ -23,7 +24,7 @@ async def store_local_upload(
     except ValueError:
         raise HTTPException(status_code=404, detail="Upload token not found")
 
-    record.public_url = str(request.url_for("uploads", path=record.storage_key))
+    record.public_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{record.storage_key}"
     db.commit()
     db.refresh(record)
 

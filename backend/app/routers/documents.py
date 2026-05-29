@@ -13,13 +13,20 @@ from app.config import settings
 
 router = APIRouter(prefix="/users/me/documents", tags=["Documents"])
 
+import re as _re
+
+def _fix_url(url: str | None) -> str | None:
+    if not url:
+        return url
+    return _re.sub(r'https?://(127\.0\.0\.1|localhost)(:\d+)?', settings.BACKEND_URL.rstrip("/"), url)
+
 
 def _doc_dict(d: Document) -> dict:
     return {
         "documentId": d.id,
         "userId": d.user_id,
         "docType": d.doc_type.value,
-        "fileUrl": d.file_url,
+        "fileUrl": _fix_url(d.file_url),
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
         "createdAt": d.created_at.isoformat() if d.created_at else None,

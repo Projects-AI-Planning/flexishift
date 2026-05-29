@@ -90,8 +90,10 @@ def get_upload_by_key(db: Session, storage_key: str, user_id: str | None = None)
 
 def local_upload_url(request, storage_key: str) -> str:
     ensure_local_upload_root()
-    return str(request.url_for("uploads", path=storage_key))
+    base = settings.BACKEND_URL.rstrip("/")
+    return f"{base}/uploads/{storage_key}"
 
 
 def local_upload_endpoint_url(request, upload_token: str) -> str:
-    return str(request.url_for("local_storage_upload", upload_token=upload_token))
+    base = settings.BACKEND_URL.rstrip("/")
+    return f"{base}/api/v1/local-storage/uploads/{upload_token}"
