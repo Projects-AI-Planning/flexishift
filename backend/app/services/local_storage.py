@@ -88,12 +88,19 @@ def get_upload_by_key(db: Session, storage_key: str, user_id: str | None = None)
     return query.first()
 
 
+def _origin() -> str:
+    """Return the server origin (scheme + host) with no path, stripping /api/v1 suffix."""
+    import re
+    base = settings.BACKEND_URL.rstrip("/")
+    # Remove any /api/v1 or /api suffix — files live at /uploads/, not under the API prefix
+    base = re.sub(r'/api(/v\d+)?$', '', base)
+    return base
+
+
 def local_upload_url(request, storage_key: str) -> str:
     ensure_local_upload_root()
-    base = settings.BACKEND_URL.rstrip("/")
-    return f"{base}/uploads/{storage_key}"
+    return f"{_origin()}/uploads/{storage_key}"
 
 
 def local_upload_endpoint_url(request, upload_token: str) -> str:
-    base = settings.BACKEND_URL.rstrip("/")
-    return f"{base}/api/v1/local-storage/uploads/{upload_token}"
+    return f"{_origin()}/api/v1/local-storage/uploads/{upload_token}"

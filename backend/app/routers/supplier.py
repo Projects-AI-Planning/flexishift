@@ -73,7 +73,7 @@ async def upload_document_direct(
         file_path = local_svc.LOCAL_UPLOAD_ROOT / key
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_bytes(contents)
-        file_url = f"{settings.BACKEND_URL}/uploads/{key}"
+        file_url = local_svc.local_upload_url(None, key)
         record = local_svc.create_pending_upload(
             db,
             user_id=current_user.id,

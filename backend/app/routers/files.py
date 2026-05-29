@@ -149,7 +149,7 @@ def get_signed_url(
     if local_svc.azure_available():
         url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, file_key)
     else:
-        url = str(request.url_for("uploads", path=file_key))
+        url = local_svc.local_upload_url(request, file_key)
     expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
     filename = file_key.split("/")[-1]
     return ok(

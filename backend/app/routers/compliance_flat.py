@@ -176,7 +176,7 @@ async def upload_handover_photos_direct(
             file_path = local_svc.LOCAL_UPLOAD_ROOT / key
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_bytes(contents)
-            file_url = str(request.url_for("uploads", path=key))
+            file_url = local_svc.local_upload_url(request, key)
             record = local_svc.create_pending_upload(
                 db,
                 user_id=current_user.id,
@@ -381,7 +381,7 @@ async def upload_delivery_photos_direct(
             file_path = local_svc.LOCAL_UPLOAD_ROOT / key
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_bytes(contents)
-            file_url = str(request.url_for("uploads", path=key))
+            file_url = local_svc.local_upload_url(request, key)
             record = local_svc.create_pending_upload(
                 db,
                 user_id=current_user.id,
