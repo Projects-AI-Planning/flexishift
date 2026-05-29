@@ -1,5 +1,6 @@
 import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {COUNTRIES} from '../../data/countries';
 import {
   ActivityIndicator,
   Alert,
@@ -104,6 +105,8 @@ const DRIVER_MODES = [
 interface ProfileForm {
   name: string;
   phone: string;
+  country?: string;
+  currency?: string;
   licenceNumber: string;
   vehicleType: string;
   vehicleRegistration: string;
@@ -266,6 +269,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [phoneDialCode, setPhoneDialCode] = useState(() => splitPhone(profileForm.phone).dialCode || '+44');
   const [phoneNumber, setPhoneNumber] = useState(() => splitPhone(profileForm.phone).number);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const selectedCountry = COUNTRIES.find(c => c.name === profileForm.country) ?? null;
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.toLowerCase().trim();
+    return q ? COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.code.includes(q)) : COUNTRIES;
+  }, [countrySearch]);
   const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
   const [extraDocNameInput, setExtraDocNameInput] = useState('');
   const [extraDocNumberInput, setExtraDocNumberInput] = useState('');
@@ -803,6 +813,68 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             />
           </View>
         </View>
+
+        {/* Country selector */}
+        <View style={phoneStyles.wrap}>
+          <Text style={phoneStyles.label}>COUNTRY</Text>
+          <Pressable
+            style={countryStyles.selector}
+            onPress={() => { setCountrySearch(''); setCountryPickerOpen(true); }}>
+            <Text style={countryStyles.flag}>{selectedCountry?.flag ?? '🌍'}</Text>
+            <Text style={selectedCountry ? countryStyles.selectedName : countryStyles.placeholder}>
+              {selectedCountry ? selectedCountry.name : 'Select your country'}
+            </Text>
+            <Text style={countryStyles.chevron}>▾</Text>
+          </Pressable>
+        </View>
+
+        {/* Country picker modal */}
+        <Modal
+          visible={countryPickerOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCountryPickerOpen(false)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setCountryPickerOpen(false)}>
+            <Pressable style={[styles.modalCard, {maxHeight: '80%', gap: 0}]} onPress={() => {}}>
+              <View style={[styles.modalHeader, {marginBottom: 0}]}>
+                <Text style={styles.modalTitle}>Select Country</Text>
+                <Pressable onPress={() => setCountryPickerOpen(false)} style={styles.modalCloseBtn}>
+                  <Text style={styles.modalCloseBtnText}>✕</Text>
+                </Pressable>
+              </View>
+              <View style={countryStyles.searchWrap}>
+                <TextInput
+                  style={countryStyles.searchInput}
+                  placeholder="Search country..."
+                  placeholderTextColor="#9CA3AF"
+                  value={countrySearch}
+                  onChangeText={setCountrySearch}
+                  autoCapitalize="none"
+                />
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                {filteredCountries.map((c, i) => {
+                  const active = c.name === profileForm.country;
+                  return (
+                    <Pressable
+                      key={c.name}
+                      style={[countryStyles.row, i < filteredCountries.length - 1 && countryStyles.rowBorder, active && countryStyles.rowActive]}
+                      onPress={() => {
+                        onChange({country: c.name, currency: c.currency});
+                        setCountryPickerOpen(false);
+                        setCountrySearch('');
+                      }}>
+                      <Text style={countryStyles.rowFlag}>{c.flag}</Text>
+                      <Text style={[countryStyles.rowName, active && countryStyles.rowNameActive]}>{c.name}</Text>
+                      <Text style={countryStyles.rowCode}>{c.code}</Text>
+                      {active && <Text style={countryStyles.rowTick}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Dial code picker modal */}
         <Modal
@@ -2208,6 +2280,39 @@ const cptStyles = StyleSheet.create({
   },
   addBtnDisabled: {opacity: 0.4},
   addBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+});
+
+const countryStyles = StyleSheet.create({
+  selector: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFFFFF', borderColor: '#C9D0DB',
+    borderRadius: radius.md, borderWidth: 1.5, minHeight: 52,
+    paddingHorizontal: spacing.lg,
+  },
+  flag: {fontSize: 20},
+  selectedName: {flex: 1, fontSize: 15, fontWeight: '600', color: '#111827'},
+  placeholder: {flex: 1, fontSize: 15, fontWeight: '500', color: '#9CA3AF'},
+  chevron: {color: '#6B7280', fontSize: 12},
+  searchWrap: {
+    borderBottomColor: '#F0F2F5', borderBottomWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  searchInput: {
+    backgroundColor: '#F9FAFB', borderColor: '#E5E7EB', borderRadius: 10,
+    borderWidth: 1, color: '#111827', fontSize: 15,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  row: {
+    alignItems: 'center', flexDirection: 'row', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 14,
+  },
+  rowBorder: {borderBottomColor: '#F3F4F6', borderBottomWidth: 1},
+  rowActive: {backgroundColor: '#EFF6FF'},
+  rowFlag: {fontSize: 22},
+  rowName: {flex: 1, fontSize: 15, fontWeight: '600', color: '#111827'},
+  rowNameActive: {color: '#1066B1'},
+  rowCode: {color: '#6B7280', fontSize: 14, fontWeight: '700'},
+  rowTick: {color: '#1066B1', fontSize: 16, fontWeight: '900', marginLeft: 4},
 });
 
 const scStyles = StyleSheet.create({

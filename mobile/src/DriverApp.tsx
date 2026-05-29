@@ -602,6 +602,8 @@ function DriverApp(): React.JSX.Element {
   const [profileForm, setProfileForm] = useState({
     name: '',
     phone: '',
+    country: '',
+    currency: '',
     licenceNumber: '',
     vehicleType: '',
     vehicleRegistration: '',
@@ -938,6 +940,8 @@ function DriverApp(): React.JSX.Element {
     setProfileForm({
       name: String(nextProfile.name ?? ''),
       phone: String(nextProfile.phone ?? ''),
+      country: String((nextProfile as any).country ?? ''),
+      currency: String((nextProfile as any).currency ?? ''),
       licenceNumber: String(nextProfileData?.licenceNumber ?? ''),
       vehicleType: String(nextProfileData?.vehicleType ?? ''),
       vehicleRegistration: String(nextProfileData?.vehicleRegistration ?? ''),
