@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     FIREBASE_CREDENTIALS_JSON: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
     BACKEND_URL: str = "http://localhost:8000"
-    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://flexishift.vercel.app,https://freightflex.vercel.app"
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8081,https://flexishift.vercel.app,https://freightflex.vercel.app,https://flexishift.io,https://www.flexishift.io"
 
     CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
