@@ -917,7 +917,7 @@ function HistoryShiftCard({shift}: {shift: ShiftItem}) {
       </Text>
       {totalEarned ? (
         <Text style={[styles.amountText, {color: isCancelled ? '#6B7280' : '#1066B1'}]}>
-          {isCancelled ? `Partial: $${totalEarned.toLocaleString()} (${shift.daysCompleted}/${shift.totalDays} days)` : `✓ Earned: $${totalEarned.toLocaleString()}`}
+          {isCancelled ? `Partial: ${sym}${totalEarned.toLocaleString()} (${shift.daysCompleted}/${shift.totalDays} days)` : `✓ Earned: ${sym}${totalEarned.toLocaleString()}`}
         </Text>
       ) : shift.dailyRate ? (
         <Text style={[styles.amountText, {color: '#1066B1'}]}>
@@ -935,14 +935,17 @@ function QuoteModal({
   loading,
   onSubmit,
   onClose,
+  currency,
 }: {
   shift: ShiftItem;
   loading: boolean;
   onSubmit: (amountPerDay: number, notes: string) => void;
   onClose: () => void;
+  currency?: string;
 }) {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
+  const sym = currencySymbol(currency || shift.currency);
   const total = amount ? (Number(amount) * shift.totalDays).toLocaleString() : '—';
 
   return (
@@ -954,7 +957,7 @@ function QuoteModal({
           <Text style={styles.modalTitle}>Submit Quote</Text>
           <Text style={styles.modalSub}>{shift.shiftRef} · {shift.totalDays} day(s)</Text>
 
-          <Text style={styles.inputLabel}>Daily Rate ($)</Text>
+          <Text style={styles.inputLabel}>Daily Rate ({sym || 'amount'})</Text>
           <TextInput
             style={styles.input}
             value={amount}
@@ -965,7 +968,7 @@ function QuoteModal({
             autoFocus
           />
           {amount ? (
-            <Text style={styles.totalPreview}>Total: ${total} for {shift.totalDays} days</Text>
+            <Text style={styles.totalPreview}>Total: {sym}{total} for {shift.totalDays} days</Text>
           ) : null}
 
           <Text style={styles.inputLabel}>Notes (optional)</Text>
@@ -1513,6 +1516,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           loading={actionLoading}
           onSubmit={handleSubmitQuote}
           onClose={() => setQuotingShift(null)}
+          currency={currency}
         />
       )}
     </SafeAreaView>
