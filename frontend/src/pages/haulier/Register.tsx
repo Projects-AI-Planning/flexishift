@@ -143,12 +143,6 @@ const Register: React.FC = () => {
                 </option>
               ))}
             </select>
-            {/* Currency badge derived from selected country */}
-            <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#1066b1]/8 border border-[#1066b1]/20 px-3 py-1.5">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Currency</span>
-              <span className="text-sm font-black text-[#1066b1]">{selectedCountry.currency}</span>
-              <span className="text-xs text-slate-400">— auto-set from your country</span>
-            </div>
           </div>
 
           {/* Phone — local number only, dial code from country */}
