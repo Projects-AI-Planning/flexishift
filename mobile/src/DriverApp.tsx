@@ -1835,6 +1835,7 @@ function DriverApp(): React.JSX.Element {
 
   const handleProceedToBooking = async (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => {
     setComplianceJobId(jobId);
+    setComplianceStatus(null);
     if (jobReference) {
       setComplianceJobRef(jobReference);
     }
@@ -2739,6 +2740,7 @@ function DriverApp(): React.JSX.Element {
     }
 
     setComplianceJobId(jobId);
+    setComplianceStatus(null);
     setSelectedBooking(null);
     setSelectedJob(null);
     setSelectedJobDetails(null);
@@ -3256,6 +3258,7 @@ function DriverApp(): React.JSX.Element {
             onBack={() => {
               if (selectedBooking) {
                 setComplianceJobId(selectedBooking.jobId);
+                setComplianceStatus(null);
                 navigate('tracking', 'compliance.loadCode');
               } else {
                 navigate('jobs', 'jobs.myQuotes');
@@ -3455,6 +3458,7 @@ function DriverApp(): React.JSX.Element {
             onViewJob={async () => {
               if (escrowJobId) {
                 setComplianceJobId(escrowJobId);
+                setComplianceStatus(null);
                 const ref = escrowDetails?.jobRef ? String(escrowDetails.jobRef) : escrowJobId;
                 setComplianceJobRef(ref);
                 const route = await resolveComplianceRoute(escrowJobId);
