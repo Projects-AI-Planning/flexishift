@@ -102,6 +102,9 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
         raise HTTPException(status_code=409, detail="Email already registered")
 
     detected_country, detected_currency = phone_to_country_currency(phone)
+    # Use client-provided currency/country if given, otherwise derive from phone
+    final_currency = (currency or detected_currency or "").upper() or None
+    final_country  = detected_country or None
 
     otp = _generate_otp()
     pending = {
@@ -110,8 +113,8 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
         "phone": phone or "",
         "password_hash": hash_password(password),
         "role": role,
-        "country": detected_country,
-        "currency": detected_currency,
+        "country": final_country,
+        "currency": final_currency,
         "otp": otp,
     }
     _store_pending(r, email, pending)
@@ -138,7 +141,7 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                 password_hash=pending["password_hash"],
                 role=Role(pending["role"]),
                 country=pending.get("country", "GB"),
-                currency=pending.get("currency"),
+                currency=pending.get("currency") or None,
                 status=UserStatus.ACTIVE,
                 verified=True,
             )

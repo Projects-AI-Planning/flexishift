@@ -268,11 +268,11 @@ function getAvailabilityGate(
 }
 
 const defaultLogin = {email: '', password: ''};
-const defaultRegister = {email: '', name: '', password: '', phone: '', currency: COUNTRIES[0].currency, fSkatNumber: ''};
+const defaultRegister = {email: '', name: '', password: '', phone: '', currency: '', fSkatNumber: ''};
 const defaultVerify = {email: '', otp: ''};
 const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
 const defaultQuoteForm = {
-  currency: 'GBP',
+  currency: '',
   jobId: '',
   notes: '',
   quoteAmount: '',
@@ -1749,7 +1749,7 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       try {
         await driverApi.quotes.submit({
-          currency: session?.currency ?? 'GBP',
+          currency: session?.currency ,
           jobId,
           notes,
           quoteAmount: Number(amount),
@@ -1783,7 +1783,7 @@ function DriverApp(): React.JSX.Element {
         jobId,
         jobReference: jobForQuote?.jobReference ?? jobForQuote?.jobRef ?? `Job #${jobId.slice(-6)}`,
         quoteAmount: Number(amount),
-        currency: 'USD',
+        currency: session?.currency,
         notes,
         status: 'ACTIVE',
         createdAt: new Date().toISOString(),
@@ -2082,7 +2082,7 @@ function DriverApp(): React.JSX.Element {
         jobReference: String(jobDetails?.jobReference ?? dashboardRef.current?.activeJob?.jobReference ?? jobId),
         haulierId: jobDetails?.haulierId ? String(jobDetails.haulierId) : undefined,
         amount: Number(jobDetails?.agreedAmount ?? dashboardRef.current?.activeJob?.agreedAmount ?? 0),
-        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? session?.currency ?? 'GBP'),
+        currency: String(jobDetails?.currency ?? dashboardRef.current?.activeJob?.currency ?? session?.currency ),
         completionDate: new Date().toISOString(),
         invoiceUrl: jobDetails?.invoiceUrl ? String(jobDetails.invoiceUrl) : undefined,
       });
@@ -2555,7 +2555,7 @@ function DriverApp(): React.JSX.Element {
           jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? jobId),
           haulierId: job?.haulierId ? String(job.haulierId) : undefined,
           amount: Number((res as any)?.amount ?? (job as any)?.agreedAmount ?? 0),
-          currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency ?? 'GBP'),
+          currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency ),
           completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
           invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
         });
@@ -2615,7 +2615,7 @@ function DriverApp(): React.JSX.Element {
             jobReference: String(job?.jobReference ?? jobId),
             haulierId: job?.haulierId ? String(job.haulierId) : undefined,
             amount: Number(job?.agreedAmount ?? 0),
-            currency: String(job?.currency ?? session?.currency ?? 'GBP'),
+            currency: String(job?.currency ?? session?.currency ),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
             invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
           });
@@ -2768,7 +2768,7 @@ function DriverApp(): React.JSX.Element {
     const status = String(item.status ?? 'booked').toLowerCase();
     const paymentSecured = item.paymentSecured === true || status === 'payment_secured' || status === 'in_transit' || status === 'delivery_submitted' || status === 'completed';
     const canStart = !['completed', 'cancelled'].includes(status) && paymentSecured;
-    const currency = String(item.currency ?? session?.currency ?? 'GBP');
+    const currency = String(item.currency ?? session?.currency );
     const symbol = currencySymbol(currency);
     const matchedQuote = myQuotes.find(q => String(q.jobId) === String(item.jobId));
     const rawAmount = item.agreedAmount ?? item.amount ?? item.totalAmount
@@ -3431,7 +3431,7 @@ function DriverApp(): React.JSX.Element {
                     specialInstructions: d.specialInstructions ? String(d.specialInstructions) : undefined,
                     distanceKm: d.distanceKm != null ? Number(d.distanceKm) : undefined,
                     amount: Number(d.amount ?? 0),
-                    currency: String(d.currency ?? session?.currency ?? 'GBP'),
+                    currency: String(d.currency ?? session?.currency ),
                     status: String(d.status ?? ''),
                     stripeIntentId: d.stripeIntentId ? String(d.stripeIntentId) : undefined,
                     stripeStatus: d.stripeStatus ? String(d.stripeStatus) : undefined,
