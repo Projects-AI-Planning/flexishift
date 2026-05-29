@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useResolvedDisputes } from '../../hooks/useAdmin';
 
-const fmt = (n: number) =>
+const fmt = (n: number, _cur = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD', maximumFractionDigits: 0 }).format(n);
 
 export default function ResolvedDisputesPage() {

@@ -18,6 +18,8 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.tracking import TrackingPoint
 from app.models.user import User, Role, UserStatus, UserProfile
 from app.models.compliance import ComplianceRecord
+from app.models.shift import Shift, ShiftStatus, ShiftPayment, ShiftPaymentStatus
+from app.models.shift_proof import ShiftDayProof
 from app.models.tracking import TrackingPoint
 from app.services.availability import is_available_on
 from app.services import suppliers as sup_svc
@@ -590,6 +592,77 @@ def haulier_pending_approval(
     return ok(
         data={"jobs": jobs, "totalPending": total, "page": page, "limit": limit},
         message="Jobs pending approval fetched successfully.",
+    )
+
+
+@router.get("/haulier/shifts/pending-payment")
+def haulier_shifts_pending_payment(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    """Returns shifts where the driver has submitted end-of-day proof but the
+    haulier has not yet released that day's escrowed payment."""
+
+    # Find all in-progress shifts owned by this haulier
+    shifts = (
+        db.query(Shift)
+        .filter(
+            Shift.haulier_id == current_user.id,
+            Shift.status.in_([ShiftStatus.IN_PROGRESS, ShiftStatus.BOOKED]),
+        )
+        .all()
+    )
+
+    pending = []
+    for shift in shifts:
+        pending_day = shift.days_completed + 1
+
+        # Check driver submitted EOD proof for pending_day
+        proof = (
+            db.query(ShiftDayProof)
+            .filter(
+                ShiftDayProof.shift_id == shift.id,
+                ShiftDayProof.day_number == pending_day,
+            )
+            .first()
+        )
+        if not proof:
+            continue
+
+        # Check escrowed payment exists for that day
+        payment = (
+            db.query(ShiftPayment)
+            .filter(
+                ShiftPayment.shift_id == shift.id,
+                ShiftPayment.day_number == pending_day,
+                ShiftPayment.status == ShiftPaymentStatus.ESCROWED,
+            )
+            .first()
+        )
+        if not payment:
+            continue
+
+        driver = db.query(User).filter(User.id == shift.selected_driver_id).first()
+        pending.append({
+            "shiftId": shift.id,
+            "shiftRef": shift.shift_ref,
+            "dayNumber": pending_day,
+            "totalDays": shift.total_days,
+            "driver": {
+                "name": driver.full_name if driver else None,
+                "phone": driver.phone if driver else None,
+            },
+            "dailyRate": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else (current_user.currency or settings.PAYMENT_CURRENCY),
+            "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
+            "proofNotes": proof.notes,
+            "hasPhoto": bool(proof.proof_photo_url),
+            "hasSignature": bool(proof.signature_data),
+        })
+
+    return ok(
+        data={"shifts": pending, "totalPending": len(pending)},
+        message="Shifts pending payment fetched.",
     )
 
 

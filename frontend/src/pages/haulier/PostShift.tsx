@@ -1004,8 +1004,6 @@ const PostShiftPage: React.FC = () => {
                     {firstArrivalDate && (
                       <ReviewRow label="Est. First Arrival" value={new Date(firstArrivalDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
                     )}
-                    {form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
-                    <ReviewRow label="Load Code"      value={form.loadCode} />
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">

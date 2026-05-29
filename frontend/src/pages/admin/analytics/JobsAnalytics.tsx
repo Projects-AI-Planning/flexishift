@@ -13,7 +13,7 @@ const STATUS_OPTIONS = [
   { value: 'DISPUTED', label: 'Disputed' },
 ];
 
-const fmtMoney = (value?: number) =>
+const fmtMoney = (value?: number, currency = 'USD') =>
   typeof value === 'number'
     ? new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(value)
     : '—';

@@ -60,6 +60,7 @@ type BidsLoad = {
   quoteCount: number;
   activeQuoteCount: number;
   lowestQuote?: number | null;
+  currency?: string;
   selectedQuote?: BidQuote | null;
   quotes: BidQuote[];
 };
@@ -76,6 +77,7 @@ type AwardedLoad = {
   jobDate?: string;
   timeSlot?: string;
   agreedAmount?: number;
+  currency?: string;
   paymentStatus?: string;
   selectedSupplier?: {
     name?: string;

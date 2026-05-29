@@ -519,6 +519,10 @@ def submit_shift_handover(
         raise HTTPException(status_code=422, detail="Shift is not active")
 
     shift.handover_submitted = True
+    shift.handover_checklist_data = checklist_data or {}
+    shift.handover_photo_urls = photo_urls or []
+    shift.handover_driver_signature = signature_data
+    shift.handover_submitted_at = datetime.utcnow()
     # Reset haulier sign-off in case this is a re-submit
     shift.handover_haulier_signed = False
     shift.handover_haulier_signed_at = None
@@ -556,6 +560,10 @@ def get_shift_handover_status(db: Session, shift_id: str) -> dict:
     shift = get_shift(db, shift_id)
     return {
         "handoverSubmitted": shift.handover_submitted,
+        "handoverSubmittedAt": shift.handover_submitted_at.isoformat() if shift.handover_submitted_at else None,
+        "checklistData": shift.handover_checklist_data or {},
+        "photoUrls": shift.handover_photo_urls or [],
+        "driverSignatureData": shift.handover_driver_signature,
         "handoverHaulierSigned": shift.handover_haulier_signed,
         "handoverHaulierSignedAt": (
             shift.handover_haulier_signed_at.isoformat()

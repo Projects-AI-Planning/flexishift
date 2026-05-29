@@ -61,7 +61,6 @@ interface FormState {
   driverRequirement:   string;
   accessCode:          string;
   loadCode:            string;
-  accessCode:          string;
   totalLitres:         string;
 }
 
@@ -96,7 +95,6 @@ const EMPTY: FormState = {
   driverRequirement:   'DRIVER_WITH_TRUCK',
   accessCode:          '',
   loadCode:            '',
-  accessCode:          '',
   totalLitres:         '',
 };
 

@@ -111,6 +111,7 @@ const haulierService = {
   getOverview: () => client.get('/dashboard/haulier/overview').then(res => res.data.data),
   getActiveJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/active', { params }).then(res => res.data.data),
   getPendingApprovalJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/pending-approval', { params }).then(res => res.data.data),
+  getPendingShiftPayments: () => client.get('/dashboard/haulier/shifts/pending-payment').then(res => res.data.data),
   listDisputes: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/disputes', { params }).then(res => res.data.data),
   getSpendSummary: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/spend-summary', { params }).then(res => mapSpendSummary(res.data.data)),
   getRevenueAnalytics: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/revenue', { params }).then(res => res.data.data),
@@ -178,6 +179,10 @@ const haulierService = {
   getShiftHandoverStatus: (shiftId: string) =>
     client.get(`/shifts/${shiftId}/handover/status`).then(res => res.data.data) as Promise<{
       handoverSubmitted: boolean;
+      handoverSubmittedAt: string | null;
+      checklistData: Record<string, boolean>;
+      photoUrls: string[];
+      driverSignatureData: string | null;
       handoverHaulierSigned: boolean;
       handoverHaulierSignedAt: string | null;
     }>,

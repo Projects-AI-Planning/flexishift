@@ -207,7 +207,6 @@ const ShiftPaymentModal: React.FC<ShiftPaymentModalProps> = ({
   const [confirming, setConfirming] = useState(false);
   const [cardError, setCardError]   = useState('');
   const isTest = order.publishableKey.startsWith('pk_test');
-  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   useEffect(() => {
     let alive = true;
@@ -355,15 +354,6 @@ interface QuotesPanelProps {
   onAccept: (quoteId: string) => void;
   onClose: () => void;
 }
-
-/* Small helper sub-components */
-const InfoRow: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) =>
-  value != null && value !== '' ? (
-    <div>
-      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
-      <p className="text-sm font-bold text-[#041627]">{String(value)}</p>
-    </div>
-  ) : null;
 
 const SectionTitle: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
   <div className="flex items-center gap-2 mb-3">
@@ -788,8 +778,6 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept })
   // Derive number of days from totalAmount ÷ amountPerDay
   const numDays = driverFeePerDay > 0 ? Math.round(driverTotal / driverFeePerDay) : 1;
 
-  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
   return (
     <div className={`rounded-2xl border p-4 transition ${isPending ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60'}`}>
       {/* Driver header */}
@@ -1109,6 +1097,186 @@ function ShiftSignatureCanvas({
   );
 }
 
+/* ── Shift Handover Panel ────────────────────────────────────────────────────── */
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  lightsSignals: 'Lights & Signals',
+  tirePressure:  'Tyre Pressure',
+  fluidLevels:   'Fluid Levels',
+  bodyDamage:    'Body Damage OK',
+};
+
+interface ShiftHandoverPanelProps {
+  shiftId: string;
+  shiftRef: string;
+  onClose: () => void;
+}
+
+const ShiftHandoverPanel: React.FC<ShiftHandoverPanelProps> = ({ shiftId, shiftRef, onClose }) => {
+  const [data, setData] = useState<{
+    handoverSubmitted: boolean;
+    handoverSubmittedAt: string | null;
+    checklistData: Record<string, boolean>;
+    photoUrls: string[];
+    driverSignatureData: string | null;
+    handoverHaulierSigned: boolean;
+    handoverHaulierSignedAt: string | null;
+    handoverHaulierSignatureData: string | null;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    haulierService.getShiftHandoverStatus(shiftId)
+      .then((d) => setData(d as typeof data))
+      .catch(() => setError('Failed to load handover details.'))
+      .finally(() => setLoading(false));
+  }, [shiftId]);
+
+  const fmt = (iso?: string | null) =>
+    iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 shrink-0">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Shift Handover</p>
+            <h2 className="text-xl font-black text-[#041627] font-mono">{shiftRef}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1066b1] border-t-transparent" />
+            </div>
+          )}
+          {!loading && error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+          )}
+          {!loading && data && (
+            <>
+              {/* Signature status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`rounded-2xl border px-4 py-3 text-center ${data.handoverSubmitted ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Driver Submitted</p>
+                  {data.handoverSubmitted ? (
+                    <>
+                      <span className="material-symbols-outlined text-emerald-600 text-base block">verified</span>
+                      <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">{fmt(data.handoverSubmittedAt)}</p>
+                    </>
+                  ) : (
+                    <span className="material-symbols-outlined text-slate-300 text-base block">pending</span>
+                  )}
+                </div>
+                <div className={`rounded-2xl border px-4 py-3 text-center ${data.handoverHaulierSigned ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Haulier Signed</p>
+                  {data.handoverHaulierSigned ? (
+                    <>
+                      <span className="material-symbols-outlined text-emerald-600 text-base block">verified</span>
+                      <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">{fmt(data.handoverHaulierSignedAt)}</p>
+                    </>
+                  ) : (
+                    <span className="material-symbols-outlined text-slate-300 text-base block">pending</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Vehicle checklist */}
+              {data.checklistData && Object.keys(data.checklistData).length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-[#1066b1]">fact_check</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicle Checklist</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {Object.entries(data.checklistData).map(([key, passed]) => (
+                      <div key={key} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                        <span className="text-sm font-semibold text-[#44474C]">
+                          {CHECKLIST_LABELS[key] ?? key}
+                        </span>
+                        <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-wider ${passed ? 'text-emerald-600' : 'text-red-500'}`}>
+                          <span className="material-symbols-outlined text-[14px]">{passed ? 'check_circle' : 'cancel'}</span>
+                          {passed ? 'OK' : 'Issue'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Driver signature */}
+              {data.driverSignatureData && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-[#1066b1]">draw</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Signature</p>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    <img src={data.driverSignatureData} alt="Driver signature" className="h-24 w-full object-contain" />
+                  </div>
+                </div>
+              )}
+
+              {/* Vehicle condition photos */}
+              {data.photoUrls && data.photoUrls.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-[#1066b1]">photo_camera</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Vehicle Condition Photos · {data.photoUrls.length}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {data.photoUrls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer"
+                        className="group relative block overflow-hidden rounded-xl border border-slate-200">
+                        <img src={url} alt={`Condition photo ${i + 1}`} className="h-32 w-full object-cover transition group-hover:opacity-80" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                          <span className="material-symbols-outlined text-white drop-shadow text-2xl">open_in_new</span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Haulier signature */}
+              {data.handoverHaulierSignatureData && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-[#1066b1]">verified</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Haulier Counter-Signature</p>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    <img src={data.handoverHaulierSignatureData} alt="Haulier signature" className="h-24 w-full object-contain" />
+                  </div>
+                </div>
+              )}
+
+              {!data.handoverSubmitted && (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <span className="material-symbols-outlined text-3xl text-slate-300">assignment_late</span>
+                  <p className="font-black text-slate-400">No handover submitted yet</p>
+                  <p className="text-sm text-slate-400">The driver hasn't completed the pre-trip handover checklist.</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── Main Component ─────────────────────────────────────────────────────────── */
 
 const HaulierShiftsPage: React.FC = () => {
@@ -1140,6 +1308,9 @@ const HaulierShiftsPage: React.FC = () => {
   const [signLoading,    setSignLoading]    = useState(false);
   const [signError,      setSignError]      = useState('');
   const [savedEsignature, setSavedEsignature] = useState<string | null>(null);
+
+  /* Shift handover panel */
+  const [handoverShift, setHandoverShift] = useState<{ shiftId: string; shiftRef: string } | null>(null);
 
   /* Driver live-tracking panel */
   const [trackingShift, setTrackingShift] = useState<ShiftItem | null>(null);
@@ -1346,11 +1517,20 @@ const HaulierShiftsPage: React.FC = () => {
     activeStatus === 'BOOKED'      ? 7 :
     activeStatus === 'IN_PROGRESS' ? 7 :
     activeStatus === 'EXPIRED'     ? 5 :
-    activeStatus === 'COMPLETED'   ? 6 :
-    /* CANCELLED */                  6;
+    activeStatus === 'COMPLETED'   ? 7 :
+    /* CANCELLED */                  7;
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+
+      {/* ── Shift Handover Panel ── */}
+      {handoverShift && (
+        <ShiftHandoverPanel
+          shiftId={handoverShift.shiftId}
+          shiftRef={handoverShift.shiftRef}
+          onClose={() => setHandoverShift(null)}
+        />
+      )}
 
       {/* ── Handover signature modal ── */}
       {signModalShift && (
@@ -1581,6 +1761,9 @@ const HaulierShiftsPage: React.FC = () => {
                 {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
                   <th className="pl-10 pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
                 )}
+                {(activeStatus === 'COMPLETED' || activeStatus === 'CANCELLED') && (
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Handover</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1713,6 +1896,16 @@ const HaulierShiftsPage: React.FC = () => {
                                 Handover Signed
                               </span>
                             )}
+                            {/* View Handover details — always available when handover submitted */}
+                            {shift.handoverSubmitted && (
+                              <button
+                                onClick={() => setHandoverShift({ shiftId: shift.shiftId, shiftRef: shift.shiftRef })}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">fact_check</span>
+                                View Handover
+                              </button>
+                            )}
                             {/* Track Driver — available for IN_PROGRESS shifts with a driver */}
                             {shift.status.toUpperCase() === 'IN_PROGRESS' && shift.selectedDriverId && (
                               <button
@@ -1733,6 +1926,22 @@ const HaulierShiftsPage: React.FC = () => {
                               </button>
                             )}
                           </div>
+                        )}
+                      </td>
+                    )}
+                    {/* Handover view for completed/cancelled shifts */}
+                    {(activeStatus === 'COMPLETED' || activeStatus === 'CANCELLED') && (
+                      <td className="px-6 py-5">
+                        {shift.handoverSubmitted ? (
+                          <button
+                            onClick={() => setHandoverShift({ shiftId: shift.shiftId, shiftRef: shift.shiftRef })}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">fact_check</span>
+                            View
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </td>
                     )}

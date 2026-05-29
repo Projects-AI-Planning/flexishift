@@ -60,6 +60,7 @@ export interface Job {
   vehicleType?: string;
   weightKg?: number;
   agreedAmount?: number;
+  currency?: string;
   paymentStatus?: string;
   isDelayed?: boolean;
   hasDispute?: boolean;

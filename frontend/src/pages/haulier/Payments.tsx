@@ -89,6 +89,7 @@ interface BookedJob {
   jobDate?: string;
   timeSlot?: string;
   agreedAmount?: number | null;
+  currency?: string;
   paymentStatus?: string | null;
 }
 
