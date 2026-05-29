@@ -89,13 +89,15 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
     );
   }
 
-  const pickup   = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
-  const drop     = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
-  const cargo    = String(job?.goodsType       ?? job?.cargoType      ?? '—');
-  const vehicle  = String(job?.vehicleTypeRequired ?? job?.vehicleType ?? '—');
-  const jobDate  = String(job?.jobDate         ?? '—');
-  const weight   = job?.weightKg ? `${job.weightKg} kg` : '—';
-  const ref      = String(job?.jobReference    ?? job?.jobRef ?? jobReference ?? jobId);
+  const pickup      = String(job?.pickupLocation  ?? job?.pickupAddress  ?? '—');
+  const drop        = String(job?.dropLocation    ?? job?.dropAddress    ?? '—');
+  const cargo       = String(job?.goodsType       ?? job?.cargoType      ?? '—');
+  const jobDate     = String(job?.jobDate         ?? '—');
+  const distance    = job?.distanceKm ? `${job.distanceKm} km` : '—';
+  const deliverBy   = String(job?.jobTime ?? job?.timeSlot ?? '—');
+  const capacity    = job?.totalCapacity ? `${job.totalCapacity} L` : (job?.totalLitres ? `${job.totalLitres} L` : '—');
+  const compartments = job?.compartments ? String(job.compartments) : '—';
+  const ref         = String(job?.jobReference    ?? job?.jobRef ?? jobReference ?? jobId);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -150,15 +152,11 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
                 </View>
               </View>
 
+              {/* Row 1: Cargo · Date · Distance */}
               <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
                   <Text style={styles.metaLabel}>CARGO</Text>
                   <Text style={styles.metaValue}>{cargo}</Text>
-                </View>
-                <View style={styles.metaDivider} />
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>VEHICLE</Text>
-                  <Text style={styles.metaValue}>{vehicle}</Text>
                 </View>
                 <View style={styles.metaDivider} />
                 <View style={styles.metaItem}>
@@ -167,8 +165,25 @@ const LoadCodeScreen: React.FC<LoadCodeScreenProps> = ({
                 </View>
                 <View style={styles.metaDivider} />
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>WEIGHT</Text>
-                  <Text style={styles.metaValue}>{weight}</Text>
+                  <Text style={styles.metaLabel}>DISTANCE</Text>
+                  <Text style={styles.metaValue}>{distance}</Text>
+                </View>
+              </View>
+              {/* Row 2: Deliver By · Capacity · Compartments */}
+              <View style={[styles.metaRow, {marginTop: 6}]}>
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>DELIVER BY</Text>
+                  <Text style={styles.metaValue}>{deliverBy}</Text>
+                </View>
+                <View style={styles.metaDivider} />
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>CAPACITY</Text>
+                  <Text style={styles.metaValue}>{capacity}</Text>
+                </View>
+                <View style={styles.metaDivider} />
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>COMPART.</Text>
+                  <Text style={styles.metaValue}>{compartments}</Text>
                 </View>
               </View>
             </View>
