@@ -78,7 +78,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depen
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r, currency=body.currency)
+    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r, currency=body.currency, country=body.country)
     return created(
         data={
             "email": result["email"],

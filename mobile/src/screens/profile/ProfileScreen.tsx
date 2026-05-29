@@ -271,7 +271,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
-  const selectedCountry = COUNTRIES.find(c => c.name === profileForm.country) ?? null;
+  // Backend stores the 2-letter ISO code (e.g. "GB") — look up by iso field
+  const selectedCountry = COUNTRIES.find(c => c.iso === profileForm.country) ?? null;
   const filteredCountries = useMemo(() => {
     const q = countrySearch.toLowerCase().trim();
     return q ? COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.code.includes(q)) : COUNTRIES;
@@ -860,7 +861,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       key={c.name}
                       style={[countryStyles.row, i < filteredCountries.length - 1 && countryStyles.rowBorder, active && countryStyles.rowActive]}
                       onPress={() => {
-                        onChange({country: c.name, currency: c.currency});
+                        onChange({country: c.iso, currency: c.currency});
                         setCountryPickerOpen(false);
                         setCountrySearch('');
                       }}>

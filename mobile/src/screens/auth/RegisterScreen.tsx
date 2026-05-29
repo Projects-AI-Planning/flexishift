@@ -183,7 +183,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
     clearErr('phone');
   };
 
-  // Country selection drives both phone dial code AND currency
+  // Country selection drives phone dial code, country (ISO) and currency
   const handleCountrySelect = (country: Country) => {
     setSelectedCountry(country);
     const digits = localPhone.replace(/\D/g, '');
@@ -191,6 +191,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
     setRegisterForm((prev: any) => ({
       ...prev,
       phone: full,
+      country: country.iso,
       currency: country.currency,
     }));
     clearErr('phone');

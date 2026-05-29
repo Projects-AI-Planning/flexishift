@@ -97,14 +97,14 @@ def _delete_pending(r, email: str) -> None:
         _pending_store.pop(email, None)
 
 
-async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None) -> dict:
+async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None, country: str | None = None) -> dict:
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
     detected_country, detected_currency = phone_to_country_currency(phone)
-    # Use client-provided currency/country if given, otherwise derive from phone
+    # Prefer client-provided values; fall back to phone-detected ones
+    final_country  = (country or detected_country or "").upper()[:2] or None
     final_currency = (currency or detected_currency or "").upper() or None
-    final_country  = detected_country or None
 
     otp = _generate_otp()
     pending = {
@@ -140,7 +140,7 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                 phone=pending["phone"],
                 password_hash=pending["password_hash"],
                 role=Role(pending["role"]),
-                country=pending.get("country", "GB"),
+                country=pending.get("country"),
                 currency=pending.get("currency") or None,
                 status=UserStatus.ACTIVE,
                 verified=True,
