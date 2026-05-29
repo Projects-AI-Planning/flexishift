@@ -35,7 +35,7 @@ type LiveTrackingData = {
 
 import { fmtMoney } from '../../utils/currency';
 
-const formatCurrency = (amount?: number | null, cur = 'GBP') => (typeof amount === 'number' ? fmtMoney(amount, cur) : '—');
+const formatCurrency = (amount?: number | null, cur?: string) => (typeof amount === 'number' ? fmtMoney(amount, cur) : '—');
 
 const formatLastSeen = (value?: string | null) => {
   if (!value) return 'No ping';

@@ -81,7 +81,7 @@ export default function HaulierRevenuePage() {
   const items = data?.items ?? [];
   const chartMax = Math.max(...breakdown.map((item) => item.value), 1);
   const periodLabel = data?.period ?? `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
-  const currency = summary.currency || user?.currency || 'GBP';
+  const currency = summary.currency || user?.currency;
   const fmt = (value: number, cur?: string) => fmtMoney(value, cur ?? currency);
 
   return (

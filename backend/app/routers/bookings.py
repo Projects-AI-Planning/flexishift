@@ -64,7 +64,7 @@ def _booking_dict(job: Job) -> dict:
         (q for q in (job.quotes or []) if q.status == QuoteStatus.SELECTED), None
     )
     quote_amount = float(selected_quote.price) if selected_quote else None
-    quote_currency = selected_quote.currency if selected_quote else "GBP"
+    quote_currency = selected_quote.currency if selected_quote else None
 
     # Prefer payment amount (final); fall back to the winning quote price
     display_amount = agreed_amount if agreed_amount is not None else quote_amount

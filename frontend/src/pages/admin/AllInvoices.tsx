@@ -26,7 +26,7 @@ const jobStatusStyle: Record<string, string> = {
   cancelled:            'text-red-500',
 };
 
-const fmt = (val: number, cur = 'GBP') => fmtMoney(val, cur);
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const AllInvoicesPage: React.FC = () => {
   const [params, setParams] = useState({

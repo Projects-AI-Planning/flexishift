@@ -3,7 +3,7 @@ import { useResolvedDisputes } from '../../hooks/useAdmin';
 
 import { fmtMoney } from '../../utils/currency';
 
-const fmt = (n: number, cur = 'GBP') => fmtMoney(n, cur);
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 export default function ResolvedDisputesPage() {
   const [search, setSearch] = useState('');

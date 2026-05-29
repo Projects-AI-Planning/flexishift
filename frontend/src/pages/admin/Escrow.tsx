@@ -5,7 +5,7 @@ import type { AdminPayment } from '../../types';
 
 import { fmtMoney } from '../../utils/currency';
 
-const fmt = (val: number, cur = 'GBP') => fmtMoney(val, cur);
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const EscrowPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: 'ESCROWED', search: '', limit: 10 });

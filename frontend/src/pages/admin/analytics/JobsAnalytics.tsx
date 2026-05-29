@@ -15,7 +15,7 @@ const STATUS_OPTIONS = [
 
 import { fmtMoney as _fmtMoney } from '../../../utils/currency';
 
-const fmtMoney = (value?: number, currency = 'GBP') =>
+const fmtMoney = (value?: number, currency?: string) =>
   typeof value === 'number' ? _fmtMoney(value, currency) : '—';
 
 const statusTone = (status: string) => {

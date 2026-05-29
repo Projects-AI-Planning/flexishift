@@ -45,7 +45,7 @@ type CostReport = {
 
 export default function HaulierCostsPage() {
   const { user } = useAuth();
-  const userCurrency = user?.currency ?? 'GBP';
+  const userCurrency = user?.currency;
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [data, setData] = useState<CostReport | null>(null);

@@ -25,7 +25,7 @@ class Payment(Base):
     gateway_payment_id: Mapped[str]           = mapped_column(String(100), nullable=True)
     gateway_payout_id:  Mapped[str]           = mapped_column(String(100), nullable=True)
     amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)
-    currency:           Mapped[str]           = mapped_column(String(3), nullable=False, default="GBP")
+    currency:           Mapped[str]           = mapped_column(String(3), nullable=True)
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
     escrowed_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     released_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)

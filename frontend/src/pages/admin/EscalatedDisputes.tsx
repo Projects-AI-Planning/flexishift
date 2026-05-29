@@ -5,7 +5,7 @@ import type { Dispute } from '../../types';
 
 import { fmtMoney } from '../../utils/currency';
 
-const fmt = (n: number, cur = 'GBP') => fmtMoney(n, cur);
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 function urgencyColor(hours: number) {
   if (hours >= 168) return 'bg-red-600 text-white';

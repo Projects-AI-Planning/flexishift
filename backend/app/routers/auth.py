@@ -20,14 +20,14 @@ _PHONE_PREFIX_CURRENCY: dict = {
     '+971': 'AED', '+966': 'SAR',
 }
 
-def _user_currency(user: User) -> str:
+def _user_currency(user: User) -> str | None:
     if user.currency:
         return user.currency
     phone = user.phone or ''
     for prefix in sorted(_PHONE_PREFIX_CURRENCY, key=len, reverse=True):
         if phone.startswith(prefix):
             return _PHONE_PREFIX_CURRENCY[prefix]
-    return settings.PAYMENT_CURRENCY
+    return None
 from app.schemas.auth import (
     RegisterRequest, VerifyEmailRequest, LoginRequest,
     TokenResponse, RefreshRequest, ForgotPasswordRequest,

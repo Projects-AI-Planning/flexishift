@@ -10,7 +10,7 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-const fmt = (n: number, cur = 'GBP') => fmtMoney(n, cur);
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 const fmtNum = (n: number) =>
   new Intl.NumberFormat('en-US').format(n);

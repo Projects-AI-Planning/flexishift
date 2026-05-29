@@ -48,7 +48,7 @@ def _job_dict(job: Job) -> dict:
         "selectedSupplierId": job.selected_supplier_id,
         "originalEta": job.original_eta.isoformat() if job.original_eta else None,
         "agreedAmount": float(payment.amount) if payment else None,
-        "currency": payment.currency if payment else "GBP",
+        "currency": payment.currency if payment else None,
         "invoiceUrl": job.invoice_url,
         "createdAt": job.created_at.isoformat() if job.created_at else None,
         "updatedAt": job.updated_at.isoformat() if job.updated_at else None,

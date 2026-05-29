@@ -5,7 +5,7 @@ import type { Dispute } from '../../types';
 
 import { fmtMoney } from '../../utils/currency';
 
-const fmt = (n: number, cur = 'GBP') => fmtMoney(n, cur);
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 export default function ActiveDisputesPage() {
   const [search, setSearch] = useState('');

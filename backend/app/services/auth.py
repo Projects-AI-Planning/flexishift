@@ -138,7 +138,7 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
                 password_hash=pending["password_hash"],
                 role=Role(pending["role"]),
                 country=pending.get("country", "GB"),
-                currency=pending.get("currency", "GBP"),
+                currency=pending.get("currency"),
                 status=UserStatus.ACTIVE,
                 verified=True,
             )

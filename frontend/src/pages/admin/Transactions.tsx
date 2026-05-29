@@ -20,7 +20,7 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   failed:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-const fmt = (val: number, cur = 'GBP') => fmtMoney(val, cur);
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const TransactionsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });

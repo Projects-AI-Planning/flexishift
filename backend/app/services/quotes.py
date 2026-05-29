@@ -44,7 +44,7 @@ async def submit_quote(
 
     quote = Quote(
         job_id=job_id, supplier_id=supplier.id, price=price,
-        currency=supplier.currency or "GBP",
+        currency=supplier.currency,
         deliver_by=deliver_by,
         stop_etas=stop_etas,
     )

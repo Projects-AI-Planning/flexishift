@@ -67,7 +67,7 @@ def list_invoices(
             "jobRef": job.job_ref,
             "invoiceUrl": job.invoice_url,
             "amount": float(payment.amount) if payment else None,
-            "currency": payment.currency if payment else "GBP",
+            "currency": payment.currency if payment else None,
         })
     return ok(data={"items": result, "total": total, "page": page, "perPage": per_page}, message="Invoices retrieved")
 

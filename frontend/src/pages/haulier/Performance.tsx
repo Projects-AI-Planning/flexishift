@@ -86,7 +86,7 @@ export default function HaulierPerformancePage() {
   }, [params]);
 
   const summary = data?.summary ?? {};
-  const currency = summary.currency || user?.currency || 'GBP';
+  const currency = summary.currency || user?.currency;
   const fmt = (value: number) => fmtMoney(value, currency);
   const breakdown = data?.breakdown ?? [];
   const items = data?.items ?? [];

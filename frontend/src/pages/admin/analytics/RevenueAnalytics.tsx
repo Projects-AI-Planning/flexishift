@@ -11,7 +11,7 @@ const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
 import { fmtMoney } from '../../../utils/currency';
 
-const fmt = (value: number, currency = 'GBP') => fmtMoney(value, currency);
+const fmt = (value: number, currency?: string) => fmtMoney(value, currency);
 
 export default function RevenueAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);

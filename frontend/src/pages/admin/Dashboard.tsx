@@ -3,7 +3,7 @@ import { useAdminStats } from '../../hooks/useAdmin';
 
 import { fmtMoney } from '../../utils/currency';
 
-const fmtCurrency = (value: number, currency = 'GBP') => fmtMoney(value, currency);
+const fmtCurrency = (value: number, currency?: string) => fmtMoney(value, currency);
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
