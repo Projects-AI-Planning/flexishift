@@ -206,6 +206,14 @@ type HandoverInfo = {
   loading: boolean;
 };
 
+type PendingShiftPayment = {
+  shiftId: string; shiftRef: string; dayNumber: number; totalDays: number;
+  driver?: { name?: string; phone?: string } | null;
+  dailyRate?: number | null; currency?: string;
+  proofSubmittedAt?: string | null; proofNotes?: string | null;
+  hasPhoto?: boolean; hasSignature?: boolean;
+};
+
 type PendingApprovalJob = {
   jobId: string;
   jobReference: string;
@@ -246,6 +254,13 @@ const HaulierOverview: React.FC = () => {
   const [disputeError, setDisputeError] = useState('');
   const [showAllEscrow, setShowAllEscrow] = useState(false);
   const [showAllHandover, setShowAllHandover] = useState(false);
+
+  // Pending shift payment state
+  const [pendingShiftPayments, setPendingShiftPayments] = useState<PendingShiftPayment[]>([]);
+  const [pendingShiftLoading, setPendingShiftLoading] = useState(true);
+  const [releasingShiftId, setReleasingShiftId] = useState<string | null>(null);
+  const [shiftReleaseError, setShiftReleaseError] = useState<Record<string, string>>({});
+  const [showAllShift, setShowAllShift] = useState(false);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
   const summary = dashboardData?.summary ?? {};
@@ -376,6 +391,35 @@ const HaulierOverview: React.FC = () => {
   }, []);
 
   useEffect(() => { void fetchPendingApproval(); }, [fetchPendingApproval]);
+
+  const fetchPendingShiftPayments = useCallback(async () => {
+    setPendingShiftLoading(true);
+    try {
+      const res = await haulierService.getPendingShiftPayments() as { shifts?: PendingShiftPayment[]; totalPending?: number };
+      setPendingShiftPayments(res.shifts ?? []);
+    } catch {
+      // silently fail
+    } finally {
+      setPendingShiftLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchPendingShiftPayments(); }, [fetchPendingShiftPayments]);
+
+  const handleReleaseShiftPayment = async (shift: PendingShiftPayment) => {
+    setReleasingShiftId(shift.shiftId);
+    setShiftReleaseError((prev) => { const n = { ...prev }; delete n[shift.shiftId]; return n; });
+    try {
+      await haulierService.completeShiftDay(shift.shiftId);
+      setPendingShiftPayments((prev) => prev.filter((s) => s.shiftId !== shift.shiftId));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; detail?: string } } };
+      const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to release payment.';
+      setShiftReleaseError((prev) => ({ ...prev, [shift.shiftId]: msg }));
+    } finally {
+      setReleasingShiftId(null);
+    }
+  };
 
   const handleApproveDelivery = async (job: PendingApprovalJob) => {
     setApprovingJobId(job.jobId);
@@ -624,6 +668,110 @@ const HaulierOverview: React.FC = () => {
             >
               <span className="material-symbols-outlined text-sm">{showAllEscrow ? 'expand_less' : 'expand_more'}</span>
               {showAllEscrow ? 'Show less' : `View ${pendingApprovalJobs.length - 1} more`}
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* ── Pending Shift Payment Release ──────────────────────────────────── */}
+      {!pendingShiftLoading && pendingShiftPayments.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border-2 border-[#1066b1] bg-white shadow-[0_12px_35px_rgba(16,102,177,0.12)]">
+          <div className="flex flex-wrap items-center gap-3 border-b border-[#1066b1]/15 bg-[#1066b1]/8 px-4 py-3 sm:px-6 sm:py-4">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1066b1] text-white">
+              <span className="material-symbols-outlined text-sm">event_available</span>
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-black text-[#041627] text-base sm:text-lg">Shifts Awaiting Payment Release</h2>
+              <p className="text-xs sm:text-sm text-slate-500">Driver has completed their day — review and release payment.</p>
+            </div>
+            <span className="rounded-full bg-[#1066b1] px-2.5 py-1 text-xs font-black text-white shrink-0 animate-pulse">
+              {pendingShiftPayments.length} pending
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(showAllShift ? pendingShiftPayments : pendingShiftPayments.slice(0, 1)).map((shift) => {
+              const isReleasing = releasingShiftId === shift.shiftId;
+              return (
+                <div key={shift.shiftId} className="px-4 py-5 sm:px-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-base font-black text-[#041627]">{shift.shiftRef}</span>
+                        <span className="rounded-full bg-[#1066b1]/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#0a4a8f]">
+                          Day {shift.dayNumber} of {shift.totalDays}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Driver</p>
+                          <p className="font-bold text-[#44474C]">{shift.driver?.name ?? 'Unknown'}</p>
+                          {shift.driver?.phone && <p className="text-slate-400">{shift.driver.phone}</p>}
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Day Payment</p>
+                          <p className="font-black text-[#1066b1] text-sm">
+                            {shift.dailyRate != null ? fmtMoney(shift.dailyRate, shift.currency ?? userCurrency) : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">EOD Submitted</p>
+                          <p className="font-bold text-[#44474C]">
+                            {shift.proofSubmittedAt
+                              ? new Date(shift.proofSubmittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Proof</p>
+                          <div className="flex gap-2 mt-0.5">
+                            {shift.hasPhoto && (
+                              <span className="flex items-center gap-1 text-[10px] font-semibold text-[#1066b1]">
+                                <span className="material-symbols-outlined text-[12px]">photo_camera</span> Photo
+                              </span>
+                            )}
+                            {shift.hasSignature && (
+                              <span className="flex items-center gap-1 text-[10px] font-semibold text-[#1066b1]">
+                                <span className="material-symbols-outlined text-[12px]">draw</span> Signed
+                              </span>
+                            )}
+                            {!shift.hasPhoto && !shift.hasSignature && <span className="text-[10px] text-slate-400">—</span>}
+                          </div>
+                        </div>
+                      </div>
+                      {shift.proofNotes && (
+                        <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <span className="font-black text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Driver Notes</span>
+                          {shift.proofNotes}
+                        </div>
+                      )}
+                      {shiftReleaseError[shift.shiftId] && (
+                        <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{shiftReleaseError[shift.shiftId]}</div>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => void handleReleaseShiftPayment(shift)}
+                        disabled={isReleasing || releasingShiftId !== null}
+                        className="flex items-center gap-2 rounded-xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 hover:bg-[#0d55a0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-base">
+                          {isReleasing ? 'hourglass_top' : 'payments'}
+                        </span>
+                        {isReleasing ? 'Releasing…' : 'Release Payment'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {pendingShiftPayments.length > 1 && (
+            <button
+              onClick={() => setShowAllShift((v) => !v)}
+              className="flex w-full items-center justify-center gap-2 border-t border-slate-100 py-3 text-xs font-black text-[#1066b1] hover:bg-[#1066b1]/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">{showAllShift ? 'expand_less' : 'expand_more'}</span>
+              {showAllShift ? 'Show less' : `View ${pendingShiftPayments.length - 1} more`}
             </button>
           )}
         </section>
