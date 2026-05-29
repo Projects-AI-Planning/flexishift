@@ -1,12 +1,9 @@
 import { useMemo } from 'react';
 import { useAdminStats } from '../../hooks/useAdmin';
 
-const fmtCurrency = (value: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
+import { fmtMoney } from '../../utils/currency';
+
+const fmtCurrency = (value: number, currency = 'GBP') => fmtMoney(value, currency);
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 

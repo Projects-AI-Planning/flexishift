@@ -13,10 +13,10 @@ const STATUS_OPTIONS = [
   { value: 'DISPUTED', label: 'Disputed' },
 ];
 
-const fmtMoney = (value?: number, currency = 'USD') =>
-  typeof value === 'number'
-    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(value)
-    : '—';
+import { fmtMoney as _fmtMoney } from '../../../utils/currency';
+
+const fmtMoney = (value?: number, currency = 'GBP') =>
+  typeof value === 'number' ? _fmtMoney(value, currency) : '—';
 
 const statusTone = (status: string) => {
   const normalized = status.toLowerCase();

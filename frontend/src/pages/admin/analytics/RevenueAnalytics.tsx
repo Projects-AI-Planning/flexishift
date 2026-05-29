@@ -9,12 +9,9 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+import { fmtMoney } from '../../../utils/currency';
+
+const fmt = (value: number, currency = 'GBP') => fmtMoney(value, currency);
 
 export default function RevenueAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);

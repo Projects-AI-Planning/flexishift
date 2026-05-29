@@ -23,7 +23,7 @@ class Quote(Base):
     job_id:      Mapped[str]         = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False)
     supplier_id: Mapped[str]         = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     price:       Mapped[float]       = mapped_column(DECIMAL(12, 2), nullable=False)
-    currency:    Mapped[str]         = mapped_column(String(3), nullable=False, default="USD")
+    currency:    Mapped[str]         = mapped_column(String(3), nullable=False, default="GBP")
     status:      Mapped[QuoteStatus] = mapped_column(Enum(QuoteStatus), nullable=False, default=QuoteStatus.ACTIVE)
     deliver_by:  Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     stop_etas:   Mapped[Optional[list]]     = mapped_column(JSON, nullable=True)

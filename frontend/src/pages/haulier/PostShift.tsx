@@ -174,12 +174,12 @@ const PostShiftPage: React.FC = () => {
       setStopDeliveryTimes({});
       return;
     }
-    // Use exact "HH:MM" time entered by user on the start date
-    const departure = new Date(`${form.startDate}T${form.timeSlot}:00`);
-    const totalMs    = routeCoords.durationMin * 60 * 1000;
+    // timeSlot = "Deliver By" deadline → arrival time; departure is calculated backwards
+    const arrival  = new Date(`${form.startDate}T${form.timeSlot}:00`);
+    const totalMs  = routeCoords.durationMin * 60 * 1000;
+    const departure = new Date(arrival.getTime() - totalMs);
 
-    // ── First arrival date ──
-    const arrival = new Date(departure.getTime() + totalMs);
+    // ── First arrival date (the deliver-by date) ──
     const y = arrival.getFullYear();
     const m = String(arrival.getMonth() + 1).padStart(2, '0');
     const d = String(arrival.getDate()).padStart(2, '0');
@@ -294,7 +294,7 @@ const PostShiftPage: React.FC = () => {
       if (form.endDate < form.startDate)      return 'End date must be on or after start date.';
       if (!form.hoursPerDay || Number(form.hoursPerDay) < 1 || Number(form.hoursPerDay) > 24)
         return 'Hours per day must be between 1 and 24.';
-      if (!form.timeSlot)                     return 'Please select a shift start time.';
+      if (!form.timeSlot)                     return 'Please select a delivery time.';
       if (form.startDate === today && isTimePassed(form.timeSlot))
         return 'The selected start time has already passed for today. Please choose a later time.';
     }
@@ -401,12 +401,6 @@ const PostShiftPage: React.FC = () => {
               <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Shift Reference</p>
               <p className="text-2xl font-black text-white font-mono tracking-tight">{created.shiftRef}</p>
             </div>
-            {created.loadCode && (
-              <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
-                <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Load Code</p>
-                <p className="text-2xl font-black text-white font-mono tracking-tight">{created.loadCode}</p>
-              </div>
-            )}
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-white/10 border border-white/20 rounded-xl p-3 text-center">
                 <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">Start</p>
@@ -790,9 +784,9 @@ const PostShiftPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Shift Start Time — custom time picker */}
+              {/* Deliver By — daily delivery deadline */}
               <div>
-                <Label text="Shift Start Time" required hint="daily departure time" />
+                <Label text="Deliver By" required hint="daily delivery deadline" />
                 <div className="relative max-w-xs">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">schedule</span>
                   <input
@@ -816,7 +810,7 @@ const PostShiftPage: React.FC = () => {
                 )}
                 {form.timeSlot && !(form.startDate === today && isTimePassed(form.timeSlot)) && (
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    Time window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
+                    Delivery window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
                   </p>
                 )}
               </div>
@@ -887,7 +881,7 @@ const PostShiftPage: React.FC = () => {
                     </div>
                   )}
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    Estimated from departure time + route duration. Updates when you change the date or time.
+                    Calculated backwards from the Deliver By time minus route duration. Updates when you change the date or time.
                   </p>
                 </div>
               )}
@@ -1000,7 +994,7 @@ const PostShiftPage: React.FC = () => {
                     <ReviewRow label="End Date"       value={form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
                     <ReviewRow label="Total Days"     value={totalDaysPreview ? `${totalDaysPreview} day${totalDaysPreview !== 1 ? 's' : ''}` : '—'} />
                     <ReviewRow label="Hours / Day"    value={form.hoursPerDay ? `${form.hoursPerDay}h` : '—'} />
-                    <ReviewRow label="Start Time"     value={form.timeSlot || '—'} />
+                    <ReviewRow label="Deliver By"     value={form.timeSlot || '—'} />
                     {firstArrivalDate && (
                       <ReviewRow label="Est. First Arrival" value={new Date(firstArrivalDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
                     )}

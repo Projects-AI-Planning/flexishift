@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminPayments } from '../../hooks/useAdmin';
 import type { AdminPayment } from '../../types';
+import { fmtMoney } from '../../utils/currency';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Transactions' },
@@ -19,8 +20,7 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   failed:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-const fmt = (val: number, _cur = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD' }).format(val);
+const fmt = (val: number, cur = 'GBP') => fmtMoney(val, cur);
 
 const TransactionsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });

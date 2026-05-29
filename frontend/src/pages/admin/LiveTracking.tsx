@@ -33,13 +33,9 @@ type LiveTrackingData = {
   deliveries: LiveDelivery[];
 };
 
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
+import { fmtMoney } from '../../utils/currency';
 
-const formatCurrency = (amount?: number | null) => (typeof amount === 'number' ? currency.format(amount) : '—');
+const formatCurrency = (amount?: number | null, cur = 'GBP') => (typeof amount === 'number' ? fmtMoney(amount, cur) : '—');
 
 const formatLastSeen = (value?: string | null) => {
   if (!value) return 'No ping';

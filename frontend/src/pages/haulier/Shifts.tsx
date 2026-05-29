@@ -18,7 +18,7 @@ const loadStripe = (): Promise<void> => {
   });
 };
 
-type ShiftStatus = 'OPEN' | 'BOOKED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+type ShiftStatus = 'OPEN' | 'BOOKED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' | 'HANDOVER';
 type RequirementType = 'DRIVER_ONLY' | 'TRUCK_WITH_DRIVER' | 'TRUCK_ONLY';
 
 interface StopItem {
@@ -148,6 +148,14 @@ const SECTIONS: SectionMeta[] = [
     description: 'Open shifts whose start date has passed without a driver being booked.',
     icon: 'schedule_send',
     tone: 'bg-orange-50 text-orange-600 border-orange-100',
+  },
+  {
+    key: 'HANDOVER',
+    label: 'Handover',
+    title: 'Shift Handovers',
+    description: 'Pre-trip vehicle handover records submitted by drivers.',
+    icon: 'fact_check',
+    tone: 'bg-violet-50 text-violet-700 border-violet-100',
   },
 ];
 
@@ -1381,6 +1389,8 @@ const HaulierShiftsPage: React.FC = () => {
       return allShifts.filter(isShiftExpired);
     if (activeStatus === 'OPEN')
       return allShifts.filter((s) => s.status.toUpperCase() === 'OPEN' && !isShiftExpired(s));
+    if (activeStatus === 'HANDOVER')
+      return allShifts.filter((s) => s.handoverSubmitted);
     return allShifts.filter((s) => s.status.toUpperCase() === activeStatus);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allShifts, activeStatus, today]);
@@ -1517,8 +1527,9 @@ const HaulierShiftsPage: React.FC = () => {
     activeStatus === 'BOOKED'      ? 7 :
     activeStatus === 'IN_PROGRESS' ? 7 :
     activeStatus === 'EXPIRED'     ? 5 :
-    activeStatus === 'COMPLETED'   ? 7 :
-    /* CANCELLED */                  7;
+    activeStatus === 'HANDOVER'    ? 7 :
+    activeStatus === 'COMPLETED'   ? 6 :
+    /* CANCELLED */                  6;
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
@@ -1761,9 +1772,6 @@ const HaulierShiftsPage: React.FC = () => {
                 {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
                   <th className="pl-10 pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
                 )}
-                {(activeStatus === 'COMPLETED' || activeStatus === 'CANCELLED') && (
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Handover</th>
-                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1896,8 +1904,8 @@ const HaulierShiftsPage: React.FC = () => {
                                 Handover Signed
                               </span>
                             )}
-                            {/* View Handover details — always available when handover submitted */}
-                            {shift.handoverSubmitted && (
+                            {/* View Handover details — only in the Handover tab */}
+                            {activeStatus === 'HANDOVER' && shift.handoverSubmitted && (
                               <button
                                 onClick={() => setHandoverShift({ shiftId: shift.shiftId, shiftRef: shift.shiftRef })}
                                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
@@ -1926,22 +1934,6 @@ const HaulierShiftsPage: React.FC = () => {
                               </button>
                             )}
                           </div>
-                        )}
-                      </td>
-                    )}
-                    {/* Handover view for completed/cancelled shifts */}
-                    {(activeStatus === 'COMPLETED' || activeStatus === 'CANCELLED') && (
-                      <td className="px-6 py-5">
-                        {shift.handoverSubmitted ? (
-                          <button
-                            onClick={() => setHandoverShift({ shiftId: shift.shiftId, shiftRef: shift.shiftRef })}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
-                          >
-                            <span className="material-symbols-outlined text-[15px]">fact_check</span>
-                            View
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </td>
                     )}

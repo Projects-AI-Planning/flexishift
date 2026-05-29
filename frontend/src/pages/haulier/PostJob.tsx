@@ -172,12 +172,12 @@ const PostJobPage: React.FC = () => {
       setStopDeliveryTimes({});
       return;
     }
-    // Use exact "HH:MM" time entered by user
-    const departure = new Date(`${form.jobDate}T${form.timeSlot}:00`);
-    const totalMs    = routeCoords.durationMin * 60 * 1000;
+    // timeSlot = "Deliver By" deadline → arrival time; departure calculated backwards
+    const arrival   = new Date(`${form.jobDate}T${form.timeSlot}:00`);
+    const totalMs   = routeCoords.durationMin * 60 * 1000;
+    const departure = new Date(arrival.getTime() - totalMs);
 
-    // ── Final delivery date ──
-    const arrival = new Date(departure.getTime() + totalMs);
+    // ── Final delivery date (the deliver-by date) ──
     const y = arrival.getFullYear();
     const m = String(arrival.getMonth() + 1).padStart(2, '0');
     const d = String(arrival.getDate()).padStart(2, '0');
@@ -220,7 +220,7 @@ const PostJobPage: React.FC = () => {
       });
     }
 
-    // Final destination always = departure + full duration
+    // Final destination = deliver-by time
     times['final'] = fmtTime(arrival);
 
     setStopDeliveryTimes(times);
@@ -871,7 +871,7 @@ const PostJobPage: React.FC = () => {
                     </div>
                   )}
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    Pre-filled from ETA (departure + route duration). Adjust each stop's delivery time slot as needed.
+                    Calculated backwards from the Deliver By time minus route duration. Adjust each stop's slot as needed.
                   </p>
                 </div>
               )}

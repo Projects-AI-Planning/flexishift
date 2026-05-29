@@ -23,6 +23,7 @@ def create_shift(db: Session, haulier: User, data: dict) -> Shift:
 
     pickup = data.get("pickup_address", "").strip()
     drop   = data.get("drop_address", "").strip()
+    haulier_currency = (getattr(haulier, "currency", None) or "GBP").upper()
     shift = Shift(
         haulier_id=haulier.id,
         requirement_type=req_enum,
@@ -50,6 +51,7 @@ def create_shift(db: Session, haulier: User, data: dict) -> Shift:
         duration_min=data.get("duration_min"),
         notes=data.get("notes"),
         daily_rate=data.get("daily_rate"),
+        currency=haulier_currency,
     )
     db.add(shift)
     db.commit()
@@ -130,6 +132,7 @@ def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day:
         amount_per_day=amount_per_day,
         total_amount=total,
         notes=notes,
+        currency=(shift.currency or "GBP").upper(),
     )
     db.add(quote)
     db.commit()
@@ -295,7 +298,7 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
     grand_total   = round(driver_daily + platform_fee, 2)
     amount_minor  = int(round(grand_total * 100))
 
-    currency = (getattr(haulier, "currency", None) or settings.PAYMENT_CURRENCY or "USD").upper()
+    currency = (getattr(haulier, "currency", None) or shift.currency or settings.PAYMENT_CURRENCY or "GBP").upper()
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
     # Reuse a stale PENDING intent rather than creating a duplicate

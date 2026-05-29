@@ -3,8 +3,9 @@ import { useEscalatedDisputes } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { Dispute } from '../../types';
 
-const fmt = (n: number, _cur = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: _cur || 'USD', maximumFractionDigits: 0 }).format(n);
+import { fmtMoney } from '../../utils/currency';
+
+const fmt = (n: number, cur = 'GBP') => fmtMoney(n, cur);
 
 function urgencyColor(hours: number) {
   if (hours >= 168) return 'bg-red-600 text-white';
