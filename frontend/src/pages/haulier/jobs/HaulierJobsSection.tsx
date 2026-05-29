@@ -95,6 +95,13 @@ type JobDetail = {
   compartmentCount?: number | null;
   totalCapacity?: string;
   totalLitres?: number | null;
+  compartmentDetails?: Array<{
+    compartment?: number | null;
+    contents?: string | null;
+    quantity?: number | null;
+    unit?: string | null;
+    stopLabel?: string | null;
+  }> | null;
   driverRequirement?: string;
   stops?: Array<{
     order?: number;
@@ -561,6 +568,32 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
                   </div>
                 )}
               </div>
+
+
+              {/* Compartment Breakdown */}
+              {detail.compartmentDetails && detail.compartmentDetails.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Compartment Breakdown</p>
+                  <div className="rounded-xl border border-slate-100 overflow-hidden divide-y divide-slate-50">
+                    <div className="hidden sm:grid sm:grid-cols-[32px_1fr_72px_48px_1fr] gap-3 px-3 py-2 bg-slate-50">
+                      {['#', 'Contents', 'Qty', 'Unit', 'Destination'].map(h => (
+                        <span key={h} className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{h}</span>
+                      ))}
+                    </div>
+                    {detail.compartmentDetails.map((c, i) => (
+                      <div key={i} className="grid grid-cols-1 sm:grid-cols-[32px_1fr_72px_48px_1fr] gap-2 sm:gap-3 px-3 py-2.5 bg-white items-center">
+                        <div className="w-6 h-6 rounded-md bg-[#1066b1]/10 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-black text-[#1066b1]">{c.compartment ?? i + 1}</span>
+                        </div>
+                        <p className="text-sm font-bold text-[#041627]">{c.contents || '—'}</p>
+                        <p className="text-sm font-black text-[#1066b1]">{c.quantity ?? '—'}</p>
+                        <p className="text-xs text-slate-500 font-bold">{c.unit || '—'}</p>
+                        <p className="text-xs text-slate-400 truncate">{c.stopLabel || '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Codes */}
               {(detail.loadCode || detail.accessCode) && (
