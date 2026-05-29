@@ -97,8 +97,9 @@ def get_onboarding_link(
     dest_return = client_return_url or f"{settings.FRONTEND_URL}/stripe-connect/return"
     dest_refresh = client_refresh_url or f"{settings.FRONTEND_URL}/stripe-connect/refresh"
 
-    return_url = f"{settings.BACKEND_URL}/stripe-connect/return?redirect_to={quote(dest_return, safe='')}"
-    refresh_url = f"{settings.BACKEND_URL}/stripe-connect/refresh?redirect_to={quote(dest_refresh, safe='')}"
+    stripe_base = (settings.STRIPE_BACKEND_URL or settings.BACKEND_URL).rstrip("/")
+    return_url = f"{stripe_base}/stripe-connect/return?redirect_to={quote(dest_return, safe='')}"
+    refresh_url = f"{stripe_base}/stripe-connect/refresh?redirect_to={quote(dest_refresh, safe='')}"
 
     client = _stripe()
     try:

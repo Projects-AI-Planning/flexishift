@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_BACKEND_URL: str = ""
     PAYMENT_CURRENCY: str = ""
 
     SENDGRID_API_KEY: str = ""
