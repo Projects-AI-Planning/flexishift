@@ -52,21 +52,34 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     amount_minor = int(round(total_amount * 100))
     driver_amount_minor = int(round(driver_amount * 100))
 
+    from app.utils.phone_country import _COUNTRY_CURRENCY, _DEFAULT_CURRENCY
     haulier = db.query(User).filter(User.id == haulier_id).first()
     currency = (
         (haulier.currency if haulier else None)
         or selected_quote.currency
         or settings.PAYMENT_CURRENCY
+        or _COUNTRY_CURRENCY.get((getattr(haulier, "country", None) or "").upper(), _DEFAULT_CURRENCY)
     ).upper()
 
     # Look up driver's Stripe Connect account to use destination charge model.
     # Embedding transfer_data at creation means funds flow to the driver automatically
     # on capture — no separate Transfer needed, no available-balance race condition.
+    # We also verify the 'transfers' capability is active; if it's still pending
+    # (common right after onboarding) we skip transfer_data and fall back to a
+    # manual transfer on capture once the capability becomes active.
     driver_stripe_account: str | None = None
     if job.selected_supplier_id:
         driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
         if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
-            driver_stripe_account = driver.stripe_account_id
+            from app.services.stripe_connect import transfers_capability_active
+            if transfers_capability_active(driver.stripe_account_id):
+                driver_stripe_account = driver.stripe_account_id
+            else:
+                log.warning(
+                    "driver_transfers_capability_not_active",
+                    driver_id=driver.id,
+                    stripe_account_id=driver.stripe_account_id,
+                )
 
     client = _stripe_client()
 
@@ -344,6 +357,17 @@ def release_payment(db: Session, job_id: str) -> Payment:
         payment.gateway_payout_id = str(transfer_id)
 
     job.status = JobStatus.COMPLETED
+
+    # Fetch Stripe receipt URL from the latest charge on the intent
+    try:
+        latest_charge_id = getattr(captured_intent, "latest_charge", None)
+        if latest_charge_id:
+            charge = client.Charge.retrieve(str(latest_charge_id))
+            receipt_url = getattr(charge, "receipt_url", None)
+            if receipt_url:
+                payment.stripe_receipt_url = str(receipt_url)
+    except Exception:
+        pass
 
     db.commit()
     db.refresh(payment)

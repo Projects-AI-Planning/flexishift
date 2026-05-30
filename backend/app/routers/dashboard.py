@@ -151,9 +151,11 @@ def driver_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
+    # DELIVERY_SUBMITTED is excluded — driver has finished the job;
+    # it should no longer appear as an active route in the tracking tab.
     active_job = db.query(Job).filter(
         Job.selected_supplier_id == current_user.id,
-        Job.status.in_(ACTIVE_STATUSES),
+        Job.status.in_([JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT]),
         Job.deleted_at.is_(None),
     ).order_by(Job.updated_at.desc()).first()
 
@@ -349,6 +351,9 @@ def driver_upcoming_jobs(
                 "phone": haulier.phone if haulier else None,
             },
             "paymentSecured": j.status == JobStatus.PAYMENT_SECURED,
+            "deliverBy": j.job_time,
+            "accessCode": j.access_code if j.status == JobStatus.PAYMENT_SECURED else None,
+            "loadCode": j.load_code if j.status == JobStatus.PAYMENT_SECURED else None,
         })
 
     return ok(
@@ -522,11 +527,19 @@ def haulier_active_jobs(
         )
         jobs.append({
             "jobId": j.id,
+            "jobRef": j.job_ref,
             "jobReference": j.job_ref,
             "status": j.status.value.lower(),
             "driver": _driver_snippet(supplier),
+            "selectedSupplier": _driver_snippet(supplier),
             "pickupLocation": j.pickup_address,
+            "pickupAddress": j.pickup_address,
             "dropLocation": j.drop_address,
+            "dropAddress": j.drop_address,
+            "pickupLat": float(j.pickup_lat) if j.pickup_lat else None,
+            "pickupLng": float(j.pickup_lng) if j.pickup_lng else None,
+            "dropLat": float(j.drop_lat) if j.drop_lat else None,
+            "dropLng": float(j.drop_lng) if j.drop_lng else None,
             "currentLocation": {
                 "latitude": float(last_point.lat),
                 "longitude": float(last_point.lng),

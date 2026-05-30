@@ -132,13 +132,20 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
     from app.services.payments import release_payment
     release_payment(db, job_id)
 
-    # Generate and upload invoice
-    from app.services.invoice import generate_and_upload_invoice
     payment = job.payment
+    driver = job.supplier
+
+    # Generate, upload invoice PDF and email it to the driver
+    from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
     if payment:
         try:
             url = await generate_and_upload_invoice(job, payment)
             job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+        try:
+            await send_invoice_to_driver(job, payment, driver, db=db)
         except Exception:
             pass
 

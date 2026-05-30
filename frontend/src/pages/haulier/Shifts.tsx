@@ -95,6 +95,7 @@ interface ShiftItem {
   handoverSubmitted?:      boolean;
   handoverHaulierSigned?:  boolean;
   handoverHaulierSignedAt?: string | null;
+  quoteCount?:             number;
 }
 
 interface QuoteItem {
@@ -1916,13 +1917,21 @@ const HaulierShiftsPage: React.FC = () => {
                     {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
                       <td className="pl-10 pr-6 py-5 min-w-[210px]">
                         {activeStatus === 'OPEN' ? (
-                          <button
-                            onClick={() => openQuotesPanel(shift)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/8 px-3 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1] hover:text-white"
-                          >
-                            <span className="material-symbols-outlined text-[15px]">gavel</span>
-                            View Quotes
-                          </button>
+                          <div className="flex flex-col gap-1.5">
+                            {(shift.quoteCount ?? 0) === 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-600">
+                                <span className="material-symbols-outlined text-[11px]">info</span>
+                                No Quotes Yet
+                              </span>
+                            )}
+                            <button
+                              onClick={() => openQuotesPanel(shift)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/8 px-3 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1] hover:text-white"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">gavel</span>
+                              {(shift.quoteCount ?? 0) > 0 ? `${shift.quoteCount} Quote${(shift.quoteCount ?? 0) > 1 ? 's' : ''}` : 'View Quotes'}
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex flex-col gap-2 mt-3">
                             {/* Pay Day N — shown when day is not yet escrowed */}

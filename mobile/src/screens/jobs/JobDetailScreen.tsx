@@ -176,8 +176,8 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
         <InfoRow label="Goods Type" value={goodsType} />
         <InfoRow label="Requirement" value={formatDriverRequirement(job?.driverRequirement)} />
         {vehicleType ? <InfoRow label="Vehicle Type" value={vehicleType} /> : null}
-        <InfoRow label="Job Date" value={jobDate} />
-        {timeSlot ? <InfoRow label="Collection Time" value={timeSlot} /> : null}
+        <InfoRow label="Collection Date" value={jobDate} />
+        {job?.deliverBy ? <InfoRow label="Deliver By" value={String(job.deliverBy)} /> : timeSlot ? <InfoRow label="Deliver By" value={timeSlot} /> : null}
         <InfoRow label="Distance" value={distance} />
         {durationMin != null ? (
           <InfoRow label="Est. Duration" value={`${Math.round(durationMin / 60 * 10) / 10} hrs`} />

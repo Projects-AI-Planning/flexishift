@@ -1,5 +1,17 @@
+import {Platform} from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import {API_BASE_URL, WS_BASE_URL} from '../config/env';
 import type {ApiResponse} from '../types';
+
+const _deviceHeaders: Record<string, string> = {
+  'X-App-Type':     Platform.OS,
+  'X-App-Version':  DeviceInfo.getVersion(),
+  'X-OS-Name':      Platform.OS === 'android' ? 'Android' : 'iOS',
+  'X-OS-Version':   DeviceInfo.getSystemVersion(),
+  'X-Device-ID':    DeviceInfo.getUniqueIdSync(),
+  'X-Device-Model': DeviceInfo.getModel(),
+  'X-Device-Brand': DeviceInfo.getBrand(),
+};
 
 let accessToken: string | null = null;
 let refreshSessionHandler:
@@ -93,6 +105,7 @@ export async function request<T>(
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(options.isFormData ? {} : {'Content-Type': 'application/json'}),
+    ..._deviceHeaders,
     ...options.headers,
   };
 

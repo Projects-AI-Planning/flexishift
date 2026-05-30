@@ -62,6 +62,7 @@ type HaulierJobRow = {
   updatedAt?: string;
   agreedAmount?: number;
   currency?: string;
+  quoteCount?: number;
 };
 
 type HandoverState = {
@@ -2247,13 +2248,21 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                     {/* Open: view bids column */}
                     {activeStatus === 'OPEN' && (
                       <td className="px-6 py-5">
-                        <button
-                          onClick={() => openBidsPanel(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/8 px-3 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1] hover:text-white"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">gavel</span>
-                          View Bids
-                        </button>
+                        <div className="flex flex-col gap-1.5">
+                          {(job.quoteCount ?? 0) === 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-600">
+                              <span className="material-symbols-outlined text-[11px]">info</span>
+                              No Quotes Yet
+                            </span>
+                          )}
+                          <button
+                            onClick={() => openBidsPanel(job.jobId, job.jobReference ?? job.jobRef ?? job.jobId)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/8 px-3 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1] hover:text-white"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">gavel</span>
+                            {(job.quoteCount ?? 0) > 0 ? `${job.quoteCount} Bid${(job.quoteCount ?? 0) > 1 ? 's' : ''}` : 'View Bids'}
+                          </button>
+                        </div>
                       </td>
                     )}
 

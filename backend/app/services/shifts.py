@@ -349,7 +349,12 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
     grand_total   = round(driver_daily + platform_fee, 2)
     amount_minor  = int(round(grand_total * 100))
 
-    currency = (haulier.currency or shift.currency or "").upper() or None
+    from app.utils.phone_country import _COUNTRY_CURRENCY, _DEFAULT_CURRENCY
+    currency = (
+        haulier.currency
+        or shift.currency
+        or _COUNTRY_CURRENCY.get((haulier.country or "").upper(), _DEFAULT_CURRENCY)
+    ).upper()
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
     # Reuse a stale PENDING intent rather than creating a duplicate

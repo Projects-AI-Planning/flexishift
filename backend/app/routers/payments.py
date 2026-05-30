@@ -119,7 +119,7 @@ def get_payment_details(
 
 
 @router.post("/{job_id}/payment/release")
-def release_payment(
+async def release_payment(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
@@ -129,6 +129,20 @@ def release_payment(
         if not job or job.haulier_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
     p = pay_svc.release_payment(db, job_id)
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if job and p:
+        from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+        driver = job.supplier
+        try:
+            url = await generate_and_upload_invoice(job, p)
+            job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+        try:
+            await send_invoice_to_driver(job, p, driver, db=db)
+        except Exception:
+            pass
     return ok(data=_payment_dict(p), message="Payment released to supplier")
 
 
@@ -223,7 +237,7 @@ def get_payment_status(
 
 
 @flat.post("/release/{booking_id}")
-def release_escrow(
+async def release_escrow(
     booking_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
@@ -233,6 +247,20 @@ def release_escrow(
         if not job or job.haulier_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
     p = pay_svc.release_payment(db, booking_id)
+    job = db.query(Job).filter(Job.id == booking_id).first()
+    if job and p:
+        from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+        driver = job.supplier
+        try:
+            url = await generate_and_upload_invoice(job, p)
+            job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+        try:
+            await send_invoice_to_driver(job, p, driver, db=db)
+        except Exception:
+            pass
     return ok(data=_payment_dict(p), message="Payment released")
 
 

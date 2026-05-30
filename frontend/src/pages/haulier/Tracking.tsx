@@ -130,6 +130,42 @@ function FlyToCenter({ center }: { center: [number, number] | null }) {
   return null;
 }
 
+// Fetch road-snapped route from OSRM between two or more waypoints.
+// OSRM returns coordinates as [lng, lat]; Leaflet needs [lat, lng].
+async function fetchRoadRoute(
+  waypoints: Array<{ latitude: number; longitude: number }>,
+  signal?: AbortSignal,
+): Promise<[number, number][]> {
+  if (waypoints.length < 2) return [];
+  const coords = waypoints.map((w) => `${w.longitude},${w.latitude}`).join(';');
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/${coords}` +
+    `?overview=full&geometries=geojson`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error('OSRM error');
+  const data = await res.json() as {
+    routes?: Array<{ geometry?: { coordinates?: [number, number][] } }>;
+  };
+  const raw = data.routes?.[0]?.geometry?.coordinates;
+  if (!raw) throw new Error('No route');
+  return raw.map(([lng, lat]) => [lat, lng]);
+}
+
+// Haversine distance in metres between two lat/lng points
+function haversineM(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const sin2 =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(sin2));
+}
+
 function TrackingMap({
   liveLocation,
   historyPoints,
@@ -141,34 +177,94 @@ function TrackingMap({
   destination: { address?: string | null; latitude?: number | null; longitude?: number | null } | null | undefined;
   pickup: { address?: string | null; latitude?: number | null; longitude?: number | null } | null | undefined;
 }) {
-  const route = useMemo(
-    () => historyPoints.map((p) => [p.latitude, p.longitude] as [number, number]),
-    [historyPoints],
-  );
+  // Road-snapped future route (current → destination)
+  const [roadFuture, setRoadFuture] = useState<[number, number][]>([]);
+  // Road-snapped full route (pickup → …GPS points… → current)
+  const [roadTrail, setRoadTrail] = useState<[number, number][]>([]);
 
-  // Route line: history trail + live position
-  const fullRoute = useMemo<[number, number][]>(() => {
-    const pts: [number, number][] = [...route];
-    if (liveLocation) pts.push([liveLocation.latitude, liveLocation.longitude]);
-    return pts;
-  }, [route, liveLocation]);
+  const lastFutureOrigin = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastTrailKey = useRef<string>('');
 
-  // Dashed future line: live → destination
-  const futureRoute = useMemo<[number, number][]>(() => {
-    if (!liveLocation || !destination?.latitude || !destination?.longitude) return [];
-    return [
-      [liveLocation.latitude, liveLocation.longitude],
-      [destination.latitude, destination.longitude],
-    ];
+  // Fetch future route whenever driver moves >200 m or destination changes
+  useEffect(() => {
+    if (!liveLocation || !destination?.latitude || !destination?.longitude) {
+      setRoadFuture([]);
+      return;
+    }
+    const last = lastFutureOrigin.current;
+    if (last && haversineM(last, liveLocation) < 200) return;
+
+    const ctrl = new AbortController();
+    lastFutureOrigin.current = liveLocation;
+
+    fetchRoadRoute(
+      [liveLocation, { latitude: destination.latitude, longitude: destination.longitude }],
+      ctrl.signal,
+    )
+      .then(setRoadFuture)
+      .catch(() => { /* silently fall back to straight line */ });
+
+    return () => ctrl.abort();
   }, [liveLocation, destination]);
+
+  // Fetch full trail route: pickup → sampled GPS points → current location.
+  // Only re-fetches when the point count or current location (>200 m) changes.
+  useEffect(() => {
+    const hasPickup = pickup?.latitude != null && pickup?.longitude != null;
+    const hasLive = liveLocation != null;
+    if (!hasPickup && !hasLive) { setRoadTrail([]); return; }
+
+    // Build waypoints: pickup (if known) + up to 8 sampled history points + current
+    const waypoints: Array<{ latitude: number; longitude: number }> = [];
+    if (hasPickup) waypoints.push({ latitude: pickup!.latitude!, longitude: pickup!.longitude! });
+
+    // Sample at most 8 points from history to stay within OSRM URL limits
+    if (historyPoints.length > 0) {
+      const step = Math.max(1, Math.floor(historyPoints.length / 8));
+      for (let i = 0; i < historyPoints.length; i += step) {
+        waypoints.push({ latitude: historyPoints[i].latitude, longitude: historyPoints[i].longitude });
+      }
+    }
+    if (hasLive) waypoints.push(liveLocation!);
+
+    if (waypoints.length < 2) { setRoadTrail([]); return; }
+
+    const key = `${waypoints.length}:${liveLocation?.latitude?.toFixed(3)}:${liveLocation?.longitude?.toFixed(3)}`;
+    if (key === lastTrailKey.current) return;
+
+    const ctrl = new AbortController();
+    lastTrailKey.current = key;
+
+    fetchRoadRoute(waypoints, ctrl.signal)
+      .then(setRoadTrail)
+      .catch(() => setRoadTrail([]));
+
+    return () => ctrl.abort();
+  }, [historyPoints, liveLocation, pickup]);
 
   const mapCenter = useMemo<[number, number] | null>(() => {
     if (liveLocation) return [liveLocation.latitude, liveLocation.longitude];
-    if (route.length > 0) return route[0];
+    if (historyPoints.length > 0) return [historyPoints[0].latitude, historyPoints[0].longitude];
     if (destination?.latitude != null && destination?.longitude != null)
       return [destination.latitude, destination.longitude];
     return null;
-  }, [destination, liveLocation, route]);
+  }, [destination, liveLocation, historyPoints]);
+
+  // Fallback straight-line trail used only when OSRM hasn't responded yet
+  const straightTrail = useMemo<[number, number][]>(() => {
+    const pts = historyPoints.map((p) => [p.latitude, p.longitude] as [number, number]);
+    if (liveLocation) pts.push([liveLocation.latitude, liveLocation.longitude]);
+    return pts;
+  }, [historyPoints, liveLocation]);
+
+  // Fallback straight future line
+  const straightFuture = useMemo<[number, number][]>(() => {
+    if (!liveLocation || !destination?.latitude || !destination?.longitude) return [];
+    return [[liveLocation.latitude, liveLocation.longitude], [destination.latitude, destination.longitude]];
+  }, [liveLocation, destination]);
+
+  const displayTrail = roadTrail.length > 1 ? roadTrail : straightTrail;
+  const displayFuture = roadFuture.length > 1 ? roadFuture : straightFuture;
 
   if (!mapCenter) {
     return (
@@ -186,18 +282,18 @@ function TrackingMap({
       />
       <FlyToCenter center={liveLocation ? [liveLocation.latitude, liveLocation.longitude] : null} />
 
-      {/* Travelled path */}
-      {fullRoute.length > 1 && (
+      {/* Road-snapped travelled path */}
+      {displayTrail.length > 1 && (
         <Polyline
-          positions={fullRoute}
+          positions={displayTrail}
           pathOptions={{ color: '#2563eb', weight: 5, opacity: 0.85 }}
         />
       )}
 
-      {/* Future path — dashed line to destination */}
-      {futureRoute.length === 2 && (
+      {/* Road-snapped future path — dashed line to destination */}
+      {displayFuture.length > 1 && (
         <Polyline
-          positions={futureRoute}
+          positions={displayFuture}
           pathOptions={{ color: '#93c5fd', weight: 3, opacity: 0.75, dashArray: '8 6' }}
         />
       )}

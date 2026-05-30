@@ -376,7 +376,7 @@ function AvailableShiftCard({
           </View>
           {shift.jobTime ? (
             <View style={styles.expandedInfoRow}>
-              <Text style={styles.expandedInfoLabel}>Start Time</Text>
+              <Text style={styles.expandedInfoLabel}>Deliver By</Text>
               <Text style={styles.expandedInfoValue}>{shift.jobTime}</Text>
             </View>
           ) : null}
@@ -769,7 +769,7 @@ function BookedShiftCard({
           </View>
           {shift.jobTime ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Start Time</Text>
+              <Text style={styles.detailKey}>Deliver By</Text>
               <Text style={styles.detailValue}>{shift.jobTime}</Text>
             </View>
           ) : null}

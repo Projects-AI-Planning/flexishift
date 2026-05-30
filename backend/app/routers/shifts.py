@@ -50,6 +50,7 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "notes": shift.notes,
         "dailyRate": float(shift.daily_rate) if shift.daily_rate else None,
         "status": shift.status.value if hasattr(shift.status, "value") else shift.status,
+        "quoteCount": len(shift.quotes) if shift.quotes is not None else 0,
         "selectedDriverId": shift.selected_driver_id,
         "daysCompleted": shift.days_completed,
         "createdAt": shift.created_at.isoformat() if shift.created_at else None,

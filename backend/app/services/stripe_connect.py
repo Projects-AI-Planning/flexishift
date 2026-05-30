@@ -161,6 +161,18 @@ def get_account_status(db: Session, user: User) -> dict:
     }
 
 
+# ── Capability check ──────────────────────────────────────────────────────────
+
+def transfers_capability_active(stripe_account_id: str) -> bool:
+    """Return True only when the account's 'transfers' capability is 'active'."""
+    try:
+        acct = _stripe().Account.retrieve(stripe_account_id)
+        caps = getattr(acct, "capabilities", None)
+        return getattr(caps, "transfers", None) == "active"
+    except stripe.StripeError:
+        return False
+
+
 # ── Payout / transfer ──────────────────────────────────────────────────────────
 
 def transfer_to_driver(

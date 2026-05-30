@@ -38,6 +38,7 @@ import MyQuotesScreen from './screens/jobs/MyQuotesScreen';
 import QuoteStatusScreen from './screens/jobs/QuoteStatusScreen';
 import PaymentReleasedScreen from './screens/payments/PaymentReleasedScreen';
 import PaymentEscrowScreen from './screens/payments/PaymentEscrowScreen';
+import DeliveryAwaitingScreen from './screens/payments/DeliveryAwaitingScreen';
 import ProfileScreen from './screens/profile/ProfileScreen';
 import LoadCodeScreen from './screens/compliance/LoadCodeScreen';
 import ScannerInterfaceScreen from './screens/compliance/ScannerInterfaceScreen';
@@ -1911,6 +1912,42 @@ function DriverApp(): React.JSX.Element {
     return () => clearInterval(timer);
   }, [activeRoute, escrowJobId, shiftHandoverInfo, shiftPaymentReleased]);
 
+  // ─── Poll payment status while driver is on the delivery-awaiting screen ────
+  // Fallback for when the PAYMENT_RELEASED WebSocket notification is missed.
+
+  useEffect(() => {
+    if (activeRoute !== 'payment.awaiting' || !escrowJobId) { return; }
+
+    const poll = async () => {
+      try {
+        const res = await driverApi.payments.getEscrowDetails(escrowJobId);
+        const payStatus = String((res as any)?.status ?? '').toUpperCase();
+        if (payStatus === 'RELEASED' || payStatus === 'COMPLETED') {
+          driverApi.payments.getHistory({limit: 50, page: 1})
+            .then(h => setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>))
+            .catch(() => undefined);
+          driverApi.dashboard.getEarnings().then(d => setEarnings(cast<EarningsResponse>(d))).catch(() => undefined);
+          const job = await driverApi.jobs.getDetails(escrowJobId).catch(() => null);
+          setPaymentReleasedData({
+            jobId: String(escrowJobId),
+            jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? escrowJobId),
+            haulierId: job?.haulierId ? String(job.haulierId) : undefined,
+            amount: Number((res as any)?.driverAmount ?? (job as any)?.driverAmount ?? (res as any)?.amount ?? 0),
+            currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency),
+            completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
+            invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
+          });
+          setEscrowJobId(null);
+          navigate('jobs', 'payments.released' as any);
+        }
+      } catch { /* silent */ }
+    };
+
+    poll();
+    const timer = setInterval(poll, 10_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, escrowJobId]);
+
   // ─── Poll haulier signature when driver is on handover screen ───────────────
 
   useEffect(() => {
@@ -2122,12 +2159,9 @@ function DriverApp(): React.JSX.Element {
       }
 
       setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
-      // Show the escrow/payment waiting screen — navigates to payments.released
-      // automatically when the haulier releases payment (via PAYMENT_RELEASED notification)
       setEscrowJobId(jobId);
       setEscrowDetails(null);
-      navigate('jobs', 'payment.escrow');
-      loadEscrowPayment(jobId);
+      navigate('jobs', 'payment.awaiting');
       await refreshActiveView();
     } catch (err) {
       setErrorBanner(
@@ -2141,11 +2175,14 @@ function DriverApp(): React.JSX.Element {
   // ─── Tracking handlers ────────────────────────────────────────────────────────
 
   const handleUpdateLocation = async (location: any) => {
+    const jobId = dashboard?.activeJob?.jobId;
+    if (!jobId) { return; }
     try {
       await driverApi.tracking.updateLocation({
+        jobId,
         latitude: location.latitude,
         longitude: location.longitude,
-        timestamp: new Date().toISOString(),
+        recordedAt: new Date().toISOString(),
       });
     } catch {
       /* silent */
@@ -2794,8 +2831,16 @@ function DriverApp(): React.JSX.Element {
 
     const status = String(item.status ?? '').toLowerCase();
 
-    // Already in transit or delivery submitted — go straight to tracking
-    if (status === 'in_transit' || status === 'delivery_submitted') {
+    // Delivery already submitted — show the awaiting payment screen, not tracking
+    if (status === 'delivery_submitted') {
+      setEscrowJobId(jobId);
+      setEscrowDetails(null);
+      navigate('jobs', 'payment.awaiting');
+      return;
+    }
+
+    // Already in transit — go straight to tracking
+    if (status === 'in_transit') {
       navigate('tracking', 'tracking.active');
       return;
     }
@@ -2910,8 +2955,10 @@ function DriverApp(): React.JSX.Element {
               <Text style={styles.detailValueCompact}>{String(item.jobDate ?? 'TBD')}</Text>
             </View>
             <View style={styles.detailRowCompact}>
-              <Text style={styles.detailKey}>Time Slot</Text>
-              <Text style={styles.detailValueCompact}>{String(item.timeSlot ?? 'TBD').replace(/_/g, ' ')}</Text>
+              <Text style={styles.detailKey}>Deliver By</Text>
+              <Text style={[styles.detailValueCompact, {color: '#1066B1', fontWeight: '900'}]}>
+                {item.deliverBy ? String(item.deliverBy) : String(item.timeSlot ?? 'TBD').replace(/_/g, ' ')}
+              </Text>
             </View>
             <View style={styles.detailRowCompact}>
               <Text style={styles.detailKey}>Distance</Text>
@@ -2938,12 +2985,26 @@ function DriverApp(): React.JSX.Element {
               <Text style={styles.detailValueCompact}>{String((item.haulier as {name?: string} | undefined)?.name ?? 'Assigned haulier')}</Text>
             </View>
             {paymentSecured ? (
-              <View style={styles.detailRowCompact}>
-                <Text style={styles.detailKey}>Next Step</Text>
-                <Text style={[styles.detailValueCompact, styles.detailValueSuccess]}>
-                  ✓ Payment secured — tap Start Trip
-                </Text>
-              </View>
+              <>
+                <View style={styles.detailRowCompact}>
+                  <Text style={styles.detailKey}>Next Step</Text>
+                  <Text style={[styles.detailValueCompact, styles.detailValueSuccess]}>
+                    ✓ Payment secured — tap Start Trip
+                  </Text>
+                </View>
+                {item.accessCode ? (
+                  <View style={styles.codeRevealRow}>
+                    <Text style={styles.codeRevealLabel}>Access Code</Text>
+                    <Text style={styles.codeRevealValue}>{String(item.accessCode)}</Text>
+                  </View>
+                ) : null}
+                {item.loadCode ? (
+                  <View style={styles.codeRevealRow}>
+                    <Text style={styles.codeRevealLabel}>Load Code</Text>
+                    <Text style={styles.codeRevealValue}>{String(item.loadCode)}</Text>
+                  </View>
+                ) : null}
+              </>
             ) : null}
           </View>
         )}
@@ -3468,6 +3529,18 @@ function DriverApp(): React.JSX.Element {
               setQuoteStatusData(null);
               navigate('jobs', 'jobs.myQuotes');
             }}
+          />
+        );
+      }
+
+      // Post-delivery waiting screen — buffer until haulier releases payment
+      if (activeRoute === 'payment.awaiting') {
+        const d = escrowDetails as any;
+        return (
+          <DeliveryAwaitingScreen
+            jobReference={d?.jobRef ? String(d.jobRef) : escrowJobId ?? undefined}
+            amount={d?.driverAmount != null ? Number(d.driverAmount) : d?.amount != null ? Number(d.amount) : undefined}
+            currency={d?.currency ? String(d.currency) : session?.currency ?? undefined}
           />
         );
       }
@@ -4756,6 +4829,31 @@ headerBellBadge: {
   },
   detailValueSuccess: {
     color: '#18794E',
+  },
+  codeRevealRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#EBF3FB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  codeRevealLabel: {
+    color: '#1066B1',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  codeRevealValue: {
+    color: '#041627',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 2,
   },
   detailValueWarning: {
     color: '#C17B00',

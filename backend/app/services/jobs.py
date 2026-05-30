@@ -152,6 +152,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         vehicle_type=data.get("vehicle_type"),
         job_date=data["job_date"],
         time_slot=data["time_slot"],
+        job_time=(data.get("job_time") or data.get("jobTime") or "").strip() or None,
         driver_requirement=data.get("driver_requirement", "DRIVER_WITH_TRUCK"),
         stops=geocoded_stops if geocoded_stops else None,
         distance_km=route["distance_km"],
@@ -217,7 +218,8 @@ def list_jobs(
         driver_avail = profile.driver_availability if profile else None
         if not _has_required_docs_for_availability(db, current_user.id, driver_avail):
             return {"items": [], "total": 0, "page": page, "per_page": per_page}
-        q = q.filter(Job.status == JobStatus.OPEN)
+        from datetime import date as _date
+        q = q.filter(Job.status == JobStatus.OPEN, Job.job_date >= _date.today())
         if driver_avail == 'DRIVER_ONLY':
             q = q.filter(Job.driver_requirement.in_(['DRIVER_ONLY', None]))
         elif driver_avail == 'TRUCK_ONLY':

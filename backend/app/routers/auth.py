@@ -74,11 +74,25 @@ def get_mobile_otp(phone: str = Query(..., description="Mobile number to look up
 
 
 @router.post("/register", status_code=201)
-async def register(body: RegisterRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
+async def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
     result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r, currency=body.currency, country=body.country)
+
+    from app.services.audit import log_audit, upsert_device
+    user_obj = db.query(User).filter(User.email == body.email).first()
+    ip = getattr(request.state, "client_ip", None) or (request.client.host if request.client else None)
+    device = getattr(request.state, "device_meta", {})
+    if user_obj:
+        log_audit(db, action="REGISTER", user_id=user_obj.id, entity_type="user", entity_id=user_obj.id,
+                  new_value={"email": body.email, "role": body.role},
+                  ip_address=ip, user_agent=request.headers.get("user-agent"),
+                  endpoint=str(request.url.path), method=request.method, status_code=201)
+        if device:
+            upsert_device(db, user_id=user_obj.id, ip_address=ip,
+                          user_agent=request.headers.get("user-agent"), **device)
+
     return created(
         data={
             "email": result["email"],
@@ -119,10 +133,22 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), 
 
 
 @router.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     tokens = auth_svc.login(db, r, body.email, body.password)
     user = db.query(User).filter(User.email == body.email).first()
     profile = user.profile if user else None
+
+    if user:
+        from app.services.audit import log_audit, upsert_device
+        ip = getattr(request.state, "client_ip", None) or (request.client.host if request.client else None)
+        device = getattr(request.state, "device_meta", {})
+        log_audit(db, action="LOGIN", user_id=user.id, entity_type="user", entity_id=user.id,
+                  ip_address=ip, user_agent=request.headers.get("user-agent"),
+                  endpoint=str(request.url.path), method=request.method, status_code=200)
+        if device:
+            upsert_device(db, user_id=user.id, ip_address=ip,
+                          user_agent=request.headers.get("user-agent"), **device)
+
     return ok(
         data={
             "accessToken": tokens["access_token"],

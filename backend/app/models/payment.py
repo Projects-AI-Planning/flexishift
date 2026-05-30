@@ -29,6 +29,7 @@ class Payment(Base):
     platform_fee:       Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # platform commission
     currency:           Mapped[str]           = mapped_column(String(3), nullable=True)
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
+    stripe_receipt_url: Mapped[str]           = mapped_column(String(500), nullable=True)
     escrowed_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     released_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     failed_at:          Mapped[datetime]      = mapped_column(DateTime, nullable=True)

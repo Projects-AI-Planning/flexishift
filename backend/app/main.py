@@ -8,6 +8,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from pathlib import Path
 
+from app.core.logging_config import configure_logging
+configure_logging()   # must run before any structlog usage
+
 from app.config import settings
 from app.routers import (
     admin,
@@ -76,6 +79,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.middleware.logging_middleware import LoggingMiddleware
+app.add_middleware(LoggingMiddleware)
+
 uploads_dir = Path(__file__).resolve().parent / "static" / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
@@ -117,12 +123,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
+    import traceback, sys
+    traceback.print_exc(file=sys.stderr)
+    msg = f"{type(exc).__name__}: {exc}" if settings.APP_ENV != "production" else "An unexpected error occurred"
     return JSONResponse(
         status_code=500,
         content={
             "status": False,
             "code": 500,
-            "message": "An unexpected error occurred",
+            "message": msg,
             "data": None,
         },
     )

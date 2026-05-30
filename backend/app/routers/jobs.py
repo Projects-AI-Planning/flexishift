@@ -42,6 +42,8 @@ def _job_dict(job: Job) -> dict:
         "stops": job.stops or [],
         "jobDate": job.job_date.isoformat() if job.job_date else None,
         "timeSlot": job.time_slot,
+        "deliverBy": job.job_time,
+        "quoteCount": len(job.quotes) if job.quotes is not None else 0,
         "distanceKm": job.distance_km,
         "durationMin": job.duration_min,
         "status": job.status.value,

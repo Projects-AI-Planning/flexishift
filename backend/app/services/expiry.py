@@ -19,7 +19,11 @@ from app.models.shift import Shift, ShiftStatus
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 
 async def expire_stale_jobs(db: Session) -> None:
-    """Cancel every OPEN job whose job_date is before today and notify haulier."""
+    """Cancel OPEN jobs whose job_date is before today only if they received at least
+    one quote.  Zero-quote jobs are left OPEN so the haulier can still see and repost
+    them — drivers already can't find them due to the job_date >= today filter."""
+    from app.models.quote import Quote
+
     today = date.today()
     stale = (
         db.query(Job)
@@ -32,6 +36,11 @@ async def expire_stale_jobs(db: Session) -> None:
     from app.services.notifications import create_notification
 
     for job in stale:
+        quote_count = db.query(Quote).filter(Quote.job_id == job.id).count()
+        if quote_count == 0:
+            # No driver quoted — keep OPEN so haulier can see and repost
+            continue
+
         job.status = JobStatus.CANCELLED
         db.flush()
 
@@ -41,10 +50,10 @@ async def expire_stale_jobs(db: Session) -> None:
             type="JOB_EXPIRED",
             title="Job expired — no driver accepted",
             body=(
-                f"Your job {job.job_reference} (pickup {job.job_date}) "
+                f"Your job {job.job_ref} (pickup {job.job_date}) "
                 "passed its pickup date with no driver accepting. It has been cancelled."
             ),
-            data={"jobId": job.id, "jobRef": job.job_reference},
+            data={"jobId": job.id, "jobRef": job.job_ref},
         )
 
     db.commit()
@@ -53,7 +62,12 @@ async def expire_stale_jobs(db: Session) -> None:
 # ── Shifts ────────────────────────────────────────────────────────────────────
 
 async def expire_stale_shifts(db: Session) -> None:
-    """Cancel every OPEN shift whose start_date is before today and notify haulier."""
+    """Cancel OPEN shifts whose start_date is before today only if they received at
+    least one quote.  Zero-quote shifts are left OPEN so the haulier can still see
+    and repost them — drivers already can't find them due to the start_date >= today
+    filter on list_available_shifts."""
+    from app.models.shift import ShiftQuote
+
     today = date.today()
     stale = (
         db.query(Shift)
@@ -66,6 +80,11 @@ async def expire_stale_shifts(db: Session) -> None:
     from app.services.notifications import create_notification
 
     for shift in stale:
+        quote_count = db.query(ShiftQuote).filter(ShiftQuote.shift_id == shift.id).count()
+        if quote_count == 0:
+            # No driver quoted — keep OPEN so haulier can see and repost
+            continue
+
         shift.status = ShiftStatus.CANCELLED
         db.flush()
 

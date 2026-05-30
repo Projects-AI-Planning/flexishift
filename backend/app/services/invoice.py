@@ -2,8 +2,12 @@ import io
 from datetime import datetime, timezone
 from fpdf import FPDF
 
+import structlog
+
 from app.services import s3
 from app.config import settings
+
+log = structlog.get_logger()
 
 
 def generate_invoice_pdf(job, payment) -> bytes:
@@ -77,3 +81,108 @@ async def generate_and_upload_invoice(job, payment) -> str:
     key = f"invoices/{job.job_ref}.pdf"
     url = s3.upload_bytes(settings.AZURE_CONTAINER_INVOICES, key, pdf_bytes, "application/pdf")
     return url
+
+
+async def send_invoice_to_driver(job, payment, driver, db=None) -> str | None:
+    """
+    Create a Stripe Invoice for the driver's earnings and send it via Stripe's
+    own email system.  Returns the hosted_invoice_url on success, None on failure.
+
+    Flow
+    ----
+    1. Ensure the driver has a Stripe Customer (creates one if missing).
+    2. Create a draft Invoice with collection_method=send_invoice.
+    3. Attach a line item (driver's earnings).
+    4. Finalise the invoice → status becomes "open".
+    5. Send the invoice → Stripe emails the driver directly from Stripe's domain.
+    6. Mark the invoice as paid out-of-band (money already transferred).
+    """
+    import stripe as _stripe
+    from app.config import settings as cfg
+
+    if not driver or not driver.email:
+        log.warning("stripe_invoice_no_email", job_id=str(job.id))
+        return None
+
+    _stripe.api_key = cfg.STRIPE_SECRET_KEY
+
+    currency  = (payment.currency or "GBP").lower()
+    drv_amount = (
+        float(payment.driver_amount)
+        if getattr(payment, "driver_amount", None)
+        else round(float(payment.amount) / 1.125, 2)
+    )
+    amount_minor = int(round(drv_amount * 100))
+
+    try:
+        # ── 1. Customer ───────────────────────────────────────────────────────
+        customer_id: str = getattr(driver, "stripe_customer_id", None) or ""
+        if not customer_id:
+            customer = _stripe.Customer.create(
+                email=driver.email,
+                name=driver.full_name,
+                metadata={"user_id": str(driver.id), "platform": "FlexiShift"},
+            )
+            customer_id = customer["id"]
+            driver.stripe_customer_id = customer_id
+            if db:
+                db.commit()
+            log.info("stripe_customer_created", driver_id=str(driver.id), customer_id=customer_id)
+        else:
+            # Keep email in sync
+            try:
+                _stripe.Customer.modify(customer_id, email=driver.email)
+            except _stripe.StripeError:
+                pass
+
+        # ── 2. Draft Invoice ──────────────────────────────────────────────────
+        invoice_obj = _stripe.Invoice.create(
+            customer=customer_id,
+            currency=currency,
+            collection_method="send_invoice",
+            days_until_due=0,
+            description=f"FlexiShift — Job {job.job_ref} completed",
+            footer=(
+                f"Pickup: {job.pickup_address or '—'}  →  "
+                f"Delivery: {job.drop_address or '—'}"
+            ),
+            metadata={
+                "job_id":  str(job.id),
+                "job_ref": job.job_ref,
+                "platform": "FlexiShift",
+            },
+            auto_advance=False,
+        )
+        invoice_id: str = getattr(invoice_obj, "id", None) or invoice_obj["id"]
+
+        # ── 3. Line item ──────────────────────────────────────────────────────
+        _stripe.InvoiceItem.create(
+            customer=customer_id,
+            invoice=invoice_id,
+            amount=amount_minor,
+            currency=currency,
+            description=f"Driver earnings — Job {job.job_ref}",
+        )
+
+        # ── 4. Finalise (draft → open) ────────────────────────────────────────
+        invoice_obj = _stripe.Invoice.finalize_invoice(invoice_id)
+
+        # ── 5. Send — Stripe emails the driver directly ───────────────────────
+        invoice_obj = _stripe.Invoice.send_invoice(invoice_id)
+        log.info("stripe_invoice_sent", invoice_id=invoice_id, driver_id=str(driver.id))
+
+        # ── 6. Mark paid out-of-band (money already transferred) ─────────────
+        try:
+            _stripe.Invoice.pay(invoice_id, paid_out_of_band=True)
+        except _stripe.StripeError as exc:
+            log.warning("stripe_invoice_pay_oob_failed", invoice_id=invoice_id, error=str(exc))
+
+        hosted_url: str | None = getattr(invoice_obj, "hosted_invoice_url", None)
+        return hosted_url
+
+    except _stripe.StripeError as exc:
+        log.error("stripe_invoice_failed", job_id=str(job.id), error=str(exc))
+        return None
+    except Exception as exc:
+        log.error("stripe_invoice_unexpected", job_id=str(job.id), error=str(exc))
+        return None

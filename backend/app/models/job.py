@@ -53,6 +53,7 @@ class Job(Base):
     stops:                Mapped[list]      = mapped_column(JSON, nullable=True)
     job_date:             Mapped[date]      = mapped_column(Date, nullable=False)
     time_slot:            Mapped[TimeSlot]  = mapped_column(Enum(TimeSlot), nullable=False)
+    job_time:             Mapped[str]       = mapped_column(String(10), nullable=True)   # exact "Deliver By" time e.g. "14:30"
     distance_km:          Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
     duration_min:         Mapped[int]       = mapped_column(Integer, nullable=True)
     status:               Mapped[JobStatus] = mapped_column(Enum(JobStatus), nullable=False, default=JobStatus.OPEN)

@@ -42,7 +42,8 @@ export type DrawerRouteKey =
   | 'shifts.endOfDay'
   | 'shifts.dayComplete'
   | 'shifts.rating'
-  | 'payment.escrow';
+  | 'payment.escrow'
+  | 'payment.awaiting';
 
 export interface ApiResponse<T> {
   code: number;
