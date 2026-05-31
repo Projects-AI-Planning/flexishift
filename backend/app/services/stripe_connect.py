@@ -163,12 +163,29 @@ def get_account_status(db: Session, user: User) -> dict:
 
 # ── Capability check ──────────────────────────────────────────────────────────
 
+class StripeTransferError(Exception):
+    """Raised when a Stripe Transfer cannot be created.
+
+    Using a dedicated exception (not HTTPException) lets release_payment
+    catch and handle the failure without aborting the entire release flow —
+    the PaymentIntent has already been captured at that point.
+    """
+
+
 def transfers_capability_active(stripe_account_id: str) -> bool:
     """Return True only when the account's 'transfers' capability is 'active'."""
     try:
         acct = _stripe().Account.retrieve(stripe_account_id)
         caps = getattr(acct, "capabilities", None)
-        return getattr(caps, "transfers", None) == "active"
+        status = getattr(caps, "transfers", None)
+        if status == "active":
+            return True
+        log.warning(
+            "stripe_transfers_capability_not_active",
+            stripe_account_id=stripe_account_id,
+            capability_status=status,
+        )
+        return False
     except stripe.StripeError:
         return False
 
@@ -182,7 +199,13 @@ def transfer_to_driver(
     payment_intent_id: str,
     job_ref: str,
 ) -> str:
-    """Transfer captured funds from platform to driver's Stripe account."""
+    """Transfer captured funds from platform to driver's Stripe account.
+
+    Raises StripeTransferError (not HTTPException) so callers can handle
+    failure gracefully — the PaymentIntent is already captured before this
+    is called, so an uncaught HTTPException would leave the payment in a
+    broken ESCROWED state.
+    """
     client = _stripe()
     try:
         transfer = client.Transfer.create(
@@ -196,13 +219,15 @@ def transfer_to_driver(
             },
         )
     except stripe.StripeError as e:
+        msg = getattr(e, "user_message", None) or str(e)
         log.error(
             "stripe_transfer_failed",
             destination=stripe_account_id,
             job_ref=job_ref,
-            error=str(e),
+            amount_pence=amount_pence,
+            error=msg,
         )
-        raise HTTPException(status_code=400, detail=f"Stripe transfer error: {e.user_message or str(e)}")
+        raise StripeTransferError(msg) from e
 
     log.info(
         "stripe_transfer_created",

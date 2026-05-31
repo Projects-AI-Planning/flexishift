@@ -48,9 +48,12 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     driver_amount = float(selected_quote.price)
     platform_fee = round(driver_amount * 0.125, 2)
-    total_amount = round(driver_amount + platform_fee, 2)
-    amount_minor = int(round(total_amount * 100))
-    driver_amount_minor = int(round(driver_amount * 100))
+    vat_amount = round(driver_amount * 0.25, 2)
+    total_amount = round(driver_amount + platform_fee + vat_amount, 2)
+    # Only the driver's quoted amount is escrowed via Stripe.
+    # Platform fee and VAT are stored for invoicing but not part of the Stripe hold.
+    amount_minor = int(round(driver_amount * 100))
+    driver_amount_minor = amount_minor
 
     from app.utils.phone_country import _COUNTRY_CURRENCY, _DEFAULT_CURRENCY
     haulier = db.query(User).filter(User.id == haulier_id).first()
@@ -95,9 +98,11 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
                     "payment_id": existing.id,
                     "gateway_order_id": prev_intent["id"],
                     "client_secret": prev_intent["client_secret"],
-                    "amount": total_amount,
+                    "amount": driver_amount,
                     "driverAmount": driver_amount,
                     "platformFee": platform_fee,
+                    "vatAmount": vat_amount,
+                    "totalAmount": total_amount,
                     "currency": existing.currency,
                     "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
                 }
@@ -140,9 +145,10 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     if existing:
         existing.gateway_order_id = intent["id"]
-        existing.amount = total_amount
+        existing.amount = driver_amount       # Stripe-escrowed = quoted amount
         existing.driver_amount = driver_amount
-        existing.platform_fee = platform_fee
+        existing.platform_fee = platform_fee  # invoicing only
+        existing.vat_amount = vat_amount      # invoicing only
         existing.currency = currency
         existing.status = PaymentStatus.PENDING
         db.commit()
@@ -151,9 +157,10 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         payment = Payment(
             job_id=job_id,
             gateway_order_id=intent["id"],
-            amount=total_amount,
+            amount=driver_amount,             # Stripe-escrowed = quoted amount
             driver_amount=driver_amount,
-            platform_fee=platform_fee,
+            platform_fee=platform_fee,        # invoicing only
+            vat_amount=vat_amount,            # invoicing only
             currency=currency,
             status=PaymentStatus.PENDING,
         )
@@ -168,9 +175,11 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "payment_id": payment.id,
         "gateway_order_id": intent["id"],
         "client_secret": intent["client_secret"],
-        "amount": total_amount,
+        "amount": driver_amount,        # Stripe-escrowed = quoted amount
         "driverAmount": driver_amount,
         "platformFee": platform_fee,
+        "vatAmount": vat_amount,
+        "totalAmount": total_amount,    # quote + platform_fee + VAT (invoice total)
         "currency": currency,
         "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
@@ -197,7 +206,8 @@ def verify_payment(db: Session, job_id: str, payment_intent_id: str, **_kwargs) 
                    "Complete card confirmation before verifying.",
         )
 
-    # Guard against amount tampering — intent pence must match the stored quote price
+    # Guard against amount tampering — intent pence must match the stored quoted amount.
+    # payment.amount == driver_amount (the Stripe-escrowed value, not the invoice total).
     intent_amount = intent["amount"]
     expected_amount = int(round(float(payment.amount) * 100))
     if intent_amount != expected_amount:
@@ -253,9 +263,10 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         for s in stops_raw
     ] if stops_raw else []
 
-    _total = float(payment.amount)
-    _driver = float(payment.driver_amount) if payment.driver_amount else round(_total / 1.125, 2)
-    _fee = float(payment.platform_fee) if payment.platform_fee else round(_total - _driver, 2)
+    _driver = float(payment.driver_amount) if payment.driver_amount else float(payment.amount)
+    _fee = float(payment.platform_fee) if payment.platform_fee else round(_driver * 0.125, 2)
+    _vat = float(payment.vat_amount) if getattr(payment, "vat_amount", None) else round(_driver * 0.25, 2)
+    _total = round(_driver + _fee + _vat, 2)
 
     return {
         "paymentId": payment.id,
@@ -272,10 +283,11 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "totalLitres": float(job.total_litres) if getattr(job, "total_litres", None) is not None else None,
         "specialInstructions": job.special_instructions,
         "distanceKm": float(job.distance_km) if getattr(job, "distance_km", None) is not None else None,
-        "amount": _total,       # total charged to haulier
-        "driverAmount": _driver,  # driver's portion (what they earn)
+        "amount": _driver,      # escrowed quoted amount (Stripe hold)
+        "driverAmount": _driver,
         "platformFee": _fee,
-        "totalAmount": _total,
+        "vatAmount": _vat,
+        "totalAmount": _total,  # quote + platform_fee + VAT (invoice total)
         "currency": payment.currency,
         "status": payment.status.value,
         "stripeIntentId": payment.gateway_payment_id or payment.gateway_order_id,
@@ -290,7 +302,7 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
 
 def release_payment(db: Session, job_id: str) -> Payment:
     from app.models.user import User
-    from app.services.stripe_connect import transfer_to_driver
+    from app.services.stripe_connect import transfer_to_driver, StripeTransferError
 
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()
     if not payment or payment.status != PaymentStatus.ESCROWED:
@@ -303,15 +315,23 @@ def release_payment(db: Session, job_id: str) -> Payment:
     client = _stripe_client()
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
     try:
-        captured_intent = client.PaymentIntent.capture(intent_id)
+        intent_check = client.PaymentIntent.retrieve(intent_id)
+        intent_status = intent_check["status"] if isinstance(intent_check, dict) else getattr(intent_check, "status", None)
+        if intent_status == "succeeded":
+            # Already captured (e.g. release called twice, or auto-capture webhook fired).
+            # Reuse the existing intent data instead of re-capturing.
+            log.warning("release_payment_already_captured", job_id=job_id, intent_id=intent_id)
+            captured_intent = intent_check
+        else:
+            captured_intent = client.PaymentIntent.capture(intent_id)
     except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
-    # Resolve the driver's portion — use stored value; fall back to reverse-calc for legacy rows
-    stored_driver_amount = float(payment.driver_amount) if payment.driver_amount else None
-    driver_payout = stored_driver_amount or round(float(payment.amount) / 1.125, 2)
+    # payment.amount == driver_amount (the quoted amount = full Stripe-escrowed value).
+    # Fall back to payment.amount if driver_amount is somehow null (legacy rows).
+    driver_payout = float(payment.driver_amount) if payment.driver_amount else float(payment.amount)
     driver_payout_minor = int(round(driver_payout * 100))
 
     # Check if this was a destination charge (transfer_data set at intent creation).
@@ -335,14 +355,31 @@ def release_payment(db: Session, job_id: str) -> Payment:
     elif job.selected_supplier_id:
         driver = db.query(User).filter(User.id == job.selected_supplier_id).first()
         if driver and driver.stripe_account_id and driver.stripe_onboarding_complete:
-            # Transfer only the driver's quoted amount — platform retains platform_fee
-            transfer_id = transfer_to_driver(
-                stripe_account_id=driver.stripe_account_id,
-                amount_pence=driver_payout_minor,
-                currency=payment.currency,
-                payment_intent_id=intent_id,
-                job_ref=job.job_ref,
-            )
+            # Transfer only the driver's quoted amount — platform retains platform_fee.
+            # Wrap in try/except: the PaymentIntent is already captured above, so a
+            # transfer failure must NOT abort the release (that would leave the haulier
+            # charged but the payment stuck in ESCROWED). Log and continue — ops team
+            # can retry the transfer manually from the Stripe dashboard.
+            try:
+                transfer_id = transfer_to_driver(
+                    stripe_account_id=driver.stripe_account_id,
+                    amount_pence=driver_payout_minor,
+                    currency=payment.currency,
+                    payment_intent_id=intent_id,
+                    job_ref=job.job_ref,
+                )
+            except StripeTransferError as exc:
+                log.error(
+                    "release_payment_transfer_failed_continuing",
+                    job_id=job_id,
+                    job_ref=job.job_ref,
+                    driver_id=str(driver.id),
+                    stripe_account=driver.stripe_account_id,
+                    amount_pence=driver_payout_minor,
+                    currency=payment.currency,
+                    error=str(exc),
+                    action="payment marked RELEASED; manual Stripe transfer required",
+                )
         else:
             log.warning(
                 "release_payment_no_stripe_account",

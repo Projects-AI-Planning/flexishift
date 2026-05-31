@@ -58,20 +58,26 @@ def generate_invoice_pdf(job, payment) -> bytes:
     pdf.ln(2)
 
     pdf.set_font("Helvetica", size=10)
-    # Driver invoice: show only what the driver earns (their quoted amount, excluding platform fee)
-    driver_amount = float(payment.driver_amount) if getattr(payment, "driver_amount", None) else round(float(payment.amount) / 1.125, 2)
-    platform_fee  = float(payment.platform_fee)  if getattr(payment, "platform_fee",  None) else round(float(payment.amount) - driver_amount, 2)
-    total_charged = float(payment.amount)
+    driver_amount = float(payment.driver_amount) if getattr(payment, "driver_amount", None) else float(payment.amount)
+    platform_fee  = float(payment.platform_fee)  if getattr(payment, "platform_fee",  None) else round(driver_amount * 0.125, 2)
+    vat_amount    = float(payment.vat_amount)     if getattr(payment, "vat_amount",    None) else round(driver_amount * 0.25, 2)
+    total_charged = round(driver_amount + platform_fee + vat_amount, 2)
+    cur = payment.currency or "GBP"
 
-    pdf.cell(120, 6, "Driver Earnings (Your Quote):")
-    pdf.cell(0, 6, f"{payment.currency} {driver_amount:.2f}", ln=True)
+    pdf.cell(120, 6, "Driver Quote (Escrowed):")
+    pdf.cell(0, 6, f"{cur} {driver_amount:.2f}", ln=True)
     pdf.cell(120, 6, "Platform Fee (12.5%):")
-    pdf.cell(0, 6, f"{payment.currency} {platform_fee:.2f}", ln=True)
-    pdf.cell(120, 6, "Total Charged to Haulier:")
-    pdf.cell(0, 6, f"{payment.currency} {total_charged:.2f}", ln=True)
+    pdf.cell(0, 6, f"{cur} {platform_fee:.2f}", ln=True)
+    pdf.cell(120, 6, "VAT (25%):")
+    pdf.cell(0, 6, f"{cur} {vat_amount:.2f}", ln=True)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(1)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(120, 6, "Your Payment:")
-    pdf.cell(0, 6, f"{payment.currency} {driver_amount:.2f}", ln=True)
+    pdf.cell(120, 6, "Total Invoice Amount:")
+    pdf.cell(0, 6, f"{cur} {total_charged:.2f}", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    pdf.cell(120, 6, "Driver Payment Released:")
+    pdf.cell(0, 6, f"{cur} {driver_amount:.2f}", ln=True)
 
     return bytes(pdf.output())
 
@@ -85,20 +91,22 @@ async def generate_and_upload_invoice(job, payment) -> str:
 
 async def send_invoice_to_driver(job, payment, driver, db=None) -> str | None:
     """
-    Create a Stripe Invoice for the driver's earnings and send it via Stripe's
-    own email system.  Returns the hosted_invoice_url on success, None on failure.
+    Email the invoice PDF directly to the driver, then create a Stripe Invoice
+    for record-keeping.  Returns the hosted_invoice_url on success, None on failure.
 
     Flow
     ----
-    1. Ensure the driver has a Stripe Customer (creates one if missing).
-    2. Create a draft Invoice with collection_method=send_invoice.
-    3. Attach a line item (driver's earnings).
-    4. Finalise the invoice → status becomes "open".
-    5. Send the invoice → Stripe emails the driver directly from Stripe's domain.
-    6. Mark the invoice as paid out-of-band (money already transferred).
+    1. Generate the invoice PDF and email it to the driver via Gmail/SendGrid.
+    2. Ensure the driver has a Stripe Customer (creates one if missing).
+    3. Create a draft Invoice with collection_method=send_invoice.
+    4. Attach a line item (driver's earnings).
+    5. Finalise the invoice → status becomes "open".
+    6. Send the invoice → Stripe emails the driver directly from Stripe's domain.
+    7. Mark the invoice as paid out-of-band (money already transferred).
     """
     import stripe as _stripe
     from app.config import settings as cfg
+    from app.services.email import send_invoice_email_to_driver
 
     if not driver or not driver.email:
         log.warning("stripe_invoice_no_email", job_id=str(job.id))
@@ -113,6 +121,29 @@ async def send_invoice_to_driver(job, payment, driver, db=None) -> str | None:
         else round(float(payment.amount) / 1.125, 2)
     )
     amount_minor = int(round(drv_amount * 100))
+
+    # ── Step 1: Email the PDF invoice directly to the driver ──────────────────
+    fee_amount = float(payment.platform_fee) if getattr(payment, "platform_fee", None) else round(drv_amount * 0.125, 2)
+    vat_amt    = float(payment.vat_amount)   if getattr(payment, "vat_amount",   None) else round(drv_amount * 0.25, 2)
+    total_amt  = round(drv_amount + fee_amount + vat_amt, 2)
+    try:
+        pdf_bytes = generate_invoice_pdf(job, payment)
+        await send_invoice_email_to_driver(
+            to=driver.email,
+            driver_name=driver.full_name or driver.email,
+            job_ref=job.job_ref,
+            pickup=job.pickup_address or "—",
+            delivery=job.drop_address or "—",
+            driver_amount=drv_amount,
+            platform_fee=fee_amount,
+            vat_amount=vat_amt,
+            total_amount=total_amt,
+            currency=currency,
+            pdf_bytes=pdf_bytes,
+        )
+        log.info("invoice_email_sent", driver_id=str(driver.id), email=driver.email)
+    except Exception as exc:
+        log.error("invoice_email_failed", job_id=str(job.id), error=str(exc))
 
     try:
         # ── 1. Customer ───────────────────────────────────────────────────────

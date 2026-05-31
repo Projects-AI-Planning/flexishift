@@ -24,9 +24,10 @@ class Payment(Base):
     gateway_order_id:   Mapped[str]           = mapped_column(String(100), nullable=False)
     gateway_payment_id: Mapped[str]           = mapped_column(String(100), nullable=True)
     gateway_payout_id:  Mapped[str]           = mapped_column(String(100), nullable=True)
-    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)  # total charged to haulier
-    driver_amount:      Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # portion released to driver
-    platform_fee:       Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # platform commission
+    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)  # driver's quoted amount — the Stripe-escrowed value
+    driver_amount:      Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # same as amount; driver receives this at release
+    platform_fee:       Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # 12.5% of quote — for invoicing only
+    vat_amount:         Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # 25% of quote — for invoicing only
     currency:           Mapped[str]           = mapped_column(String(3), nullable=True)
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
     stripe_receipt_url: Mapped[str]           = mapped_column(String(500), nullable=True)

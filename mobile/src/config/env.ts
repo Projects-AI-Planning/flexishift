@@ -4,7 +4,7 @@ const DEV_API_URL = '';
 
 // 10.0.2.2 = host machine's localhost for Android emulator
 // localhost works for physical device via adb reverse
-const isEmulator = true; // set true if running on emulator only
+const isEmulator = false; // set true if running on emulator only
 const localHost = isEmulator ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
 
 const devHost = DEV_API_URL || localHost;

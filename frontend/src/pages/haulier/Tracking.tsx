@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MapContainer, Marker, Popup, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -383,11 +384,18 @@ type ShiftDriverLocation = {
 };
 
 export default function HaulierTrackingPage() {
-  const [tab, setTab] = useState<'jobs' | 'shifts'>('jobs');
+  const [searchParams] = useSearchParams();
+
+  // Pre-select tab/shift from URL params (e.g. ?tab=shifts&shiftId=xxx)
+  const urlTab = searchParams.get('tab') as 'jobs' | 'shifts' | null;
+  const urlShiftId = searchParams.get('shiftId') ?? '';
+  const urlJobId = searchParams.get('jobId') ?? '';
+
+  const [tab, setTab] = useState<'jobs' | 'shifts'>(urlTab === 'shifts' ? 'shifts' : 'jobs');
 
   // ── Job tracking state ─────────────────────────────────────────────────────
   const [jobs, setJobs] = useState<ActiveJob[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedJobId, setSelectedJobId] = useState(urlJobId);
   const [live, setLive] = useState<LiveTracking | null>(null);
   const [history, setHistory] = useState<TrackingHistory | null>(null);
   const [eta, setEta] = useState<EtaData | null>(null);
@@ -400,7 +408,7 @@ export default function HaulierTrackingPage() {
 
   // ── Shift tracking state ───────────────────────────────────────────────────
   const [shifts, setShifts] = useState<ActiveShift[]>([]);
-  const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [selectedShiftId, setSelectedShiftId] = useState(urlShiftId);
   const [shiftLoc, setShiftLoc] = useState<ShiftDriverLocation | null>(null);
   const [loadingShifts, setLoadingShifts] = useState(false);
   const [shiftWsConnected, setShiftWsConnected] = useState(false);
@@ -420,7 +428,7 @@ export default function HaulierTrackingPage() {
       const result = await haulierService.getActiveJobs({ page: 1, limit: 20 });
       const items = (result.items ?? result.jobs ?? []) as ActiveJob[];
       setJobs(items);
-      setSelectedJobId((current) => current || items[0]?.jobId || '');
+      setSelectedJobId((current) => current || urlJobId || items[0]?.jobId || '');
       setError('');
     } catch (err: unknown) {
       const response = err as { response?: { data?: { message?: string; detail?: string } } };
@@ -557,7 +565,7 @@ export default function HaulierTrackingPage() {
       const items: ActiveShift[] = Array.isArray(result) ? result : ((result as { shifts?: ActiveShift[] }).shifts ?? []);
       const active = items.filter((s) => ['BOOKED', 'IN_PROGRESS'].includes((s.status ?? '').toUpperCase()));
       setShifts(active);
-      setSelectedShiftId((cur) => cur || active[0]?.shiftId || '');
+      setSelectedShiftId((cur) => cur || urlShiftId || active[0]?.shiftId || '');
     } catch { /* ignore */ } finally {
       setLoadingShifts(false);
     }

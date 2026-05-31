@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useHaulierJobs } from '../../../hooks/useHaulier';
 import haulierService from '../../../api/haulierService';
 import { fmtMoney } from '../../../utils/currency';
+import ConfirmModal from '../../../components/ConfirmModal';
 
 type JobStatus = 'OPEN' | 'BOOKED' | 'IN_TRANSIT' | 'COMPLETED' | 'EXPIRED';
 
@@ -1064,6 +1065,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
   const [disputeReason, setDisputeReason] = React.useState('');
   const [showDisputeForm, setShowDisputeForm] = React.useState(false);
   const [actionDone, setActionDone] = React.useState<'approved' | 'disputed' | null>(null);
+  const [showReleaseConfirm, setShowReleaseConfirm] = React.useState(false);
 
   React.useEffect(() => {
     setLoading(true);
@@ -1073,12 +1075,16 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
       .finally(() => setLoading(false));
   }, [jobId]);
 
-  const handleApprove = async () => {
-    if (!window.confirm('Approve this delivery and release payment to the driver? This will transfer the held funds and cannot be undone.')) return;
+  const handleApprove = () => {
+    setShowReleaseConfirm(true);
+  };
+
+  const executeApprove = async () => {
     setApproving(true);
     setError('');
     try {
       await onApprove();
+      setShowReleaseConfirm(false);
       setActionDone('approved');
       if (onApproveSuccess && details?.driver?.userId) {
         onApproveSuccess(details.driver.userId, details.driver.name ?? 'the driver');
@@ -1114,6 +1120,25 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
     iso ? new Date(iso).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
   return (
+    <>
+      {/* ── Release Payment Confirmation Modal ── */}
+      <ConfirmModal
+        open={showReleaseConfirm}
+        title="Approve Delivery &amp; Release Payment"
+        message={`You are about to approve delivery for job ${jobRef} and release the escrowed funds to the driver.`}
+        details={[
+          { label: 'Job Ref', value: jobRef },
+          { label: 'Driver', value: details?.driver?.name ?? '—' },
+          { label: 'Action', value: 'Approve delivery + release payment' },
+        ]}
+        confirmLabel="Yes, Release Payment"
+        cancelLabel="Cancel"
+        icon="payments"
+        loading={approving}
+        onConfirm={() => void executeApprove()}
+        onCancel={() => { if (!approving) setShowReleaseConfirm(false); }}
+      />
+
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -1360,6 +1385,7 @@ const DeliveryReviewPanel: React.FC<DeliveryReviewPanelProps> = ({
         )}
       </div>
     </div>
+    </>
   );
 };
 

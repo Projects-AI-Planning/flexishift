@@ -1,31 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
-
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-const driverMarkerIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:36px;height:36px;border-radius:50%;background:#1066b1;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(16,102,177,.4);font-size:17px;">🚚</div>',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -20],
-});
-
-function FlyTo({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useEffect(() => { map.flyTo(center, 15, { duration: 1 }); }, [center, map]);
-  return null;
-}
+import ConfirmModal from '../../components/ConfirmModal';
 
 // ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
 declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
@@ -1322,6 +1299,10 @@ const HaulierShiftsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  /* Release payment confirm modal */
+  const [releaseConfirm, setReleaseConfirm] = useState<{ shiftId: string; dayNum: number; shiftRef: string } | null>(null);
+  const [releaseLoading, setReleaseLoading] = useState(false);
+
   /* Quotes panel state */
   const [quotesShiftId, setQuotesShiftId]   = useState<string | null>(null);
   const [quotesShift, setQuotesShift]        = useState<ShiftItem | null>(null);
@@ -1346,74 +1327,6 @@ const HaulierShiftsPage: React.FC = () => {
   const [handoverShift, setHandoverShift] = useState<{ shiftId: string; shiftRef: string } | null>(null);
 
   /* Driver live-tracking panel */
-  const [trackingShift, setTrackingShift] = useState<ShiftItem | null>(null);
-  const [driverLocation, setDriverLocation] = useState<{
-    driverName: string; latitude: number | null; longitude: number | null;
-  } | null>(null);
-  const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const trackingWsRef = useRef<WebSocket | null>(null);
-  const [trackingWsConnected, setTrackingWsConnected] = useState(false);
-
-  const WS_BASE = (import.meta.env.VITE_API_URL as string ?? 'http://localhost:8000/api/v1')
-    .replace(/^http/, 'ws')
-    .replace(/\/api\/v1\/?$/, '');
-
-  const openTrackingPanel = async (shift: ShiftItem) => {
-    setTrackingShift(shift);
-    setDriverLocation(null);
-    try {
-      const loc = await haulierService.getShiftDriverLocation(shift.shiftId);
-      setDriverLocation(loc);
-    } catch { /* ignore */ }
-  };
-
-  const closeTrackingPanel = () => {
-    if (trackingIntervalRef.current) { clearInterval(trackingIntervalRef.current); trackingIntervalRef.current = null; }
-    if (trackingWsRef.current) { trackingWsRef.current.close(); trackingWsRef.current = null; }
-    setTrackingShift(null);
-    setDriverLocation(null);
-    setTrackingWsConnected(false);
-  };
-
-  // WebSocket for real-time shift location + 10s polling fallback
-  useEffect(() => {
-    if (!trackingShift) return;
-
-    // WebSocket
-    const token = localStorage.getItem('token');
-    if (token) {
-      const url = `${WS_BASE}/ws/shifts/${trackingShift.shiftId}/tracking?token=${encodeURIComponent(token)}`;
-      const ws = new WebSocket(url);
-      trackingWsRef.current = ws;
-      ws.onopen = () => setTrackingWsConnected(true);
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data as string);
-          if (msg.type === 'tracking_update' && msg.lat != null && msg.lng != null) {
-            setDriverLocation((prev) => prev
-              ? { ...prev, latitude: msg.lat, longitude: msg.lng }
-              : { driverName: '—', latitude: msg.lat, longitude: msg.lng }
-            );
-          }
-        } catch { /* ignore */ }
-      };
-      ws.onclose = () => { setTrackingWsConnected(false); trackingWsRef.current = null; };
-    }
-
-    // Polling fallback every 10s
-    trackingIntervalRef.current = setInterval(async () => {
-      try {
-        const loc = await haulierService.getShiftDriverLocation(trackingShift.shiftId);
-        setDriverLocation(loc);
-      } catch { /* ignore */ }
-    }, 10_000);
-
-    return () => {
-      if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
-      if (trackingWsRef.current) { trackingWsRef.current.close(); trackingWsRef.current = null; }
-      setTrackingWsConnected(false);
-    };
-  }, [trackingShift]);
 
   const loadShifts = async () => {
     setLoading(true);
@@ -1515,25 +1428,31 @@ const HaulierShiftsPage: React.FC = () => {
   const handleDayPaymentSuccess = async () => {
     const day = payingEntry?.order.dayNumber;
     setPayingEntry(null);
-    setSuccess(`Day ${day} payment confirmed — funds held in escrow. Mark the day complete at EOD to release payment.`);
+    setSuccess(`Day ${day} payment secured in escrow. Click "Complete & Release Payment" at end of day to release funds to the driver.`);
     await loadShifts();
   };
 
   /* Row actions */
-  const handleCompleteDay = async (shiftId: string, dayNum: number) => {
-    if (!window.confirm(`Release payment for Day ${dayNum} to the driver? This will transfer the escrowed funds and cannot be undone.`)) return;
-    setActionLoading(true);
+  const handleCompleteDay = (shiftId: string, dayNum: number, shiftRef: string) => {
+    setReleaseConfirm({ shiftId, dayNum, shiftRef });
+  };
+
+  const executeCompleteDay = async () => {
+    if (!releaseConfirm) return;
+    const { shiftId, dayNum } = releaseConfirm;
+    setReleaseLoading(true);
     setSuccess(null);
     setError(null);
     try {
       await haulierService.completeShiftDay(shiftId);
-      setSuccess(`Day ${dayNum} complete — driver payment released.`);
+      setReleaseConfirm(null);
+      setSuccess(`Day ${dayNum} completed — payment released to driver successfully.`);
       await loadShifts();
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e.response?.data?.message ?? (err instanceof Error ? err.message : 'Failed to complete day'));
     } finally {
-      setActionLoading(false);
+      setReleaseLoading(false);
     }
   };
 
@@ -1590,6 +1509,24 @@ const HaulierShiftsPage: React.FC = () => {
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
 
+      {/* ── Release Payment Confirm Modal ── */}
+      <ConfirmModal
+        open={!!releaseConfirm}
+        title="Complete &amp; Release Payment"
+        message={`You are about to complete Day ${releaseConfirm?.dayNum} of shift ${releaseConfirm?.shiftRef} and release the escrowed funds to the driver.`}
+        details={releaseConfirm ? [
+          { label: 'Shift Ref', value: releaseConfirm.shiftRef },
+          { label: 'Day', value: `Day ${releaseConfirm.dayNum}` },
+          { label: 'Action', value: 'Complete day + release payment' },
+        ] : []}
+        confirmLabel="Yes, Release Payment"
+        cancelLabel="Cancel"
+        icon="payments"
+        loading={releaseLoading}
+        onConfirm={() => void executeCompleteDay()}
+        onCancel={() => { if (!releaseLoading) setReleaseConfirm(null); }}
+      />
+
       {/* ── Shift Handover Panel ── */}
       {handoverShift && (
         <ShiftHandoverPanel
@@ -1637,92 +1574,6 @@ const HaulierShiftsPage: React.FC = () => {
         />
       )}
 
-      {/* ── Driver live-tracking panel ────────────────────────────────────── */}
-      {trackingShift && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Live Tracking</p>
-                <h3 className="text-lg font-black text-[#041627]">{trackingShift.shiftRef}</h3>
-                <p className="text-xs font-semibold text-slate-500">
-                  Day {trackingShift.daysCompleted + 1} of {trackingShift.totalDays} · {trackingShift.pickupAddress ?? '—'} → {trackingShift.dropAddress ?? '—'}
-                </p>
-              </div>
-              <button onClick={closeTrackingPanel} className="ml-4 flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100">
-                <span className="material-symbols-outlined text-slate-500">close</span>
-              </button>
-            </div>
-
-            {/* Map / location panel */}
-            <div className="p-5 space-y-4">
-              {driverLocation ? (
-                driverLocation.latitude != null && driverLocation.longitude != null ? (
-                  <>
-                    {/* Live pulse + coordinates */}
-                    <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 border border-blue-100">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1066b1] opacity-75" />
-                        <span className="relative inline-flex h-3 w-3 rounded-full bg-[#1066b1]" />
-                      </span>
-                      <p className="text-sm font-bold text-[#1066b1]">
-                        {driverLocation.driverName} is active
-                        {trackingWsConnected ? ' · Live' : ' · polling every 10s'}
-                      </p>
-                    </div>
-                    {/* Inline map */}
-                    <div className="h-64 overflow-hidden rounded-2xl border border-slate-200">
-                      <MapContainer
-                        center={[driverLocation.latitude, driverLocation.longitude]}
-                        zoom={15}
-                        className="h-full w-full"
-                        zoomControl={true}
-                      >
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        <FlyTo center={[driverLocation.latitude, driverLocation.longitude]} />
-                        <Marker
-                          position={[driverLocation.latitude, driverLocation.longitude]}
-                          icon={driverMarkerIcon}
-                        >
-                          <Popup>
-                            <div className="text-sm">
-                              <p className="font-black text-[#1066b1]">{driverLocation.driverName}</p>
-                              <p className="text-slate-500 text-xs mt-0.5">
-                                {driverLocation.latitude.toFixed(5)}, {driverLocation.longitude.toFixed(5)}
-                              </p>
-                            </div>
-                          </Popup>
-                        </Marker>
-                      </MapContainer>
-                    </div>
-                  </>
-                ) : (
-                  <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-5 text-center">
-                    <span className="material-symbols-outlined text-3xl text-amber-400 mb-2 block">location_off</span>
-                    <p className="text-sm font-bold text-amber-700">
-                      {driverLocation.driverName} hasn't shared their location yet.
-                    </p>
-                    <p className="text-xs text-amber-600 mt-1">Location updates automatically when the driver starts their day.</p>
-                  </div>
-                )
-              ) : (
-                <div className="flex items-center justify-center py-10">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1066b1] border-t-transparent" />
-                  <span className="ml-3 text-sm font-semibold text-slate-500">Loading location…</span>
-                </div>
-              )}
-
-              <p className="text-center text-[10px] font-semibold text-slate-400">
-                Location refreshes every 10 seconds
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Page header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1947,15 +1798,15 @@ const HaulierShiftsPage: React.FC = () => {
                                 Pay Day {shift.daysCompleted + 1}
                               </button>
                             )}
-                            {/* Complete Day N — shown when that day's payment is escrowed */}
+                            {/* Complete & Release Payment — shown when that day's payment is escrowed */}
                             {canComplete && shift.currentDayEscrowed && (
                               <button
-                                onClick={() => void handleCompleteDay(shift.shiftId, shift.daysCompleted + 1)}
-                                disabled={!!actionLoading}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                onClick={() => handleCompleteDay(shift.shiftId, shift.daysCompleted + 1, shift.shiftRef)}
+                                disabled={!!actionLoading || releaseLoading}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-300"
                               >
                                 <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                                Complete Day {shift.daysCompleted + 1}
+                                Complete &amp; Release Payment
                               </button>
                             )}
                             {/* Sign Handover — driver has submitted; haulier must counter-sign */}
@@ -1989,7 +1840,7 @@ const HaulierShiftsPage: React.FC = () => {
                             {/* Track Driver — available for IN_PROGRESS shifts with a driver */}
                             {shift.status.toUpperCase() === 'IN_PROGRESS' && shift.selectedDriverId && (
                               <button
-                                onClick={() => void openTrackingPanel(shift)}
+                                onClick={() => navigate(`/haulier/tracking?tab=shifts&shiftId=${shift.shiftId}`)}
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white transition hover:bg-[#0e57a0]"
                               >
                                 <span className="material-symbols-outlined text-[15px]">location_on</span>

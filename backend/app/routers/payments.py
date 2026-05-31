@@ -33,18 +33,21 @@ class PaymentMethodRequest(BaseModel):
 
 
 def _payment_dict(p: Payment) -> dict:
-    _total  = float(p.amount)
-    _driver = float(p.driver_amount) if p.driver_amount else round(_total / 1.125, 2)
-    _fee    = float(p.platform_fee)  if p.platform_fee  else round(_total - _driver, 2)
+    _driver = float(p.driver_amount) if p.driver_amount else float(p.amount)
+    _fee    = float(p.platform_fee)  if p.platform_fee  else round(_driver * 0.125, 2)
+    _vat    = float(p.vat_amount)    if getattr(p, "vat_amount", None) else round(_driver * 0.25, 2)
+    _total  = round(_driver + _fee + _vat, 2)
     return {
         "paymentId": p.id,
         "jobId": p.job_id,
         "gatewayOrderId": p.gateway_order_id,
         "gatewayPaymentId": p.gateway_payment_id,
         "gatewayPayoutId": p.gateway_payout_id,
-        "amount": _total,
+        "amount": _driver,      # Stripe-escrowed quoted amount
         "driverAmount": _driver,
         "platformFee": _fee,
+        "vatAmount": _vat,
+        "totalAmount": _total,  # invoice total (quote + fee + VAT)
         "currency": p.currency,
         "status": p.status.value,
         "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
@@ -69,7 +72,11 @@ def create_payment_order(
             "paymentId": order["payment_id"],
             "paymentIntentId": order["gateway_order_id"],
             "clientSecret": order["client_secret"],
-            "amount": order["amount"],
+            "amount": order["amount"],          # quoted amount (Stripe charge)
+            "driverAmount": order["driverAmount"],
+            "platformFee": order["platformFee"],
+            "vatAmount": order["vatAmount"],
+            "totalAmount": order["totalAmount"], # invoice total
             "currency": order["currency"],
             "publishableKey": order["publishable_key"],
         },
@@ -182,7 +189,11 @@ def initiate_payment(
             "paymentId": order["payment_id"],
             "paymentIntentId": order["gateway_order_id"],
             "clientSecret": order["client_secret"],
-            "amount": order["amount"],
+            "amount": order["amount"],          # quoted amount (Stripe charge)
+            "driverAmount": order["driverAmount"],
+            "platformFee": order["platformFee"],
+            "vatAmount": order["vatAmount"],
+            "totalAmount": order["totalAmount"], # invoice total
             "currency": order["currency"],
             "publishableKey": order["publishable_key"],
         },
