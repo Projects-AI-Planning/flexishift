@@ -697,7 +697,7 @@ function DriverApp(): React.JSX.Element {
   // Post-login setup flow
   const [setupStep, setSetupStep] = useState<SetupStep>(null);
   const [setupAvailability, setSetupAvailability] = useState<string>('');
-  const [setupExtraDocs, setSetupExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
+  const [setupExtraDocs, setSetupExtraDocs] = useState<{name: string; docNumber: string; docType: string}[]>([]);
 
   // Quote accepted/rejected notification
   const [quoteStatusData, setQuoteStatusData] = useState<{
@@ -1561,7 +1561,7 @@ function DriverApp(): React.JSX.Element {
     truckCapacity?: string;
     compartments?: Array<{id: number; capacityLitres: string; fuelType: string}>;
     photoFile?: {uri: string; fileName: string; type: string};
-    extraDocs: {name: string; docNumber: string}[];
+    extraDocs: {name: string; docNumber: string; docType: string}[];
   }) => {
     setActionLoading(true);
     setErrorBanner(null);

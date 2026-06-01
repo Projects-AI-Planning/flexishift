@@ -21,7 +21,7 @@ export interface DocumentVerificationScreenProps {
   documents: any[];
   verificationStatus: any;
   driverAvailability?: string;
-  extraDocs?: {name: string; docNumber: string}[];
+  extraDocs?: {name: string; docNumber: string; docType?: string}[];
   refreshing: boolean;
   onRefresh: () => void;
   onUpload: (documentType: string, expiryDate: string, file: any) => Promise<void>;
@@ -102,15 +102,17 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 
   const visibleDocs = getVisibleDocs(driverAvailability);
 
-  // Extra docs added by driver — use label as the backendKey sent to the API
-  const extraDocCards = extraDocs.map(doc => ({
-    backendKey: doc.name,
-    normalKey: `extra_${doc.name.toLowerCase().replace(/\s+/g, '_')}`,
-    label: doc.name,
-    icon: '📄',
-    subtitle: doc.docNumber ? `No. ${doc.docNumber}` : 'Additional document · Optional',
-    isExtra: true,
-  }));
+  // Extra docs added by driver — use docType (valid backend enum) as backendKey
+  const extraDocCards = extraDocs
+    .filter(doc => !!doc.docType)
+    .map(doc => ({
+      backendKey: doc.docType!,
+      normalKey: `extra_${doc.docType!.toLowerCase()}`,
+      label: doc.name,
+      icon: '📄',
+      subtitle: doc.docNumber ? `No. ${doc.docNumber}` : 'Additional document · Optional',
+      isExtra: true,
+    }));
 
   const getUploadedDoc = (normalKey: string) =>
     documents.find(d =>

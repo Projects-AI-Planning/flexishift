@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
 import ConfirmModal from '../../components/ConfirmModal';
+import SignatureRenderer from '../../components/SignatureRenderer';
 
 // ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
 declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
@@ -1224,15 +1225,21 @@ const ShiftHandoverPanel: React.FC<ShiftHandoverPanelProps> = ({ shiftId, shiftR
               )}
 
               {/* Driver signature */}
-              {data.driverSignatureData && (
+              {data.driverSignatureData && data.driverSignatureData !== 'driver_signed' && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-base text-[#1066b1]">draw</span>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Signature</p>
                   </div>
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                    <img src={data.driverSignatureData} alt="Driver signature" className="h-24 w-full object-contain" />
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+                    <SignatureRenderer data={data.driverSignatureData} height={96} className="w-full" />
                   </div>
+                </div>
+              )}
+              {data.driverSignatureData === 'driver_signed' && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-emerald-600">draw</span>
+                  <p className="text-sm font-black text-emerald-800">Driver Signed</p>
                 </div>
               )}
 
@@ -1266,8 +1273,8 @@ const ShiftHandoverPanel: React.FC<ShiftHandoverPanelProps> = ({ shiftId, shiftR
                     <span className="material-symbols-outlined text-base text-[#1066b1]">verified</span>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Haulier Counter-Signature</p>
                   </div>
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                    <img src={data.handoverHaulierSignatureData} alt="Haulier signature" className="h-24 w-full object-contain" />
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+                    <SignatureRenderer data={data.handoverHaulierSignatureData} height={96} className="w-full" />
                   </div>
                 </div>
               )}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -35,19 +35,18 @@ class PaymentMethodRequest(BaseModel):
 def _payment_dict(p: Payment) -> dict:
     _driver = float(p.driver_amount) if p.driver_amount else float(p.amount)
     _fee    = float(p.platform_fee)  if p.platform_fee  else round(_driver * 0.125, 2)
-    _vat    = float(p.vat_amount)    if getattr(p, "vat_amount", None) else round(_driver * 0.25, 2)
-    _total  = round(_driver + _fee + _vat, 2)
+    _total  = round(_driver + _fee, 2)  # haulier pays driver quote + 12.5%
     return {
         "paymentId": p.id,
         "jobId": p.job_id,
         "gatewayOrderId": p.gateway_order_id,
         "gatewayPaymentId": p.gateway_payment_id,
         "gatewayPayoutId": p.gateway_payout_id,
-        "amount": _driver,      # Stripe-escrowed quoted amount
+        "amount": _total,       # total charged to haulier
         "driverAmount": _driver,
         "platformFee": _fee,
-        "vatAmount": _vat,
-        "totalAmount": _total,  # invoice total (quote + fee + VAT)
+        "vatAmount": 0.0,
+        "totalAmount": _total,
         "currency": p.currency,
         "status": p.status.value,
         "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
@@ -247,20 +246,20 @@ def get_payment_status(
     return ok(data=_payment_dict(p), message="Payment status retrieved")
 
 
-@flat.post("/release/{booking_id}")
-async def release_escrow(
-    booking_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
-):
-    if current_user.role not in (Role.ADMIN,):
-        job = db.query(Job).filter(Job.id == booking_id, Job.deleted_at.is_(None)).first()
-        if not job or job.haulier_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Forbidden")
-    p = pay_svc.release_payment(db, booking_id)
-    job = db.query(Job).filter(Job.id == booking_id).first()
-    if job and p:
-        from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+async def _send_invoice_background(job_id: str) -> None:
+    """Run in background after payment release — avoids blocking the HTTP response."""
+    import asyncio
+    from app.database import SessionLocal
+    from app.models.job import Job
+    from app.models.payment import Payment
+    from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        p = db.query(Payment).filter(Payment.job_id == job_id).first()
+        if not job or not p:
+            return
         driver = job.supplier
         try:
             url = await generate_and_upload_invoice(job, p)
@@ -272,6 +271,29 @@ async def release_escrow(
             await send_invoice_to_driver(job, p, driver, db=db)
         except Exception:
             pass
+    finally:
+        db.close()
+
+
+@flat.post("/release/{booking_id}")
+async def release_escrow(
+    booking_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    if current_user.role not in (Role.ADMIN,):
+        job = db.query(Job).filter(Job.id == booking_id, Job.deleted_at.is_(None)).first()
+        if not job or job.haulier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Release the Stripe payment and update DB — must finish before responding.
+    p = pay_svc.release_payment(db, booking_id)
+
+    # Schedule invoice generation + email in the background so the response
+    # returns immediately (Stripe invoice creation can take 60–90 seconds).
+    background_tasks.add_task(_send_invoice_background, booking_id)
+
     return ok(data=_payment_dict(p), message="Payment released")
 
 

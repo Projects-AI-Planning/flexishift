@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import haulierService from '../../api/haulierService';
+import SignatureRenderer from '../../components/SignatureRenderer';
 
 type JobSummary = {
   jobId: string;
@@ -301,25 +302,20 @@ export default function HaulierHandoverPage() {
                     )}
 
                     {/* Driver signature */}
-                    {detail.handover?.driverSignatureUrl &&
-                      !detail.handover.driverSignatureUrl.startsWith('driver_signed') && (
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Driver Signature</p>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 inline-block">
-                            {detail.handover.driverSignatureUrl.startsWith('data:image') ? (
-                              <img
-                                src={detail.handover.driverSignatureUrl}
-                                alt="Driver signature"
-                                className="max-h-24 max-w-xs"
-                              />
-                            ) : (
-                              <p className="text-sm font-bold text-slate-600">
-                                Signed digitally at {formatDate(detail.handover.driverSignedAt)}
-                              </p>
-                            )}
-                          </div>
+                    {detail.handover?.driverSigned && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Driver Signature</p>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          {detail.handover.driverSignatureUrl && !detail.handover.driverSignatureUrl.startsWith('driver_signed') ? (
+                            <SignatureRenderer data={detail.handover.driverSignatureUrl} height={96} />
+                          ) : (
+                            <p className="text-sm font-bold text-slate-600">
+                              Signed digitally at {formatDate(detail.handover.driverSignedAt)}
+                            </p>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    )}
 
                     {/* Haulier signature status */}
                     {detail.handover?.haulierSigned && (

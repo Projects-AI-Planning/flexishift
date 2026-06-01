@@ -223,8 +223,12 @@ def complete_shift_day(db: Session, shift_id: str, haulier: User) -> Shift:
     db.commit()
     db.refresh(shift)
 
-    # Notify driver that their daily payment has been released
+    # Notify driver + send invoice email
     if shift.selected_driver_id:
+        from app.models.user import User as _User
+        _driver = db.query(_User).filter(_User.id == shift.selected_driver_id).first()
+
+        # In-app notification
         try:
             import asyncio as _asyncio
             from app.services.notifications import create_notification as _notify
@@ -249,7 +253,16 @@ def complete_shift_day(db: Session, shift_id: str, haulier: User) -> Shift:
                 },
             ))
         except Exception:
-            pass  # notification failure must not break payment release
+            pass
+
+        # Invoice email + Stripe invoice
+        if _driver:
+            try:
+                import asyncio as _asyncio
+                from app.services.invoice import send_shift_invoice_to_driver
+                _asyncio.run(send_shift_invoice_to_driver(shift, payment, _driver, current_day, db=db))
+            except Exception:
+                pass
 
     return shift
 

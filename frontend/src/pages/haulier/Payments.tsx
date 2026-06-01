@@ -259,14 +259,8 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
               <span className="font-black text-[#44474C]">{fmtMoney(order.platformFee, order.currency)}</span>
             </div>
           )}
-          {order.vatAmount != null && (
-            <div className="flex justify-between text-sm">
-              <span className="font-bold text-slate-500">VAT (25%)</span>
-              <span className="font-black text-[#44474C]">{fmtMoney(order.vatAmount, order.currency)}</span>
-            </div>
-          )}
           <div className="border-t border-slate-200 pt-2 flex justify-between text-sm">
-            <span className="font-bold text-slate-500">Total Amount</span>
+            <span className="font-bold text-slate-500">Total You Pay</span>
             <span className="text-base font-black text-primary">
               {fmtMoney(order.totalAmount ?? order.amount, order.currency)}
             </span>

@@ -478,7 +478,14 @@ const HaulierOverview: React.FC = () => {
     setApprovingJobId(job.jobId);
     setApproveError((prev) => { const n = { ...prev }; delete n[job.jobId]; return n; });
     try {
-      await haulierService.releasePayment(job.jobId, { approvalNote: 'Approved from dashboard' });
+      // If driver has submitted delivery proof, go through the full compliance approval
+      // (updates compliance record, sends invoice email, sends notification).
+      // Otherwise just release the escrowed payment directly (haulier early release).
+      if (job.status === 'DELIVERY_SUBMITTED') {
+        await haulierService.approveDelivery(job.jobId, { bookingId: job.jobId, approvalNote: 'Approved from dashboard' });
+      } else {
+        await haulierService.releasePayment(job.jobId, { approvalNote: 'Released from dashboard' });
+      }
       setPendingApprovalJobs((prev) => prev.filter((j) => j.jobId !== job.jobId));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; detail?: string } } };

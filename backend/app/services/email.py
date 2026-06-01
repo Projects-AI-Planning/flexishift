@@ -220,7 +220,7 @@ async def send_invoice_email_to_driver(
     delivery: str,
     driver_amount: float,
     platform_fee: float,
-    vat_amount: float,
+    vat_amount: float,   # kept for signature compatibility; always 0 now
     total_amount: float,
     currency: str,
     pdf_bytes: bytes,
@@ -230,13 +230,13 @@ async def send_invoice_email_to_driver(
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
       <div style="text-align:center;margin-bottom:24px;">
         <h2 style="color:#0B1E3E;margin:0;">FlexiShift</h2>
-        <p style="color:#64748B;font-size:13px;margin:4px 0 0;">Payment Released — Tax Invoice</p>
+        <p style="color:#64748B;font-size:13px;margin:4px 0 0;">Payment Released — Invoice</p>
       </div>
       <div style="background:#fff;border-radius:10px;padding:28px 24px;border:1px solid #E2E8F0;">
         <p style="color:#0B1E3E;font-size:16px;font-weight:600;margin:0 0 8px;">Hi {driver_name},</p>
         <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
           Great news! The payment for job <strong>{job_ref}</strong> has been released to you.
-          Please find your tax invoice attached to this email.
+          Your invoice is attached to this email.
         </p>
         <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
           <p style="margin:0 0 10px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Payment Summary</p>
@@ -254,16 +254,12 @@ async def send_invoice_email_to_driver(
               <td style="padding:4px 0;text-align:right;">{delivery}</td>
             </tr>
             <tr style="border-top:1px solid #D1FAE5;margin-top:8px;">
-              <td style="padding:10px 0 4px;color:#475569;">Driver Earnings (Your Quote)</td>
+              <td style="padding:10px 0 4px;color:#475569;">Your Quoted Amount</td>
               <td style="padding:10px 0 4px;text-align:right;">{cur} {driver_amount:.2f}</td>
             </tr>
             <tr>
               <td style="padding:4px 0;color:#475569;">Platform Fee (12.5%)</td>
               <td style="padding:4px 0;text-align:right;">{cur} {platform_fee:.2f}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#475569;">VAT (25%)</td>
-              <td style="padding:4px 0;text-align:right;">{cur} {vat_amount:.2f}</td>
             </tr>
             <tr style="border-top:2px solid #166534;">
               <td style="padding:10px 0 0;font-weight:700;color:#166534;">Total Charged to Haulier</td>

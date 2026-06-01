@@ -121,41 +121,16 @@ async def approve_delivery(db: Session, job_id: str, approver_id: str) -> Compli
 
     now = datetime.utcnow()
     record.step3_approved_at = now
-    job.status = JobStatus.COMPLETED
 
     supplier = job.supplier
     if supplier:
         supplier.completed_jobs += 1
 
-    db.commit()
-
+    # Release payment first (sets job.status=COMPLETED and commits internally).
     from app.services.payments import release_payment
     release_payment(db, job_id)
 
-    payment = job.payment
-    driver = job.supplier
-
-    # Generate, upload invoice PDF and email it to the driver
-    from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
-    if payment:
-        try:
-            url = await generate_and_upload_invoice(job, payment)
-            job.invoice_url = url
-            db.commit()
-        except Exception:
-            pass
-        try:
-            await send_invoice_to_driver(job, payment, driver, db=db)
-        except Exception:
-            pass
-
-    from app.services.notifications import create_notification
-    await create_notification(
-        db, job.selected_supplier_id, "PAYMENT_RELEASED",
-        "Delivery Approved – Payment Released",
-        f"Haulier approved delivery for job {job.job_ref}. Payment has been released.",
-        {"job_id": job_id, "job_ref": job.job_ref},
-    )
+    # Commit compliance record changes (step3_approved_at, completed_jobs).
     db.commit()
     db.refresh(record)
     return record

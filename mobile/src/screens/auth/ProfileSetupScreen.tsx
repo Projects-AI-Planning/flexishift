@@ -31,7 +31,7 @@ interface ProfileSetupScreenProps {
     truckCapacity?: string;
     compartments?: TruckCompartment[];
     photoFile?: {uri: string; fileName: string; type: string};
-    extraDocs: {name: string; docNumber: string}[];
+    extraDocs: {name: string; docNumber: string; docType: string}[];
   }) => void;
   onSkip: () => void;
   loading: boolean;
@@ -42,6 +42,14 @@ const DRIVER_MODES = [
   {key: 'DRIVER_ONLY',       label: 'Only Driver',       desc: 'Available as driver only — no truck'},
   {key: 'DRIVER_WITH_TRUCK', label: 'Driver with Truck', desc: 'Available with my own truck'},
   {key: 'TRUCK_ONLY',        label: 'Only Truck',        desc: 'Providing a truck — no driver services'},
+];
+
+const EXTRA_DOC_TYPES = [
+  {key: 'COMPANY_REG',       label: 'Company Registration'},
+  {key: 'FLEET_INSURANCE',   label: 'Fleet Insurance'},
+  {key: 'DRIVING_LICENCE',   label: 'Driving Licence'},
+  {key: 'VEHICLE_REG',       label: 'Vehicle Registration'},
+  {key: 'VEHICLE_INSURANCE', label: 'Vehicle Insurance'},
 ];
 
 const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
@@ -64,8 +72,8 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     {uri: string; fileName: string; type: string} | undefined
   >();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string}[]>([]);
-  const [docNameInput, setDocNameInput] = useState('');
+  const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string; docType: string}[]>([]);
+  const [selectedDocType, setSelectedDocType] = useState('');
   const [docNumberInput, setDocNumberInput] = useState('');
 
   // Truck compartments
@@ -406,16 +414,31 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 
             {/* Inputs */}
             <View style={styles.extraDocInputBlock}>
+              {/* Document type picker */}
+              <Text style={{fontSize: 11, fontWeight: '800', color: colors.inkSoft, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8}}>
+                Document Type
+              </Text>
+              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12}}>
+                {EXTRA_DOC_TYPES.filter(t =>
+                  !extraDocs.some(d => d.docType === t.key)
+                ).map(t => (
+                  <Pressable
+                    key={t.key}
+                    onPress={() => setSelectedDocType(t.key)}
+                    style={{
+                      paddingHorizontal: 12, paddingVertical: 7,
+                      borderRadius: 20, borderWidth: 1.5,
+                      borderColor: selectedDocType === t.key ? colors.accent : colors.border,
+                      backgroundColor: selectedDocType === t.key ? colors.accent : colors.neutralSoft,
+                    }}>
+                    <Text style={{fontSize: 12, fontWeight: '800', color: selectedDocType === t.key ? '#fff' : colors.inkSoft}}>
+                      {t.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <AppInput
-                label="Document Name"
-                placeholder="e.g. Car Insurance, Aadhar Card"
-                value={docNameInput}
-                onChangeText={setDocNameInput}
-                autoCapitalize="words"
-                containerStyle={{marginBottom: 12}}
-              />
-              <AppInput
-                label="Document Number"
+                label="Document Number (optional)"
                 placeholder="e.g. POL-2024-98765"
                 value={docNumberInput}
                 onChangeText={setDocNumberInput}
@@ -423,12 +446,12 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                 containerStyle={{marginBottom: 12}}
               />
               <Pressable
-                style={[styles.extraDocAddBtn, !docNameInput.trim() && styles.extraDocAddBtnDisabled]}
+                style={[styles.extraDocAddBtn, !selectedDocType && styles.extraDocAddBtnDisabled]}
                 onPress={() => {
-                  const name = docNameInput.trim();
-                  if (!name) {return;}
-                  setExtraDocs(prev => [...prev, {name, docNumber: docNumberInput.trim()}]);
-                  setDocNameInput('');
+                  if (!selectedDocType) {return;}
+                  const label = EXTRA_DOC_TYPES.find(t => t.key === selectedDocType)?.label ?? selectedDocType;
+                  setExtraDocs(prev => [...prev, {name: label, docNumber: docNumberInput.trim(), docType: selectedDocType}]);
+                  setSelectedDocType('');
                   setDocNumberInput('');
                 }}>
                 <Text style={styles.extraDocAddBtnText}>＋  Add Document</Text>

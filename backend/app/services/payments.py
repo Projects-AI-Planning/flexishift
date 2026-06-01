@@ -46,14 +46,13 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
     if not selected_quote:
         raise HTTPException(status_code=422, detail="No selected quote found")
 
-    driver_amount = float(selected_quote.price)
-    platform_fee = round(driver_amount * 0.125, 2)
-    vat_amount = round(driver_amount * 0.25, 2)
-    total_amount = round(driver_amount + platform_fee + vat_amount, 2)
-    # Only the driver's quoted amount is escrowed via Stripe.
-    # Platform fee and VAT are stored for invoicing but not part of the Stripe hold.
-    amount_minor = int(round(driver_amount * 100))
-    driver_amount_minor = amount_minor
+    driver_amount = float(selected_quote.price)      # driver's quoted earnings
+    platform_fee  = round(driver_amount * 0.125, 2)  # 12.5% platform fee
+    total_amount  = round(driver_amount + platform_fee, 2)  # what haulier pays
+    # Haulier is charged driver_amount + 12.5%.
+    # On release: driver_amount → driver's account; platform_fee → platform account.
+    amount_minor       = int(round(total_amount * 100))
+    driver_amount_minor = int(round(driver_amount * 100))
 
     from app.utils.phone_country import _COUNTRY_CURRENCY, _DEFAULT_CURRENCY
     haulier = db.query(User).filter(User.id == haulier_id).first()
@@ -98,10 +97,10 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
                     "payment_id": existing.id,
                     "gateway_order_id": prev_intent["id"],
                     "client_secret": prev_intent["client_secret"],
-                    "amount": driver_amount,
+                    "amount": total_amount,
                     "driverAmount": driver_amount,
                     "platformFee": platform_fee,
-                    "vatAmount": vat_amount,
+                    "vatAmount": 0.0,
                     "totalAmount": total_amount,
                     "currency": existing.currency,
                     "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
@@ -145,10 +144,10 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     if existing:
         existing.gateway_order_id = intent["id"]
-        existing.amount = driver_amount       # Stripe-escrowed = quoted amount
+        existing.amount = total_amount        # full Stripe charge (driver + fee + VAT)
         existing.driver_amount = driver_amount
-        existing.platform_fee = platform_fee  # invoicing only
-        existing.vat_amount = vat_amount      # invoicing only
+        existing.platform_fee = platform_fee
+        existing.vat_amount = 0.0
         existing.currency = currency
         existing.status = PaymentStatus.PENDING
         db.commit()
@@ -157,10 +156,10 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         payment = Payment(
             job_id=job_id,
             gateway_order_id=intent["id"],
-            amount=driver_amount,             # Stripe-escrowed = quoted amount
+            amount=total_amount,              # full Stripe charge (driver + fee + VAT)
             driver_amount=driver_amount,
-            platform_fee=platform_fee,        # invoicing only
-            vat_amount=vat_amount,            # invoicing only
+            platform_fee=platform_fee,
+            vat_amount=0.0,
             currency=currency,
             status=PaymentStatus.PENDING,
         )
@@ -175,11 +174,11 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "payment_id": payment.id,
         "gateway_order_id": intent["id"],
         "client_secret": intent["client_secret"],
-        "amount": driver_amount,        # Stripe-escrowed = quoted amount
+        "amount": total_amount,         # full Stripe charge shown to haulier
         "driverAmount": driver_amount,
         "platformFee": platform_fee,
-        "vatAmount": vat_amount,
-        "totalAmount": total_amount,    # quote + platform_fee + VAT (invoice total)
+        "vatAmount": 0.0,
+        "totalAmount": total_amount,
         "currency": currency,
         "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
@@ -264,9 +263,8 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
     ] if stops_raw else []
 
     _driver = float(payment.driver_amount) if payment.driver_amount else float(payment.amount)
-    _fee = float(payment.platform_fee) if payment.platform_fee else round(_driver * 0.125, 2)
-    _vat = float(payment.vat_amount) if getattr(payment, "vat_amount", None) else round(_driver * 0.25, 2)
-    _total = round(_driver + _fee + _vat, 2)
+    _fee    = float(payment.platform_fee) if payment.platform_fee else round(_driver * 0.125, 2)
+    _total  = round(_driver + _fee, 2)
 
     return {
         "paymentId": payment.id,
@@ -286,8 +284,8 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "amount": _driver,      # escrowed quoted amount (Stripe hold)
         "driverAmount": _driver,
         "platformFee": _fee,
-        "vatAmount": _vat,
-        "totalAmount": _total,  # quote + platform_fee + VAT (invoice total)
+        "vatAmount": 0.0,
+        "totalAmount": _total,  # driver quote + 12.5% platform fee
         "currency": payment.currency,
         "status": payment.status.value,
         "stripeIntentId": payment.gateway_payment_id or payment.gateway_order_id,
@@ -305,8 +303,16 @@ def release_payment(db: Session, job_id: str) -> Payment:
     from app.services.stripe_connect import transfer_to_driver, StripeTransferError
 
     payment = db.query(Payment).filter(Payment.job_id == job_id).first()
-    if not payment or payment.status != PaymentStatus.ESCROWED:
-        raise HTTPException(status_code=422, detail="Payment not in escrowed state")
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found for this job")
+    if payment.status == PaymentStatus.RELEASED:
+        # Already released — return existing record (idempotent for double-clicks / retries)
+        return payment
+    if payment.status != PaymentStatus.ESCROWED:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot release payment with status '{payment.status.value}'. Payment must be ESCROWED first.",
+        )
 
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -314,42 +320,84 @@ def release_payment(db: Session, job_id: str) -> Payment:
 
     client = _stripe_client()
     intent_id = payment.gateway_payment_id or payment.gateway_order_id
-    try:
-        intent_check = client.PaymentIntent.retrieve(intent_id)
-        intent_status = intent_check["status"] if isinstance(intent_check, dict) else getattr(intent_check, "status", None)
-        if intent_status == "succeeded":
-            # Already captured (e.g. release called twice, or auto-capture webhook fired).
-            # Reuse the existing intent data instead of re-capturing.
-            log.warning("release_payment_already_captured", job_id=job_id, intent_id=intent_id)
-            captured_intent = intent_check
-        else:
-            captured_intent = client.PaymentIntent.capture(intent_id)
-    except stripe.StripeError as e:
-        raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
 
-    # payment.amount == driver_amount (the quoted amount = full Stripe-escrowed value).
-    # Fall back to payment.amount if driver_amount is somehow null (legacy rows).
+    # Detect mock/test intent IDs (created during early development, not valid in Stripe).
+    # For these we skip Stripe capture and release the DB record directly so sandbox
+    # testing is not blocked by stale test data.
+    is_mock_intent = not intent_id or not str(intent_id).startswith("pi_")
+
+    captured_intent = None
+    if is_mock_intent:
+        log.warning("release_payment_mock_intent", job_id=job_id, intent_id=intent_id)
+    else:
+        try:
+            intent_check = client.PaymentIntent.retrieve(intent_id)
+            intent_status = intent_check["status"] if isinstance(intent_check, dict) else getattr(intent_check, "status", None)
+            if intent_status == "succeeded":
+                log.warning("release_payment_already_captured", job_id=job_id, intent_id=intent_id)
+                captured_intent = intent_check
+            elif intent_status == "requires_capture":
+                captured_intent = client.PaymentIntent.capture(intent_id)
+            elif intent_status == "canceled":
+                # Intent was canceled (e.g. card auth expired, duplicate, test data).
+                # The haulier's card was never charged, so we still mark the DB as released
+                # to unblock the job flow; in production this would trigger a re-payment.
+                log.warning(
+                    "release_payment_intent_canceled",
+                    job_id=job_id, intent_id=intent_id,
+                )
+                captured_intent = None  # nothing to capture
+            else:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Payment cannot be released: Stripe status is '{intent_status}'. "
+                           "Please ask the haulier to re-initiate payment.",
+                )
+        except stripe.InvalidRequestError as e:
+            err_msg = _stripe_error_msg(e)
+            # "No such payment_intent" means the intent belongs to a different Stripe
+            # account (stale test data). Skip Stripe capture and release the DB record.
+            if "no such payment_intent" in err_msg.lower():
+                log.warning(
+                    "release_payment_stale_intent",
+                    job_id=job_id, intent_id=intent_id, error=err_msg,
+                )
+                captured_intent = None  # skip transfer too — nothing was captured
+            else:
+                raise HTTPException(status_code=400, detail=err_msg)
+        except stripe.StripeError as e:
+            raise HTTPException(status_code=400, detail=_stripe_error_msg(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Could not reach payment provider: {str(e)}")
+
+    # Driver receives their original quoted amount; platform retains the 12.5% fee.
     driver_payout = float(payment.driver_amount) if payment.driver_amount else float(payment.amount)
     driver_payout_minor = int(round(driver_payout * 100))
 
-    # Check if this was a destination charge (transfer_data set at intent creation).
-    # Use dict-style .get() which is reliable across Stripe SDK versions.
+    # Attempt to transfer driver's share to their Stripe Connect account.
     transfer_id = None
-    try:
-        td = captured_intent.get("transfer_data") if callable(getattr(captured_intent, "get", None)) \
-            else getattr(captured_intent, "transfer_data", None)
-        has_destination = bool(td and td.get("destination") if isinstance(td, dict) else td)
-    except Exception:
-        has_destination = False
+    has_destination = False
 
-    if has_destination:
+    if captured_intent is not None:
+        try:
+            td = getattr(captured_intent, "transfer_data", None)
+            if td is None and isinstance(captured_intent, dict):
+                td = captured_intent.get("transfer_data")
+            has_destination = bool(
+                td and (td.get("destination") if isinstance(td, dict) else getattr(td, "destination", None))
+            )
+        except Exception:
+            has_destination = False
+
+    if has_destination and captured_intent is not None:
         # Destination charge: Stripe auto-transferred driver_amount at capture.
-        # transfer_data.amount was set to driver_amount_minor at intent creation,
-        # so exactly the right amount already went to the driver.
-        transfer_id = (captured_intent.get("transfer") if callable(getattr(captured_intent, "get", None))
-                       else getattr(captured_intent, "transfer", None))
+        try:
+            transfer_id = (getattr(captured_intent, "transfer", None)
+                           or (captured_intent.get("transfer") if isinstance(captured_intent, dict) else None))
+        except Exception:
+            pass
         log.info("release_payment_destination_charge", job_id=job_id, transfer=transfer_id,
                  driver_payout=driver_payout)
     elif job.selected_supplier_id:

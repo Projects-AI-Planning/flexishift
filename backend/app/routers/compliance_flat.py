@@ -3,7 +3,7 @@ Flat /compliance/* endpoints matching the 125-API production spec.
 The original job-scoped /jobs/:id/compliance/* endpoints are kept for backward
 compatibility in compliance.py.
 """
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -397,9 +397,52 @@ async def upload_delivery_photos_direct(
     return ok(data={"uploads": uploaded, "photos": uploaded}, message="Delivery photos uploaded")
 
 
+async def _notify_and_invoice_background(job_id: str) -> None:
+    """Invoice generation, email, and driver notification — runs after response is sent."""
+    from app.database import SessionLocal
+    from app.models.job import Job
+    from app.models.payment import Payment
+    from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+    from app.services.notifications import create_notification
+
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        p = db.query(Payment).filter(Payment.job_id == job_id).first()
+        if not job or not p:
+            return
+        driver = job.supplier
+
+        try:
+            url = await generate_and_upload_invoice(job, p)
+            job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+
+        try:
+            await send_invoice_to_driver(job, p, driver, db=db)
+        except Exception:
+            pass
+
+        try:
+            await create_notification(
+                db, job.selected_supplier_id, "PAYMENT_RELEASED",
+                "Payment Released",
+                f"Haulier approved delivery for job {job.job_ref}. Payment has been released.",
+                {"job_id": job_id, "job_ref": job.job_ref},
+            )
+            db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
 @router.post("/delivery/approve/{job_id}")
 async def approve_delivery(
     job_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(HaulierDep),
 ):
@@ -407,6 +450,8 @@ async def approve_delivery(
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
     record = await comp_svc.approve_delivery(db, job_id, current_user.id)
+    # Invoice + notification run in background so the HTTP response returns immediately.
+    background_tasks.add_task(_notify_and_invoice_background, job_id)
     return ok(
         data={
             "jobId": job_id,
@@ -414,7 +459,7 @@ async def approve_delivery(
             "step3ApprovedAt": record.step3_approved_at.isoformat() if record.step3_approved_at else None,
             "paymentReleaseInitiated": True,
         },
-        message="Delivery approved",
+        message="Delivery approved and payment released",
     )
 
 
