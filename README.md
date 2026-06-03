@@ -2,6 +2,7 @@
 
 Digital freight-brokerage platform connecting Hauliers with verified Drivers and Transport Firms.
 
+
 ## Project Structure
 
 - **`backend/`**: Python FastAPI backend with MySQL, Redis, and Celery.
