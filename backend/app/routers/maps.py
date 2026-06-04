@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,9 +13,19 @@ from app.services.maps import get_route_info
 log = structlog.get_logger()
 router = APIRouter(prefix="/maps", tags=["Maps"])
 
+GEOCODE_URL      = "https://maps.googleapis.com/maps/api/geocode/json"
+DIRECTIONS_URL   = "https://maps.googleapis.com/maps/api/directions/json"
+PLACES_AUTO_URL  = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+PLACE_DETAIL_URL = "https://maps.googleapis.com/maps/api/place/details/json"
+DISTANCE_URL     = "https://maps.googleapis.com/maps/api/distancematrix/json"
+
+
+def _key() -> str:
+    return settings.GOOGLE_MAPS_API_KEY
+
 
 def _decode_polyline(encoded: str) -> list[dict]:
-    """Decode Google Maps encoded polyline string to lat/lng coordinate list."""
+    """Decode Google Maps encoded polyline string to lat/lng list."""
     coords: list[dict] = []
     index = 0
     lat = 0
@@ -43,37 +54,104 @@ def _decode_polyline(encoded: str) -> list[dict]:
     return coords
 
 
-async def _osrm_polyline(coords: list[tuple[float, float]]) -> list[dict]:
-    """Multi-point OSRM route — coords is a list of (lat, lng) tuples."""
-    coord_str = ";".join(f"{lng},{lat}" for lat, lng in coords)
-    url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?geometries=geojson&overview=full"
+async def _google_polyline(coords: list[tuple[float, float]]) -> list[dict]:
+    """Get road-snapped polyline from Google Directions API."""
+    params: dict = {
+        "origin":      f"{coords[0][0]},{coords[0][1]}",
+        "destination": f"{coords[-1][0]},{coords[-1][1]}",
+        "mode":        "driving",
+        "key":         _key(),
+    }
+    if len(coords) > 2:
+        params["waypoints"] = "|".join(f"{lat},{lng}" for lat, lng in coords[1:-1])
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
+        resp = await client.get(DIRECTIONS_URL, params=params, timeout=15)
     data = resp.json()
-    if data.get("code") != "Ok" or not data.get("routes"):
-        return []
-    return [
-        {"latitude": lat, "longitude": lon}
-        for lon, lat in data["routes"][0]["geometry"]["coordinates"]
-    ]
+    if data.get("status") == "OK" and data.get("routes"):
+        return _decode_polyline(data["routes"][0]["overview_polyline"]["points"])
+    log.warning("google_directions_non_ok", status=data.get("status"))
+    return []
 
 
-async def _osrm_stats(coords: list[tuple[float, float]]) -> dict | None:
-    """Return distance_km + duration_min for a multi-point route via OSRM."""
-    coord_str = ";".join(f"{lng},{lat}" for lat, lng in coords)
-    url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?overview=false"
+async def _google_stats(coords: list[tuple[float, float]]) -> dict | None:
+    """Get distance + duration for a multi-point route via Google Directions."""
+    params: dict = {
+        "origin":      f"{coords[0][0]},{coords[0][1]}",
+        "destination": f"{coords[-1][0]},{coords[-1][1]}",
+        "mode":        "driving",
+        "key":         _key(),
+    }
+    if len(coords) > 2:
+        params["waypoints"] = "|".join(f"{lat},{lng}" for lat, lng in coords[1:-1])
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
+            resp = await client.get(DIRECTIONS_URL, params=params, timeout=15)
         data = resp.json()
-        if data.get("code") == "Ok" and data.get("routes"):
-            r = data["routes"][0]
-            return {"distance_km": round(r["distance"] / 1000, 2), "duration_min": int(r["duration"] / 60)}
+        if data.get("status") == "OK" and data.get("routes"):
+            legs = data["routes"][0].get("legs", [])
+            total_dist = sum(leg["distance"]["value"] for leg in legs)
+            total_dur  = sum(leg["duration"]["value"] for leg in legs)
+            return {
+                "distance_km": round(total_dist / 1000, 2),
+                "duration_min": total_dur // 60,
+            }
     except Exception:
         pass
     return None
 
-GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+
+async def _geocode(address: str) -> dict:
+    """Geocode via Google Geocoding API."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            GEOCODE_URL,
+            params={"address": address, "key": _key()},
+            timeout=10,
+        )
+    data = resp.json()
+    if data.get("status") != "OK" or not data.get("results"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Address could not be found: {address!r} (status={data.get('status')})",
+        )
+    result = data["results"][0]
+    loc = result["geometry"]["location"]
+    return {
+        "formatted_address": result["formatted_address"],
+        "lat": loc["lat"],
+        "lng": loc["lng"],
+        "place_id": result.get("place_id"),
+    }
+
+
+async def _reverse_geocode(lat: float, lng: float) -> dict | None:
+    """Reverse geocode lat/lng to address using Google Geocoding API."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                GEOCODE_URL,
+                params={"latlng": f"{lat},{lng}", "key": _key()},
+                timeout=8,
+            )
+        data = resp.json()
+        if data.get("status") == "OK" and data.get("results"):
+            result = data["results"][0]
+            components = result.get("address_components", [])
+            city = next(
+                (c["long_name"] for c in components if "locality" in c.get("types", [])), ""
+            )
+            county = next(
+                (c["long_name"] for c in components if "administrative_area_level_2" in c.get("types", [])), ""
+            )
+            country = next(
+                (c["long_name"] for c in components if "country" in c.get("types", [])), ""
+            )
+            parts = [p for p in [city, county, country] if p]
+            label = ", ".join(parts) if parts else result.get("formatted_address", "")
+            return {"address": label, "lat": lat, "lng": lng}
+    except Exception:
+        pass
+    return None
 
 
 class ValidateAddressRequest(BaseModel):
@@ -89,49 +167,6 @@ class CalculateRouteRequest(BaseModel):
     dest_lng: float = Field(None, alias="destLng")
     waypoints: list[dict] = Field(default_factory=list, alias="waypoints")
     model_config = {"populate_by_name": True}
-
-
-async def _geocode_nominatim(address: str) -> dict:
-    """Free fallback geocoder using OpenStreetMap Nominatim (no API key required)."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": address, "format": "json", "limit": 1, "addressdetails": 1},
-            headers={"User-Agent": "FlexiShift/1.0 (logistics-platform)"},
-            timeout=10,
-        )
-    results = resp.json()
-    if not results:
-        raise HTTPException(status_code=422, detail="Address could not be found. Please enter a more specific address.")
-    r = results[0]
-    return {
-        "formatted_address": r.get("display_name", address),
-        "lat": float(r["lat"]),
-        "lng": float(r["lon"]),
-        "place_id": r.get("place_id"),
-    }
-
-
-async def _geocode(address: str) -> dict:
-    if not settings.GOOGLE_MAPS_API_KEY:
-        return await _geocode_nominatim(address)
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            GEOCODE_URL,
-            params={"address": address, "key": settings.GOOGLE_MAPS_API_KEY},
-            timeout=10,
-        )
-    data = resp.json()
-    if data.get("status") != "OK" or not data.get("results"):
-        return await _geocode_nominatim(address)
-    result = data["results"][0]
-    loc = result["geometry"]["location"]
-    return {
-        "formatted_address": result["formatted_address"],
-        "lat": loc["lat"],
-        "lng": loc["lng"],
-        "place_id": result.get("place_id"),
-    }
 
 
 @router.post("/validate-address")
@@ -151,92 +186,37 @@ async def validate_address(
     )
 
 
-async def _photon_autocomplete(query: str) -> list[dict]:
-    """Photon (OpenStreetMap) geocoder — rich POI, building, and street coverage, no key needed."""
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                "https://photon.komoot.io/api/",
-                params={"q": query, "limit": 7, "lang": "en"},
-                headers={"User-Agent": "FlexiShift/1.0"},
-                timeout=10,
-            )
-        features = resp.json().get("features", [])
-    except Exception:
-        return []
-
-    predictions = []
-    seen: set[str] = set()
-    for f in features:
-        props = f.get("properties", {})
-        coords = f.get("geometry", {}).get("coordinates", [None, None])  # [lng, lat]
-
-        # Build human-readable description
-        parts: list[str] = []
-        name = props.get("name", "")
-        if name:
-            parts.append(name)
-        house = props.get("housenumber", "")
-        street = props.get("street", "")
-        if street:
-            parts.append(f"{house} {street}".strip() if house else street)
-        elif house:
-            parts.append(house)
-        if props.get("city"):
-            parts.append(props["city"])
-        elif props.get("town"):
-            parts.append(props["town"])
-        if props.get("state"):
-            parts.append(props["state"])
-        if props.get("country"):
-            parts.append(props["country"])
-
-        if not parts:
-            continue
-        description = ", ".join(parts)
-        if description in seen:
-            continue
-        seen.add(description)
-
-        predictions.append({
-            "description": description,
-            "placeId": f"photon_{props.get('osm_type', 'N')}{props.get('osm_id', '')}",
-            "isGoogle": False,
-            "lat": coords[1] if coords[1] is not None else None,
-            "lng": coords[0] if coords[0] is not None else None,
-        })
-    return predictions
-
-
 @router.get("/autocomplete")
 async def autocomplete_address(
     input: str,
     current_user: User = Depends(get_current_user),
 ):
-    # Try Google Places first (returns rich structured data)
-    if settings.GOOGLE_MAPS_API_KEY:
-        try:
-            AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    AUTOCOMPLETE_URL,
-                    params={"input": input, "key": settings.GOOGLE_MAPS_API_KEY},
-                    timeout=10,
-                )
-            data = resp.json()
-            if data.get("status") in ("OK", "ZERO_RESULTS"):
-                predictions = [
-                    {"description": p["description"], "placeId": p["place_id"], "isGoogle": True, "lat": None, "lng": None}
-                    for p in data.get("predictions", [])
-                ]
-                return ok(data={"predictions": predictions, "total": len(predictions)}, message="Autocomplete results")
-            log.warning("google_places_autocomplete_status", status=data.get("status"))
-        except Exception as exc:
-            log.warning("google_places_autocomplete_error", error=str(exc))
+    """Address autocomplete using Google Places API."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                PLACES_AUTO_URL,
+                params={"input": input, "key": _key()},
+                timeout=10,
+            )
+        data = resp.json()
+        if data.get("status") in ("OK", "ZERO_RESULTS"):
+            predictions = [
+                {
+                    "description": p["description"],
+                    "placeId": p["place_id"],
+                    "isGoogle": True,
+                    "lat": None,
+                    "lng": None,
+                }
+                for p in data.get("predictions", [])
+            ]
+            return ok(data={"predictions": predictions, "total": len(predictions)}, message="Autocomplete results")
+        log.warning("google_places_autocomplete_status", status=data.get("status"))
+    except Exception as exc:
+        log.warning("google_places_autocomplete_error", error=str(exc))
 
-    # Fallback: Photon (OSM-based, rich POI + building + street coverage)
-    predictions = await _photon_autocomplete(input)
-    return ok(data={"predictions": predictions, "total": len(predictions)}, message="Autocomplete results")
+    raise HTTPException(status_code=503, detail="Autocomplete service unavailable")
 
 
 @router.get("/place-details")
@@ -245,15 +225,13 @@ async def get_place_details(
     current_user: User = Depends(get_current_user),
 ):
     """Resolve a Google place_id to formatted address + coordinates."""
-    if not settings.GOOGLE_MAPS_API_KEY:
-        raise HTTPException(status_code=503, detail="Place details require Google Maps API key")
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            "https://maps.googleapis.com/maps/api/place/details/json",
+            PLACE_DETAIL_URL,
             params={
                 "place_id": place_id,
                 "fields": "formatted_address,geometry,name",
-                "key": settings.GOOGLE_MAPS_API_KEY,
+                "key": _key(),
             },
             timeout=10,
         )
@@ -264,7 +242,6 @@ async def get_place_details(
     loc  = result["geometry"]["location"]
     name = result.get("name", "")
     fmt  = result.get("formatted_address", "")
-    # Prepend establishment name when it isn't already part of the formatted address
     display = f"{name}, {fmt}" if name and name not in fmt else fmt
     return ok(data={"formattedAddress": display, "lat": loc["lat"], "lng": loc["lng"]}, message="Place details fetched")
 
@@ -290,7 +267,6 @@ async def calculate_route(
     else:
         dlat, dlng = body.dest_lat, body.dest_lng
 
-    # Build ordered coordinate list including any waypoints
     all_coords: list[tuple[float, float]] = [(olat, olng)]
     for wp in (body.waypoints or []):
         if wp.get("lat") is not None and wp.get("lng") is not None:
@@ -298,44 +274,19 @@ async def calculate_route(
     all_coords.append((dlat, dlng))
 
     if len(all_coords) > 2:
-        route = await _osrm_stats(all_coords) or await get_route_info(olat, olng, dlat, dlng)
+        route = await _google_stats(all_coords) or await get_route_info(olat, olng, dlat, dlng)
     else:
         route = await get_route_info(olat, olng, dlat, dlng)
 
     return ok(
         data={
-            "originLat": olat,
-            "originLng": olng,
-            "destLat": dlat,
-            "destLng": dlng,
-            "distanceKm": route["distance_km"],
+            "originLat": olat, "originLng": olng,
+            "destLat": dlat,   "destLng": dlng,
+            "distanceKm":  route["distance_km"],
             "durationMin": route["duration_min"],
         },
         message="Route calculated",
     )
-
-
-async def _reverse_geocode_nominatim(lat: float, lng: float) -> dict | None:
-    """Reverse geocode a lat/lng to a town/city name via Nominatim."""
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                "https://nominatim.openstreetmap.org/reverse",
-                params={"lat": lat, "lon": lng, "format": "json", "zoom": 10, "addressdetails": 1},
-                headers={"User-Agent": "FlexiShift/1.0 (logistics-platform)"},
-                timeout=8,
-            )
-        data = resp.json()
-        addr = data.get("address", {})
-        # Build a concise place label: "City, County, Country"
-        city = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("hamlet") or addr.get("suburb") or ""
-        county = addr.get("county") or addr.get("state_district") or ""
-        country = addr.get("country") or ""
-        parts = [p for p in [city, county, country] if p]
-        label = ", ".join(parts) if parts else data.get("display_name", "")
-        return {"address": label, "lat": lat, "lng": lng}
-    except Exception:
-        return None
 
 
 @router.get("/route-stops")
@@ -349,8 +300,7 @@ async def get_route_stops(
     max_stops: int = Query(3, alias="maxStops", ge=1, le=5),
     current_user: User = Depends(get_current_user),
 ):
-    """Suggest intermediate stops along the route between pickup and drop-off."""
-    # Resolve coordinates
+    """Suggest intermediate stops along the route using Google Directions."""
     if pickup_lat is None or pickup_lng is None:
         if not pickup_address:
             raise HTTPException(status_code=422, detail="Provide pickupAddress or pickupLat/pickupLng")
@@ -362,37 +312,21 @@ async def get_route_stops(
         geo = await _geocode(drop_address)
         drop_lat, drop_lng = geo["lat"], geo["lng"]
 
-    # Fetch full route geometry from OSRM
-    url = (
-        f"https://router.project-osrm.org/route/v1/driving/"
-        f"{pickup_lng},{pickup_lat};{drop_lng},{drop_lat}"
-        "?geometries=geojson&overview=full"
-    )
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers={"User-Agent": "FlexiShift/1.0"}, timeout=15)
-        data = resp.json()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Route service unavailable: {exc}")
-
-    if data.get("code") != "Ok" or not data.get("routes"):
+    # Get full route polyline from Google Directions
+    coords = await _google_polyline([(pickup_lat, pickup_lng), (drop_lat, drop_lng)])
+    if not coords:
         raise HTTPException(status_code=422, detail="Could not calculate route between these locations")
 
-    coords = data["routes"][0]["geometry"]["coordinates"]  # [[lng, lat], ...]
     n = len(coords)
-
     if n < 4:
         return ok(data={"stops": []}, message="Route too short for intermediate stops")
 
-    # Sample at evenly-spaced interior positions (exclude endpoints)
     step = n / (max_stops + 1)
     sample_indices = [round(step * (i + 1)) for i in range(max_stops)]
-    # Clamp to valid interior range
     sample_indices = [max(1, min(idx, n - 2)) for idx in sample_indices]
 
-    import asyncio
     tasks = [
-        _reverse_geocode_nominatim(coords[idx][1], coords[idx][0])
+        _reverse_geocode(coords[idx]["latitude"], coords[idx]["longitude"])
         for idx in sample_indices
     ]
     results = await asyncio.gather(*tasks)
@@ -415,13 +349,12 @@ async def get_road_route(
     origin_lng: float = Query(...),
     dest_lat: float = Query(...),
     dest_lng: float = Query(...),
-    waypoints: str = Query(None),  # JSON array: [{"lat":...,"lng":...}, ...]
+    waypoints: str = Query(None),
     current_user: User = Depends(get_current_user),
 ):
-    """Return road-following polyline through origin → optional waypoints → destination."""
+    """Return road-following polyline via Google Directions API."""
     import json as _json
 
-    # Build ordered coordinate list
     all_coords: list[tuple[float, float]] = [(origin_lat, origin_lng)]
     if waypoints:
         try:
@@ -432,40 +365,12 @@ async def get_road_route(
             pass
     all_coords.append((dest_lat, dest_lng))
 
-    # Try Google Directions (supports waypoints natively)
-    if settings.GOOGLE_MAPS_API_KEY:
-        try:
-            params: dict = {
-                "origin":      f"{all_coords[0][0]},{all_coords[0][1]}",
-                "destination": f"{all_coords[-1][0]},{all_coords[-1][1]}",
-                "mode":        "driving",
-                "key":         settings.GOOGLE_MAPS_API_KEY,
-            }
-            if len(all_coords) > 2:
-                params["waypoints"] = "|".join(
-                    f"{lat},{lng}" for lat, lng in all_coords[1:-1]
-                )
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    "https://maps.googleapis.com/maps/api/directions/json",
-                    params=params,
-                    timeout=15,
-                )
-            data = resp.json()
-            if data.get("status") == "OK" and data.get("routes"):
-                encoded = data["routes"][0]["overview_polyline"]["points"]
-                coordinates = _decode_polyline(encoded)
-                return ok(data={"coordinates": coordinates}, message="Route fetched")
-            log.warning("google_directions_non_ok", status=data.get("status"))
-        except Exception as exc:
-            log.warning("google_directions_error", error=str(exc))
-
-    # OSRM fallback — handles multiple stops natively
     try:
-        coordinates = await _osrm_polyline(all_coords)
+        coordinates = await _google_polyline(all_coords)
         if coordinates:
-            return ok(data={"coordinates": coordinates}, message="Route fetched via fallback")
+            return ok(data={"coordinates": coordinates}, message="Route fetched")
+        log.warning("google_directions_empty_polyline")
     except Exception as exc:
-        log.warning("osrm_fallback_error", error=str(exc))
+        log.warning("google_directions_error", error=str(exc))
 
     raise HTTPException(status_code=503, detail="Route service unavailable")

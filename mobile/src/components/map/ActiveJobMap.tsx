@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import {colors, radius} from '../../theme';
+import {GOOGLE_MAPS_API_KEY} from '../../config/env';
 
 interface ActiveJobMapProps {
   pickupLocation: string;
@@ -40,18 +41,32 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * c;
 }
 
+function decodePolyline(encoded: string): LatLng[] {
+  const points: LatLng[] = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let result = 0, shift = 0, b: number;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    result = 0; shift = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    points.push({latitude: lat / 1e5, longitude: lng / 1e5});
+  }
+  return points;
+}
+
 async function geocode(address: string): Promise<Coords | null> {
   if (!address || address.trim() === '' || address === '[object Object]') {
     return null;
   }
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-      {headers: {'User-Agent': 'FlexiShiftDriverApp/1.0'}},
-    );
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await fetch(url);
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return {lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon)};
+    if (data.status === 'OK' && data.results?.length > 0) {
+      const loc = data.results[0].geometry.location;
+      return {lat: loc.lat, lon: loc.lng};
     }
     return null;
   } catch {
@@ -241,7 +256,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
     ? {latitude: dropCoords.lat, longitude: dropCoords.lon}
     : null;
 
-  // ── OSRM Routing & ETA Logic ────────────────────────────────────────────────
+  // ── Google Directions Routing & ETA Logic ───────────────────────────────────
   useEffect(() => {
     if (!directionsOrigin || !directionsDestination) {return;}
 
@@ -250,49 +265,45 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
 
     (async () => {
       try {
-        const waypointSegments = stopCoords
-          .map(c => `${c.lon},${c.lat}`)
-          .join(';');
-        const waypoints = waypointSegments ? `;${waypointSegments}` : '';
-        const url = `https://router.project-osrm.org/route/v1/driving/${directionsOrigin.longitude},${directionsOrigin.latitude}${waypoints};${directionsDestination.longitude},${directionsDestination.latitude}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
+        const origin      = `${directionsOrigin.latitude},${directionsOrigin.longitude}`;
+        const destination = `${directionsDestination.latitude},${directionsDestination.longitude}`;
+        let url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
+        if (stopCoords.length > 0) {
+          const wps = stopCoords.map(c => `${c.lat},${c.lon}`).join('|');
+          url += `&waypoints=${encodeURIComponent(wps)}`;
+        }
+        const res  = await fetch(url);
         const data = await res.json();
 
-        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const coords = route.geometry.coordinates.map((c: any) => ({
-            latitude: c[1],
-            longitude: c[0],
-          }));
+        if (data.status === 'OK' && data.routes?.length > 0) {
+          const route  = data.routes[0];
+          const coords = decodePolyline(route.overview_polyline.points);
           setRouteCoords(coords);
           setRouteReady(true);
 
-          // Notify parent about route info
+          const legs       = route.legs as Array<{distance: {value: number}; duration: {value: number}}>;
+          const totalDist  = legs.reduce((s, l) => s + l.distance.value, 0);
+          const totalDur   = legs.reduce((s, l) => s + l.duration.value, 0);
           onRouteInfoUpdate?.({
-            distanceKm: route.distance / 1000,
-            durationMin: Math.round(route.duration / 60),
+            distanceKm: totalDist / 1000,
+            durationMin: Math.round(totalDur / 60),
           });
 
           if (!followingRef.current && mapRef.current && coords.length >= 2) {
             mapRef.current.animateToRegion(ptsToRegion(coords), 800);
           }
         } else {
-          throw new Error('Invalid OSRM response');
+          throw new Error(`Google Directions error: ${data.status}`);
         }
       } catch (err) {
-        console.warn('OSRM error:', err);
+        console.warn('Google Directions error:', err);
         setRouteError(true);
         setRouteReady(true);
-        
-        // Fallback: Haversine distance if OSRM fails
         const dist = haversine(
           directionsOrigin.latitude, directionsOrigin.longitude,
-          directionsDestination.latitude, directionsDestination.longitude
+          directionsDestination.latitude, directionsDestination.longitude,
         );
-        onRouteInfoUpdate?.({
-          distanceKm: dist,
-          durationMin: Math.round(dist * 1.5), // Rough estimate: 40 km/h average
-        });
+        onRouteInfoUpdate?.({distanceKm: dist, durationMin: Math.round(dist * 1.5)});
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps

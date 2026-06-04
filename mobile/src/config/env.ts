@@ -16,4 +16,4 @@ export const API_BASE_URL = `${API_ORIGIN}/api/v1`;
 export const WS_BASE_URL = API_ORIGIN.replace(/^http/, 'ws');
 
 // Same key as AndroidManifest — not a secret (ships inside the APK)
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyCq6Gq02pkjgkB5KjcEnKKSgcTWeZr8mvA';
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyAL89oi-v795KLD1l3lDYGhK6R7X77ZvTs';

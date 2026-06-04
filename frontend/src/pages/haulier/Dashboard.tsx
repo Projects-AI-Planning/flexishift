@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { GoogleMap, Marker, Polyline, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
 import { useHaulierOverview } from '../../hooks/useHaulier';
 import haulierService from '../../api/haulierService';
 import { useAuth } from '../../hooks/useAuth';
 import { fmtMoney } from '../../utils/currency';
 import type { LiveDelivery } from '../../types';
+
+const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
 /* ── Signature Modal ─────────────────────────────────────────────────────────── */
 type SigPoint = { x: number; y: number };
@@ -139,36 +139,21 @@ const DashboardSignModal: React.FC<{
   );
 };
 
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+function makeGIcon(color: string, emoji?: string): google.maps.Icon {
+  const content = emoji
+    ? `<text x="15" y="20" text-anchor="middle" font-size="13">${emoji}</text>`
+    : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="13" fill="${color}" stroke="white" stroke-width="2.5"/>${content}</svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: { width: 30, height: 30 } as google.maps.Size,
+    anchor: { x: 15, y: 15 } as google.maps.Point,
+  };
+}
 
-const truckIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:34px;height:34px;border-radius:999px;background:#2563eb;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(37,99,235,.26);font-size:16px;">🚚</div>',
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -18],
-});
-
-const pickupIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:26px;height:26px;border-radius:999px;background:#f59e0b;border:3px solid #fff;box-shadow:0 8px 20px rgba(245,158,11,.24);"></div>',
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
-  popupAnchor: [0, -14],
-});
-
-const destinationIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:26px;height:26px;border-radius:999px;background:#10b981;border:3px solid #fff;box-shadow:0 8px 20px rgba(16,185,129,.24);"></div>',
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
-  popupAnchor: [0, -14],
-});
+const TRUCK_ICON       = makeGIcon('#2563eb', '🚚');
+const PICKUP_ICON      = makeGIcon('#f59e0b');
+const DESTINATION_ICON = makeGIcon('#10b981');
 
 interface DashboardData {
   summary?: {
@@ -218,26 +203,7 @@ const stripLocation = (location?: string | { address?: string | null } | null) =
   return location.address || 'Unknown location';
 };
 
-function FlyToDelivery({ delivery }: { delivery: LiveDelivery | null }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (delivery?.currentLocation) {
-      map.flyTo([delivery.currentLocation.latitude, delivery.currentLocation.longitude], 12, {
-        duration: 1,
-      });
-      return;
-    }
-
-    if (delivery?.pickupLat != null && delivery?.pickupLng != null) {
-      map.flyTo([delivery.pickupLat, delivery.pickupLng], 10, {
-        duration: 1,
-      });
-    }
-  }, [delivery, map]);
-
-  return null;
-}
+// Google Maps equivalent of FlyToDelivery — handled via mapRef.panTo() in the main component
 
 type HandoverInfo = {
   jobId: string;
@@ -516,33 +482,37 @@ const HaulierOverview: React.FC = () => {
   const deliveries = mapData?.deliveries ?? [];
   const selectedDelivery = deliveries.find((delivery) => delivery.jobId === selectedDeliveryId) ?? deliveries[0] ?? null;
 
-  const routePoints = useMemo(() => {
-    if (!selectedDelivery) return [] as [number, number][];
-    const points: [number, number][] = [];
-    if (selectedDelivery.pickupLat != null && selectedDelivery.pickupLng != null) {
-      points.push([selectedDelivery.pickupLat, selectedDelivery.pickupLng]);
-    }
-    if (selectedDelivery.currentLocation) {
-      points.push([selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude]);
-    }
-    if (selectedDelivery.dropLat != null && selectedDelivery.dropLng != null) {
-      points.push([selectedDelivery.dropLat, selectedDelivery.dropLng]);
-    }
-    return points;
+  const { isLoaded: mapIsLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
+  const dashMapRef = useRef<google.maps.Map | null>(null);
+  const [activeMapInfo, setActiveMapInfo] = useState<'pickup' | 'truck' | 'drop' | null>(null);
+
+  const routePoints = useMemo<google.maps.LatLngLiteral[]>(() => {
+    if (!selectedDelivery) return [];
+    const pts: google.maps.LatLngLiteral[] = [];
+    if (selectedDelivery.pickupLat != null && selectedDelivery.pickupLng != null)
+      pts.push({ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng });
+    if (selectedDelivery.currentLocation)
+      pts.push({ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude });
+    if (selectedDelivery.dropLat != null && selectedDelivery.dropLng != null)
+      pts.push({ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng });
+    return pts;
   }, [selectedDelivery]);
 
-  const mapCenter = useMemo<[number, number]>(() => {
-    if (selectedDelivery?.currentLocation) {
-      return [selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude];
-    }
-    if (selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null) {
-      return [selectedDelivery.pickupLat, selectedDelivery.pickupLng];
-    }
-    if (selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null) {
-      return [selectedDelivery.dropLat, selectedDelivery.dropLng];
-    }
-    return [20.5937, 78.9629];
+  const mapCenter = useMemo<google.maps.LatLngLiteral>(() => {
+    if (selectedDelivery?.currentLocation)
+      return { lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude };
+    if (selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null)
+      return { lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng };
+    if (selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null)
+      return { lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng };
+    return { lat: 20.5937, lng: 78.9629 };
   }, [selectedDelivery]);
+
+  // Pan map when selected delivery changes
+  useEffect(() => {
+    if (!dashMapRef.current) return;
+    dashMapRef.current.panTo(mapCenter);
+  }, [mapCenter]);
 
   if (error) {
     return (
@@ -1038,38 +1008,38 @@ const HaulierOverview: React.FC = () => {
                   <p className="font-black text-[#041627] text-sm">Loading map…</p>
                 </div>
               </div>
-            ) : (
-              <MapContainer center={mapCenter} zoom={6} className="h-full w-full">
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <FlyToDelivery delivery={selectedDelivery} />
+            ) : mapIsLoaded ? (
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={mapCenter}
+                zoom={6}
+                options={{ mapTypeControl: false, streetViewControl: false, styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }] }}
+                onLoad={(map) => { dashMapRef.current = map; }}
+              >
                 {selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null && (
-                  <Marker position={[selectedDelivery.pickupLat, selectedDelivery.pickupLng]} icon={pickupIcon}>
-                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Pickup</p><p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p></div></Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng }} icon={PICKUP_ICON} onClick={() => setActiveMapInfo('pickup')} />
+                    {activeMapInfo === 'pickup' && <InfoWindow position={{ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Pickup</p><p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {selectedDelivery?.currentLocation && (
-                  <Marker position={[selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude]} icon={truckIcon}>
-                    <Popup>
-                      <div className="min-w-[180px] text-sm">
-                        <p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p>
-                        <p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p>
-                        <p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-US') : 'No ping'}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude }} icon={TRUCK_ICON} onClick={() => setActiveMapInfo('truck')} />
+                    {activeMapInfo === 'truck' && <InfoWindow position={{ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[180px] text-sm"><p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p><p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p><p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-US') : 'No ping'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null && (
-                  <Marker position={[selectedDelivery.dropLat, selectedDelivery.dropLng]} icon={destinationIcon}>
-                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Destination</p><p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p></div></Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng }} icon={DESTINATION_ICON} onClick={() => setActiveMapInfo('drop')} />
+                    {activeMapInfo === 'drop' && <InfoWindow position={{ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Destination</p><p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {routePoints.length >= 2 && (
-                  <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
+                  <Polyline path={routePoints} options={{ strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 }} />
                 )}
-              </MapContainer>
+              </GoogleMap>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading map…</div>
             )}
             <div className="absolute bottom-3 left-3 z-[450] rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur">
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">Legend</p>
