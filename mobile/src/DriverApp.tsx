@@ -557,9 +557,8 @@ function DriverApp(): React.JSX.Element {
     Array<Record<string, unknown>>
   >([]);
   const [expandedUpcomingJobId, setExpandedUpcomingJobId] = useState<string | null>(null);
-  const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>(
-    [],
-  );
+  const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedHistoryJob, setSelectedHistoryJob] = useState<Record<string, unknown> | null>(null);
   const [selectedJob, setSelectedJob] = useState<Record<
     string,
     unknown
@@ -714,7 +713,11 @@ function DriverApp(): React.JSX.Element {
     currency: string;
     completionDate?: string;
     invoiceUrl?: string;
+    alreadyRated?: boolean;
   } | null>(null);
+
+  // Track job IDs that have already been rated this session
+  const [ratedJobIds, setRatedJobIds] = useState<Set<string>>(new Set());
 
   // Job held for haulier rating after payment is released
   const [pendingRatingJob, setPendingRatingJob] = useState<{jobId: string; jobReference: string; haulierId?: string} | null>(null);
@@ -967,7 +970,14 @@ function DriverApp(): React.JSX.Element {
 
   const loadMyQuotes = useCallback(async () => {
     const quotesData = await driverApi.quotes.listMine();
-    setMyQuotes((quotesData.items as Array<Record<string, unknown>>) ?? []);
+    const all = (quotesData.items as Array<Record<string, unknown>>) ?? [];
+    const DONE_STATUSES = new Set(['completed', 'done', 'payment_released', 'released', 'paid']);
+    const active = all.filter(q => {
+      const jobStatus = String((q.job as any)?.status ?? q.jobStatus ?? '').toLowerCase();
+      const quoteStatus = String(q.status ?? '').toLowerCase();
+      return !DONE_STATUSES.has(jobStatus) && !DONE_STATUSES.has(quoteStatus);
+    });
+    setMyQuotes(active);
   }, []);
 
   const loadShifts = useCallback(async () => {
@@ -2652,22 +2662,72 @@ function DriverApp(): React.JSX.Element {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const openNotificationDestination = (notification: NotificationSummary) => {
+  const openNotificationDestination = async (notification: NotificationSummary) => {
     const type = String(notification.type ?? '').toUpperCase();
     const data = notification.data ?? {};
     const hasJobId = Boolean(data.job_id ?? data.jobId);
+
+    const COMPLETED_STATUSES = new Set([
+      'completed', 'done', 'delivery_submitted', 'payment_released', 'released',
+    ]);
+
+    const isJobDone = async (jobId: string): Promise<boolean> => {
+      try {
+        const job = await driverApi.jobs.getDetails(jobId);
+        return COMPLETED_STATUSES.has(String(job?.status ?? '').toLowerCase());
+      } catch {
+        return false;
+      }
+    };
+
+    const isShiftDone = async (shiftId: string): Promise<boolean> => {
+      try {
+        const shift = await driverApi.shifts.getDetails(shiftId);
+        return COMPLETED_STATUSES.has(String((shift as any)?.status ?? '').toLowerCase());
+      } catch {
+        return false;
+      }
+    };
+
+    const ALREADY_DONE_ALERT = () => Alert.alert(
+      'Already Completed',
+      'This shift has already been completed. You can view your earnings in Payment History.',
+      [{text: 'OK'}],
+    );
 
     if (type.includes('DOCUMENT_APPROVED') || type.includes('DOCUMENT_REJECTED')) {
       return;
     }
 
     if (type.includes('QUOTE') || type.includes('JOB_BOOKED')) {
+      const jobId   = String(data.job_id   ?? data.jobId   ?? '');
+      const shiftId = String(data.shift_id ?? data.shiftId ?? '');
+      if (shiftId && await isShiftDone(shiftId)) {
+        ALREADY_DONE_ALERT();
+        return;
+      }
+      if (jobId && await isJobDone(jobId)) {
+        Alert.alert(
+          'Job Already Completed',
+          'This job has already been completed. You can view your payment in Earnings History.',
+          [{text: 'OK'}],
+        );
+        return;
+      }
       navigate('jobs', 'jobs.myQuotes');
       return;
     }
 
     if (type.includes('PAYMENT_ESCROWED')) {
       const jobId = String(data.job_id ?? data.jobId ?? '');
+      if (jobId && await isJobDone(jobId)) {
+        Alert.alert(
+          'Job Already Completed',
+          'This job has already been completed. You can view your payment in Earnings History.',
+          [{text: 'OK'}],
+        );
+        return;
+      }
       if (jobId) {
         setEscrowJobId(jobId);
         setEscrowDetails(null);
@@ -2693,9 +2753,9 @@ function DriverApp(): React.JSX.Element {
             jobId: String(jobId),
             jobReference: String(job?.jobReference ?? jobId),
             haulierId: job?.haulierId ? String(job.haulierId) : undefined,
-            // Show driver's earning (their quoted amount), not the total haulier paid
             amount: Number((job as any)?.driverAmount ?? job?.agreedAmount ?? 0),
             currency: String(job?.currency ?? session?.currency ),
+            alreadyRated: ratedJobIds.has(jobId),
             completionDate: String(job?.updatedAt ?? new Date().toISOString()),
             invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
           });
@@ -2710,9 +2770,15 @@ function DriverApp(): React.JSX.Element {
     }
 
     if (type.includes('SHIFT_PAYMENT_RELEASED')) {
+      const shiftId  = String(data.shift_id ?? data.shiftId ?? '');
+      const isFinal  = Boolean(data.is_final_day);
+      // If this was the final day and the shift is already done, show completed popup
+      if (isFinal && shiftId && await isShiftDone(shiftId) && shiftPaymentReleased !== null) {
+        ALREADY_DONE_ALERT();
+        return;
+      }
       const amount   = Number(data.amount   ?? 0);
       const currency = String(data.currency ?? '');
-      const isFinal  = Boolean(data.is_final_day);
       setShiftPaymentReleased({ amount, currency, isLastDay: isFinal });
       navigate('shifts', 'shifts.dayComplete');
       return;
@@ -2731,7 +2797,7 @@ function DriverApp(): React.JSX.Element {
     if (id) {
       await handleMarkNotificationRead(id);
     }
-    openNotificationDestination(notification);
+    await openNotificationDestination(notification);
   };
 
   const toggleAvailabilityDay = (day: string) => {
@@ -3023,31 +3089,33 @@ function DriverApp(): React.JSX.Element {
         Math.random(),
     );
     const isHistoryView = activeRoute === 'jobs.history';
-    return (
-      <View key={id} style={styles.listCard}>
+    const cardContent = (
+      <>
         <Text style={[styles.cardEyebrow, isHistoryView && styles.historyCardEyebrow]}>
           {String(item.status ?? item.jobReference ?? 'Job')}
         </Text>
         <Text style={styles.listTitle}>
-          {String(
-            item.jobReference ??
-              item.invoiceNumber ??
-              item.paymentId ??
-              'Untitled',
-          )}
+          {String(item.jobReference ?? item.invoiceNumber ?? item.paymentId ?? 'Untitled')}
         </Text>
         <Text style={styles.listMeta}>
-          {pickup && drop
-            ? `${pickup} → ${drop}`
-            : String(item.createdAt ?? item.jobDate ?? '')}
+          {pickup && drop ? `${pickup} → ${drop}` : String(item.createdAt ?? item.jobDate ?? '')}
         </Text>
-        {item.agreedAmount || item.amount || item.totalAmount ? (
+        {item.agreedAmount || item.amount || item.driverAmount || item.totalAmount ? (
           <Text style={[styles.amountText, isHistoryView && styles.historyAmountText]}>
-            $ {String(item.agreedAmount ?? item.amount ?? item.totalAmount)}
+            $ {String(item.driverAmount ?? item.agreedAmount ?? item.amount ?? item.totalAmount)}
           </Text>
         ) : null}
-      </View>
+        {isHistoryView && <Text style={styles.historyTapHint}>Tap to view details →</Text>}
+      </>
     );
+    if (isHistoryView) {
+      return (
+        <Pressable key={id} style={styles.listCard} onPress={() => setSelectedHistoryJob(item)}>
+          {cardContent}
+        </Pressable>
+      );
+    }
+    return <View key={id} style={styles.listCard}>{cardContent}</View>;
   };
 
   // ─── Main view router ─────────────────────────────────────────────────────────
@@ -3473,6 +3541,98 @@ function DriverApp(): React.JSX.Element {
 
       // Job History
       if (activeRoute === 'jobs.history') {
+        // Detail view for a selected history job
+        if (selectedHistoryJob) {
+          const hj = selectedHistoryJob;
+          const hjPickup = toAddress(hj.pickupLocation);
+          const hjDrop   = toAddress(hj.dropLocation);
+          const hjAmount = Number(hj.driverAmount ?? hj.agreedAmount ?? hj.amount ?? 0);
+          const hjCurrency = String(hj.currency ?? session?.currency ?? '');
+          const hjDate   = String(hj.jobDate ?? hj.completionDate ?? hj.updatedAt ?? '');
+          const hjRef    = String(hj.jobReference ?? hj.jobId ?? '—');
+          const hjStatus = String(hj.status ?? '—');
+          const hjGoods  = String(hj.goodsType ?? '—');
+          const hjStops  = Array.isArray(hj.stops) ? (hj.stops as any[]).filter(s => !s.isFinalDestination) : [];
+          return (
+            <SafeAreaView style={styles.safeScreen}>
+              <View style={styles.detailTopBar}>
+                <Pressable onPress={() => setSelectedHistoryJob(null)} style={styles.detailBackBtn}>
+                  <Text style={styles.detailBackText}>← Back</Text>
+                </Pressable>
+                <Text style={styles.detailTopTitle}>Job Details</Text>
+                <View style={{width: 60}} />
+              </View>
+              <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+                {/* Status badge */}
+                <View style={styles.detailStatusRow}>
+                  <View style={styles.detailStatusBadge}>
+                    <Text style={styles.detailStatusText}>{hjStatus.replace(/_/g, ' ')}</Text>
+                  </View>
+                </View>
+                {/* Reference */}
+                <Text style={styles.detailRef}>{hjRef}</Text>
+
+                {/* Route card */}
+                <View style={styles.detailCard}>
+                  <Text style={styles.detailCardTitle}>Route</Text>
+                  <View style={styles.detailRow}>
+                    <View style={[styles.detailDot, {backgroundColor: '#16A34A'}]} />
+                    <View style={{flex: 1}}>
+                      <Text style={styles.detailRowLabel}>PICKUP</Text>
+                      <Text style={styles.detailRowValue}>{hjPickup || '—'}</Text>
+                    </View>
+                  </View>
+                  {hjStops.map((s: any, idx: number) => (
+                    <View key={idx} style={styles.detailRow}>
+                      <View style={[styles.detailDot, {backgroundColor: '#D97706'}]} />
+                      <View style={{flex: 1}}>
+                        <Text style={styles.detailRowLabel}>STOP {idx + 1}</Text>
+                        <Text style={styles.detailRowValue}>{s.address ?? '—'}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <View style={styles.detailRow}>
+                    <View style={[styles.detailDot, {backgroundColor: palette.accent}]} />
+                    <View style={{flex: 1}}>
+                      <Text style={styles.detailRowLabel}>DROP-OFF</Text>
+                      <Text style={styles.detailRowValue}>{hjDrop || '—'}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Job info card */}
+                <View style={styles.detailCard}>
+                  <Text style={styles.detailCardTitle}>Job Info</Text>
+                  {[
+                    {label: 'GOODS TYPE',  value: hjGoods},
+                    {label: 'JOB DATE',    value: hjDate ? new Date(hjDate).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}) : '—'},
+                    {label: 'REFERENCE',   value: hjRef},
+                  ].map(r => (
+                    <View key={r.label} style={styles.detailInfoRow}>
+                      <Text style={styles.detailInfoLabel}>{r.label}</Text>
+                      <Text style={styles.detailInfoValue}>{r.value}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Payment card */}
+                <View style={[styles.detailCard, styles.detailPayCard]}>
+                  <View style={styles.detailPayIconWrap}>
+                    <Text style={styles.detailPayIcon}>💰</Text>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.detailPayLabel}>Your Payment</Text>
+                    <Text style={styles.detailPayAmount}>
+                      {hjCurrency ? `${hjCurrency} ` : ''}{hjAmount > 0 ? hjAmount.toLocaleString('en-US', {minimumFractionDigits: 2}) : '—'}
+                    </Text>
+                    <Text style={styles.detailPayNote}>Released upon delivery confirmation</Text>
+                  </View>
+                </View>
+              </ScrollView>
+            </SafeAreaView>
+          );
+        }
+
         return (
           <ScrollView
             style={styles.listContainer}
@@ -3556,6 +3716,8 @@ function DriverApp(): React.JSX.Element {
                     paymentId: String(d.paymentId ?? ''),
                     jobId: String(d.jobId ?? escrowJobId),
                     jobRef: String(d.jobRef ?? ''),
+                    accessCode: d.accessCode ? String(d.accessCode) : null,
+                    loadCode: d.loadCode ? String(d.loadCode) : null,
                     pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
                     dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
                     stops: Array.isArray(d.stops) ? (d.stops as Array<{order?: number; address?: string; litres?: number; isFinalDestination?: boolean}>).filter(s => !s.isFinalDestination) : [],
@@ -3618,25 +3780,7 @@ function DriverApp(): React.JSX.Element {
             amount={paymentReleasedData.amount}
             currency={paymentReleasedData.currency}
             completionDate={paymentReleasedData.completionDate}
-            onViewInvoice={async () => {
-              if (paymentReleasedData.invoiceUrl) {
-                Linking.openURL(paymentReleasedData.invoiceUrl);
-              } else {
-                try {
-                  const jobId = complianceJobId ?? dashboardRef.current?.activeJob?.jobId;
-                  if (jobId) {
-                    const jobDetails = await driverApi.jobs.getDetails(jobId);
-                    if (jobDetails?.invoiceUrl) {
-                      Linking.openURL(jobDetails.invoiceUrl);
-                    } else {
-                      Alert.alert('Invoice Pending', 'The invoice is being generated. Please check back in a few minutes in your Job History.');
-                    }
-                  }
-                } catch {
-                  Alert.alert('Error', 'Failed to retrieve invoice. Please view it from your earnings history.');
-                }
-              }
-            }}
+            alreadyRated={paymentReleasedData.alreadyRated}
             onRate={() => {
               if (paymentReleasedData) {
                 setPendingRatingJob({
@@ -3644,6 +3788,7 @@ function DriverApp(): React.JSX.Element {
                   jobReference: paymentReleasedData.jobReference,
                   haulierId: paymentReleasedData.haulierId,
                 });
+                setRatedJobIds(prev => new Set(prev).add(paymentReleasedData.jobId));
               }
               setPaymentReleasedData(null);
               navigate('profile', 'ratings.given');
@@ -4655,6 +4800,59 @@ const styles = StyleSheet.create({
   historyCardEyebrow: {
     color: '#1066B1',
   },
+  historyTapHint: {
+    color: palette.accent, fontSize: 11, fontWeight: '700', marginTop: 6,
+  },
+
+  // History detail view
+  safeScreen: {flex: 1, backgroundColor: palette.bg},
+  detailTopBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: palette.bg, borderBottomWidth: 1, borderBottomColor: palette.border,
+  },
+  detailBackBtn: {width: 60},
+  detailBackText: {color: palette.navy, fontSize: 15, fontWeight: '800'},
+  detailTopTitle: {color: palette.navy, fontSize: 16, fontWeight: '900'},
+  detailContent: {padding: 20, paddingBottom: 60, gap: 14},
+  detailStatusRow: {flexDirection: 'row'},
+  detailStatusBadge: {
+    backgroundColor: '#DBEAFE', borderRadius: 99,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  detailStatusText: {color: '#1066B1', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailRef: {color: palette.navy, fontSize: 22, fontWeight: '900'},
+  detailCard: {
+    backgroundColor: '#fff', borderRadius: 16,
+    borderWidth: 1, borderColor: palette.border, padding: 16, gap: 10,
+  },
+  detailCardTitle: {
+    color: palette.navy, fontSize: 13, fontWeight: '900',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+  },
+  detailRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 12},
+  detailDot: {width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0},
+  detailRowLabel: {color: palette.inkSoft, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailRowValue: {color: palette.ink, fontSize: 14, fontWeight: '700', marginTop: 2},
+  detailInfoRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  detailInfoLabel: {color: palette.inkSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5},
+  detailInfoValue: {color: palette.navy, fontSize: 13, fontWeight: '800'},
+  detailPayCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#F0FDF4', borderColor: '#BBF7D0',
+  },
+  detailPayIconWrap: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#166534', justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  detailPayIcon: {fontSize: 22},
+  detailPayLabel: {color: '#166534', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailPayAmount: {color: '#15803D', fontSize: 26, fontWeight: '900', marginTop: 2},
+  detailPayNote: {color: '#16A34A', fontSize: 11, marginTop: 4, lineHeight: 16},
   content: {gap: 16, padding: 18, paddingBottom: 64},
   contentContainer: {flex: 1, paddingBottom: 64},
   emptyText: {color: palette.inkSoft, fontSize: 14, lineHeight: 20},

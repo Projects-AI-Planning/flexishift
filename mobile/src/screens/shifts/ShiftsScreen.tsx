@@ -889,7 +889,7 @@ function BookedShiftCard({
 
 // ─── History Shift Card ───────────────────────────────────────────────────────
 
-function HistoryShiftCard({shift}: {shift: ShiftItem}) {
+function HistoryShiftCard({shift, onPress}: {shift: ShiftItem; onPress: () => void}) {
   const isCompleted = shift.status === 'COMPLETED';
   const isCancelled = shift.status === 'CANCELLED';
 
@@ -906,7 +906,7 @@ function HistoryShiftCard({shift}: {shift: ShiftItem}) {
       : null;
 
   return (
-    <View style={styles.listCard}>
+    <Pressable style={styles.listCard} onPress={onPress}>
       <Text style={[styles.cardEyebrow, {color: eyebrowColor}]}>
         {shift.status.replace(/_/g, ' ')}
       </Text>
@@ -924,7 +924,134 @@ function HistoryShiftCard({shift}: {shift: ShiftItem}) {
           ${shift.dailyRate.toLocaleString()}/day
         </Text>
       ) : null}
-    </View>
+      <Text style={styles.historyTapHint}>Tap to view details →</Text>
+    </Pressable>
+  );
+}
+
+// ─── ShiftHistoryDetailModal ──────────────────────────────────────────────────
+
+function ShiftHistoryDetailModal({
+  shift,
+  currency,
+  onClose,
+}: {
+  shift: ShiftItem;
+  currency: string;
+  onClose: () => void;
+}) {
+  const isCompleted = shift.status === 'COMPLETED';
+  const isCancelled = shift.status === 'CANCELLED';
+  const totalEarned = shift.dailyRate && shift.daysCompleted > 0
+    ? shift.dailyRate * shift.daysCompleted : null;
+  const route = shift.pickupAddress && shift.dropAddress
+    ? null : shift.location ?? null;
+  const stops = (shift.stops ?? []).filter(s => !s.isFinalDestination);
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.detailSafe}>
+        <View style={styles.detailBar}>
+          <Pressable onPress={onClose} style={styles.detailBackBtn}>
+            <Text style={styles.detailBackText}>← Back</Text>
+          </Pressable>
+          <Text style={styles.detailBarTitle}>Shift Details</Text>
+          <View style={{width: 60}} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+          {/* Status + ref */}
+          <View style={styles.detailStatusRow}>
+            <View style={[styles.detailStatusBadge, isCancelled && styles.detailStatusBadgeRed]}>
+              <Text style={[styles.detailStatusText, isCancelled && styles.detailStatusTextRed]}>
+                {shift.status.replace(/_/g, ' ')}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.detailTitle}>{shift.shiftRef}</Text>
+
+          {/* Route card */}
+          <View style={styles.detailCard}>
+            <Text style={styles.detailCardTitle}>Route</Text>
+            {shift.pickupAddress ? (
+              <View style={styles.detailRouteRow}>
+                <View style={[styles.detailDot, {backgroundColor: '#16A34A'}]} />
+                <View style={{flex: 1}}>
+                  <Text style={styles.detailRouteLabel}>PICKUP</Text>
+                  <Text style={styles.detailRouteValue}>{shift.pickupAddress}</Text>
+                </View>
+              </View>
+            ) : null}
+            {stops.map((s, idx) => (
+              <View key={idx} style={styles.detailRouteRow}>
+                <View style={[styles.detailDot, {backgroundColor: '#D97706'}]} />
+                <View style={{flex: 1}}>
+                  <Text style={styles.detailRouteLabel}>STOP {idx + 1}</Text>
+                  <Text style={styles.detailRouteValue}>{s.address}</Text>
+                </View>
+              </View>
+            ))}
+            {shift.dropAddress ? (
+              <View style={styles.detailRouteRow}>
+                <View style={[styles.detailDot, {backgroundColor: colors.accent}]} />
+                <View style={{flex: 1}}>
+                  <Text style={styles.detailRouteLabel}>DROP-OFF</Text>
+                  <Text style={styles.detailRouteValue}>{shift.dropAddress}</Text>
+                </View>
+              </View>
+            ) : route ? (
+              <Text style={styles.detailRouteValue}>{route}</Text>
+            ) : null}
+          </View>
+
+          {/* Shift info */}
+          <View style={styles.detailCard}>
+            <Text style={styles.detailCardTitle}>Shift Info</Text>
+            {[
+              {label: 'DATES',         value: `${shift.startDate} → ${shift.endDate}`},
+              {label: 'TOTAL DAYS',    value: `${shift.totalDays} days`},
+              {label: 'HOURS/DAY',     value: `${shift.hoursPerDay}h`},
+              {label: 'DAYS COMPLETED', value: `${shift.daysCompleted} / ${shift.totalDays}`},
+              {label: 'GOODS TYPE',    value: shift.goodsType ?? '—'},
+              {label: 'TYPE',          value: shift.requirementType ?? '—'},
+            ].map(r => (
+              <View key={r.label} style={styles.detailInfoRow}>
+                <Text style={styles.detailInfoLabel}>{r.label}</Text>
+                <Text style={styles.detailInfoValue}>{r.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Payment card */}
+          <View style={[styles.detailCard, styles.detailPayCard, isCancelled && styles.detailPayCardGrey]}>
+            <View style={[styles.detailPayIconWrap, isCancelled && styles.detailPayIconWrapGrey]}>
+              <Text style={styles.detailPayIconEmoji}>💰</Text>
+            </View>
+            <View style={{flex: 1}}>
+              <Text style={[styles.detailPayLabel, isCancelled && styles.detailPayLabelGrey]}>
+                {isCancelled ? 'Partial Payment' : 'Your Payment'}
+              </Text>
+              {totalEarned ? (
+                <Text style={[styles.detailPayAmount, isCancelled && styles.detailPayAmountGrey]}>
+                  {fmtMoney(totalEarned, currency)}
+                </Text>
+              ) : shift.dailyRate ? (
+                <Text style={[styles.detailPayAmount, isCancelled && styles.detailPayAmountGrey]}>
+                  {fmtMoney(shift.dailyRate, currency)}/day
+                </Text>
+              ) : (
+                <Text style={styles.detailPayAmount}>—</Text>
+              )}
+              {shift.dailyRate ? (
+                <Text style={[styles.detailPayNote, isCancelled && styles.detailPayNoteGrey]}>
+                  {fmtMoney(shift.dailyRate, currency)}/day × {shift.daysCompleted} days completed
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -1029,6 +1156,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
 }) => {
   const [tab, setTab] = useState<TabKey>('available');
   const [quotingShift, setQuotingShift] = useState<ShiftItem | null>(null);
+  const [selectedHistoryShift, setSelectedHistoryShift] = useState<ShiftItem | null>(null);
 
   // ── Search / filter state ──────────────────────────────────────────────────
   const [search, setSearch]         = useState('');
@@ -1493,6 +1621,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
                   <HistoryShiftCard
                     key={shift.shiftId}
                     shift={shift}
+                    onPress={() => setSelectedHistoryShift(shift)}
                   />
                 ))
               )}
@@ -1517,6 +1646,15 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           onSubmit={handleSubmitQuote}
           onClose={() => setQuotingShift(null)}
           currency={currency}
+        />
+      )}
+
+      {/* ── History shift detail modal ────────────────────────────────── */}
+      {selectedHistoryShift && (
+        <ShiftHistoryDetailModal
+          shift={selectedHistoryShift}
+          currency={currency}
+          onClose={() => setSelectedHistoryShift(null)}
         />
       )}
     </SafeAreaView>
@@ -1706,6 +1844,64 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   amountText: {color: '#DFA622', fontSize: 16, fontWeight: '800', marginTop: 8},
+  historyTapHint: {color: colors.accent, fontSize: 11, fontWeight: '700', marginTop: 6},
+
+  // History detail modal
+  detailSafe: {flex: 1, backgroundColor: colors.bg},
+  detailBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  detailBackBtn: {width: 60},
+  detailBackText: {color: colors.navy, fontSize: 15, fontWeight: '800'},
+  detailBarTitle: {color: colors.navy, fontSize: 16, fontWeight: '900'},
+  detailScroll: {padding: 20, paddingBottom: 60, gap: 14},
+  detailStatusRow: {flexDirection: 'row', marginBottom: 4},
+  detailStatusBadge: {
+    backgroundColor: '#DBEAFE', borderRadius: 99,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  detailStatusBadgeRed: {backgroundColor: '#FEE2E2'},
+  detailStatusText: {color: '#1066B1', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailStatusTextRed: {color: '#B91C1C'},
+  detailTitle: {color: colors.navy, fontSize: 22, fontWeight: '900', marginBottom: 4},
+  detailCard: {
+    backgroundColor: '#fff', borderRadius: 16,
+    borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10,
+  },
+  detailCardTitle: {
+    color: colors.navy, fontSize: 13, fontWeight: '900',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+  },
+  detailRouteRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 12},
+  detailDot: {width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0},
+  detailRouteLabel: {color: colors.inkSoft, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailRouteValue: {color: colors.ink, fontSize: 14, fontWeight: '700', marginTop: 2},
+  detailInfoRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  detailInfoLabel: {color: colors.inkSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5},
+  detailInfoValue: {color: colors.navy, fontSize: 13, fontWeight: '800'},
+  detailPayCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#F0FDF4', borderColor: '#BBF7D0',
+  },
+  detailPayCardGrey: {backgroundColor: '#F8FAFD', borderColor: colors.border},
+  detailPayIconWrap: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#166534', justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  detailPayIconWrapGrey: {backgroundColor: '#94A3B8'},
+  detailPayIconEmoji: {fontSize: 22},
+  detailPayLabel: {color: '#166534', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailPayLabelGrey: {color: colors.inkSoft},
+  detailPayAmount: {color: '#15803D', fontSize: 26, fontWeight: '900', marginTop: 2},
+  detailPayAmountGrey: {color: colors.ink},
+  detailPayNote: {color: '#16A34A', fontSize: 11, marginTop: 4, lineHeight: 16},
+  detailPayNoteGrey: {color: colors.inkSoft},
   cardEyebrow: {
     color: '#DFA622',
     fontSize: 12,

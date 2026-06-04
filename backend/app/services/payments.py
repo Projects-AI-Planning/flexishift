@@ -271,6 +271,7 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
         "jobId": job_id,
         "jobRef": job.job_ref,
         "loadCode": job.load_code,
+        "accessCode": job.access_code,
         "pickupAddress": job.pickup_address,
         "dropAddress": job.drop_address,
         "stops": stops,

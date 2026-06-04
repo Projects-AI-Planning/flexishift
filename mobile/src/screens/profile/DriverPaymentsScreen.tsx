@@ -29,6 +29,7 @@ interface PaymentRecord {
   pickupAddress?: string;
   dropAddress?: string;
   amount: number;
+  driverAmount?: number;
   currency: string;
   status: string;
   releasedAt?: string;
@@ -159,7 +160,7 @@ function PaymentRow({item}: {item: PaymentRecord}) {
         <Text style={s.rowDate}>{fmtDate(releaseDate)}</Text>
       </View>
       <View style={s.rowRight}>
-        <Text style={s.rowAmount}>{fmtAmount(item.amount, item.currency)}</Text>
+        <Text style={s.rowAmount}>{fmtAmount(item.driverAmount ?? item.amount, item.currency)}</Text>
         <View style={[s.badge, {backgroundColor: statusBg(item.status)}]}>
           <Text style={[s.badgeText, {color: statusColor(item.status)}]}>
             {item.status}
@@ -187,7 +188,7 @@ const DriverPaymentsScreen: React.FC<DriverPaymentsScreenProps> = ({
 }) => {
   const released = payments.filter(p => p.status?.toUpperCase() === 'RELEASED');
   const escrowed = payments.filter(p => p.status?.toUpperCase() === 'ESCROWED');
-  const escrowedTotal = escrowed.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  const escrowedTotal = escrowed.reduce((sum, p) => sum + (p.driverAmount ?? p.amount ?? 0), 0);
   const currency = propCurrency || payments[0]?.currency || '';
 
   return (

@@ -249,7 +249,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
           {/* Deliver By date & time (required) */}
           <View style={styles.deliverByRow}>
             <Text style={styles.deliverByLabel}>
-              Deliver By <Text style={styles.deliverByRequired}>*</Text>
+              Deliver By
             </Text>
             <Pressable
               onPress={() => { openPicker(); setDeliverByError(false); }}

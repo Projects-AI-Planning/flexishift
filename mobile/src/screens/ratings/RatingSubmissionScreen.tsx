@@ -200,6 +200,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E9F0',
     padding: 16,
     marginBottom: 14,
+    overflow: 'hidden',
   },
   cardRequired: {
     borderColor: '#FCA5A5',
@@ -250,23 +251,26 @@ const styles = StyleSheet.create({
   starRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
   },
   starBtn: {
     padding: 4,
+    marginRight: 4,
   },
   star: {
-    fontSize: 34,
+    fontSize: 30,
+    lineHeight: 36,
     color: '#D1D5DB',
   },
   starActive: {
     color: colors.accent,
   },
   starLabel: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 6,
+    fontSize: 13,
     fontWeight: '800',
     color: colors.navy,
+    flexShrink: 1,
   },
 
   /* Error */

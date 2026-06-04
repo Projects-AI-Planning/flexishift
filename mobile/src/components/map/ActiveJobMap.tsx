@@ -13,6 +13,7 @@ interface ActiveJobMapProps {
   stops?: Array<{address?: string; order?: number; litres?: number}>;
   onLocationUpdate?: (coords: {latitude: number; longitude: number}) => void;
   onRouteInfoUpdate?: (info: {distanceKm: number; durationMin: number}) => void;
+  style?: object;
 }
 
 interface LatLng {
@@ -83,6 +84,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   stops = [],
   onLocationUpdate,
   onRouteInfoUpdate,
+  style,
 }) => {
   const mapRef = useRef<MapView>(null);
   const initialFitDoneRef = useRef(false);
@@ -299,7 +301,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   // ── Render ──────────────────────────────────────────────────────────────────
   if (noCoords && !loading) {
     return (
-      <View style={[styles.wrapper, liveMode && styles.wrapperLive]}>
+      <View style={[styles.wrapper, liveMode && styles.wrapperLive, style]}>
         <View style={styles.placeholder}>
           <Text style={styles.placeholderIcon}>🗺️</Text>
           <Text style={styles.placeholderTitle}>
@@ -312,7 +314,7 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   }
 
   return (
-    <View style={[styles.wrapper, liveMode && styles.wrapperLive]}>
+    <View style={[styles.wrapper, liveMode && styles.wrapperLive, style]}>
       {loading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={colors.navy} size="small" />

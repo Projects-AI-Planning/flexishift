@@ -50,7 +50,7 @@ const EarningsHistoryScreen: React.FC<EarningsHistoryScreenProps> = ({
     <Card
       title={item.jobReference || 'Payment Received'}
       subtitle={item.paymentDate || 'Recently'}
-      rightLabel={`+ $${item.amount}`}
+      rightLabel={`+ $${item.driverAmount ?? item.amount}`}
       variant="accent">
       <View style={styles.paymentDetails}>
         <View style={styles.detailRow}>

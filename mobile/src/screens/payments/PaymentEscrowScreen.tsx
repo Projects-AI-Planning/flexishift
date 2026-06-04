@@ -15,6 +15,8 @@ interface PaymentEscrowDetails {
   paymentId: string;
   jobId: string;
   jobRef: string;
+  accessCode?: string | null;
+  loadCode?: string | null;
   pickupAddress?: string;
   dropAddress?: string;
   stops?: Array<{order?: number; address?: string; litres?: number}>;
@@ -219,7 +221,34 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           </View>
         </View>
 
-        {/* ── 3. Job Details ────────────────────────────────────────────────── */}
+        {/* ── 3. Access & Load Codes ───────────────────────────────────────── */}
+        {(details.accessCode || details.loadCode) ? (
+          <View style={styles.codesCard}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitleIcon}>🔑</Text>
+              <Text style={styles.cardTitle}>Your Job Codes</Text>
+            </View>
+            <Text style={styles.codesHint}>
+              Use these codes at pickup to verify and begin the job.
+            </Text>
+            <View style={styles.codeRow}>
+              {details.accessCode ? (
+                <View style={styles.codeBox}>
+                  <Text style={styles.codeLabel}>ACCESS CODE</Text>
+                  <Text style={styles.codeValue}>{details.accessCode}</Text>
+                </View>
+              ) : null}
+              {details.loadCode ? (
+                <View style={styles.codeBox}>
+                  <Text style={styles.codeLabel}>LOAD CODE</Text>
+                  <Text style={styles.codeValue}>{details.loadCode}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* ── 5. Job Details ────────────────────────────────────────────────── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Job Details</Text>
           <View style={styles.divider} />
@@ -274,7 +303,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           ) : null}
         </View>
 
-        {/* ── 4. Payment Details ────────────────────────────────────────────── */}
+        {/* ── 6. Payment Details ────────────────────────────────────────────── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Payment Details</Text>
           <View style={styles.divider} />
@@ -310,7 +339,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
           </View>
         </View>
 
-        {/* ── 5. What happens next ──────────────────────────────────────────── */}
+        {/* ── 7. What happens next ──────────────────────────────────────────── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>What Happens Next?</Text>
           <View style={styles.divider} />
@@ -445,6 +474,30 @@ const styles = StyleSheet.create({
   badgeText: {fontSize: 11, fontWeight: '900'},
   badgeTextGreen: {color: '#18794E'},
   badgeTextAmber: {color: '#92400E'},
+
+  // Access & Load Codes card
+  codesCard: {
+    backgroundColor: colors.accentSoft, borderRadius: radius.lg,
+    borderWidth: 1.5, borderColor: colors.accent, padding: spacing.xl,
+  },
+  codesHint: {
+    color: colors.inkSoft, fontSize: 12, lineHeight: 18,
+    marginBottom: 14,
+  },
+  codeRow: {flexDirection: 'row', gap: 12},
+  codeBox: {
+    flex: 1, backgroundColor: colors.card, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.md, alignItems: 'center',
+  },
+  codeLabel: {
+    color: colors.inkSoft, fontSize: 10, fontWeight: '900',
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6,
+  },
+  codeValue: {
+    color: colors.navy, fontSize: 22, fontWeight: '900',
+    letterSpacing: 2, fontFamily: 'monospace',
+  },
 
   // Steps
   step: {flexDirection: 'row', alignItems: 'flex-start', gap: 14},

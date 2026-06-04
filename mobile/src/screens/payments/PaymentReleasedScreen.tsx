@@ -15,7 +15,7 @@ interface PaymentReleasedScreenProps {
   amount: number;
   currency: string;
   completionDate?: string;
-  onViewInvoice: () => void;
+  alreadyRated?: boolean;
   onRate: () => void;
   onDone: () => void;
 }
@@ -30,7 +30,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
   amount,
   currency,
   completionDate,
-  onViewInvoice,
+  alreadyRated = false,
   onRate,
   onDone,
 }) => {
@@ -119,7 +119,7 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
           <Text style={styles.breakdownTitle}>Financial Breakdown</Text>
           <View style={styles.divider} />
           <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>Total Amount</Text>
+            <Text style={styles.amountLabel}>Your Earnings</Text>
             <Text style={styles.amountValue}>
               {fmtMoney(amount, currency)}
             </Text>
@@ -127,14 +127,11 @@ const PaymentReleasedScreen: React.FC<PaymentReleasedScreenProps> = ({
         </View>
 
         {/* Buttons */}
-        <Pressable onPress={onViewInvoice} style={styles.invoiceBtn}>
-          <Text style={styles.invoiceBtnIcon}>⬇</Text>
-          <Text style={styles.invoiceBtnText}>VIEW INVOICE</Text>
-        </Pressable>
-
-        <Pressable onPress={onRate} style={styles.rateBtn}>
-          <Text style={styles.rateBtnText}>⭐  Rate Your Haulier</Text>
-        </Pressable>
+        {!alreadyRated && (
+          <Pressable onPress={onRate} style={styles.rateBtn}>
+            <Text style={styles.rateBtnText}>⭐  Rate Your Haulier</Text>
+          </Pressable>
+        )}
 
         <Pressable onPress={onDone} style={styles.doneBtn}>
           <Text style={styles.doneBtnText}>Done</Text>
@@ -208,13 +205,6 @@ const styles = StyleSheet.create({
   amountValue: {color: colors.navy, fontSize: 22, fontWeight: '900'},
 
   // Buttons
-  invoiceBtn: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
-    backgroundColor: colors.accent, borderRadius: radius.lg,
-    minHeight: 58, marginBottom: 12,
-  },
-  invoiceBtnIcon: {color: '#fff', fontSize: 18},
-  invoiceBtnText: {color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 1},
   rateBtn: {
     borderWidth: 1.5, borderColor: colors.accent, borderRadius: radius.lg,
     minHeight: 54, justifyContent: 'center', alignItems: 'center', marginBottom: 12,

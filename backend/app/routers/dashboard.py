@@ -167,7 +167,7 @@ def driver_overview(
         Job.deleted_at.is_(None),
     ).scalar() or 0
 
-    today_earnings = db.query(func.sum(Payment.amount)).join(
+    today_earnings = db.query(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).join(
         Job, Job.id == Payment.job_id
     ).filter(
         Job.selected_supplier_id == current_user.id,
@@ -203,7 +203,7 @@ def driver_overview(
             "distanceKm": float(active_job.distance_km) if active_job.distance_km is not None else None,
             "durationMin": int(active_job.duration_min) if active_job.duration_min is not None else None,
             "originalEta": active_job.original_eta.isoformat() if active_job.original_eta else None,
-            "agreedAmount": float(payment.amount) if payment else None,
+            "agreedAmount": (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment else None,
             "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "currentLocation": {
                 "latitude": float(last_point.lat),
@@ -260,14 +260,14 @@ def driver_earnings(
         .join(Job, Job.id == Payment.job_id)
         .filter(Job.selected_supplier_id == current_user.id, Payment.status == PaymentStatus.RELEASED)
     )
-    all_time_total = q.with_entities(func.sum(Payment.amount)).scalar() or 0.0
+    all_time_total = q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0
     all_time_jobs = q.count()
 
     month_q = q.filter(
         func.extract("month", Payment.released_at) == m,
         func.extract("year", Payment.released_at) == y,
     )
-    month_total = month_q.with_entities(func.sum(Payment.amount)).scalar() or 0.0
+    month_total = month_q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0
     month_jobs = month_q.count()
 
     recent = month_q.order_by(Payment.released_at.desc()).limit(10).all()
@@ -275,7 +275,7 @@ def driver_earnings(
         {
             "paymentId": p.id,
             "jobReference": j.job_ref,
-            "amount": float(p.amount),
+            "amount": float(p.driver_amount) if p.driver_amount else float(p.amount),
             "currency": p.currency,
             "paidAt": p.released_at.isoformat() if p.released_at else None,
         }
@@ -329,7 +329,7 @@ def driver_upcoming_jobs(
             Quote.status == QuoteStatus.SELECTED,
         ).first()
         agreed_amount = (
-            float(payment.amount) if payment
+            (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment
             else float(selected_quote.price) if selected_quote
             else None
         )
@@ -397,7 +397,7 @@ def driver_jobs_history(
             "distanceKm": float(j.distance_km) if j.distance_km else None,
             "goodsType": j.goods_type,
             "jobDate": j.job_date.isoformat() if j.job_date else None,
-            "agreedAmount": float(payment.amount) if payment else None,
+            "agreedAmount": (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment else None,
             "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "completedAt": j.updated_at.isoformat() if j.updated_at else None,
         })

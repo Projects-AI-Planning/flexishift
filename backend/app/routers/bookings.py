@@ -57,7 +57,6 @@ def _booking_dict(job: Job) -> dict:
 
     payment = job.payment
     payment_status = payment.status.value if payment else None
-    agreed_amount = float(payment.amount) if payment else None
 
     # Selected quote price — always present even before payment is created
     selected_quote = next(
@@ -66,11 +65,12 @@ def _booking_dict(job: Job) -> dict:
     quote_amount = float(selected_quote.price) if selected_quote else None
     quote_currency = selected_quote.currency if selected_quote else None
 
-    # Total = driver quote + 12.5% platform fee
-    quote_total = round(quote_amount * 1.125, 2) if quote_amount is not None else None
-
-    # Prefer payment amount (which already stores the total); fall back to computed total
-    display_amount = agreed_amount if agreed_amount is not None else quote_total
+    # Driver earns their quoted amount; haulier pays that + 12.5% platform fee
+    driver_amount = (
+        (float(payment.driver_amount) if payment.driver_amount else float(payment.amount))
+        if payment else quote_amount
+    )
+    display_amount = driver_amount
 
     compliance = job.compliance
     compliance_status = _compliance_status(compliance)
