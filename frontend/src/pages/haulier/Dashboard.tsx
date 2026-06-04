@@ -484,6 +484,7 @@ const HaulierOverview: React.FC = () => {
 
   const { isLoaded: mapIsLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
   const dashMapRef = useRef<google.maps.Map | null>(null);
+  const [dashMapReady, setDashMapReady] = useState(false);
   const [activeMapInfo, setActiveMapInfo] = useState<'pickup' | 'truck' | 'drop' | null>(null);
 
   const routePoints = useMemo<google.maps.LatLngLiteral[]>(() => {
@@ -1014,8 +1015,9 @@ const HaulierOverview: React.FC = () => {
                 center={mapCenter}
                 zoom={6}
                 options={{ mapTypeControl: false, streetViewControl: false, styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }] }}
-                onLoad={(map) => { dashMapRef.current = map; }}
+                onLoad={(map) => { dashMapRef.current = map; setDashMapReady(true); }}
               >
+                {dashMapReady && (<>
                 {selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null && (
                   <>
                     <Marker position={{ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng }} icon={PICKUP_ICON} onClick={() => setActiveMapInfo('pickup')} />
@@ -1035,8 +1037,9 @@ const HaulierOverview: React.FC = () => {
                   </>
                 )}
                 {routePoints.length >= 2 && (
-                  <Polyline path={routePoints} options={{ strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 }} />
+                  <Polyline path={routePoints.filter(p => p != null)} options={{ strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 }} />
                 )}
+                </>)}
               </GoogleMap>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading map…</div>

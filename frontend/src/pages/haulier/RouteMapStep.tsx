@@ -58,7 +58,8 @@ function markerIcon(color: string, label: string): google.maps.Icon {
 
 export default function RouteMapStep({ onChange }: Props) {
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const mapRef  = useRef<google.maps.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const [locations, setLocations] = useState<LocationEntry[]>([
     { id: 'pickup', type: 'pickup', address: '' },
@@ -275,14 +276,16 @@ export default function RouteMapStep({ onChange }: Props) {
             center={DEFAULT_CENTER}
             zoom={6}
             options={MAP_OPTIONS}
-            onLoad={(map) => { mapRef.current = map; }}
+            onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
           >
-            {routeCoords.length > 1 && (
-              <Polyline path={routeCoords} options={{ strokeColor: '#1066b1', strokeWeight: 5, strokeOpacity: 0.85 }} />
-            )}
-            {markers.map(m => (
-              <Marker key={m.key} position={{ lat: m.lat, lng: m.lng }} icon={markerIcon(m.color, m.label)} />
-            ))}
+            {mapReady && (<>
+              {routeCoords.length > 1 && (
+                <Polyline path={routeCoords.filter(p => p != null)} options={{ strokeColor: '#1066b1', strokeWeight: 5, strokeOpacity: 0.85 }} />
+              )}
+              {markers.map(m => (
+                <Marker key={m.key} position={{ lat: m.lat, lng: m.lng }} icon={markerIcon(m.color, m.label)} />
+              ))}
+            </>)}
           </GoogleMap>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading map…</div>

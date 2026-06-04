@@ -200,6 +200,7 @@ function TrackingMap({
   pickup: { address?: string | null; latitude?: number | null; longitude?: number | null } | null | undefined;
 }) {
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapReady,   setMapReady]   = useState(false);
   const [roadFuture, setRoadFuture] = useState<google.maps.LatLngLiteral[]>([]);
   const [roadTrail,  setRoadTrail]  = useState<google.maps.LatLngLiteral[]>([]);
   const [activeInfo, setActiveInfo] = useState<'live' | 'pickup' | 'drop' | null>(null);
@@ -283,15 +284,16 @@ function TrackingMap({
       center={mapCenter}
       zoom={12}
       options={GOOGLE_MAP_OPTIONS}
-      onLoad={(map) => { mapRef.current = map; }}
+      onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
     >
+      {mapReady && (<>
       {/* Travelled path */}
       {displayTrail.length > 1 && (
-        <Polyline path={displayTrail} options={{ strokeColor: '#2563eb', strokeWeight: 5, strokeOpacity: 0.85 }} />
+        <Polyline path={displayTrail.filter(p => p != null)} options={{ strokeColor: '#2563eb', strokeWeight: 5, strokeOpacity: 0.85 }} />
       )}
-      {/* Future dashed path */}
+      {/* Future path */}
       {displayFuture.length > 1 && (
-        <Polyline path={displayFuture} options={{ strokeColor: '#93c5fd', strokeWeight: 3, strokeOpacity: 0.75, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 }, offset: '0', repeat: '20px' }] }} />
+        <Polyline path={displayFuture.filter(p => p != null)} options={{ strokeColor: '#93c5fd', strokeWeight: 3, strokeOpacity: 0.6 }} />
       )}
       {/* History dots */}
       {historyPoints.map((point, index) => (
@@ -335,6 +337,7 @@ function TrackingMap({
           )}
         </>
       )}
+      </>)}
     </GoogleMap>
   );
 }

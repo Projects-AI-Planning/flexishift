@@ -45,6 +45,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 export default function LiveTrackingPage() {
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const [data, setData]                     = useState<LiveTrackingData | null>(null);
   const [loading, setLoading]               = useState(true);
@@ -218,9 +219,9 @@ export default function LiveTrackingPage() {
                 center={mapCenter}
                 zoom={5}
                 options={MAP_OPTIONS}
-                onLoad={(map) => { mapRef.current = map; }}
+                onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
               >
-                {deliveriesWithLocation.map(delivery => (
+                {mapReady && deliveriesWithLocation.map(delivery => (
                   <Marker
                     key={delivery.jobId}
                     position={{ lat: delivery.currentLocation!.latitude, lng: delivery.currentLocation!.longitude }}
@@ -228,7 +229,7 @@ export default function LiveTrackingPage() {
                     onClick={() => { setSelectedJobId(delivery.jobId); setActiveInfoId(delivery.jobId); }}
                   />
                 ))}
-                {activeInfoId && (() => {
+                {mapReady && activeInfoId && (() => {
                   const d = deliveriesWithLocation.find(x => x.jobId === activeInfoId);
                   if (!d?.currentLocation) return null;
                   return (
