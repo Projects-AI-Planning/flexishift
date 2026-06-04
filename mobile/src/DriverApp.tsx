@@ -721,6 +721,7 @@ function DriverApp(): React.JSX.Element {
 
   // Job held for haulier rating after payment is released
   const [pendingRatingJob, setPendingRatingJob] = useState<{jobId: string; jobReference: string; haulierId?: string} | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   // Payment escrow data (driver notification)
   const [escrowJobId, setEscrowJobId] = useState<string | null>(null);
@@ -2386,8 +2387,7 @@ function DriverApp(): React.JSX.Element {
         review: comment || undefined,
       });
       setPendingRatingJob(null);
-      setSuccessBanner('Rating submitted! Thank you.');
-      navigate('profile', 'ratings.received');
+      setRatingSubmitted(true);
     });
   };
 
@@ -2586,8 +2586,8 @@ function DriverApp(): React.JSX.Element {
         review:      comment || undefined,
       });
       setPendingShiftRating(null);
-      setSuccessBanner('Rating submitted! Thank you.');
-      navigate('shifts', 'shifts.myShifts');
+      setRatingSubmitted(true);
+      navigate('profile', 'ratings.given');
     });
   };
 
@@ -4027,6 +4027,32 @@ function DriverApp(): React.JSX.Element {
           />
         );
       case 'ratings.given': {
+        // Show confirmation screen after rating is submitted
+        if (ratingSubmitted) {
+          return (
+            <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+              <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20}}>
+                <View style={{width: 96, height: 96, borderRadius: 48, backgroundColor: '#D9F3E8', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#34C776'}}>
+                  <Text style={{fontSize: 44}}>⭐</Text>
+                </View>
+                <Text style={{color: palette.navy, fontSize: 26, fontWeight: '900', textAlign: 'center'}}>Review Submitted!</Text>
+                <Text style={{color: palette.inkSoft, fontSize: 15, lineHeight: 22, textAlign: 'center'}}>
+                  Thank you for your feedback. Your rating helps improve the platform for everyone.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setRatingSubmitted(false);
+                    navHistoryRef.current = [];
+                    navigate('home', 'home');
+                  }}
+                  style={{backgroundColor: palette.accent, borderRadius: 14, minHeight: 56, justifyContent: 'center', alignItems: 'center', width: '100%', marginTop: 8}}>
+                  <Text style={{color: '#fff', fontSize: 17, fontWeight: '900'}}>Go to Home</Text>
+                </Pressable>
+              </View>
+            </SafeAreaView>
+          );
+        }
+
         const ratingJob = dashboard?.activeJob
           ? {jobId: dashboard.activeJob.jobId, jobReference: dashboard.activeJob.jobReference}
           : pendingRatingJob;
