@@ -40,6 +40,7 @@ import LiveTrackingPage from './pages/admin/LiveTracking';
 import AdminJobsPage from './pages/admin/Jobs';
 import DisputesPage from './pages/admin/Disputes';
 import ProcessedVerificationsPage from './pages/admin/ProcessedVerifications';
+import ExpiredDocumentsPage from './pages/admin/ExpiredDocuments';
 import ActiveJobsPage from './pages/admin/ActiveJobs';
 import CompletedJobsPage from './pages/admin/CompletedJobs';
 import CancelledJobsPage from './pages/admin/CancelledJobs';
@@ -81,8 +82,10 @@ import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
 import HaulierHandoverPage from './pages/haulier/Handover';
 import HaulierShiftsPage from './pages/haulier/Shifts';
+import ShiftsHandoverPage from './pages/haulier/ShiftsHandover';
 import PostShiftPage from './pages/haulier/PostShift';
 import HaulierDisputesPage from './pages/haulier/Disputes';
+import HaulierDeliveryReportsPage from './pages/haulier/DeliveryReports';
 
 // Auth Pages
 import RegisterPage from './pages/haulier/Register';
@@ -168,6 +171,7 @@ function AppRoutes() {
               <Route path="users/*" element={<UsersPage />} />
               <Route path="verifications/pending" element={<DocumentsPage />} />
               <Route path="verifications/processed" element={<ProcessedVerificationsPage />} />
+              <Route path="verifications/expired" element={<ExpiredDocumentsPage />} />
               <Route path="verifications/*" element={<DocumentsPage />} />
               <Route path="documents/*" element={<DocumentsPage />} />
               <Route path="payments/transactions" element={<TransactionsPage />} />
@@ -224,10 +228,12 @@ function AppRoutes() {
               <Route index element={<HaulierOverview />} />
               <Route path="post-job" element={<PostJobPage />} />
               <Route path="shifts" element={<HaulierShiftsPage />} />
+              <Route path="shifts/handover" element={<ShiftsHandoverPage />} />
               <Route path="shifts/post" element={<PostShiftPage />} />
               <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
               <Route path="jobs/handover" element={<HaulierHandoverPage />} />
+              <Route path="jobs/delivery-reports" element={<HaulierDeliveryReportsPage />} />
               <Route path="jobs/*" element={<HaulierJobsPage />} />
               <Route path="disputes" element={<HaulierDisputesPage />} />
               <Route path="disputes/*" element={<HaulierDisputesPage />} />

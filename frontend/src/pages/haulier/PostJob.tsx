@@ -299,10 +299,10 @@ const PostJobPage: React.FC = () => {
       if (!form.timeSlot)                   return 'Please select a delivery time.';
       if (form.jobDate === today && isTimePassed(form.timeSlot))
         return 'The selected delivery time has already passed for today. Please choose a later time.';
-      if (!form.accessCode.trim())          return 'Access code is required.';
-      if (form.accessCode.trim().length < 4) return 'Access code must be at least 4 characters.';
-      if (!form.loadCode.trim())            return 'Load code is required.';
-      if (form.loadCode.trim().length < 4)  return 'Load code must be at least 4 characters.';
+      // if (!form.accessCode.trim())          return 'Access code is required.';
+      // if (form.accessCode.trim().length < 4) return 'Access code must be at least 4 characters.';
+      // if (!form.loadCode.trim())            return 'Load code is required.';
+      // if (form.loadCode.trim().length < 4)  return 'Load code must be at least 4 characters.';
     }
     return '';
   };
@@ -403,7 +403,7 @@ const PostJobPage: React.FC = () => {
               <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Job Reference</p>
               <p className="text-2xl font-black text-white font-mono tracking-tight">{created.jobRef}</p>
             </div>
-            {created.loadCode && (
+            {false && created.loadCode && (
               <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
                 <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Load Code</p>
                 <p className="text-2xl font-black text-white font-mono tracking-tight">{created.loadCode}</p>
@@ -732,7 +732,7 @@ const PostJobPage: React.FC = () => {
               </div>
 
               {/* Access Code + Load Code */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {false && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label text="Access Code" required hint="e.g. gate or site entry code" />
                   <input
@@ -754,7 +754,7 @@ const PostJobPage: React.FC = () => {
                     onChange={e => setForm(f => ({ ...f, loadCode: e.target.value.toUpperCase() }))}
                   />
                 </div>
-              </div>
+              </div>}
 
               {/* Deliver By — custom time picker */}
               <div>
@@ -982,8 +982,8 @@ const PostJobPage: React.FC = () => {
                     <ReviewRow label="Collection Date"  value={form.jobDate} />
                     <ReviewRow label="Est. Delivery"   value={deliveryDate ? new Date(deliveryDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
                     <ReviewRow label="Deliver By"      value={form.timeSlot || '—'} />
-                    {form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
-                    <ReviewRow label="Load Code"       value={form.loadCode} />
+                    {false && form.accessCode && <ReviewRow label="Access Code" value={form.accessCode} />}
+                    {false && <ReviewRow label="Load Code"       value={form.loadCode} />}
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">

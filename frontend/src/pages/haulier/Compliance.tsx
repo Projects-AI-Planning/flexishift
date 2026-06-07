@@ -534,11 +534,11 @@ export default function HaulierCompliancePage() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className={`rounded-2xl p-4 ${stepTone(loadCodeDone)}`}>
+              {false && <div className={`rounded-2xl p-4 ${stepTone(loadCodeDone)}`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">1. Load Code</p>
                 <p className="mt-1 text-sm font-bold">{loadCodeDone ? 'Verified' : 'Waiting'}</p>
                 <p className="mt-1 text-xs opacity-80">{formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}</p>
-              </div>
+              </div>}
               <div className={`rounded-2xl p-4 ${stepTone(step1Done, !loadCodeDone)}`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">2. Handover</p>
                 <p className="mt-1 text-sm font-bold">{step1Done ? 'Completed' : 'Waiting'}</p>
@@ -624,12 +624,12 @@ export default function HaulierCompliancePage() {
               </div>
 
               <div className="mt-5 space-y-3 text-sm">
-                <div className="rounded-2xl bg-slate-50 p-4">
+                {false && <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="font-black text-[#041627]">Load code verification</p>
                   <p className="mt-1 text-[#44474C]">
                     {loadCodeDone ? `Verified at ${formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}` : 'Not verified yet'}
                   </p>
-                </div>
+                </div>}
 
                 {/* Handover signatures detail */}
                 <div className="rounded-2xl bg-slate-50 p-4">

@@ -1,3 +1,7 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +11,87 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
+
+
+async def _check_expired_documents() -> None:
+    from app.database import SessionLocal
+    from app.models.document import Document, DocStatus
+    from app.models.notification import Notification
+    from app.models.user import User, Role
+    from app.services.notifications import create_notification
+
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        window_start = now - timedelta(hours=25)
+
+        newly_expired = (
+            db.query(Document)
+            .filter(
+                Document.status == DocStatus.APPROVED,
+                Document.expiry_date.isnot(None),
+                Document.expiry_date >= window_start,
+                Document.expiry_date <= now,
+            )
+            .all()
+        )
+        if not newly_expired:
+            return
+
+        # Build set of doc_ids already notified in the last 36 h to avoid duplicates
+        notified_since = now - timedelta(hours=36)
+        already_notified = {
+            n.data.get("doc_id")
+            for n in db.query(Notification).filter(
+                Notification.type == "DOCUMENT_EXPIRED",
+                Notification.created_at >= notified_since,
+            ).all()
+            if n.data and isinstance(n.data, dict)
+        }
+
+        admins = db.query(User).filter(User.role == Role.ADMIN).all()
+        if not admins:
+            return
+
+        for doc in newly_expired:
+            if doc.id in already_notified:
+                continue
+            owner = db.get(User, doc.user_id)
+            owner_name = owner.full_name if owner else "Unknown User"
+            doc_label = doc.doc_type.value.replace("_", " ").title()
+            expiry_str = doc.expiry_date.strftime("%d %b %Y")
+            for admin in admins:
+                await create_notification(
+                    db, admin.id, "DOCUMENT_EXPIRED",
+                    "Document Expired",
+                    f"{owner_name}'s {doc_label} expired on {expiry_str}.",
+                    {"doc_id": doc.id, "doc_type": doc.doc_type.value, "user_id": doc.user_id},
+                )
+            db.commit()
+    except Exception:
+        _log.exception("expired_document_check_failed")
+    finally:
+        db.close()
+
+
+async def _expiry_check_loop() -> None:
+    await asyncio.sleep(15)  # let the server fully start first
+    while True:
+        await _check_expired_documents()
+        await asyncio.sleep(24 * 3600)  # recheck every 24 hours
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    task = asyncio.create_task(_expiry_check_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 from app.core.logging_config import configure_logging
 configure_logging()   # must run before any structlog usage
@@ -50,6 +135,7 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
+    lifespan=lifespan,
     docs_url="/docs" if settings.APP_ENV != "production" else None,
     redoc_url="/redoc" if settings.APP_ENV != "production" else None,
 )

@@ -230,6 +230,7 @@ type PendingApprovalJob = {
   jobId: string;
   jobReference: string;
   status?: string;
+  driverId?: string | null;
   driver?: { name?: string; phone?: string } | null;
   dropLocation?: string | null;
   deliveryProof?: {
@@ -280,6 +281,18 @@ const HaulierOverview: React.FC = () => {
   const [releasingShiftId, setReleasingShiftId] = useState<string | null>(null);
   const [shiftReleaseError, setShiftReleaseError] = useState<Record<string, string>>({});
   const [showAllShift, setShowAllShift] = useState(false);
+
+  // Rating modal after payment release
+  const [ratingModal, setRatingModal] = useState<{ jobId: string; jobRef: string; driverId: string; driverName: string } | null>(null);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [ratingReview, setRatingReview] = useState('');
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+
+  // Recent notifications for Critical Alerts section
+  type RecentNotif = { notificationId: string; type: string; title: string; message: string; createdAt?: string | null; isRead: boolean };
+  const [recentNotifs, setRecentNotifs] = useState<RecentNotif[]>([]);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
   const summary = dashboardData?.summary ?? {};
@@ -425,6 +438,15 @@ const HaulierOverview: React.FC = () => {
 
   useEffect(() => { void fetchPendingShiftPayments(); }, [fetchPendingShiftPayments]);
 
+  useEffect(() => {
+    haulierService.getNotifications({ page: 1, limit: 5 })
+      .then((res: unknown) => {
+        const r = res as { notifications?: RecentNotif[]; items?: RecentNotif[] };
+        setRecentNotifs(r.notifications ?? r.items ?? []);
+      })
+      .catch(() => { /* silently fail */ });
+  }, []);
+
   const handleReleaseShiftPayment = async (shift: PendingShiftPayment) => {
     setReleasingShiftId(shift.shiftId);
     setShiftReleaseError((prev) => { const n = { ...prev }; delete n[shift.shiftId]; return n; });
@@ -453,6 +475,13 @@ const HaulierOverview: React.FC = () => {
         await haulierService.releasePayment(job.jobId, { approvalNote: 'Released from dashboard' });
       }
       setPendingApprovalJobs((prev) => prev.filter((j) => j.jobId !== job.jobId));
+      // Show rate-your-driver popup if driver is known
+      if (job.driverId) {
+        setRatingStars(0);
+        setRatingReview('');
+        setRatingDone(false);
+        setRatingModal({ jobId: job.jobId, jobRef: job.jobReference, driverId: job.driverId, driverName: job.driver?.name ?? 'Driver' });
+      }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; detail?: string } } };
       const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to release payment.';
@@ -477,6 +506,29 @@ const HaulierOverview: React.FC = () => {
     } finally {
       setDisputingJobId(null);
     }
+  };
+
+  const handleRatingSubmit = async () => {
+    if (!ratingModal || ratingStars === 0) return;
+    setRatingSubmitting(true);
+    try {
+      await haulierService.submitRating({
+        jobId: ratingModal.jobId,
+        ratedUserId: ratingModal.driverId,
+        starRating: ratingStars,
+        review: ratingReview.trim() || undefined,
+      });
+      setRatingDone(true);
+    } catch { /* silently ignore rating errors */ }
+    finally { setRatingSubmitting(false); }
+  };
+
+  const closeRatingModal = () => {
+    setRatingModal(null);
+    setRatingStars(0);
+    setRatingHover(0);
+    setRatingReview('');
+    setRatingDone(false);
   };
 
   const deliveries = mapData?.deliveries ?? [];
@@ -601,8 +653,8 @@ const HaulierOverview: React.FC = () => {
               <span className="material-symbols-outlined text-sm">task_alt</span>
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="font-black text-emerald-900 text-base sm:text-lg">Jobs with Payment Secured</h2>
-              <p className="text-xs sm:text-sm text-emerald-700">Click "Release Payment" when you are satisfied the job is complete.</p>
+              <h2 className="font-black text-emerald-900 text-base sm:text-lg">Driver Report Submitted — Awaiting Your Review</h2>
+              <p className="text-xs sm:text-sm text-emerald-700">Driver has completed the job and submitted a report. Review the details and release payment.</p>
             </div>
             <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-black text-white shrink-0 animate-pulse">
               {pendingApprovalJobs.length} pending
@@ -621,12 +673,8 @@ const HaulierOverview: React.FC = () => {
                     <div className="flex-1 min-w-0 space-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-base font-black text-[#041627]">{job.jobReference}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
-                          job.status === 'DELIVERY_SUBMITTED' ? 'bg-emerald-100 text-emerald-700' :
-                          job.status === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-700' :
-                          'bg-indigo-100 text-indigo-700'
-                        }`}>
-                          {job.status === 'DELIVERY_SUBMITTED' ? 'Delivery Submitted' : job.status === 'IN_TRANSIT' ? 'In Transit' : 'Payment Secured'}
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700">
+                          Delivery Submitted
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
@@ -1072,22 +1120,42 @@ const HaulierOverview: React.FC = () => {
           </div>
 
           <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Critical Alerts</h3>
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-3 rounded-xl border border-rose-100 bg-rose-50 p-3">
-                <span className="material-symbols-outlined text-rose-600 text-base shrink-0">warning</span>
-                <div>
-                  <p className="text-sm font-black text-[#041627]">TRK-119 Delay</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">Severe traffic on M25. ETA +45m.</p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Recent Notifications</h3>
+              <button onClick={() => navigate('/haulier/notifications')} className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline">
+                View All
+              </button>
+            </div>
+            <div className="space-y-3">
+              {recentNotifs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <span className="material-symbols-outlined text-2xl text-slate-300">notifications_none</span>
+                  <p className="mt-2 text-xs text-slate-400">No recent notifications</p>
                 </div>
-              </div>
-              <div className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                <span className="material-symbols-outlined text-[#44474C] text-base shrink-0">info</span>
-                <div>
-                  <p className="text-sm font-black text-[#041627]">Maintenance Due</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">FLT-09 needs oil service in 250mi.</p>
-                </div>
-              </div>
+              ) : (
+                recentNotifs.map((n) => {
+                  const isAlert = /EXPIRE|REJECT|WARN|DISPUTE|CRITICAL/i.test(n.type);
+                  return (
+                    <div key={n.notificationId} className={`flex gap-3 rounded-xl border p-3 ${isAlert ? 'border-rose-100 bg-rose-50' : 'border-slate-100 bg-slate-50'} ${!n.isRead ? 'ring-1 ring-primary/20' : ''}`}>
+                      <span className={`material-symbols-outlined text-base shrink-0 ${isAlert ? 'text-rose-500' : 'text-slate-400'}`}>
+                        {isAlert ? 'warning' : 'notifications'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-black text-[#041627] truncate">{n.title}</p>
+                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                        </div>
+                        <p className="mt-0.5 text-xs leading-relaxed text-[#44474C] line-clamp-2">{n.message}</p>
+                        {n.createdAt && (
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {new Date(n.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </aside>
@@ -1280,6 +1348,109 @@ const HaulierOverview: React.FC = () => {
           </button>
         </div>
       </section>
+
+      {/* ── Rate Your Driver Modal ───────────────────────────────────────────── */}
+      {ratingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            {ratingDone ? (
+              <div className="flex flex-col items-center justify-center gap-4 px-8 py-12 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
+                  <span className="material-symbols-outlined text-3xl text-emerald-600">check_circle</span>
+                </div>
+                <h3 className="text-xl font-black text-[#041627]">Thank you for your rating!</h3>
+                <p className="text-sm text-slate-500">Your feedback helps improve the platform.</p>
+                <button
+                  onClick={closeRatingModal}
+                  className="mt-2 rounded-2xl bg-primary px-8 py-3 text-sm font-black text-white hover:opacity-90 transition-opacity"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gradient-to-br from-primary to-[#0a4a8f] px-6 py-5 text-white">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Payment Released</p>
+                  <h3 className="mt-1 text-xl font-black">Rate Your Driver</h3>
+                  <p className="mt-1 text-sm text-white/80">Job {ratingModal.jobRef}</p>
+                </div>
+
+                <div className="px-6 py-6 space-y-6">
+                  {/* Driver info */}
+                  <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                      <span className="material-symbols-outlined text-primary">person</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-400">Driver</p>
+                      <p className="font-black text-[#041627]">{ratingModal.driverName}</p>
+                    </div>
+                  </div>
+
+                  {/* Star selector */}
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">How would you rate this driver?</p>
+                    <div className="flex items-center justify-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onMouseEnter={() => setRatingHover(star)}
+                          onMouseLeave={() => setRatingHover(0)}
+                          onClick={() => setRatingStars(star)}
+                          className="transition-transform hover:scale-110"
+                        >
+                          <span className={`material-symbols-outlined text-4xl transition-colors ${
+                            star <= (ratingHover || ratingStars) ? 'text-amber-400' : 'text-slate-200'
+                          }`}>
+                            star
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {ratingStars > 0 && (
+                      <p className="mt-2 text-sm font-black text-amber-500">
+                        {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][ratingStars]}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Review text */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">
+                      Leave a comment <span className="font-normal text-slate-300">(optional)</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={ratingReview}
+                      onChange={(e) => setRatingReview(e.target.value)}
+                      placeholder="How was the driver's punctuality, professionalism, and care of goods?"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary resize-none"
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={closeRatingModal}
+                      className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-500 hover:bg-slate-50 transition-colors"
+                    >
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => void handleRatingSubmit()}
+                      disabled={ratingStars === 0 || ratingSubmitting}
+                      className="flex-1 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
+                    >
+                      {ratingSubmitting && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                      Submit Rating
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

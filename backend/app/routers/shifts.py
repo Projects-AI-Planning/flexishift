@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
-from app.models.shift import ShiftPayment, ShiftPaymentStatus, ShiftStatus
+from app.models.shift import ShiftPayment, ShiftPaymentStatus, ShiftStatus, RequirementType
 from app.models.user import User, Role
 from app.schemas.shifts import ShiftCreateRequest, ShiftQuoteCreateRequest
 from app.services import shifts as shifts_svc
@@ -83,25 +83,30 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
             d["currentDayEscrowed"] = payment is not None
 
     if quotes is not None:
-        d["quotes"] = [_quote_dict(q) for q in quotes]
+        include_vehicle = shift.requirement_type != RequirementType.DRIVER_ONLY
+        d["quotes"] = [_quote_dict(q, include_vehicle=include_vehicle) for q in quotes]
     return d
 
 
-def _quote_dict(quote) -> dict:
-    driver_name = None
-    if hasattr(quote, "driver") and quote.driver:
-        driver_name = quote.driver.full_name
-    return {
+def _quote_dict(quote, include_vehicle: bool = True) -> dict:
+    driver = quote.driver if hasattr(quote, "driver") and quote.driver else None
+    driver_profile = driver.profile if driver and hasattr(driver, "profile") else None
+    d = {
         "quoteId": quote.id,
         "shiftId": quote.shift_id,
         "driverId": quote.driver_id,
-        "driverName": driver_name,
+        "driverName": driver.full_name if driver else None,
+        "driverPhone": driver.phone if driver else None,
         "amountPerDay": float(quote.amount_per_day),
         "totalAmount": float(quote.total_amount),
         "status": quote.status.value if hasattr(quote.status, "value") else quote.status,
         "notes": quote.notes,
         "createdAt": quote.created_at.isoformat() if quote.created_at else None,
     }
+    if include_vehicle and driver_profile:
+        d["vehicleType"] = driver_profile.vehicle_type
+        d["vehicleRegistration"] = driver_profile.vehicle_registration
+    return d
 
 
 def _driver_quote_dict(quote) -> dict:
@@ -202,8 +207,11 @@ def get_shift_quotes(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
+    from app.models.shift import Shift
     quotes = shifts_svc.list_shift_quotes(db, shift_id, current_user)
-    return ok({"items": [_quote_dict(q) for q in quotes], "total": len(quotes)})
+    shift = db.query(Shift).filter(Shift.id == shift_id).first()
+    include_vehicle = shift is None or shift.requirement_type != RequirementType.DRIVER_ONLY
+    return ok({"items": [_quote_dict(q, include_vehicle=include_vehicle) for q in quotes], "total": len(quotes)})
 
 
 @router.post("/{shift_id}/quotes/{quote_id}/accept")

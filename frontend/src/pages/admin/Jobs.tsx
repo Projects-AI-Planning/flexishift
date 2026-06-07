@@ -237,7 +237,6 @@ const AdminJobsPage: React.FC = () => {
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Haulier</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Amount</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Bids</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
               </tr>
@@ -279,16 +278,6 @@ const AdminJobsPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {quoteCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 font-black text-xs px-2.5 py-1 rounded-full">
-                          <span className="material-symbols-outlined text-xs">gavel</span>
-                          {quoteCount}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-medium">0 bids</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
                         <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full w-fit ${statusBadge(job.status)}`}>
                           {job.status.replace(/_/g, ' ')}
@@ -316,7 +305,7 @@ const AdminJobsPage: React.FC = () => {
               })}
               {!loading && (data?.items?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="px-6 py-16 text-center text-slate-400 font-medium">
                     <span className="material-symbols-outlined text-4xl block mb-2 opacity-30">local_shipping</span>
                     No jobs found
                   </td>

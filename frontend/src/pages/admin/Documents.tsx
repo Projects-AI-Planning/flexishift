@@ -20,11 +20,13 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 interface PendingDoc {
   documentId: string;
   docType: string;
+  customName?: string;
   fileUrl: string;
   status: string;
   rejectionReason?: string;
   createdAt?: string;
   updatedAt?: string;
+  expiryDate?: string;
   isReapproval?: boolean;
   rejectedDocuments?: RejectedDoc[];
   userName: string;
@@ -36,6 +38,7 @@ interface PendingDoc {
 interface RejectedDoc {
   documentId: string;
   docType: string;
+  customName?: string;
   fileUrl?: string;
   status: string;
   rejectionReason?: string | null;
@@ -294,7 +297,7 @@ const DocumentsPage: React.FC = () => {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="text-sm font-black text-primary">
-                              {DOC_TYPE_LABELS[history.docType] ?? history.docType.replace(/_/g, ' ')}
+                              {history.customName ?? DOC_TYPE_LABELS[history.docType] ?? history.docType.replace(/_/g, ' ')}
                             </p>
                             <p className="mt-1 text-xs font-medium text-red-700">
                               {history.rejectionReason || 'Rejected by admin.'}
@@ -336,15 +339,21 @@ const DocumentsPage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-bold text-primary text-sm">
-                          {DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
+                          {doc.customName ?? DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
                         </h4>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[10px] font-black uppercase text-amber-600">
                             {doc.isReapproval ? 'REAPPROVAL' : doc.status}
                           </span>
                           {doc.createdAt && (
                             <span className="text-[10px] text-slate-400">
                               · {new Date(doc.updatedAt ?? doc.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
+                          {doc.expiryDate && (
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${new Date(doc.expiryDate) < new Date() ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>event</span>
+                              Expires: {new Date(doc.expiryDate).toLocaleDateString()}
                             </span>
                           )}
                         </div>

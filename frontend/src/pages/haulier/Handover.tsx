@@ -32,7 +32,7 @@ type DeliveryStatus = {
 type HandoverDetail = {
   handover?: HandoverStatus;
   delivery?: DeliveryStatus;
-  photos: Array<{ url?: string }>;
+  photos: string[];
 };
 
 const formatDate = (value?: string | null) =>
@@ -52,6 +52,8 @@ export default function HaulierHandoverPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
+  // Map of jobId → quick handover badge derived from batch-fetch
+  const [badgeMap, setBadgeMap] = useState<Record<string, 'needs-sign' | 'signed' | 'none'>>({});
 
   const loadJobs = async () => {
     setLoading(true);
@@ -64,8 +66,30 @@ export default function HaulierHandoverPage() {
         ...((active as { jobs?: JobSummary[] })?.jobs ?? []),
         ...((pending as { jobs?: JobSummary[] })?.jobs ?? []),
       ] as JobSummary[];
-      setJobs(all);
-      setSelectedJobId((prev) => prev ?? all[0]?.jobId ?? null);
+
+      // Batch-fetch handover status for every job to build the badge map
+      const statuses = await Promise.allSettled(
+        all.map((j) => haulierService.getHandoverStatus(j.jobId)),
+      );
+      const map: Record<string, 'needs-sign' | 'signed' | 'none'> = {};
+      statuses.forEach((res, i) => {
+        const s = res.status === 'fulfilled' ? (res.value as HandoverStatus) : null;
+        if (s?.checklistSubmitted && !s?.haulierSigned) map[all[i].jobId] = 'needs-sign';
+        else if (s?.haulierSigned)                       map[all[i].jobId] = 'signed';
+        else                                             map[all[i].jobId] = 'none';
+      });
+      setBadgeMap(map);
+
+      // Sort: needs-sign first, then none, then signed
+      const sorted = [...all].sort((a, b) => {
+        const order = { 'needs-sign': 0, 'none': 1, 'signed': 2 };
+        return (order[map[a.jobId] ?? 'none'] ?? 1) - (order[map[b.jobId] ?? 'none'] ?? 1);
+      });
+
+      setJobs(sorted);
+      // Auto-select the first job that needs a signature, else first job
+      const firstPending = sorted.find((j) => map[j.jobId] === 'needs-sign');
+      setSelectedJobId((prev) => prev ?? firstPending?.jobId ?? sorted[0]?.jobId ?? null);
       setError('');
     } catch {
       setError('Failed to load jobs.');
@@ -93,10 +117,14 @@ export default function HaulierHandoverPage() {
     ])
       .then(([handover, delivery, photos]) => {
         if (!mounted) return;
+        const rawPhotos = (photos as { photos?: unknown })?.photos;
+        const photoUrls: string[] = Array.isArray(rawPhotos)
+          ? rawPhotos.map((p) => (typeof p === 'string' ? p : (p as { url?: string })?.url ?? '')).filter(Boolean)
+          : [];
         setDetail({
           handover: handover as HandoverStatus,
           delivery: delivery as DeliveryStatus,
-          photos: ((photos as { photos?: Array<{ url?: string }> })?.photos ?? []) as Array<{ url?: string }>,
+          photos: photoUrls,
         });
       })
       .catch(() => { if (mounted) setDetail({ photos: [] }); })
@@ -106,10 +134,11 @@ export default function HaulierHandoverPage() {
 
   const photos = detail.handover?.conditionPhotos?.length
     ? detail.handover.conditionPhotos
-    : detail.photos.map((p) => p.url).filter(Boolean) as string[];
+    : detail.photos;
 
   const hasData =
     detail.handover?.checklistSubmitted ||
+    detail.handover?.driverSigned ||
     (detail.handover?.conditionPhotos?.length ?? 0) > 0 ||
     photos.length > 0;
 
@@ -145,9 +174,16 @@ export default function HaulierHandoverPage() {
               <h2 className="text-lg font-black text-primary">Jobs</h2>
               <p className="text-xs text-slate-500">Select a job to view handover details</p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
-              {jobs.length}
-            </span>
+            <div className="flex items-center gap-2">
+              {Object.values(badgeMap).filter((v) => v === 'needs-sign').length > 0 && (
+                <span className="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-black text-white animate-pulse">
+                  {Object.values(badgeMap).filter((v) => v === 'needs-sign').length} pending
+                </span>
+              )}
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#44474C]">
+                {jobs.length}
+              </span>
+            </div>
           </div>
 
           {loading ? (
@@ -160,29 +196,50 @@ export default function HaulierHandoverPage() {
             <p className="text-center text-sm text-slate-400 py-8">No active jobs found.</p>
           ) : (
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-              {jobs.map((job) => (
-                <button
-                  key={job.jobId}
-                  onClick={() => setSelectedJobId(job.jobId)}
-                  className={`w-full rounded-2xl p-3 text-left transition-all ${
-                    selectedJobId === job.jobId
-                      ? 'bg-[#1066b1] text-white shadow-md shadow-[#1066b1]/20'
-                      : 'border border-slate-100 hover:bg-slate-50'
-                  }`}
-                >
-                  <p className={`text-xs font-black ${selectedJobId === job.jobId ? 'text-white/70' : 'text-slate-400'}`}>
-                    {job.jobReference}
-                  </p>
-                  <p className={`text-sm font-bold truncate ${selectedJobId === job.jobId ? 'text-white' : 'text-primary'}`}>
-                    {job.pickupLocation ?? 'Unknown'} → {job.dropLocation ?? 'Unknown'}
-                  </p>
-                  {job.driver?.name && (
-                    <p className={`text-xs mt-0.5 ${selectedJobId === job.jobId ? 'text-white/70' : 'text-slate-500'}`}>
-                      {job.driver.name}
+              {jobs.map((job) => {
+                const badge = badgeMap[job.jobId];
+                const isSelected = selectedJobId === job.jobId;
+                const needsSign = badge === 'needs-sign';
+                return (
+                  <button
+                    key={job.jobId}
+                    onClick={() => setSelectedJobId(job.jobId)}
+                    className={`w-full rounded-2xl p-3 text-left transition-all ${
+                      isSelected
+                        ? 'bg-[#1066b1] text-white shadow-md shadow-[#1066b1]/20'
+                        : needsSign
+                        ? 'border-2 border-indigo-400 bg-indigo-50 hover:bg-indigo-100'
+                        : 'border border-slate-100 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <p className={`text-xs font-black ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
+                        {job.jobReference}
+                      </p>
+                      {needsSign && !isSelected && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white shrink-0">
+                          <span className="material-symbols-outlined text-[10px]">draw</span>
+                          Sign Required
+                        </span>
+                      )}
+                      {badge === 'signed' && !isSelected && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black text-emerald-700 shrink-0">
+                          <span className="material-symbols-outlined text-[10px]">verified</span>
+                          Signed
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-primary'}`}>
+                      {job.pickupLocation ?? 'Unknown'} → {job.dropLocation ?? 'Unknown'}
                     </p>
-                  )}
-                </button>
-              ))}
+                    {job.driver?.name && (
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
+                        {job.driver.name}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </aside>

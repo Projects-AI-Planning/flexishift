@@ -45,6 +45,8 @@ interface JobDetailScreenProps {
   loading: boolean;
   error: string | null;
   isApplied?: boolean;
+  paymentSetupComplete?: boolean;
+  onGoToPaymentSetup?: () => void;
 }
 
 const InfoRow = ({label, value}: {label: string; value: string}) => (
@@ -61,6 +63,8 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   loading,
   error,
   isApplied = false,
+  paymentSetupComplete = true,
+  onGoToPaymentSetup,
 }) => {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -69,6 +73,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickerStep, setPickerStep] = useState<'date' | 'time'>('date');
   const [pickerTemp, setPickerTemp] = useState<Date>(new Date());
+  const [driverOnlyConfirmed, setDriverOnlyConfirmed] = useState(false);
+
+  const isDriverOnly = (job?.driverRequirement ?? '').toUpperCase() === 'DRIVER_ONLY';
 
   const openPicker = () => {
     setPickerTemp(deliverByTime ?? new Date());
@@ -221,6 +228,21 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
             You have already placed a quote on this job. You can track its status in My Quotes.
           </Text>
         </View>
+      ) : !paymentSetupComplete ? (
+        <View style={styles.paymentSetupBanner}>
+          <Text style={styles.paymentSetupIcon}>💳</Text>
+          <View style={{flex: 1}}>
+            <Text style={styles.paymentSetupTitle}>Payment Setup Required</Text>
+            <Text style={styles.paymentSetupSub}>
+              You need to complete your payment account setup before submitting quotes. Go to Profile → Payments to get started.
+            </Text>
+          </View>
+          {onGoToPaymentSetup && (
+            <Pressable onPress={onGoToPaymentSetup} style={styles.paymentSetupBtn}>
+              <Text style={styles.paymentSetupBtnText}>Set Up →</Text>
+            </Pressable>
+          )}
+        </View>
       ) : (
         <View style={styles.bidCard}>
           <Text style={styles.sectionTitle}>Place Your Quote</Text>
@@ -267,6 +289,25 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
           </View>
           {deliverByError && (
             <Text style={styles.deliverByErrorText}>Please select a delivery date & time.</Text>
+          )}
+
+          {/* Driver-Only confirmation toggle */}
+          {isDriverOnly && (
+            <Pressable
+              onPress={() => setDriverOnlyConfirmed(v => !v)}
+              style={styles.driverOnlyToggleRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{checked: driverOnlyConfirmed}}>
+              <View style={[styles.checkbox, driverOnlyConfirmed && styles.checkboxChecked]}>
+                {driverOnlyConfirmed && <Text style={styles.checkboxTick}>✓</Text>}
+              </View>
+              <View style={{flex: 1}}>
+                <Text style={styles.driverOnlyToggleTitle}>I am available as Driver Only</Text>
+                <Text style={styles.driverOnlyToggleSub}>
+                  This job requires a driver without a truck. Confirm you are bidding without your vehicle.
+                </Text>
+              </View>
+            </Pressable>
           )}
           {showTimePicker && (
             <>
@@ -318,8 +359,8 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
                 stops.map((s, i) => ({order: s.order ?? i + 1, eta: stopEtas[i] ?? ''})),
               );
             }}
-            style={[styles.bidButton, (!amount || !deliverByTime || loading) && styles.bidButtonDisabled]}
-            disabled={!amount || !deliverByTime || loading}>
+            style={[styles.bidButton, (!amount || !deliverByTime || loading || (isDriverOnly && !driverOnlyConfirmed)) && styles.bidButtonDisabled]}
+            disabled={!amount || !deliverByTime || loading || (isDriverOnly && !driverOnlyConfirmed)}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
@@ -676,6 +717,20 @@ const styles = StyleSheet.create({
   etaSummaryStopAddr: {fontSize: 11, fontWeight: '500', color: '#3B82F6', marginTop: 1},
   etaSummaryEta: {fontSize: 12, fontWeight: '900', color: '#1066B1', flexShrink: 0},
 
+  paymentSetupBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE',
+    borderRadius: radius.lg, padding: 16, marginHorizontal: 16, marginBottom: 24,
+  },
+  paymentSetupIcon: {fontSize: 24, lineHeight: 28},
+  paymentSetupTitle: {fontSize: 15, fontWeight: '900', color: '#1066B1', marginBottom: 4},
+  paymentSetupSub: {fontSize: 12, fontWeight: '500', color: '#1D4ED8', lineHeight: 17},
+  paymentSetupBtn: {
+    backgroundColor: '#1066B1', borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start', marginTop: 2,
+  },
+  paymentSetupBtnText: {color: '#fff', fontSize: 12, fontWeight: '900'},
+
   pickerDoneBtn: {
     alignSelf: 'flex-end',
     marginTop: 4,
@@ -685,6 +740,51 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   pickerDoneBtnText: {color: '#fff', fontWeight: '800', fontSize: 14},
+
+  driverOnlyToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+    borderRadius: radius.md,
+    padding: 14,
+    marginTop: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#D97706',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: '#D97706',
+    borderColor: '#D97706',
+  },
+  checkboxTick: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  driverOnlyToggleTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  driverOnlyToggleSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B45309',
+    lineHeight: 17,
+  },
 });
 
 export default JobDetailScreen;

@@ -183,6 +183,7 @@ export interface DocumentSummary {
   documentId: string;
   docType?: string;
   documentType?: string;
+  customName?: string;
   expiryDate?: string;
   fileUrl?: string;
   rejectionReason?: string;

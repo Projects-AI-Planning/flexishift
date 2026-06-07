@@ -271,13 +271,13 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
               <Text style={styles.metaVal}>{item.goodsType || 'General Goods'}</Text>
             </View>
           </View>
-          <View style={styles.metaItem}>
+          {false && <View style={styles.metaItem}>
             <Icon name="scale" size={20} color="#000000" strokeWidth={2} />
             <View>
               <Text style={styles.metaTag}>WEIGHT</Text>
               <Text style={styles.metaVal}>{item.weightKg ? `${item.weightKg} kg` : '—'}</Text>
             </View>
-          </View>
+          </View>}
           <View style={styles.metaItem}>
             <Icon name="calendar" size={20} color="#000000" strokeWidth={2} />
             <View>
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF8FF', borderBottomWidth: 1, borderBottomColor: '#BAD9F5',
     paddingHorizontal: spacing.xl, paddingVertical: 12,
   },
-  docBannerWarn: {backgroundColor: '#FFFBEB', borderBottomColor: '#FCD34D'},
+  docBannerWarn: {backgroundColor: colors.accentSoft, borderBottomColor: colors.accent},
   docBannerIcon: {fontSize: 20, marginTop: 1},
   docBannerTitle: {fontSize: 13, fontWeight: '900', color: colors.navy, marginBottom: 2},
   docBannerBody: {fontSize: 12, color: colors.inkSoft, lineHeight: 17},

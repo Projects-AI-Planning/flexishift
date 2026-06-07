@@ -17,6 +17,7 @@ export interface TruckCompartment {
   id: number;
   capacityLitres: string;
   fuelType: string;
+  unit?: string;
 }
 
 interface Props {
@@ -54,9 +55,10 @@ export default function TruckCompartmentVisual({compartments}: Props) {
               contentContainerStyle={s.scrollContent}>
               {compartments.map((cpt, idx) => {
                 const cap   = parseFloat(cpt.capacityLitres) || 0;
+                const unit  = cpt.unit ?? 'L';
                 const label = cap >= 1000
-                  ? `${(cap / 1000).toFixed(cap % 1000 === 0 ? 0 : 1)}k L`
-                  : `${cap} L`;
+                  ? `${(cap / 1000).toFixed(cap % 1000 === 0 ? 0 : 1)}k ${unit}`
+                  : `${cap} ${unit}`;
                 const stripeColor = FUEL_COLORS[cpt.fuelType] ?? FUEL_COLORS.Other;
                 return (
                   <View

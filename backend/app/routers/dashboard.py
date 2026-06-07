@@ -568,11 +568,7 @@ def haulier_pending_approval(
         .join(Payment, Payment.job_id == Job.id)
         .filter(
             Job.haulier_id == current_user.id,
-            Job.status.in_([
-                JobStatus.PAYMENT_SECURED,
-                JobStatus.IN_TRANSIT,
-                JobStatus.DELIVERY_SUBMITTED,
-            ]),
+            Job.status == JobStatus.DELIVERY_SUBMITTED,
             Payment.status == PaymentStatus.ESCROWED,
             Job.deleted_at.is_(None),
         )
@@ -589,6 +585,7 @@ def haulier_pending_approval(
             "jobId": j.id,
             "jobReference": j.job_ref,
             "status": j.status.value,
+            "driverId": supplier.id if supplier else None,
             "driver": _driver_snippet(supplier),
             "dropLocation": j.drop_address,
             "deliveryProof": {
@@ -669,6 +666,9 @@ def haulier_shifts_pending_payment(
             "currency": payment.currency if payment else (current_user.currency or settings.PAYMENT_CURRENCY),
             "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
             "proofNotes": proof.notes,
+            "recipientName": proof.recipient_name,
+            "proofPhotoUrl": proof.proof_photo_url,
+            "signatureData": proof.signature_data,
             "hasPhoto": bool(proof.proof_photo_url),
             "hasSignature": bool(proof.signature_data),
         })
@@ -1803,8 +1803,13 @@ def admin_processed_verifications(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
+    from datetime import datetime as _dt
+    now = _dt.utcnow()
+    is_expired_filter = status and status.upper() == "EXPIRED"
     statuses = []
-    if status and status.upper() == "APPROVED":
+    if is_expired_filter:
+        statuses = [DocStatus.APPROVED, DocStatus.REJECTED]
+    elif status and status.upper() == "APPROVED":
         statuses = [DocStatus.APPROVED]
     elif status and status.upper() == "REJECTED":
         statuses = [DocStatus.REJECTED]
@@ -1814,7 +1819,10 @@ def admin_processed_verifications(
     q = db.query(User).join(Document, Document.user_id == User.id).filter(
         Document.status.in_(statuses),
         User.deleted_at.is_(None),
-    ).distinct()
+    )
+    if is_expired_filter:
+        q = q.filter(Document.expiry_date.isnot(None), Document.expiry_date < now)
+    q = q.distinct()
     if role:
         try:
             q = q.filter(User.role == Role(role.upper()))
@@ -1825,10 +1833,13 @@ def admin_processed_verifications(
 
     processed = []
     for u in users:
-        docs = db.query(Document).filter(
+        doc_q = db.query(Document).filter(
             Document.user_id == u.id,
             Document.status.in_(statuses),
-        ).all()
+        )
+        if is_expired_filter:
+            doc_q = doc_q.filter(Document.expiry_date.isnot(None), Document.expiry_date < now)
+        docs = doc_q.all()
         processed.append({
             "userId": u.id,
             "name": u.full_name,
@@ -1840,11 +1851,13 @@ def admin_processed_verifications(
                 {
                     "documentId": d.id,
                     "documentType": d.doc_type.value,
+                    "customName": d.custom_name if hasattr(d, 'custom_name') else None,
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "rejectionReason": d.rejection_reason,
                     "reviewedAt": d.reviewed_at.isoformat() if d.reviewed_at else None,
                     "uploadedAt": d.created_at.isoformat() if d.created_at else None,
+                    "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
                 }
                 for d in docs
             ],
@@ -2022,6 +2035,7 @@ def admin_list_payments(
             "dropLocation": j.drop_address,
             "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
             "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
         })
 
@@ -2193,10 +2207,52 @@ def admin_live_tracking(
             "jobDate": j.job_date.isoformat() if j.job_date else None,
         })
 
+    # ── Ongoing shifts ──────────────────────────────────────────────────────
+    active_shifts = (
+        db.query(Shift)
+        .filter(Shift.status == ShiftStatus.IN_PROGRESS)
+        .order_by(Shift.updated_at.desc())
+        .all()
+    )
+
+    shifts_data = []
+    for s in active_shifts:
+        haulier = s.haulier
+        driver  = s.driver
+        driver_profile = driver.profile if driver else None
+        shifts_data.append({
+            "shiftId":       s.id,
+            "shiftRef":      s.shift_ref,
+            "status":        s.status.value.lower(),
+            "haulier": {
+                "name":  haulier.full_name if haulier else None,
+                "phone": haulier.phone     if haulier else None,
+            },
+            "driver": {
+                "name":          driver.full_name              if driver         else None,
+                "phone":         driver.phone                  if driver         else None,
+                "vehicleNumber": driver_profile.vehicle_registration if driver_profile else None,
+                "vehicleType":   driver_profile.vehicle_type        if driver_profile else None,
+            },
+            "pickupLocation": s.pickup_address,
+            "dropLocation":   s.drop_address,
+            "pickupLat":  float(s.pickup_lat) if s.pickup_lat else None,
+            "pickupLng":  float(s.pickup_lng) if s.pickup_lng else None,
+            "dropLat":    float(s.drop_lat)   if s.drop_lat   else None,
+            "dropLng":    float(s.drop_lng)   if s.drop_lng   else None,
+            "goodsType":  s.goods_type,
+            "startDate":  s.start_date.isoformat() if s.start_date else None,
+            "endDate":    s.end_date.isoformat()   if s.end_date   else None,
+            "totalDays":  s.total_days,
+            "daysCompleted": s.days_completed,
+        })
+
     return ok(
         data={
             "totalActive": len(deliveries),
-            "deliveries": deliveries,
+            "deliveries":  deliveries,
+            "totalShifts": len(shifts_data),
+            "shifts":      shifts_data,
         },
         message="Live tracking data fetched successfully.",
     )

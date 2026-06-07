@@ -1,8 +1,10 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.response import ok
+from app.config import settings
 from app.database import get_db
 from app.dependencies import require_role
 from app.models.user import User, UserStatus, Role
@@ -56,10 +58,11 @@ def _doc_dict(d: Document) -> dict:
         "documentId": d.id,
         "userId": d.user_id,
         "docType": d.doc_type.value,
+        "customName": d.custom_name,
         "fileUrl": d.file_url,
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
-        "expiryDate": d.expiry_date.isoformat() if hasattr(d, "expiry_date") and d.expiry_date else None,
+        "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
         "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
         "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
@@ -119,6 +122,52 @@ def get_stats(
         },
         message="Stats retrieved",
     )
+
+
+@router.get("/stripe/revenue")
+def get_stripe_revenue(
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    # ── Stripe live balance ────────────────────────────────────────────────────
+    stripe_info: dict = {"stripeConnected": False, "availableBalance": 0.0, "pendingBalance": 0.0, "currency": "GBP"}
+    if settings.STRIPE_SECRET_KEY:
+        try:
+            import stripe as _stripe
+            _stripe.api_key = settings.STRIPE_SECRET_KEY
+            bal = _stripe.Balance.retrieve()
+            available = sum(b["amount"] for b in bal["available"]) / 100
+            pending   = sum(b["amount"] for b in bal["pending"])   / 100
+            currency  = bal["available"][0]["currency"].upper() if bal["available"] else "GBP"
+            stripe_info = {
+                "stripeConnected": True,
+                "availableBalance": round(available, 2),
+                "pendingBalance":   round(pending, 2),
+                "currency":         currency,
+            }
+        except Exception:
+            pass
+
+    # ── DB payment breakdown ───────────────────────────────────────────────────
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+
+    def _sum(col, *filters):
+        return float(db.query(func.sum(col)).filter(*filters).scalar() or 0)
+
+    released = Payment.status == PaymentStatus.RELEASED
+    escrowed = Payment.status == PaymentStatus.ESCROWED
+
+    return ok(data={
+        **stripe_info,
+        "totalRevenue":      _sum(Payment.amount,       released),
+        "monthlyRevenue":    _sum(Payment.amount,       released, Payment.released_at >= month_start),
+        "platformFeeTotal":  _sum(Payment.platform_fee, released),
+        "vatTotal":          _sum(Payment.vat_amount,   released),
+        "escrowedAmount":    _sum(Payment.amount,       escrowed),
+        "totalEscrowCount":  db.query(func.count(Payment.id)).filter(escrowed).scalar() or 0,
+        "totalPaid":         db.query(func.count(Payment.id)).filter(released).scalar() or 0,
+    }, message="Stripe revenue retrieved")
 
 
 @router.get("/users")
@@ -280,6 +329,34 @@ def list_pending_documents(
         },
         message="Pending documents retrieved",
     )
+
+
+@router.get("/documents/expired")
+async def list_expired_documents(
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    now = datetime.utcnow()
+    expired_docs = (
+        db.query(Document)
+        .filter(
+            Document.expiry_date.isnot(None),
+            Document.expiry_date < now,
+        )
+        .order_by(Document.expiry_date.asc())
+        .all()
+    )
+    items = []
+    for d in expired_docs:
+        owner = db.get(User, d.user_id)
+        items.append({
+            **_doc_dict(d),
+            "userName": owner.full_name if owner else "Unknown",
+            "userEmail": owner.email if owner else "",
+            "userRole": owner.role.value if owner else "",
+            "userPhone": owner.phone if owner else "",
+        })
+    return ok(data={"items": items, "total": len(items)}, message="Expired documents retrieved")
 
 
 @router.patch("/documents/{doc_id}/review")

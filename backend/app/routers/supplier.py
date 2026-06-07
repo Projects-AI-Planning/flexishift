@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, UploadFile
 from uuid import uuid4
 from sqlalchemy.orm import Session
@@ -25,9 +26,11 @@ def _doc_dict(d: Document) -> dict:
         "documentId": d.id,
         "userId": d.user_id,
         "docType": d.doc_type.value,
+        "customName": d.custom_name,
         "fileUrl": d.file_url,
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
+        "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
         "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
         "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
@@ -43,6 +46,7 @@ async def upload_document_direct(
     # Mobile sends 'documentType'; also accept 'doc_type' for web clients
     documentType: str = Form(None),
     doc_type: str = Form(None),
+    customName: str = Form(None),
     expiryDate: str = Form(None),
     file: UploadFile = File(...),
 ):
@@ -86,7 +90,23 @@ async def upload_document_direct(
         record.status = LocalUploadStatus.STORED
         db.commit()
 
-    doc = doc_svc.upsert_document(db, current_user.id, raw_type, file_url)
+    resolved_custom_name = customName.strip() if customName and customName.strip() else None
+
+    # Parse expiry date (accepts YYYY-MM-DD or DD-MM-YYYY)
+    parsed_expiry = None
+    if expiryDate:
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                parsed_expiry = datetime.strptime(expiryDate.strip(), fmt)
+                break
+            except ValueError:
+                continue
+
+    doc = doc_svc.upsert_document(
+        db, current_user.id, raw_type, file_url,
+        custom_name=resolved_custom_name,
+        expiry_date=parsed_expiry,
+    )
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")
 
 

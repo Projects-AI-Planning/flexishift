@@ -18,7 +18,8 @@ export interface AvailabilityGateInfo {
   modeLabel: string;
   profileChecks: ProfileCheck[];
   docChecks: DocCheck[];
-  nextAction: 'set_availability' | 'complete_profile' | 'upload_docs' | 'wait_approval';
+  nextAction: 'set_availability' | 'complete_profile' | 'upload_docs' | 'wait_approval' | 'doc_expired';
+  expiredDocName?: string;
 }
 
 interface JobSearchLockedScreenProps {
@@ -66,6 +67,15 @@ const CONFIG = {
     btnLabel: null,
     btnColor: null,
   },
+  doc_expired: {
+    icon: 'file' as const,
+    iconBg: colors.accentSoft,
+    iconBorder: colors.accent,
+    title: 'Document Expired',
+    subtitle: '',
+    btnLabel: 'Re-upload Document →',
+    btnColor: colors.accent,
+  },
 };
 
 const JobSearchLockedScreen: React.FC<JobSearchLockedScreenProps> = ({
@@ -74,8 +84,12 @@ const JobSearchLockedScreen: React.FC<JobSearchLockedScreenProps> = ({
   onGoToDocuments,
   onGoToAvailability,
 }) => {
-  const {nextAction} = gateInfo;
+  const {nextAction, expiredDocName} = gateInfo;
   const cfg = CONFIG[nextAction];
+
+  const subtitle = nextAction === 'doc_expired' && expiredDocName
+    ? `Your document "${expiredDocName}" has expired. Please re-upload it and wait for admin re-verification to continue.`
+    : cfg.subtitle;
 
   const onPress =
     nextAction === 'set_availability' ? onGoToAvailability :
@@ -89,7 +103,7 @@ const JobSearchLockedScreen: React.FC<JobSearchLockedScreenProps> = ({
       </View>
 
       <Text style={styles.title}>{cfg.title}</Text>
-      <Text style={styles.subtitle}>{cfg.subtitle}</Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
 
       {cfg.btnLabel && cfg.btnColor ? (
         <Pressable style={[styles.btn, {backgroundColor: cfg.btnColor}]} onPress={onPress}>

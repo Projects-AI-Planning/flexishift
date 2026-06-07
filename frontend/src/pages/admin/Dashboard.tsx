@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useAdminStats } from '../../hooks/useAdmin';
+import { useAdminStats, useAdminStripeRevenue } from '../../hooks/useAdmin';
 
 import { fmtMoney } from '../../utils/currency';
 
@@ -49,6 +49,7 @@ const StatCard = ({
 
 const AdminDashboard = () => {
   const { stats, loading, error, refresh } = useAdminStats();
+  const { data: stripe, loading: stripeLoading } = useAdminStripeRevenue();
 
   const derived = useMemo(() => {
     if (!stats) return null;
@@ -140,6 +141,81 @@ const AdminDashboard = () => {
           accent="amber"
           icon="description"
         />
+      </section>
+
+      {/* ── Stripe Revenue Section ────────────────────────────────────────── */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#635BFF]/10 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#635BFF"><path d="M13.479 9.883c-1.626-.604-2.512-1.067-2.512-1.803 0-.612.502-.928 1.390-.928 1.628 0 3.299.604 4.463 1.158l.656-4.040C16.188 3.67 14.447 3 12.04 3 9.02 3 6.8 4.652 6.8 7.384c0 2.616 1.843 3.753 4.505 4.703 1.730.644 2.336 1.139 2.336 1.899 0 .688-.572 1.071-1.606 1.071-1.562 0-3.596-.7-4.924-1.498l-.684 4.098C7.74 18.263 9.817 19 12.35 19c3.133 0 5.65-1.5 5.65-4.5 0-2.748-1.895-3.956-4.521-4.617z"/></svg>
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-primary">Stripe Revenue</h2>
+              <p className="text-xs text-slate-500">Live balance from Stripe + released payment breakdown</p>
+            </div>
+          </div>
+          {stripeLoading ? (
+            <span className="text-xs text-slate-400 font-bold animate-pulse">Loading…</span>
+          ) : stripe?.stripeConnected ? (
+            <span className="flex items-center gap-1.5 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              Stripe Connected
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs font-black text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
+              Stripe Not Configured
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {/* Live Stripe balance tiles */}
+          <div className="col-span-2 sm:col-span-1 lg:col-span-1 rounded-2xl bg-[#635BFF]/5 border border-[#635BFF]/15 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#635BFF]">Available</p>
+            <p className="mt-2 text-2xl font-black text-[#041627]">
+              {stripeLoading ? '—' : stripe?.stripeConnected ? fmtCurrency(stripe.availableBalance, stripe.currency) : '—'}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">Stripe balance</p>
+          </div>
+          <div className="col-span-2 sm:col-span-1 lg:col-span-1 rounded-2xl bg-amber-50 border border-amber-100 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Pending</p>
+            <p className="mt-2 text-2xl font-black text-[#041627]">
+              {stripeLoading ? '—' : stripe?.stripeConnected ? fmtCurrency(stripe.pendingBalance, stripe.currency) : '—'}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">In transit</p>
+          </div>
+          {/* DB-based tiles */}
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">This Month</p>
+            <p className="mt-2 text-2xl font-black text-[#041627]">
+              {stripeLoading ? '—' : fmtCurrency(stripe?.monthlyRevenue ?? 0)}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">Released payments</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Platform Fee</p>
+            <p className="mt-2 text-2xl font-black text-emerald-700">
+              {stripeLoading ? '—' : fmtCurrency(stripe?.platformFeeTotal ?? 0)}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">12.5% of quotes</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">In Escrow</p>
+            <p className="mt-2 text-2xl font-black text-blue-700">
+              {stripeLoading ? '—' : fmtCurrency(stripe?.escrowedAmount ?? 0)}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">{stripe?.totalEscrowCount ?? 0} payments held</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">All-time</p>
+            <p className="mt-2 text-2xl font-black text-[#041627]">
+              {stripeLoading ? '—' : fmtCurrency(stripe?.totalRevenue ?? 0)}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400 font-bold">{stripe?.totalPaid ?? 0} released</p>
+          </div>
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">

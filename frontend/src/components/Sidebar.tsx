@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 interface SidebarChildLink {
   to: string;
   label: string;
+  hidden?: boolean;
 }
 
 interface SidebarLink {
@@ -12,6 +13,7 @@ interface SidebarLink {
   icon: string;
   label: string;
   children?: SidebarChildLink[];
+  hidden?: boolean;
 }
 
 interface SidebarProps {
@@ -70,7 +72,7 @@ const NavItem: React.FC<NavItemProps> = ({
         </button>
         {isExpanded && (!isCollapsed || isMobile) && (
           <div className="pl-12 pr-4 space-y-1 overflow-hidden transition-all duration-300">
-            {link.children?.map((child) => (
+            {link.children?.filter((child) => !child.hidden).map((child) => (
               <NavLink
                 key={child.to}
                 to={child.to}
@@ -150,12 +152,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       children: [
         { to: '/admin/payments/transactions', label: 'Transactions' },
         { to: '/admin/payments/escrow', label: 'Escrow' },
-        { to: '/admin/payments/refunds', label: 'Refunds' },
+        { to: '/admin/payments/refunds', label: 'Refunds', hidden: true },
       ],
     },
     {
       icon: 'receipt_long',
       label: 'Invoices',
+      hidden: true,
       children: [
         { to: '/admin/invoices/all', label: 'All Invoices' },
         { to: '/admin/invoices/reports', label: 'Reports' },
@@ -164,20 +167,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     {
       icon: 'gavel',
       label: 'Disputes',
+      hidden: true,
       children: [
         { to: '/admin/disputes/active', label: 'Active' },
         { to: '/admin/disputes/resolved', label: 'Resolved' },
         { to: '/admin/disputes/escalated', label: 'Escalated' },
       ],
     },
-    {
-      icon: 'star',
-      label: 'Ratings',
-      children: [
-        { to: '/admin/ratings/all', label: 'All' },
-        { to: '/admin/ratings/reported', label: 'Reported' },
-      ],
-    },
+    { to: '/admin/ratings/all', icon: 'star', label: 'Ratings' },
     { to: '/admin/tracking', icon: 'distance', label: 'Live Tracking' },
     {
       icon: 'monitoring',
@@ -192,6 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     {
       icon: 'settings',
       label: 'System Settings',
+      hidden: true,
       children: [
         { to: '/admin/settings/config', label: 'Platform Config' },
         { to: '/admin/settings/logs', label: 'System Logs' },
@@ -200,6 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
     {
       icon: 'support_agent',
       label: 'Support Tickets',
+      hidden: true,
       children: [
         { to: '/admin/support/active', label: 'Active' },
         { to: '/admin/support/resolved', label: 'Resolved' },
@@ -210,7 +209,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
   const haulierLinks: SidebarLink[] = [
     { to: '/haulier', icon: 'dashboard', label: 'Dashboard' },
     { to: '/haulier/post-job', icon: 'add_circle', label: 'Post Job' },
-    { to: '/haulier/shifts', icon: 'event_available', label: 'Schedule Shift' },
+    {
+      icon: 'event_available',
+      label: 'Shifts',
+      children: [
+        { to: '/haulier/shifts', label: 'All Shifts' },
+        { to: '/haulier/shifts/handover', label: 'Handover' },
+      ],
+    },
     {
       icon: 'local_shipping',
       label: 'My Jobs',
@@ -219,6 +225,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/jobs/handover', label: 'Handover' },
       ],
     },
+    { to: '/haulier/jobs/delivery-reports', icon: 'assignment_turned_in', label: 'Delivery Reports' },
     // { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     {
@@ -234,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       icon: 'description',
       label: 'Documents',
       children: [
-        { to: '/haulier/documents/compliance', label: 'Compliance' },
+        // { to: '/haulier/documents/compliance', label: 'Compliance' },
         { to: '/haulier/documents/insurance', label: 'Insurance' },
       ],
     },
@@ -325,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         </div>
 
         <nav className="flex-1 px-2 space-y-1 overflow-y-auto custom-scrollbar pb-4">
-          {links.map((link, index) => (
+          {links.filter(link => !link.hidden).map((link, index) => (
             <NavItem
               key={index}
               link={link}

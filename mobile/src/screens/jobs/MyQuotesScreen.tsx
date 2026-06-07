@@ -155,9 +155,9 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
               <Text style={styles.acceptedBannerIcon}>🎉</Text>
               <View style={{flex: 1}}>
                 <Text style={styles.acceptedBannerTitle}>Your quote was accepted!</Text>
-                <Text style={styles.acceptedBannerSub}>
+                {false && <Text style={styles.acceptedBannerSub}>
                   Proceed to verify the load code at pickup.
-                </Text>
+                </Text>}
               </View>
             </View>
             <Pressable

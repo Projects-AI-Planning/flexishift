@@ -1,5 +1,5 @@
 import client from './client';
-import type { AdminStats, Dispute, Job, LiveDelivery, SupportTicket, SystemConfig, User } from '../types';
+import type { AdminStats, Dispute, Job, LiveDelivery, LiveShift, SupportTicket, SystemConfig, User } from '../types';
 
 type SystemConfigUpdatePayload = Partial<SystemConfig> & {
   appEnv?: string;
@@ -239,11 +239,12 @@ const adminService = {
   getTrackingHistory: (jobId: string, params?: { page?: number; limit?: number }) =>
     client.get(`/tracking/history/${jobId}`, { params }).then((res) => res.data.data),
   getAdminLiveTracking: () =>
-    client.get('/dashboard/admin/live-tracking').then((res) => res.data.data as { totalActive: number; deliveries: LiveDelivery[] }),
+    client.get('/dashboard/admin/live-tracking').then((res) => res.data.data as { totalActive: number; deliveries: LiveDelivery[]; totalShifts: number; shifts: LiveShift[] }),
 
   // EPIC 7: Admin Dashboard
   getOverview: () => client.get('/dashboard/admin/overview').then((res) => res.data.data),
   getStats: () => client.get('/admin/stats').then((res) => res.data.data as AdminStats),
+  getStripeRevenue: () => client.get('/admin/stripe/revenue').then((res) => res.data.data),
   listUsers: (params?: { page?: number; limit?: number; role?: string; status?: string; search?: string }) =>
     client.get('/dashboard/admin/users/list', {
       params: {
@@ -278,6 +279,8 @@ const adminService = {
         status: normalizeUppercaseQueryValue(params?.status),
       },
     }).then((res) => res.data.data),
+  getExpiredDocuments: () =>
+    client.get('/admin/documents/expired').then((res) => res.data.data),
   monitorJobs: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
     client.get('/dashboard/admin/jobs/monitor', { params }).then((res) => mapJobsResponse(res.data.data)),
   getRevenueReport: (params?: { period?: string; month?: string; year?: string }) =>
@@ -294,6 +297,8 @@ const adminService = {
   // EPIC 8: Ratings
   getUserRatings: (userId: string, params?: { page?: number; limit?: number }) =>
     client.get(`/ratings/user/${userId}`, { params }).then((res) => res.data.data),
+  getAllRatings: (params?: { rater_role?: string; rated_role?: string; page?: number; limit?: number }) =>
+    client.get('/admin/ratings/all', { params }).then((res) => res.data.data),
   removeRating: (ratingId: string, data: { reason: string; notifyReporter: boolean; notifyReviewer: boolean }) =>
     client.delete(`/admin/ratings/remove/${ratingId}`, { data }).then((res) => res.data),
 

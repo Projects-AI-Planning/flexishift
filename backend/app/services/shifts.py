@@ -110,6 +110,8 @@ def list_driver_shifts(db: Session, driver_id: str) -> list[Shift]:
 
 
 def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day: float, notes: str | None) -> ShiftQuote:
+    if not driver.stripe_onboarding_complete:
+        raise HTTPException(status_code=403, detail="Payment setup required. Complete your payment account setup in Profile → Payments before submitting quotes.")
     shift = get_shift(db, shift_id)
     if shift.status != ShiftStatus.OPEN:
         raise HTTPException(status_code=422, detail="Shift is not open for quotes")

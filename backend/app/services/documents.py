@@ -14,9 +14,17 @@ def get_upload_url(doc_type: str, user_id: str) -> dict:
     return s3.generate_presigned_upload(settings.AZURE_CONTAINER_DOCS, key, "application/pdf")
 
 
-def upsert_document(db: Session, user_id: str, doc_type: str, file_url: str) -> Document:
+def upsert_document(
+    db: Session,
+    user_id: str,
+    doc_type: str,
+    file_url: str,
+    custom_name: str | None = None,
+    expiry_date: datetime | None = None,
+) -> Document:
     doc = db.query(Document).filter(
-        Document.user_id == user_id, Document.doc_type == DocType(doc_type)
+        Document.user_id == user_id, Document.doc_type == DocType(doc_type),
+        Document.custom_name == custom_name,
     ).first()
     if doc:
         was_rejected = doc.status == DocStatus.REJECTED or bool(doc.rejection_reason)
@@ -26,9 +34,17 @@ def upsert_document(db: Session, user_id: str, doc_type: str, file_url: str) -> 
         doc.reviewed_by = None
         if not was_rejected:
             doc.rejection_reason = None
+        if expiry_date is not None:
+            doc.expiry_date = expiry_date
         doc.updated_at = datetime.utcnow()
     else:
-        doc = Document(user_id=user_id, doc_type=DocType(doc_type), file_url=file_url)
+        doc = Document(
+            user_id=user_id,
+            doc_type=DocType(doc_type),
+            file_url=file_url,
+            custom_name=custom_name,
+            expiry_date=expiry_date,
+        )
         db.add(doc)
     db.commit()
     db.refresh(doc)

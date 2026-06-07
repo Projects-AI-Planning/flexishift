@@ -23,6 +23,8 @@ async def submit_quote(
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
     if not supplier.verified:
         raise HTTPException(status_code=403, detail="Your account must be verified before submitting quotes")
+    if not supplier.stripe_onboarding_complete:
+        raise HTTPException(status_code=403, detail="Payment setup required. Complete your payment account setup in Profile → Payments before submitting quotes.")
     if not _has_admin_approved_documents(db, supplier.id):
         raise HTTPException(status_code=403, detail="Admin approval of your documents is required before viewing or applying for jobs")
 

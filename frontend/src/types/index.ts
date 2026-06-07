@@ -106,6 +106,7 @@ export interface AdminPayment {
   dropLocation?: string;
   escrowedAt?: string | null;
   releasedAt?: string | null;
+  refundedAt?: string | null;
   createdAt: string;
 }
 
@@ -122,6 +123,7 @@ export interface VerificationRequest {
 
 export interface ProcessedDocument extends Document {
   documentType: string;
+  customName?: string;
   reviewedAt?: string;
   uploadedAt?: string;
 }
@@ -264,6 +266,25 @@ export interface LiveDelivery {
   vehicleType?: string | null;
   weightKg?: number | null;
   jobDate?: string | null;
+}
+
+export interface LiveShift {
+  shiftId: string;
+  shiftRef: string;
+  status: string;
+  haulier?: { name: string | null; phone: string | null };
+  driver?: { name: string | null; phone: string | null; vehicleNumber: string | null; vehicleType: string | null };
+  pickupLocation?: string;
+  dropLocation?: string;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropLat?: number | null;
+  dropLng?: number | null;
+  goodsType?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  totalDays?: number | null;
+  daysCompleted?: number | null;
 }
 
 export interface SystemLog {

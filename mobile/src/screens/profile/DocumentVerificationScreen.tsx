@@ -24,7 +24,7 @@ export interface DocumentVerificationScreenProps {
   extraDocs?: {name: string; docNumber: string; docType?: string}[];
   refreshing: boolean;
   onRefresh: () => void;
-  onUpload: (documentType: string, expiryDate: string, file: any) => Promise<void>;
+  onUpload: (documentType: string, expiryDate: string, file: any, customName?: string) => Promise<void>;
   uploadLoading: boolean;
   uploadError: string | null;
   onSubmit?: () => void;
@@ -119,14 +119,16 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
       normalizeDocType(d.documentType ?? d.docType ?? d.type) === normalKey,
     );
 
-  const getUploadedExtraDoc = (name: string) =>
+  const getUploadedExtraDoc = (customName: string) =>
     documents.find(d =>
-      String(d.documentType ?? d.docType ?? d.type) === name,
+      d.docType === 'OTHER' && (d.customName === customName || d.documentType === customName),
     );
 
-  const uploadedCount = visibleDocs.filter(def => !!getUploadedDoc(def.normalKey)).length;
-  // canSubmit only requires the standard required docs; extra docs are optional
-  const canSubmit = uploadedCount >= visibleDocs.length;
+  const uploadedStandardCount = visibleDocs.filter(def => !!getUploadedDoc(def.normalKey)).length;
+  const uploadedExtraCount    = extraDocCards.filter(def => !!getUploadedExtraDoc(def.label)).length;
+  const uploadedCount         = uploadedStandardCount + uploadedExtraCount;
+  const totalRequired         = visibleDocs.length + extraDocCards.length;
+  const canSubmit             = uploadedStandardCount >= visibleDocs.length && uploadedExtraCount >= extraDocCards.length;
 
   const openUploadForm = (normalKey: string) => {
     setExpandedCard(normalKey);
@@ -190,7 +192,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
     patchForm(normalKey, {expiry: `${yyyy}-${mm}-${dd}`});
   };
 
-  const handleUpload = async (backendKey: string, normalKey: string) => {
+  const handleUpload = async (backendKey: string, normalKey: string, customName?: string) => {
     const form = uploadForms[normalKey];
     if (!form?.file) {
       Alert.alert('No file selected', 'Please select a document photo first.');
@@ -200,7 +202,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
       Alert.alert('Expiry required', 'Please enter the document expiry date.');
       return;
     }
-    await onUpload(backendKey, form.expiry.trim(), form.file);
+    await onUpload(backendKey, form.expiry.trim(), form.file, customName);
     setExpandedCard(null);
   };
 
@@ -401,7 +403,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 
         {/* ── Extra Document Cards ───────────────────────────────────────── */}
         {extraDocCards.map(def => {
-          const doc = getUploadedExtraDoc(def.backendKey);
+          const doc = getUploadedExtraDoc(def.label);
           const status = doc?.status?.toLowerCase();
           const isVerified  = status === 'approved' || status === 'verified';
           const isPending   = status === 'pending'  || status === 'under_review';
@@ -478,7 +480,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                       <Text style={styles.cancelText}>Cancel</Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => handleUpload(def.backendKey, def.normalKey)}
+                      onPress={() => handleUpload(def.backendKey, def.normalKey, def.label)}
                       disabled={uploadLoading}
                       style={[styles.uploadBtn, uploadLoading && {opacity: 0.5}]}>
                       <Text style={styles.uploadBtnText}>
@@ -491,9 +493,21 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
 
               {!isExpanded && (
                 <>
-                  {(isVerified || isRejected) && (
+                  {isVerified && (
                     <Pressable onPress={() => openUploadForm(def.normalKey)} style={styles.outlineBtn}>
-                      <Text style={styles.outlineBtnText}>{isRejected ? 'Upload New' : 'Replace'}</Text>
+                      <Text style={styles.outlineBtnText}>Replace</Text>
+                    </Pressable>
+                  )}
+                  {isPending && (
+                    <Pressable
+                      onPress={() => doc?.fileUrl && Linking.openURL(doc.fileUrl)}
+                      style={styles.outlineBtn}>
+                      <Text style={styles.outlineBtnText}>View</Text>
+                    </Pressable>
+                  )}
+                  {isRejected && (
+                    <Pressable onPress={() => openUploadForm(def.normalKey)} style={styles.darkBtn}>
+                      <Text style={styles.darkBtnText}>Upload New</Text>
                     </Pressable>
                   )}
                   {!hasDoc && (
@@ -518,8 +532,8 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
         {!canSubmit && (
           <View style={styles.submitHint}>
             <Text style={styles.submitHintText}>
-              Upload all {visibleDocs.length} document{visibleDocs.length !== 1 ? 's' : ''} to continue
-              {uploadedCount > 0 ? ` · ${uploadedCount}/${visibleDocs.length} uploaded` : ''}
+              Upload all {totalRequired} document{totalRequired !== 1 ? 's' : ''} to continue
+              {uploadedCount > 0 ? ` · ${uploadedCount}/${totalRequired} uploaded` : ''}
             </Text>
           </View>
         )}

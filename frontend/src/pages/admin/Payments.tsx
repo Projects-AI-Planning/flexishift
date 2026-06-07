@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useAdminPayments, useAdminRevenue } from '../../hooks/useAdmin';
+import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
 import { fmtMoney } from '../../utils/currency';
+
+const EMPTY_REFUND = { refundAmount: '', reason: '', refundTo: '' };
 
 const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
@@ -16,6 +19,38 @@ const statusTone: Record<string, { bg: string; text: string }> = {
 
 const PaymentsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });
+  const [refundTarget, setRefundTarget] = useState<AdminPayment | null>(null);
+  const [refundForm, setRefundForm] = useState(EMPTY_REFUND);
+  const [refundError, setRefundError] = useState('');
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+
+  const handleRefundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRefundError('');
+    const amount = parseFloat(refundForm.refundAmount);
+    if (!amount || amount <= 0) { setRefundError('Enter a valid refund amount.'); return; }
+    if (!refundForm.reason.trim()) { setRefundError('Reason is required.'); return; }
+    if (!refundForm.refundTo.trim()) { setRefundError('Refund recipient is required.'); return; }
+    if (!refundTarget) return;
+    setRefundSubmitting(true);
+    try {
+      await adminService.processRefund(refundTarget.jobId, {
+        refundAmount: amount,
+        reason: refundForm.reason,
+        refundTo: refundForm.refundTo,
+      });
+      setRefundTarget(null);
+      setRefundForm(EMPTY_REFUND);
+      refreshPayments();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Failed to process refund.';
+      setRefundError(msg);
+    } finally {
+      setRefundSubmitting(false);
+    }
+  };
   const revenueParams = useMemo(() => ({ period: 'monthly' }), []);
   const escrowParams = useMemo(() => ({ page: 1, status: 'ESCROWED', limit: 10 }), []);
   const {
@@ -52,6 +87,7 @@ const PaymentsPage: React.FC = () => {
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
+    <>
     <div className="space-y-8 p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -160,6 +196,7 @@ const PaymentsPage: React.FC = () => {
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Escrowed</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Released</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -192,12 +229,23 @@ const PaymentsPage: React.FC = () => {
                           {payment.status}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        {['ESCROWED', 'RELEASED'].includes(payment.status.toUpperCase()) && (
+                          <button
+                            onClick={() => { setRefundTarget(payment); setRefundForm(EMPTY_REFUND); setRefundError(''); }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-black text-purple-700 hover:bg-purple-100 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-xs">undo</span>
+                            Refund
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
                 {!paymentsLoading && paymentData?.items.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400 font-medium">
+                    <td colSpan={7} className="px-6 py-16 text-center text-slate-400 font-medium">
                       <span className="material-symbols-outlined text-4xl block mb-2 opacity-30">payments</span>
                       No payments found
                     </td>
@@ -284,6 +332,102 @@ const PaymentsPage: React.FC = () => {
         </div>
       </div>
     </div>
+
+    {/* Process Refund Modal */}
+
+    {refundTarget && (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-black text-primary">Process Refund</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Job: {refundTarget.jobRef}</p>
+            </div>
+            <button
+              onClick={() => { setRefundTarget(null); setRefundForm(EMPTY_REFUND); setRefundError(''); }}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <div className="mx-6 mt-5 bg-slate-50 rounded-xl p-4 flex justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Haulier</p>
+              <p className="text-sm font-bold text-primary">{refundTarget.haulier?.name || '—'}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Amount</p>
+              <p className="text-sm font-black text-primary">{fmt(refundTarget.amount, refundTarget.currency)}</p>
+            </div>
+          </div>
+
+          <form onSubmit={(e) => void handleRefundSubmit(e)} className="p-6 space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Refund Amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">£</span>
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={refundTarget.amount}
+                  value={refundForm.refundAmount}
+                  onChange={(e) => setRefundForm({ ...refundForm, refundAmount: e.target.value })}
+                  placeholder={refundTarget.amount.toFixed(2)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-8 pr-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Refund Recipient</label>
+              <input
+                required
+                value={refundForm.refundTo}
+                onChange={(e) => setRefundForm({ ...refundForm, refundTo: e.target.value })}
+                placeholder="e.g. Haulier — original payment method"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Refund</label>
+              <textarea
+                required
+                rows={3}
+                value={refundForm.reason}
+                onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
+                placeholder="Describe why this refund is being issued..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
+              />
+            </div>
+
+            {refundError && (
+              <p className="text-sm text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg">{refundError}</p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => { setRefundTarget(null); setRefundForm(EMPTY_REFUND); setRefundError(''); }}
+                className="px-5 py-2 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={refundSubmitting}
+                className="px-5 py-2 text-sm font-black text-white bg-purple-600 rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {refundSubmitting && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                Issue Refund
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

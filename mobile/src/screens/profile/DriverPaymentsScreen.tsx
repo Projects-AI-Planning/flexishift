@@ -108,7 +108,7 @@ function ConnectCard({
     <View style={[s.card, complete ? s.cardGreen : s.cardAmber]}>
       <View style={s.cardRow}>
         <View style={[s.cardIconBox, complete ? s.cardIconGreen : s.cardIconAmber]}>
-          <Icon name={complete ? 'check-circle' : 'credit-card'} size={22} color={complete ? '#065F46' : '#92400E'} strokeWidth={2} />
+          <Icon name={complete ? 'check-circle' : 'credit-card'} size={22} color={complete ? '#065F46' : '#1E40AF'} strokeWidth={2} />
         </View>
         <View style={s.cardBody}>
           <Text style={[s.cardTitle, complete ? s.cardTitleGreen : s.cardTitleAmber]}>
@@ -328,21 +328,21 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   cardGreen: {backgroundColor: '#F0FDF4', borderColor: '#BBF7D0'},
-  cardAmber: {backgroundColor: '#FFFBEB', borderColor: '#FDE68A'},
+  cardAmber: {backgroundColor: '#EFF6FF', borderColor: '#BFDBFE'},
   cardRow: {flexDirection: 'row', gap: 12, marginBottom: 12},
   cardIconBox: {
     width: 44, height: 44, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center', flexShrink: 0,
   },
   cardIconGreen: {backgroundColor: '#BBF7D0'},
-  cardIconAmber: {backgroundColor: '#FDE68A'},
+  cardIconAmber: {backgroundColor: '#BFDBFE'},
   cardBody: {flex: 1},
   cardTitle: {fontSize: 15, fontWeight: '800', marginBottom: 4},
   cardTitleGreen: {color: '#065F46'},
-  cardTitleAmber: {color: '#92400E'},
+  cardTitleAmber: {color: '#1E40AF'},
   cardDesc: {fontSize: 13, lineHeight: 18},
   cardDescGreen: {color: '#047857'},
-  cardDescAmber: {color: '#B45309'},
+  cardDescAmber: {color: '#1D4ED8'},
   connectBtn: {
     backgroundColor: '#111827', borderRadius: 10,
     paddingVertical: 12, alignItems: 'center',

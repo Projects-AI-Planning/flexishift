@@ -459,7 +459,7 @@ const CreatePaymentTab: React.FC = () => {
         <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">info</span>
         <div className="text-xs text-[#083d7a] font-medium leading-relaxed">
           <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds via Stripe.
-          Once secured, the driver can enter the load code and begin the trip. Payment releases to the driver after delivery is approved.
+          Once secured, the driver can begin the trip. Payment releases to the driver after delivery is approved.
         </div>
       </div>
 
@@ -471,9 +471,9 @@ const CreatePaymentTab: React.FC = () => {
             <p className="text-sm font-black text-emerald-700">
               {successJobIds.size} payment{successJobIds.size > 1 ? 's' : ''} secured successfully
             </p>
-            <p className="text-xs text-emerald-600 mt-0.5">
+            {false && <p className="text-xs text-emerald-600 mt-0.5">
               The driver(s) can now verify the load code and start their trip.
-            </p>
+            </p>}
           </div>
         </div>
       )}
@@ -633,6 +633,8 @@ const EscrowTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+  const [refundError, setRefundError] = useState('');
   const PER_PAGE = 15;
 
   const fetchData = useCallback(async () => {
@@ -662,6 +664,23 @@ const EscrowTab: React.FC = () => {
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
+  const handleRefund = async (jobId: string, jobRef: string) => {
+    if (!window.confirm(`Request a refund for job #${jobRef}? This will cancel the escrow and return funds to your account.`)) return;
+    setRefundingId(jobId);
+    setRefundError('');
+    try {
+      await haulierService.requestRefund(jobId);
+      void fetchData();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Refund request failed. Please try again.';
+      setRefundError(msg);
+    } finally {
+      setRefundingId(null);
+    }
+  };
+
   const escrowTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   return (
@@ -682,6 +701,12 @@ const EscrowTab: React.FC = () => {
         </div>
       </div>
 
+      {refundError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          {refundError}
+        </div>
+      )}
+
       <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-indigo-500 shrink-0 text-base mt-0.5">info</span>
         <p className="text-xs text-indigo-800 font-medium leading-relaxed">
@@ -699,7 +724,7 @@ const EscrowTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status'].map((header) => (
+                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status', 'Actions'].map((header) => (
                     <th key={header} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                       {header}
                     </th>
@@ -721,6 +746,20 @@ const EscrowTab: React.FC = () => {
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
                         {item.status}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {item.status?.toUpperCase() === 'ESCROWED' && (
+                        <button
+                          onClick={() => void handleRefund(item.jobId, item.jobRef)}
+                          disabled={refundingId === item.jobId}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                        >
+                          {refundingId === item.jobId
+                            ? <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                            : <span className="material-symbols-outlined text-xs">undo</span>}
+                          Refund
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

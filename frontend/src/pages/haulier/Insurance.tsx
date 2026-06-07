@@ -37,6 +37,7 @@ const InsurancePage = () => {
   const [documents, setDocuments] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+  const [expiryDates, setExpiryDates] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -74,8 +75,14 @@ const InsurancePage = () => {
   };
 
   const uploadDocument = async (type: string, file: File) => {
+    const expiry = expiryDates[type]?.trim();
+    if (!expiry) {
+      setError('Please enter the document expiry date before uploading.');
+      return;
+    }
     setSubmitting((current) => ({ ...current, [type]: true }));
     setMessage('');
+    setError('');
     try {
       const upload = await haulierService.getDocumentUploadUrl(type) as {
         upload_url?: string;
@@ -96,7 +103,7 @@ const InsurancePage = () => {
         throw new Error(`Upload failed with ${response.status}`);
       }
 
-      await haulierService.submitUploadedDocument({ docType: type, key: upload.key });
+      await haulierService.submitUploadedDocument({ docType: type, key: upload.key, expiryDate: expiry });
       setMessage(`${type.replace('_', ' ').toLowerCase()} uploaded successfully.`);
       await loadDocuments();
     } catch (err: unknown) {
@@ -173,25 +180,41 @@ const InsurancePage = () => {
                 )}
               </div>
 
-              <label className="mt-5 block rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center transition hover:border-primary/40 hover:bg-primary/5 cursor-pointer">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  disabled={Boolean(submitting[docType.key])}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    void uploadDocument(docType.key, file);
-                    e.currentTarget.value = '';
-                  }}
-                />
-                <span className="material-symbols-outlined text-3xl text-primary">upload_file</span>
-                <p className="mt-2 text-sm font-black text-[#041627]">
-                  {submitting[docType.key] ? 'Uploading...' : 'Choose PDF and upload'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">This will upload to S3 and submit the document for review.</p>
-              </label>
+              <div className="mt-5 space-y-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                    Expiry Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={expiryDates[docType.key] ?? ''}
+                    onChange={(e) => setExpiryDates(prev => ({ ...prev, [docType.key]: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-[#041627] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <label className={`block rounded-2xl border border-dashed px-4 py-5 text-center transition cursor-pointer ${expiryDates[docType.key] ? 'border-primary/40 bg-primary/5 hover:bg-primary/10' : 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'}`}>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    className="hidden"
+                    disabled={Boolean(submitting[docType.key]) || !expiryDates[docType.key]}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      void uploadDocument(docType.key, file);
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                  <span className="material-symbols-outlined text-3xl text-primary">upload_file</span>
+                  <p className="mt-2 text-sm font-black text-[#041627]">
+                    {submitting[docType.key] ? 'Uploading...' : 'Choose file and upload'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {expiryDates[docType.key] ? 'PDF or image · submitted for admin review' : 'Set expiry date above first'}
+                  </p>
+                </label>
+              </div>
             </article>
           );
         })}

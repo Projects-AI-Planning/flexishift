@@ -119,9 +119,9 @@ const QuoteStatusScreen: React.FC<QuoteStatusScreenProps> = ({
           <Pressable onPress={onViewJob} style={styles.primaryBtn}>
             <Text style={styles.primaryBtnText}>Continue to Booking →</Text>
           </Pressable>
-          <Text style={styles.flowHint}>
+          {false && <Text style={styles.flowHint}>
             This will open the booking step, then load code verification and handover.
-          </Text>
+          </Text>}
 
           <Pressable onPress={onDismiss} style={styles.dismissBtn}>
             <Text style={styles.dismissBtnText}>Dismiss</Text>

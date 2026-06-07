@@ -49,6 +49,7 @@ const haulierService = {
   getMyJobs: (params?: Record<string, unknown>) => client.get('/jobs/my-jobs', { params }).then(res => res.data.data),
   updateJob: (jobId: string, data: Record<string, unknown>) => client.put(`/jobs/update/${jobId}`, data).then(res => res.data),
   cancelJob: (jobId: string, data: { reason: string }) => client.put(`/jobs/cancel/${jobId}`, data).then(res => res.data),
+  requestRefund: (jobId: string) => client.post(`/jobs/${jobId}/payment/refund`).then(res => res.data),
   closeJob: (jobId: string, data: { reason: string }) => client.put(`/jobs/close/${jobId}`, data).then(res => res.data),
   validateAddress: (address: string) => client.post('/maps/validate-address', { address }).then(res => res.data.data),
   calculateRoute: (data: Record<string, unknown>) => client.post('/maps/calculate-route', data).then(res => res.data.data),
@@ -100,7 +101,7 @@ const haulierService = {
   listMyDocuments: () => client.get('/users/me/documents').then(res => res.data.data),
   getDocumentUploadUrl: (docType: string) => client.get('/users/me/documents/upload-url', { params: { doc_type: docType } }).then(res => res.data.data),
   submitDocument: (params: { docType: string; fileUrl: string }) => client.post('/users/me/documents', null, { params: { doc_type: params.docType, file_url: params.fileUrl } }).then(res => res.data.data),
-  submitUploadedDocument: (params: { docType: string; key: string }) => client.post('/users/me/documents/submit-upload', null, { params: { doc_type: params.docType, key: params.key } }).then(res => res.data.data),
+  submitUploadedDocument: (params: { docType: string; key: string; expiryDate?: string }) => client.post('/users/me/documents/submit-upload', null, { params: { doc_type: params.docType, key: params.key, ...(params.expiryDate ? { expiry_date: params.expiryDate } : {}) } }).then(res => res.data.data),
 
   // EPIC 6: Live Tracking & ETA
   getLiveDriverLocation: (jobId: string) => client.get(`/tracking/live/${jobId}`).then(res => res.data.data),

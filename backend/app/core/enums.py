@@ -43,6 +43,7 @@ class DocumentType(str, Enum):
     VEHICLE_INSURANCE = "VEHICLE_INSURANCE"
     COMPANY_REG       = "COMPANY_REG"
     FLEET_INSURANCE   = "FLEET_INSURANCE"
+    OTHER             = "OTHER"
 
 
 class DocumentStatus(str, Enum):

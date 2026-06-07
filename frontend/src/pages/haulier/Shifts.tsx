@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -79,6 +79,7 @@ interface ShiftItem {
 interface QuoteItem {
   quoteId: string;
   driverName?: string;
+  driverPhone?: string;
   driverId: string;
   amountPerDay: number;
   totalAmount: number;
@@ -86,6 +87,8 @@ interface QuoteItem {
   notes?: string;
   createdAt?: string;
   currency?: string;
+  vehicleType?: string;
+  vehicleRegistration?: string;
 }
 
 const REQUIREMENT_OPTIONS: { value: RequirementType; label: string; desc: string; icon: string }[] = [
@@ -663,7 +666,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
           )}
 
           {/* ─ Codes ─ */}
-          {(shift.accessCode || shift.loadCode) && (
+          {false && (shift.accessCode || shift.loadCode) && (
             <div>
               <SectionTitle icon="key" label="Codes" />
               <div className="grid grid-cols-2 gap-3">
@@ -815,8 +818,28 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept })
           {quote.notes && (
             <p className="mt-1 text-xs text-slate-500 italic">&ldquo;{quote.notes}&rdquo;</p>
           )}
+          {quote.driverPhone && (
+            <p className="mt-0.5 text-xs text-slate-400">{quote.driverPhone}</p>
+          )}
         </div>
       </div>
+
+      {/* Vehicle info — shown only for TRUCK_WITH_DRIVER / TRUCK_ONLY shifts */}
+      {(quote.vehicleType || quote.vehicleRegistration) && (
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5">
+          <span className="material-symbols-outlined text-slate-400 text-[18px]">local_shipping</span>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+            {quote.vehicleType && (
+              <span className="text-xs font-bold text-[#044474]">{quote.vehicleType}</span>
+            )}
+            {quote.vehicleRegistration && (
+              <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#44474C]">
+                {quote.vehicleRegistration}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Fee breakdown table */}
       <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
@@ -1298,7 +1321,10 @@ const ShiftHandoverPanel: React.FC<ShiftHandoverPanelProps> = ({ shiftId, shiftR
 
 const HaulierShiftsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeStatus, setActiveStatus] = useState<ShiftStatus>('OPEN');
+  const location = useLocation();
+  const [activeStatus, setActiveStatus] = useState<ShiftStatus>(
+    location.pathname.endsWith('/handover') ? 'HANDOVER' : 'OPEN',
+  );
   const [page, setPage] = useState(1);
   const [allShifts, setAllShifts] = useState<ShiftItem[]>([]);
   const [loading, setLoading] = useState(false);

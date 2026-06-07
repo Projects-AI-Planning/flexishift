@@ -36,6 +36,8 @@ interface ProfileSetupScreenProps {
   onSkip: () => void;
   loading: boolean;
   error: string | null;
+  onTermsPress?: () => void;
+  onPrivacyPress?: () => void;
 }
 
 const DRIVER_MODES = [
@@ -44,13 +46,8 @@ const DRIVER_MODES = [
   {key: 'TRUCK_ONLY',        label: 'Only Truck',        desc: 'Providing a truck — no driver services'},
 ];
 
-const EXTRA_DOC_TYPES = [
-  {key: 'COMPANY_REG',       label: 'Company Registration'},
-  {key: 'FLEET_INSURANCE',   label: 'Fleet Insurance'},
-  {key: 'DRIVING_LICENCE',   label: 'Driving Licence'},
-  {key: 'VEHICLE_REG',       label: 'Vehicle Registration'},
-  {key: 'VEHICLE_INSURANCE', label: 'Vehicle Insurance'},
-];
+const CAPACITY_UNITS = ['kg', 'liters', 'tons', 'cubic m', 'cubic ft'];
+const CPT_UNITS      = ['L', 'kg', 'tons', 'cubic ft'];
 
 const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   email: _email,
@@ -59,6 +56,8 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   onSkip,
   loading,
   error,
+  onTermsPress,
+  onPrivacyPress,
 }) => {
   const [name, setName] = useState(initialName ?? '');
   const [driverAvailability, setDriverAvailability] = useState('');
@@ -73,12 +72,20 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   >();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [extraDocs, setExtraDocs] = useState<{name: string; docNumber: string; docType: string}[]>([]);
-  const [selectedDocType, setSelectedDocType] = useState('');
+  const [docNameInput, setDocNameInput] = useState('');
   const [docNumberInput, setDocNumberInput] = useState('');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+
+  // Truck capacity unit
+  const [truckCapacityUnit, setTruckCapacityUnit] = useState('kg');
+  const [truckCapUnitOpen, setTruckCapUnitOpen] = useState(false);
 
   // Truck compartments
   const [compartments, setCompartments] = useState<TruckCompartment[]>([]);
   const [cptCapacity, setCptCapacity] = useState('');
+  const [cptUnit, setCptUnit] = useState('L');
+  const [cptUnitOpen, setCptUnitOpen] = useState(false);
   const [cptError, setCptError] = useState('');
 
   const showDriverSection = driverAvailability === 'DRIVER_ONLY' || driverAvailability === 'DRIVER_WITH_TRUCK';
@@ -141,16 +148,22 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
+      if (!termsAgreed) {setTermsError(true);}
+      return;
+    }
+    if (!termsAgreed) {
+      setTermsError(true);
       return;
     }
     setFieldErrors({});
+    setTermsError(false);
     onComplete({
       name,
       driverAvailability,
       licenceNumber,
       vehicleType: vehicleType.trim(),
       vehicleRegistration,
-      truckCapacity: truckCapacity.trim() || undefined,
+      truckCapacity: truckCapacity.trim() ? `${truckCapacity.trim()} ${truckCapacityUnit}` : undefined,
       compartments: compartments.length > 0 ? compartments : undefined,
       photoFile,
       extraDocs,
@@ -285,13 +298,41 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             />
 
             {/* Truck Capacity */}
-            <AppInput
-              label="Capacity of Truck"
-              onChangeText={v => setTruckCapacity(v)}
-              placeholder="e.g. 10 Tons, 20,000 kg"
-              value={truckCapacity}
-              containerStyle={styles.fieldGroup}
-            />
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Capacity of Truck</Text>
+              <View style={styles.capacityRow}>
+                <TextInput
+                  style={styles.capacityNumInput}
+                  keyboardType="numeric"
+                  placeholder="e.g. 20000"
+                  placeholderTextColor="#9CA4B0"
+                  value={truckCapacity}
+                  onChangeText={v => setTruckCapacity(v.replace(/[^0-9.]/g, ''))}
+                  returnKeyType="done"
+                />
+                <Pressable
+                  style={styles.unitDropdownTrigger}
+                  onPress={() => setTruckCapUnitOpen(o => !o)}>
+                  <Text style={styles.unitDropdownValue}>{truckCapacityUnit}</Text>
+                  <Text style={styles.unitDropdownChevron}>▾</Text>
+                </Pressable>
+              </View>
+              {truckCapUnitOpen && (
+                <View style={styles.unitDropdownList}>
+                  {CAPACITY_UNITS.map((u, i) => (
+                    <Pressable
+                      key={u}
+                      style={[styles.unitDropdownItem, i < CAPACITY_UNITS.length - 1 && styles.unitDropdownItemBorder]}
+                      onPress={() => { setTruckCapacityUnit(u); setTruckCapUnitOpen(false); }}>
+                      <Text style={[styles.unitDropdownItemText, truckCapacityUnit === u && styles.unitDropdownItemActive]}>
+                        {u}
+                      </Text>
+                      {truckCapacityUnit === u && <Text style={styles.unitDropdownTick}>✓</Text>}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {/* ── Truck Compartments ─────────────────────────────────────── */}
             <View style={cptStyles.sectionBlock}>
@@ -314,7 +355,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                   {compartments.map((cpt, idx) => (
                     <View key={cpt.id} style={cptStyles.chip}>
                       <Text style={cptStyles.chipLabel}>C{idx + 1}</Text>
-                      <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} L</Text>
+                      <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} {cpt.unit ?? 'L'}</Text>
                       <Pressable
                         onPress={() => setCompartments(prev => prev.filter(c => c.id !== cpt.id))}
                         style={cptStyles.chipRemove}
@@ -333,7 +374,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                 </Text>
 
                 {/* Capacity input */}
-                <Text style={cptStyles.inputLabel}>CAPACITY (LITRES)</Text>
+                <Text style={cptStyles.inputLabel}>CAPACITY</Text>
                 <View style={cptStyles.capacityInput}>
                   <TextInput
                     style={cptStyles.capacityField}
@@ -344,8 +385,28 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                     onChangeText={v => { setCptCapacity(v.replace(/[^0-9]/g, '')); setCptError(''); }}
                     returnKeyType="done"
                   />
-                  <Text style={cptStyles.capacityUnit}>L</Text>
+                  <Pressable
+                    style={cptStyles.unitTrigger}
+                    onPress={() => setCptUnitOpen(o => !o)}>
+                    <Text style={cptStyles.unitTriggerText}>{cptUnit}</Text>
+                    <Text style={cptStyles.unitTriggerChevron}>▾</Text>
+                  </Pressable>
                 </View>
+                {cptUnitOpen && (
+                  <View style={cptStyles.unitList}>
+                    {CPT_UNITS.map((u, i) => (
+                      <Pressable
+                        key={u}
+                        style={[cptStyles.unitListItem, i < CPT_UNITS.length - 1 && cptStyles.unitListItemBorder]}
+                        onPress={() => { setCptUnit(u); setCptUnitOpen(false); }}>
+                        <Text style={[cptStyles.unitListItemText, cptUnit === u && cptStyles.unitListItemActive]}>
+                          {u}
+                        </Text>
+                        {cptUnit === u && <Text style={cptStyles.unitListItemTick}>✓</Text>}
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
 
                 {cptError ? <Text style={cptStyles.error}>{cptError}</Text> : null}
 
@@ -354,12 +415,12 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                   onPress={() => {
                     const cap = cptCapacity.trim();
                     if (!cap || parseFloat(cap) <= 0) {
-                      setCptError('Enter a valid capacity in litres.');
+                      setCptError('Enter a valid capacity value.');
                       return;
                     }
                     setCompartments(prev => [
                       ...prev,
-                      {id: Date.now(), capacityLitres: cap, fuelType: ''},
+                      {id: Date.now(), capacityLitres: cap, fuelType: '', unit: cptUnit},
                     ]);
                     setCptCapacity('');
                     setCptError('');
@@ -414,29 +475,13 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 
             {/* Inputs */}
             <View style={styles.extraDocInputBlock}>
-              {/* Document type picker */}
-              <Text style={{fontSize: 11, fontWeight: '800', color: colors.inkSoft, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8}}>
-                Document Type
-              </Text>
-              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12}}>
-                {EXTRA_DOC_TYPES.filter(t =>
-                  !extraDocs.some(d => d.docType === t.key)
-                ).map(t => (
-                  <Pressable
-                    key={t.key}
-                    onPress={() => setSelectedDocType(t.key)}
-                    style={{
-                      paddingHorizontal: 12, paddingVertical: 7,
-                      borderRadius: 20, borderWidth: 1.5,
-                      borderColor: selectedDocType === t.key ? colors.accent : colors.border,
-                      backgroundColor: selectedDocType === t.key ? colors.accent : colors.neutralSoft,
-                    }}>
-                    <Text style={{fontSize: 12, fontWeight: '800', color: selectedDocType === t.key ? '#fff' : colors.inkSoft}}>
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <AppInput
+                label="Document Name"
+                placeholder="e.g. FORS Certificate, ADR Licence, HGV Permit..."
+                value={docNameInput}
+                onChangeText={setDocNameInput}
+                containerStyle={{marginBottom: 12}}
+              />
               <AppInput
                 label="Document Number (optional)"
                 placeholder="e.g. POL-2024-98765"
@@ -446,12 +491,12 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
                 containerStyle={{marginBottom: 12}}
               />
               <Pressable
-                style={[styles.extraDocAddBtn, !selectedDocType && styles.extraDocAddBtnDisabled]}
+                style={[styles.extraDocAddBtn, !docNameInput.trim() && styles.extraDocAddBtnDisabled]}
                 onPress={() => {
-                  if (!selectedDocType) {return;}
-                  const label = EXTRA_DOC_TYPES.find(t => t.key === selectedDocType)?.label ?? selectedDocType;
-                  setExtraDocs(prev => [...prev, {name: label, docNumber: docNumberInput.trim(), docType: selectedDocType}]);
-                  setSelectedDocType('');
+                  const name = docNameInput.trim();
+                  if (!name) {return;}
+                  setExtraDocs(prev => [...prev, {name, docNumber: docNumberInput.trim(), docType: 'OTHER'}]);
+                  setDocNameInput('');
                   setDocNumberInput('');
                 }}>
                 <Text style={styles.extraDocAddBtnText}>＋  Add Document</Text>
@@ -473,6 +518,34 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
           </View>
         ) : null}
 
+        {/* ── Terms & Privacy checkbox ─────────────────────────────────── */}
+        <Pressable
+          style={styles.termsCheckRow}
+          onPress={() => { setTermsAgreed(v => !v); setTermsError(false); }}>
+          <View style={[styles.checkbox, termsAgreed && styles.checkboxChecked, termsError && styles.checkboxError]}>
+            {termsAgreed && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <Text style={styles.termsCheckLabel}>
+            {'I agree to the '}
+            <Text
+              style={styles.termsLink}
+              onPress={e => { e.stopPropagation?.(); onTermsPress?.(); }}>
+              Terms & Conditions
+            </Text>
+            {' and '}
+            <Text
+              style={styles.termsLink}
+              onPress={e => { e.stopPropagation?.(); onPrivacyPress?.(); }}>
+              Privacy Policy
+            </Text>
+          </Text>
+        </Pressable>
+        {termsError && (
+          <Text style={styles.termsCheckError}>
+            You must agree to the Terms & Conditions and Privacy Policy to continue.
+          </Text>
+        )}
+
         <Pressable
           disabled={loading}
           onPress={onSubmit}
@@ -481,12 +554,6 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.continueBtnText}>Continue to Verification →</Text>}
         </Pressable>
-
-
-        <Text style={styles.terms}>
-          {'By continuing, you agree to our '}
-          <Text style={styles.termsLink}>Driver Terms of Service</Text>
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -603,6 +670,37 @@ const styles = StyleSheet.create({
   extraDocAddBtnDisabled: {opacity: 0.4},
   extraDocAddBtnText: {color: '#fff', fontSize: 15, fontWeight: '700'},
 
+  // Truck capacity row
+  capacityRow: {
+    flexDirection: 'row', alignItems: 'stretch', gap: 8,
+  },
+  capacityNumInput: {
+    flex: 1, backgroundColor: '#FFFFFF', borderColor: '#C9D0DB', borderWidth: 1.5,
+    borderRadius: radius.md, minHeight: 54, paddingHorizontal: spacing.lg,
+    fontSize: 16, color: colors.ink, fontWeight: '600',
+  },
+  unitDropdownTrigger: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: colors.accent,
+    borderRadius: radius.md, minHeight: 54, paddingHorizontal: 14,
+  },
+  unitDropdownValue: {fontSize: 14, fontWeight: '800', color: colors.accent},
+  unitDropdownChevron: {fontSize: 14, color: colors.accent},
+  unitDropdownList: {
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#C9D0DB',
+    borderRadius: radius.md, marginTop: 4, overflow: 'hidden',
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  unitDropdownItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: spacing.lg, backgroundColor: '#FFFFFF',
+  },
+  unitDropdownItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F0F2F5'},
+  unitDropdownItemText: {fontSize: 14, fontWeight: '700', color: colors.ink},
+  unitDropdownItemActive: {color: colors.accent},
+  unitDropdownTick: {fontSize: 14, color: colors.accent, fontWeight: '900'},
+
   // Info box
   infoBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
@@ -621,7 +719,29 @@ const styles = StyleSheet.create({
   continueBtnDisabled: {opacity: 0.7},
   continueBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
 
-  terms: {textAlign: 'center', color: colors.inkSoft, fontSize: 13, lineHeight: 20},
+  // Terms checkbox
+  termsCheckRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    marginBottom: 16, paddingVertical: 4,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: '#C9D0DB', backgroundColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  checkboxChecked: {
+    borderColor: colors.accent, backgroundColor: colors.accent,
+  },
+  checkboxError: {
+    borderColor: colors.danger,
+  },
+  checkmark: {fontSize: 13, color: '#fff', fontWeight: '900', lineHeight: 16},
+  termsCheckLabel: {flex: 1, color: colors.inkSoft, fontSize: 14, lineHeight: 22},
+  termsCheckError: {
+    color: colors.danger, fontSize: 12, fontWeight: '600',
+    marginBottom: 12, marginTop: -10,
+  },
   termsLink: {color: colors.accent, fontWeight: '700'},
 });
 
@@ -663,7 +783,30 @@ const cptStyles = StyleSheet.create({
   capacityField: {
     flex: 1, fontSize: 16, color: colors.ink, fontWeight: '600',
   },
-  capacityUnit: {fontSize: 14, fontWeight: '700', color: colors.inkSoft},
+
+  // Unit dropdown inside compartment capacity row
+  unitTrigger: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.accent,
+    backgroundColor: '#EAF3FD',
+  },
+  unitTriggerText: {fontSize: 13, fontWeight: '800', color: colors.accent},
+  unitTriggerChevron: {fontSize: 12, color: colors.accent},
+  unitList: {
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#C9D0DB',
+    borderRadius: radius.md, marginTop: 4, overflow: 'hidden',
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  unitListItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, paddingHorizontal: 14, backgroundColor: '#FFFFFF',
+  },
+  unitListItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F0F2F5'},
+  unitListItemText: {fontSize: 14, fontWeight: '700', color: colors.ink},
+  unitListItemActive: {color: colors.accent},
+  unitListItemTick: {fontSize: 14, color: colors.accent, fontWeight: '900'},
 
   error: {fontSize: 12, color: colors.danger, fontWeight: '700'},
 

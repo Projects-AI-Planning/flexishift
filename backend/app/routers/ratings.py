@@ -276,6 +276,70 @@ def report_rating(
     )
 
 
+@router.get("/admin/ratings/all")
+def admin_list_all_ratings(
+    rater_role: str = Query(None),
+    rated_role: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(Role.ADMIN)),
+):
+    from sqlalchemy.orm import aliased
+    Rater = aliased(User)
+    Rated = aliased(User)
+
+    q = (
+        db.query(Rating, Rater, Rated)
+        .join(Rater, Rating.rater_id == Rater.id)
+        .join(Rated, Rating.rated_id == Rated.id)
+    )
+    if rater_role:
+        try:
+            q = q.filter(Rater.role == Role(rater_role.upper()))
+        except ValueError:
+            pass
+    if rated_role:
+        try:
+            q = q.filter(Rated.role == Role(rated_role.upper()))
+        except ValueError:
+            pass
+
+    total = q.count()
+    rows = (
+        q.order_by(Rating.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for rating, rater, rated in rows:
+        items.append({
+            "ratingId": rating.id,
+            "jobReference": rating.job.job_ref if rating.job else None,
+            "rater": {
+                "userId": rater.id,
+                "name": rater.full_name,
+                "role": rater.role.value.lower(),
+            },
+            "rated": {
+                "userId": rated.id,
+                "name": rated.full_name,
+                "role": rated.role.value.lower(),
+            },
+            "starRating": rating.stars,
+            "review": rating.review_text,
+            "tags": rating.tags or [],
+            "submittedAt": rating.created_at.isoformat() if rating.created_at else None,
+        })
+
+    return ok(
+        data={"items": items, "total": total, "page": page, "limit": limit},
+        message="All ratings fetched successfully.",
+    )
+
+
 @router.delete("/admin/ratings/remove/{rating_id}")
 def admin_remove_rating(
     rating_id: str,

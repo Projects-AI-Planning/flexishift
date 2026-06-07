@@ -128,7 +128,7 @@ const RefundsPage: React.FC = () => {
                     {p.escrowedAt ? new Date(p.escrowedAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500 font-medium whitespace-nowrap">
-                    {p.releasedAt ? new Date(p.releasedAt).toLocaleDateString() : new Date(p.createdAt).toLocaleDateString()}
+                    {p.refundedAt ? new Date(p.refundedAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">

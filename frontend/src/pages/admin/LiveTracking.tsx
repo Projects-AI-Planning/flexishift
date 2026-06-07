@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
 import adminService from '../../api/adminService';
-import type { LiveDelivery } from '../../types';
+import type { LiveDelivery, LiveShift } from '../../types';
 import { fmtMoney } from '../../utils/currency';
 
 const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
-function makeTruckIcon(selected: boolean): google.maps.Icon {
-  const color = selected ? '#1d4ed8' : '#f59e0b';
-  const size  = selected ? 36 : 30;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="${color}" stroke="white" stroke-width="${selected ? 3 : 2}"/><text x="${size/2}" y="${size/2+5}" text-anchor="middle" font-size="${selected ? 17 : 15}">🚚</text></svg>`;
+function makeTruckIcon(selected: boolean, color?: string): google.maps.Icon {
+  const c    = color ?? (selected ? '#1d4ed8' : '#f59e0b');
+  const size = selected ? 36 : 30;
+  const svg  = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="${c}" stroke="white" stroke-width="${selected ? 3 : 2}"/><text x="${size/2}" y="${size/2+5}" text-anchor="middle" font-size="${selected ? 17 : 15}">🚚</text></svg>`;
   return {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
     scaledSize: { width: size, height: size } as google.maps.Size,
@@ -17,7 +17,25 @@ function makeTruckIcon(selected: boolean): google.maps.Icon {
   };
 }
 
-type LiveTrackingData = { totalActive: number; deliveries: LiveDelivery[] };
+function makeLocationIcon(type: 'pickup' | 'drop'): google.maps.Icon {
+  const emoji = type === 'pickup' ? '📍' : '🏁';
+  const size  = 32;
+  const svg   = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><text x="${size/2}" y="${size/2+6}" text-anchor="middle" font-size="20">${emoji}</text></svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: { width: size, height: size } as google.maps.Size,
+    anchor: { x: size / 2, y: size } as google.maps.Point,
+  };
+}
+
+type LiveTrackingData = {
+  totalActive: number;
+  deliveries: LiveDelivery[];
+  totalShifts: number;
+  shifts: LiveShift[];
+};
+
+type ViewTab = 'jobs' | 'shifts';
 
 const formatCurrency = (amount?: number | null, cur?: string) =>
   typeof amount === 'number' ? fmtMoney(amount, cur) : '—';
@@ -29,8 +47,7 @@ const formatLastSeen = (value?: string | null) => {
   const minutes = Math.max(0, Math.floor(diffMs / 60000));
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
 };
 
 const formatCoordinate = (value?: number | null) =>
@@ -38,25 +55,34 @@ const formatCoordinate = (value?: number | null) =>
 
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
 const MAP_OPTIONS: google.maps.MapOptions = {
-  mapTypeControl: false, streetViewControl: false,
+  mapTypeControl: false,
+  streetViewControl: false,
   styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
 };
 
 export default function LiveTrackingPage() {
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const mapRef        = useRef<google.maps.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const [data, setData]                     = useState<LiveTrackingData | null>(null);
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState<string | null>(null);
-  const [selectedJobId, setSelectedJobId]   = useState<string | null>(null);
-  const [lastRefreshed, setLastRefreshed]   = useState<Date | null>(null);
-  const [activeInfoId, setActiveInfoId]     = useState<string | null>(null);
-  const intervalRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const selectedJobIdRef  = useRef<string | null>(null);
+  const [data, setData]               = useState<LiveTrackingData | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
+  // active tab
+  const [viewTab, setViewTab] = useState<ViewTab>('jobs');
+
+  // jobs state
+  const [selectedJobId, setSelectedJobId]   = useState<string | null>(null);
+  const [activeInfoId, setActiveInfoId]     = useState<string | null>(null);
+  const selectedJobIdRef = useRef<string | null>(null);
   useEffect(() => { selectedJobIdRef.current = selectedJobId; }, [selectedJobId]);
+
+  // shifts state
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -64,16 +90,24 @@ export default function LiveTrackingPage() {
       setData(result);
       setError(null);
       setLastRefreshed(new Date());
+
+      // auto-select first job
       const cur = selectedJobIdRef.current;
       if (cur) {
-        if (!result.deliveries.find((d: LiveDelivery) => d.jobId === cur) && result.deliveries.length > 0)
+        if (!result.deliveries.find((d) => d.jobId === cur) && result.deliveries.length > 0)
           setSelectedJobId(result.deliveries[0].jobId);
       } else if (result.deliveries.length > 0) {
         setSelectedJobId(result.deliveries[0].jobId);
       }
-    } catch { setError('Failed to load live tracking data from the backend.'); }
-    finally { setLoading(false); }
-  }, []);
+      // auto-select first shift
+      if (!selectedShiftId && result.shifts.length > 0)
+        setSelectedShiftId(result.shifts[0].shiftId);
+    } catch {
+      setError('Failed to load live tracking data from the backend.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedShiftId]);
 
   useEffect(() => {
     void fetchData();
@@ -81,25 +115,43 @@ export default function LiveTrackingPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchData]);
 
+  // ── derived ─────────────────────────────────────────────────────────────────
   const deliveries              = data?.deliveries ?? [];
+  const shifts                  = data?.shifts ?? [];
   const deliveriesWithLocation  = useMemo(() => deliveries.filter(d => Boolean(d.currentLocation)), [deliveries]);
   const deliveriesWithoutLocation = useMemo(() => deliveries.filter(d => !d.currentLocation), [deliveries]);
   const selectedDelivery        = useMemo(() => deliveries.find(d => d.jobId === selectedJobId) ?? null, [deliveries, selectedJobId]);
+  const selectedShift           = useMemo(() => shifts.find(s => s.shiftId === selectedShiftId) ?? null, [shifts, selectedShiftId]);
 
+  // map center
   const mapCenter = useMemo<google.maps.LatLngLiteral>(() => {
-    const first = deliveriesWithLocation[0];
-    if (first?.currentLocation) return { lat: first.currentLocation.latitude, lng: first.currentLocation.longitude };
-    const firstKnown = deliveries.find(d => d.pickupLat != null && d.pickupLng != null);
-    if (firstKnown?.pickupLat != null && firstKnown.pickupLng != null) return { lat: firstKnown.pickupLat, lng: firstKnown.pickupLng };
+    if (viewTab === 'jobs') {
+      const first = deliveriesWithLocation[0];
+      if (first?.currentLocation) return { lat: first.currentLocation.latitude, lng: first.currentLocation.longitude };
+      const fallback = deliveries.find(d => d.pickupLat != null);
+      if (fallback?.pickupLat != null && fallback.pickupLng != null) return { lat: fallback.pickupLat, lng: fallback.pickupLng };
+    } else {
+      const s = selectedShift ?? shifts[0];
+      if (s?.pickupLat != null && s.pickupLng != null) return { lat: s.pickupLat, lng: s.pickupLng };
+    }
     return { lat: 20.5937, lng: 78.9629 };
-  }, [deliveries, deliveriesWithLocation]);
+  }, [viewTab, deliveries, deliveriesWithLocation, shifts, selectedShift]);
 
-  // Pan to selected delivery
+  // Pan to selected job
   useEffect(() => {
-    if (!selectedDelivery?.currentLocation || !mapRef.current) return;
+    if (!selectedDelivery?.currentLocation || !mapRef.current || viewTab !== 'jobs') return;
     mapRef.current.panTo({ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude });
     mapRef.current.setZoom(13);
-  }, [selectedDelivery]);
+  }, [selectedDelivery, viewTab]);
+
+  // Pan to selected shift pickup
+  useEffect(() => {
+    if (!selectedShift || !mapRef.current || viewTab !== 'shifts') return;
+    if (selectedShift.pickupLat != null && selectedShift.pickupLng != null) {
+      mapRef.current.panTo({ lat: selectedShift.pickupLat, lng: selectedShift.pickupLng });
+      mapRef.current.setZoom(11);
+    }
+  }, [selectedShift, viewTab]);
 
   const selectedShare = selectedDelivery?.currentLocation
     ? `${formatCoordinate(selectedDelivery.currentLocation.latitude)}, ${formatCoordinate(selectedDelivery.currentLocation.longitude)}`
@@ -107,11 +159,13 @@ export default function LiveTrackingPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] min-h-[780px] flex-col overflow-hidden rounded-3xl border border-slate-100 bg-slate-50 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+
+      {/* Header */}
       <div className="flex shrink-0 flex-col gap-4 border-b border-slate-200 bg-white px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Admin Dashboard</p>
           <h1 className="mt-1 text-xl font-black tracking-tight text-[#041627] sm:text-2xl">Live Tracking</h1>
-          <p className="mt-1 text-sm text-slate-500">Real-time tracking data loaded from the backend live-tracking endpoint.</p>
+          <p className="mt-1 text-sm text-slate-500">Real-time view of all ongoing jobs and shifts.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -119,96 +173,183 @@ export default function LiveTrackingPage() {
             <p className="mt-1 text-lg font-black text-[#041627]">{data?.totalActive ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">Active Shifts</p>
+            <p className="mt-1 text-lg font-black text-violet-600">{data?.totalShifts ?? 0}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">GPS Online</p>
             <p className="mt-1 text-lg font-black text-emerald-600">{deliveriesWithLocation.length}</p>
           </div>
-          <button onClick={() => { setLoading(true); void fetchData(); }}
-            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
+          <button
+            onClick={() => { setLoading(true); void fetchData(); }}
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          >
             <span className="material-symbols-outlined text-sm">refresh</span> Refresh
           </button>
         </div>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-6 pt-3">
+        {([
+          { key: 'jobs',   label: 'Jobs',   icon: 'local_shipping', count: data?.totalActive ?? 0 },
+          { key: 'shifts', label: 'Shifts', icon: 'work_history',   count: data?.totalShifts ?? 0 },
+        ] as { key: ViewTab; label: string; icon: string; count: number }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setViewTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-black border-b-2 transition-colors ${
+              viewTab === tab.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+            {tab.label}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${viewTab === tab.key ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {error && <div className="mx-6 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
       <div className="flex flex-1 flex-col overflow-hidden xl:grid xl:grid-cols-[360px_minmax(0,1fr)]">
+
+        {/* ── Sidebar list ── */}
         <aside className="flex h-[220px] flex-shrink-0 flex-col border-b border-slate-200 bg-white xl:h-auto xl:flex-1 xl:min-h-0 xl:border-b-0 xl:border-r">
           <div className="border-b border-slate-200 px-5 py-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Tracked Deliveries</p>
-            <p className="mt-1 text-sm text-slate-500">Select a job to focus the map and details.</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+              {viewTab === 'jobs' ? 'Tracked Deliveries' : 'Ongoing Shifts'}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              {viewTab === 'jobs'
+                ? 'Select a job to focus the map and view details.'
+                : 'Select a shift to view its route and details.'}
+            </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {loading && (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+
+            {/* ── Jobs list ── */}
+            {viewTab === 'jobs' && (
+              <>
+                {loading && Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="mb-2 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                     <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-slate-200" />
-                    <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-slate-200" />
                   </div>
                 ))}
-              </div>
+                {!loading && deliveries.length === 0 && (
+                  <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
+                    <div className="text-3xl">🚛</div>
+                    <p className="mt-3 text-sm font-bold text-[#44474C]">No active deliveries</p>
+                    <p className="mt-1 text-xs text-slate-500">Jobs in transit will appear here once a GPS ping is received.</p>
+                  </div>
+                )}
+                {!loading && (
+                  <div className="space-y-2">
+                    {deliveriesWithLocation.map(delivery => {
+                      const active = delivery.jobId === selectedJobId;
+                      return (
+                        <button key={delivery.jobId} onClick={() => setSelectedJobId(delivery.jobId)}
+                          className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-blue-200 bg-blue-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black text-[#041627]">{delivery.jobRef}</p>
+                              <p className="mt-1 text-xs font-medium text-slate-500">{delivery.driver?.name ?? 'Driver N/A'}</p>
+                            </div>
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">Live</span>
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-slate-500">
+                            <p className="truncate">{delivery.dropLocation ?? 'Destination N/A'}</p>
+                            <p>Last ping: {formatLastSeen(delivery.currentLocation?.lastUpdatedAt)}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {deliveriesWithoutLocation.map(delivery => {
+                      const active = delivery.jobId === selectedJobId;
+                      return (
+                        <button key={delivery.jobId} onClick={() => setSelectedJobId(delivery.jobId)}
+                          className={`w-full rounded-2xl border p-4 text-left opacity-90 transition ${active ? 'border-amber-200 bg-amber-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black text-[#041627]">{delivery.jobRef}</p>
+                              <p className="mt-1 text-xs font-medium text-slate-500">{delivery.driver?.name ?? 'Driver N/A'}</p>
+                            </div>
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">No GPS</span>
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-slate-500">
+                            <p className="truncate">{delivery.dropLocation ?? 'Destination N/A'}</p>
+                            <p>No location ping yet</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
-            {!loading && deliveries.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
-                <div className="text-3xl">🚛</div>
-                <p className="mt-3 text-sm font-bold text-[#44474C]">No active deliveries</p>
-                <p className="mt-1 text-xs text-slate-500">Once a job moves to transit and receives a GPS ping, it will appear here.</p>
-              </div>
-            )}
-            {!loading && deliveries.length > 0 && (
-              <div className="space-y-2">
-                {deliveriesWithLocation.map(delivery => {
-                  const active = delivery.jobId === selectedJobId;
-                  return (
-                    <button key={delivery.jobId} onClick={() => setSelectedJobId(delivery.jobId)}
-                      className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-blue-200 bg-blue-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-[#041627]">{delivery.jobRef}</p>
-                          <p className="mt-1 text-xs font-medium text-slate-500">{delivery.driver?.name ?? 'Driver not assigned'}</p>
-                        </div>
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">Live</span>
-                      </div>
-                      <div className="mt-3 space-y-1 text-xs text-slate-500">
-                        <p className="truncate">{delivery.dropLocation ?? 'Destination unavailable'}</p>
-                        <p>{active ? 'Selected' : 'Last ping'}: {formatLastSeen(delivery.currentLocation?.lastUpdatedAt)}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-                {deliveriesWithoutLocation.map(delivery => {
-                  const active = delivery.jobId === selectedJobId;
-                  return (
-                    <button key={delivery.jobId} onClick={() => setSelectedJobId(delivery.jobId)}
-                      className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-amber-200 bg-amber-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50 opacity-90'}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-[#041627]">{delivery.jobRef}</p>
-                          <p className="mt-1 text-xs font-medium text-slate-500">{delivery.driver?.name ?? 'Driver not assigned'}</p>
-                        </div>
-                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">No GPS</span>
-                      </div>
-                      <div className="mt-3 space-y-1 text-xs text-slate-500">
-                        <p className="truncate">{delivery.dropLocation ?? 'Destination unavailable'}</p>
-                        <p>No location ping yet</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+
+            {/* ── Shifts list ── */}
+            {viewTab === 'shifts' && (
+              <>
+                {loading && Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="mb-2 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-slate-200" />
+                  </div>
+                ))}
+                {!loading && shifts.length === 0 && (
+                  <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
+                    <div className="text-3xl">🗓️</div>
+                    <p className="mt-3 text-sm font-bold text-[#44474C]">No active shifts</p>
+                    <p className="mt-1 text-xs text-slate-500">Shifts in progress will appear here.</p>
+                  </div>
+                )}
+                {!loading && shifts.length > 0 && (
+                  <div className="space-y-2">
+                    {shifts.map(shift => {
+                      const active = shift.shiftId === selectedShiftId;
+                      const progress = shift.totalDays ? Math.round(((shift.daysCompleted ?? 0) / shift.totalDays) * 100) : 0;
+                      return (
+                        <button key={shift.shiftId} onClick={() => setSelectedShiftId(shift.shiftId)}
+                          className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-violet-200 bg-violet-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black text-[#041627]">{shift.shiftRef}</p>
+                              <p className="mt-1 text-xs font-medium text-slate-500">{shift.driver?.name ?? 'Driver N/A'}</p>
+                            </div>
+                            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-violet-700">In Progress</span>
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-slate-500">
+                            <p className="truncate">{shift.pickupLocation ?? 'Pickup N/A'} → {shift.dropLocation ?? 'Drop N/A'}</p>
+                            <p>Day {shift.daysCompleted ?? 0} / {shift.totalDays ?? '?'}</p>
+                          </div>
+                          <div className="mt-2 h-1.5 rounded-full bg-slate-100">
+                            <div className="h-1.5 rounded-full bg-violet-500 transition-all" style={{ width: `${progress}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </aside>
 
+        {/* ── Map section ── */}
         <section className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
           <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
-              <span className="rounded-full bg-slate-100 px-3 py-1.5">Auto refresh every 30 seconds</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1.5">Auto refresh every 30s</span>
               <span className="rounded-full bg-slate-100 px-3 py-1.5">Last refreshed {lastRefreshed ? lastRefreshed.toLocaleTimeString() : '—'}</span>
             </div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> {deliveriesWithLocation.length} live GPS updates
+              <span className="h-2 w-2 rounded-full bg-emerald-500" /> {deliveriesWithLocation.length} GPS live
+              <span className="ml-2 h-2 w-2 rounded-full bg-violet-500" /> {shifts.length} shifts
             </div>
           </div>
 
@@ -221,7 +362,8 @@ export default function LiveTrackingPage() {
                 options={MAP_OPTIONS}
                 onLoad={(map) => { mapRef.current = map; setMapReady(true); }}
               >
-                {mapReady && deliveriesWithLocation.map(delivery => (
+                {/* Job markers (GPS location) */}
+                {mapReady && viewTab === 'jobs' && deliveriesWithLocation.map(delivery => (
                   <Marker
                     key={delivery.jobId}
                     position={{ lat: delivery.currentLocation!.latitude, lng: delivery.currentLocation!.longitude }}
@@ -229,37 +371,72 @@ export default function LiveTrackingPage() {
                     onClick={() => { setSelectedJobId(delivery.jobId); setActiveInfoId(delivery.jobId); }}
                   />
                 ))}
-                {mapReady && activeInfoId && (() => {
+
+                {/* Job InfoWindow */}
+                {mapReady && viewTab === 'jobs' && activeInfoId && (() => {
                   const d = deliveriesWithLocation.find(x => x.jobId === activeInfoId);
                   if (!d?.currentLocation) return null;
                   return (
                     <InfoWindow position={{ lat: d.currentLocation.latitude, lng: d.currentLocation.longitude }} onCloseClick={() => setActiveInfoId(null)}>
-                      <div className="min-w-[200px] space-y-1 text-sm">
+                      <div className="min-w-[180px] space-y-1 text-sm">
                         <p className="font-bold text-[#041627]">{d.jobRef}</p>
-                        <p className="text-[#44474C]">{d.driver?.name ?? 'Driver not assigned'}</p>
-                        <p className="text-xs text-slate-500">{d.driver?.vehicleNumber ?? 'Vehicle not assigned'}</p>
+                        <p className="text-[#44474C]">{d.driver?.name ?? 'N/A'}</p>
+                        <p className="text-xs text-slate-500">{d.driver?.vehicleNumber ?? '—'}</p>
                         <p className="text-xs text-slate-500">{formatLastSeen(d.currentLocation?.lastUpdatedAt)}</p>
                       </div>
                     </InfoWindow>
                   );
                 })()}
+
+                {/* Shift markers — pickup + drop */}
+                {mapReady && viewTab === 'shifts' && shifts.map(shift => (
+                  <>
+                    {shift.pickupLat != null && shift.pickupLng != null && (
+                      <Marker
+                        key={`${shift.shiftId}-pickup`}
+                        position={{ lat: shift.pickupLat, lng: shift.pickupLng }}
+                        icon={makeLocationIcon('pickup')}
+                        onClick={() => setSelectedShiftId(shift.shiftId)}
+                      />
+                    )}
+                    {shift.dropLat != null && shift.dropLng != null && (
+                      <Marker
+                        key={`${shift.shiftId}-drop`}
+                        position={{ lat: shift.dropLat, lng: shift.dropLng }}
+                        icon={makeLocationIcon('drop')}
+                        onClick={() => setSelectedShiftId(shift.shiftId)}
+                      />
+                    )}
+                    {/* Truck icon at pickup (no live GPS for shifts) */}
+                    {shift.pickupLat != null && shift.pickupLng != null && (
+                      <Marker
+                        key={`${shift.shiftId}-truck`}
+                        position={{ lat: shift.pickupLat + 0.002, lng: shift.pickupLng + 0.002 }}
+                        icon={makeTruckIcon(shift.shiftId === selectedShiftId, shift.shiftId === selectedShiftId ? '#7c3aed' : '#8b5cf6')}
+                        onClick={() => setSelectedShiftId(shift.shiftId)}
+                      />
+                    )}
+                  </>
+                ))}
               </GoogleMap>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading map…</div>
             )}
           </div>
 
-          {deliveries.length > 0 && !deliveriesWithLocation.length && !loading && (
+          {/* No GPS overlay for jobs tab */}
+          {viewTab === 'jobs' && deliveries.length > 0 && !deliveriesWithLocation.length && !loading && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/35 p-6 backdrop-blur-sm">
               <div className="max-w-md rounded-3xl border border-white/20 bg-white p-6 text-center shadow-2xl">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-2xl">🚚</div>
                 <p className="mt-4 text-lg font-black text-[#041627]">No GPS coordinates yet</p>
-                <p className="mt-2 text-sm text-[#44474C]">There are {data?.totalActive ?? 0} active deliveries, but the backend has not received a live location ping yet.</p>
+                <p className="mt-2 text-sm text-[#44474C]">There are {data?.totalActive ?? 0} active deliveries, but no live location ping has been received yet.</p>
               </div>
             </div>
           )}
 
-          {selectedDelivery && (
+          {/* ── Job detail panel ── */}
+          {viewTab === 'jobs' && selectedDelivery && (
             <div className="absolute bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white/98 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur">
               <div className="flex items-start justify-between gap-4 px-5 py-4">
                 <div>
@@ -267,16 +444,16 @@ export default function LiveTrackingPage() {
                     <h2 className="text-lg font-black tracking-tight text-[#041627]">{selectedDelivery.jobRef}</h2>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">{selectedDelivery.status}</span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup unavailable'} → {selectedDelivery.dropLocation ?? 'Destination unavailable'}</p>
+                  <p className="mt-1 text-sm text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup N/A'} → {selectedDelivery.dropLocation ?? 'Drop N/A'}</p>
                 </div>
                 <button onClick={() => setSelectedJobId(null)}
                   className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-[#44474C] transition hover:bg-slate-50">Clear</button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-slate-200 px-5 py-4 md:grid-cols-4">
                 {[
-                  { label: 'Driver',   primary: selectedDelivery.driver?.name ?? '—',   sub: selectedDelivery.driver?.phone ?? '—' },
-                  { label: 'Vehicle',  primary: selectedDelivery.driver?.vehicleNumber ?? '—', sub: selectedDelivery.driver?.vehicleType ?? selectedDelivery.vehicleType ?? '—' },
-                  { label: 'Haulier',  primary: selectedDelivery.haulier?.name ?? '—',  sub: selectedDelivery.haulier?.phone ?? '—' },
+                  { label: 'Driver',    primary: selectedDelivery.driver?.name ?? '—',            sub: selectedDelivery.driver?.phone ?? '—' },
+                  { label: 'Vehicle',   primary: selectedDelivery.driver?.vehicleNumber ?? '—',   sub: selectedDelivery.driver?.vehicleType ?? selectedDelivery.vehicleType ?? '—' },
+                  { label: 'Haulier',   primary: selectedDelivery.haulier?.name ?? '—',           sub: selectedDelivery.haulier?.phone ?? '—' },
                   { label: 'Last Ping', primary: formatLastSeen(selectedDelivery.currentLocation?.lastUpdatedAt), sub: selectedShare },
                 ].map(r => (
                   <div key={r.label} className="rounded-2xl bg-slate-50 p-3">
@@ -290,7 +467,7 @@ export default function LiveTrackingPage() {
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Goods</p>
                   <p className="mt-1 text-sm font-bold text-[#041627]">{selectedDelivery.goodsType ?? '—'}</p>
-                  <p className="text-xs text-slate-500">{selectedDelivery.weightKg != null ? `${selectedDelivery.weightKg} kg` : 'Weight unavailable'}</p>
+                  <p className="text-xs text-slate-500">{selectedDelivery.weightKg != null ? `${selectedDelivery.weightKg} kg` : '—'}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Amount</p>
@@ -300,7 +477,52 @@ export default function LiveTrackingPage() {
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Job Date</p>
                   <p className="mt-1 text-sm font-bold text-[#041627]">{selectedDelivery.jobDate ? new Date(selectedDelivery.jobDate).toLocaleDateString() : '—'}</p>
-                  <p className="text-xs text-slate-500">Backend job schedule date</p>
+                  <p className="text-xs text-slate-500">Scheduled date</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Shift detail panel ── */}
+          {viewTab === 'shifts' && selectedShift && (
+            <div className="absolute bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white/98 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur">
+              <div className="flex items-start justify-between gap-4 px-5 py-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-black tracking-tight text-[#041627]">{selectedShift.shiftRef}</h2>
+                    <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-violet-700">In Progress</span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">{selectedShift.pickupLocation ?? 'Pickup N/A'} → {selectedShift.dropLocation ?? 'Drop N/A'}</p>
+                </div>
+                <button onClick={() => setSelectedShiftId(null)}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-[#44474C] transition hover:bg-slate-50">Clear</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-slate-200 px-5 py-4 md:grid-cols-4">
+                {[
+                  { label: 'Driver',  primary: selectedShift.driver?.name ?? '—',  sub: selectedShift.driver?.phone ?? '—' },
+                  { label: 'Vehicle', primary: selectedShift.driver?.vehicleNumber ?? '—', sub: selectedShift.driver?.vehicleType ?? '—' },
+                  { label: 'Haulier', primary: selectedShift.haulier?.name ?? '—', sub: selectedShift.haulier?.phone ?? '—' },
+                  { label: 'Progress', primary: `Day ${selectedShift.daysCompleted ?? 0} of ${selectedShift.totalDays ?? '?'}`, sub: `${selectedShift.totalDays ? Math.round(((selectedShift.daysCompleted ?? 0) / selectedShift.totalDays) * 100) : 0}% complete` },
+                ].map(r => (
+                  <div key={r.label} className="rounded-2xl bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{r.label}</p>
+                    <p className="mt-1 text-sm font-bold text-[#041627]">{r.primary}</p>
+                    <p className="text-xs text-slate-500">{r.sub}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-200 px-5 py-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Goods Type</p>
+                  <p className="mt-1 text-sm font-bold text-[#041627]">{selectedShift.goodsType ?? '—'}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Start Date</p>
+                  <p className="mt-1 text-sm font-bold text-[#041627]">{selectedShift.startDate ? new Date(selectedShift.startDate).toLocaleDateString() : '—'}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">End Date</p>
+                  <p className="mt-1 text-sm font-bold text-[#041627]">{selectedShift.endDate ? new Date(selectedShift.endDate).toLocaleDateString() : '—'}</p>
                 </div>
               </div>
             </div>

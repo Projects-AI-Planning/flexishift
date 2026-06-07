@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {
   Dimensions,
+  Linking,
   Modal,
   Pressable,
   SafeAreaView,
@@ -227,6 +228,13 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
         })}
       </View>
 
+      {/* Floating call button */}
+      <Pressable
+        style={styles.callBtn}
+        onPress={() => Linking.openURL('tel:9226002903')}>
+        <Text style={styles.callBtnIcon}>📞</Text>
+      </Pressable>
+
       {/* Scrollable content */}
       <ScrollView
         style={styles.scroll}
@@ -381,6 +389,25 @@ const styles = StyleSheet.create({
     color: colors.inkSoft, fontSize: 11, fontWeight: '800',
     marginTop: 4, textTransform: 'uppercase',
   },
+
+  callBtn: {
+    position: 'absolute',
+    bottom: 110,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#16a34a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    zIndex: 10,
+  },
+  callBtnIcon: {fontSize: 24},
 
   actionRow: {flexDirection: 'row', gap: spacing.sm},
   primaryBtn: {

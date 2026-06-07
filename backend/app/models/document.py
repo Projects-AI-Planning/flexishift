@@ -14,6 +14,7 @@ class DocType(str, enum.Enum):
     VEHICLE_INSURANCE = "VEHICLE_INSURANCE"
     COMPANY_REG = "COMPANY_REG"
     FLEET_INSURANCE = "FLEET_INSURANCE"
+    OTHER = "OTHER"
 
 
 class DocStatus(str, enum.Enum):
@@ -28,6 +29,8 @@ class Document(Base):
     id:               Mapped[str]      = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id:          Mapped[str]      = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     doc_type:         Mapped[DocType]  = mapped_column(Enum(DocType), nullable=False)
+    custom_name:      Mapped[str]      = mapped_column(String(200), nullable=True)
+    expiry_date:      Mapped[datetime] = mapped_column(DateTime, nullable=True)
     file_url:         Mapped[str]      = mapped_column(String(500), nullable=False)
     status:           Mapped[DocStatus]= mapped_column(Enum(DocStatus), nullable=False, default=DocStatus.PENDING)
     reviewed_by:      Mapped[str]      = mapped_column(String(36), ForeignKey("users.id"), nullable=True)

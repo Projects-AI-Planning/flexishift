@@ -222,7 +222,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
         </View>
 
         {/* ── 3. Access & Load Codes ───────────────────────────────────────── */}
-        {(details.accessCode || details.loadCode) ? (
+        {false && (details.accessCode || details.loadCode) ? (
           <View style={styles.codesCard}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitleIcon}>🔑</Text>
@@ -351,14 +351,14 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
               <Text style={styles.stepDesc}>Funds are securely held on behalf of the haulier.</Text>
             </View>
           </View>
-          <View style={styles.connector} />
+          {false && <><View style={styles.connector} />
           <View style={styles.step}>
             <View style={[styles.stepDot, styles.dotBlue]} />
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Enter Access Code</Text>
               <Text style={styles.stepDesc}>Enter the access code provided by the haulier to begin the job, then pick up and deliver the goods.</Text>
             </View>
-          </View>
+          </View></>}
           <View style={styles.connector} />
           <View style={styles.step}>
             <View style={[styles.stepDot, styles.dotGrey]} />
@@ -371,7 +371,7 @@ const PaymentEscrowScreen: React.FC<PaymentEscrowScreenProps> = ({
 
         {/* ── CTA ───────────────────────────────────────────────────────────── */}
         <Pressable onPress={onViewJob} style={styles.primaryBtn}>
-          <Text style={styles.primaryBtnText}>View Job & Enter Access Code</Text>
+          <Text style={styles.primaryBtnText}>Proceed to Handover</Text>
         </Pressable>
 
         <Pressable onPress={onBack} style={styles.secondaryBtn}>

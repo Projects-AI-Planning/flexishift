@@ -6,6 +6,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -101,6 +102,9 @@ const DRIVER_MODES = [
   {key: 'DRIVER_WITH_TRUCK', label: 'Driver with Truck', desc: 'Available with my own truck'},
   {key: 'TRUCK_ONLY',        label: 'Only Truck',        desc: 'Providing a truck — no driver'},
 ];
+
+const CAPACITY_UNITS = ['kg', 'liters', 'tons', 'cubic m', 'cubic ft'];
+const CPT_UNITS      = ['L', 'kg', 'tons', 'cubic ft'];
 
 interface ProfileForm {
   name: string;
@@ -362,6 +366,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     ]);
   };
 
+  // ── Truck capacity unit ──────────────────────────────────────────────────
+  const [truckCapacityUnit, setTruckCapacityUnit] = useState<string>(() => {
+    const cap = profileForm.truckCapacity ?? '';
+    const match = cap.match(/\b(kg|liters?|tons?|cubic\s*m|cubic\s*ft)\b/i);
+    return match ? match[1].toLowerCase().replace('litre', 'liter').replace('ton', 'tons') : 'kg';
+  });
+  const [truckCapUnitOpen, setTruckCapUnitOpen] = useState(false);
+  const [truckCapNumber, setTruckCapNumber] = useState<string>(() => {
+    const cap = profileForm.truckCapacity ?? '';
+    return cap.replace(/[^0-9.]/g, '');
+  });
+
   // ── Truck compartments ───────────────────────────────────────────────────
   const [compartments, setCompartments] = useState<TruckCompartment[]>(() =>
     ((profileForm.equipmentDetails ?? []) as any[])
@@ -370,9 +386,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         id: c.id ?? Date.now() + i,
         capacityLitres: String(c.capacityLitres),
         fuelType: c.fuelType ?? '',
+        unit: c.unit ?? 'L',
       })),
   );
   const [cptCapacity, setCptCapacity] = useState('');
+  const [cptUnit, setCptUnit] = useState('L');
+  const [cptUnitOpen, setCptUnitOpen] = useState(false);
   const [cptError, setCptError] = useState('');
 
   const openVehicleModal = () => {
@@ -403,7 +422,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   // ── Upload modal state ───────────────────────────────────────────────────
-  type ModalDoc = {key: string; backendKey: string; label: string; icon: string};
+  type ModalDoc = {key: string; backendKey: string; label: string; icon: string; customName?: string};
   const [activeModal, setActiveModal] = useState<ModalDoc | null>(null);
   const [modalFile, setModalFile] = useState<any>(null);
   const [modalExpiry, setModalExpiry] = useState('');
@@ -472,6 +491,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     try {
       const formData = new FormData();
       formData.append('documentType', activeModal.backendKey);
+      if (activeModal.customName) {
+        formData.append('customName', activeModal.customName);
+      }
       formData.append('expiryDate', modalExpiry);
       formData.append('file', {
         uri: modalFile.uri,
@@ -1021,12 +1043,50 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onChange={v => onChange({vehicleType: v})}
               placeholder="e.g. FLATBED, VAN, HGV"
             />
-            <InfoField
-              label="CAPACITY OF TRUCK"
-              value={profileForm.truckCapacity ?? ''}
-              onChange={v => onChange({truckCapacity: v})}
-              placeholder="e.g. 10 Tons, 20,000 kg"
-            />
+            {/* Truck Capacity with unit */}
+            <View style={capStyles.fieldGroup}>
+              <Text style={capStyles.fieldLabel}>CAPACITY OF TRUCK</Text>
+              <View style={capStyles.row}>
+                <TextInput
+                  style={capStyles.numInput}
+                  keyboardType="numeric"
+                  placeholder="e.g. 20000"
+                  placeholderTextColor="#9CA4B0"
+                  value={truckCapNumber}
+                  onChangeText={v => {
+                    const n = v.replace(/[^0-9.]/g, '');
+                    setTruckCapNumber(n);
+                    onChange({truckCapacity: n ? `${n} ${truckCapacityUnit}` : ''});
+                  }}
+                  returnKeyType="done"
+                />
+                <Pressable
+                  style={capStyles.unitTrigger}
+                  onPress={() => setTruckCapUnitOpen(o => !o)}>
+                  <Text style={capStyles.unitTriggerText}>{truckCapacityUnit}</Text>
+                  <Text style={capStyles.unitChevron}>▾</Text>
+                </Pressable>
+              </View>
+              {truckCapUnitOpen && (
+                <View style={capStyles.unitList}>
+                  {CAPACITY_UNITS.map((u, i) => (
+                    <Pressable
+                      key={u}
+                      style={[capStyles.unitItem, i < CAPACITY_UNITS.length - 1 && capStyles.unitItemBorder]}
+                      onPress={() => {
+                        setTruckCapacityUnit(u);
+                        setTruckCapUnitOpen(false);
+                        onChange({truckCapacity: truckCapNumber ? `${truckCapNumber} ${u}` : ''});
+                      }}>
+                      <Text style={[capStyles.unitItemText, truckCapacityUnit === u && capStyles.unitItemActive]}>
+                        {u}
+                      </Text>
+                      {truckCapacityUnit === u && <Text style={capStyles.unitItemTick}>✓</Text>}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {/* ── Truck Compartments ──────────────────────────────────── */}
             <View style={cptStyles.block}>
@@ -1046,7 +1106,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   {compartments.map((cpt, idx) => (
                     <View key={cpt.id} style={cptStyles.chip}>
                       <Text style={cptStyles.chipLabel}>C{idx + 1}</Text>
-                      <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} L</Text>
+                      <Text style={cptStyles.chipCap}>{Number(cpt.capacityLitres).toLocaleString()} {cpt.unit ?? 'L'}</Text>
                       <Pressable
                         onPress={() => updateCompartments(compartments.filter(c => c.id !== cpt.id))}
                         style={cptStyles.chipRemove}
@@ -1068,14 +1128,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   <TextInput
                     style={cptStyles.capacityField}
                     keyboardType="numeric"
-                    placeholder="Capacity in litres, e.g. 8000"
+                    placeholder="e.g. 8000"
                     placeholderTextColor="#9CA4B0"
                     value={cptCapacity}
                     onChangeText={v => { setCptCapacity(v.replace(/[^0-9]/g, '')); setCptError(''); }}
                     returnKeyType="done"
                   />
-                  <Text style={cptStyles.capacityUnit}>L</Text>
+                  <Pressable
+                    style={cptStyles.unitTrigger}
+                    onPress={() => setCptUnitOpen(o => !o)}>
+                    <Text style={cptStyles.unitTriggerText}>{cptUnit}</Text>
+                    <Text style={cptStyles.unitTriggerChevron}>▾</Text>
+                  </Pressable>
                 </View>
+                {cptUnitOpen && (
+                  <View style={cptStyles.unitList}>
+                    {CPT_UNITS.map((u, i) => (
+                      <Pressable
+                        key={u}
+                        style={[cptStyles.unitListItem, i < CPT_UNITS.length - 1 && cptStyles.unitListItemBorder]}
+                        onPress={() => { setCptUnit(u); setCptUnitOpen(false); }}>
+                        <Text style={[cptStyles.unitListItemText, cptUnit === u && cptStyles.unitListItemActive]}>
+                          {u}
+                        </Text>
+                        {cptUnit === u && <Text style={cptStyles.unitListItemTick}>✓</Text>}
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
 
                 {cptError ? <Text style={cptStyles.error}>{cptError}</Text> : null}
 
@@ -1084,12 +1164,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   onPress={() => {
                     const cap = cptCapacity.trim();
                     if (!cap || parseFloat(cap) <= 0) {
-                      setCptError('Enter a valid capacity in litres.');
+                      setCptError('Enter a valid capacity value.');
                       return;
                     }
                     updateCompartments([
                       ...compartments,
-                      {id: Date.now(), capacityLitres: cap, fuelType: ''},
+                      {id: Date.now(), capacityLitres: cap, fuelType: '', unit: cptUnit},
                     ]);
                     setCptCapacity('');
                     setCptError('');
@@ -1527,11 +1607,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 const c = docColor(status);
                 const rejectionReason = String(uploadedDoc?.rejectionReason ?? '').trim();
                 const fileUrl = uploadedDoc?.fileUrl;
+                const expiryDate = uploadedDoc?.expiryDate;
                 const isLast = idx === arr.length - 1;
                 const isApproved = status === 'active' || status === 'complete';
                 const isUnderReview = status === 'under_review';
                 const isRejected = status === 'rejected';
                 const isNotUploaded = status === 'not_uploaded';
+
+                const formattedExpiry = expiryDate
+                  ? (() => {
+                      const d = new Date(expiryDate);
+                      const isExpired = d < new Date();
+                      const label = d.toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'});
+                      return {label, isExpired};
+                    })()
+                  : null;
 
                 return (
                   <View
@@ -1543,10 +1633,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
                     {/* Doc title row */}
                     <View style={styles.docRow}>
-                      <View style={styles.docIcon}>
-                        <Icon name={doc.icon} size={18} color="#000000" strokeWidth={2} />
+                      <View style={[styles.docIconCircle, {backgroundColor: c.bg}]}>
+                        <Icon name={doc.icon} size={16} color={c.text} strokeWidth={2.2} />
                       </View>
-                      <Text style={styles.docLabel}>{doc.label}</Text>
+                      <View style={{flex: 1, gap: 3}}>
+                        <Text style={styles.docLabel}>{doc.label}</Text>
+                        {formattedExpiry && (
+                          <View style={styles.docExpiryRow}>
+                            <Icon name="calendar" size={11} color={formattedExpiry.isExpired ? '#B91C1C' : '#6B7280'} strokeWidth={2} />
+                            <Text style={[styles.docExpiryText, formattedExpiry.isExpired && styles.docExpiryExpired]}>
+                              {formattedExpiry.isExpired ? 'Expired' : 'Expires'}: {formattedExpiry.label}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={[styles.docBadge, {backgroundColor: c.bg}]}>
                         <Text style={[styles.docBadgeText, {color: c.text}]}>
                           {docLabel(status)}
@@ -1566,33 +1666,43 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
                     {/* Action buttons */}
                     <View style={styles.manageDocActions}>
-                      {/* View Doc — under review */}
-                      {isUnderReview && fileUrl && (
-                        <Pressable
-                          style={styles.manageViewBtn}
-                          onPress={() => openDocViewer(String(fileUrl))}>
-                          <Icon name="eye" size={14} color="#000000" strokeWidth={2} />
-                          <Text style={styles.manageViewBtnText}>  View Doc</Text>
-                        </Pressable>
-                      )}
-
-                      {/* View Doc — approved (read-only, no upload) */}
-                      {isApproved && fileUrl && (
-                        <Pressable
-                          style={styles.manageViewBtnApproved}
-                          onPress={() => openDocViewer(String(fileUrl))}>
-                          <Icon name="eye" size={14} color="#000000" strokeWidth={2} />
-                          <Text style={styles.manageViewBtnTextApproved}>  View Doc</Text>
-                        </Pressable>
-                      )}
-
                       {/* Upload — not uploaded */}
                       {isNotUploaded && (
                         <Pressable
                           style={styles.manageUploadBtn}
                           onPress={() => openUploadFromManage(doc)}>
-                          <Icon name="upload" size={14} color="#000000" strokeWidth={2} />
-                          <Text style={styles.manageUploadBtnText}>  Upload</Text>
+                          <Icon name="upload" size={14} color="#1066B1" strokeWidth={2} />
+                          <Text style={styles.manageUploadBtnText}>  Upload Document</Text>
+                        </Pressable>
+                      )}
+
+                      {/* View Doc — under review / approved / rejected */}
+                      {(isUnderReview || isApproved || isRejected) && fileUrl && (
+                        <Pressable
+                          style={styles.manageViewBtn}
+                          onPress={() => openDocViewer(String(fileUrl))}>
+                          <Icon name="eye" size={14} color="#374151" strokeWidth={2} />
+                          <Text style={styles.manageViewBtnText}>  View</Text>
+                        </Pressable>
+                      )}
+
+                      {/* Re-upload — under review */}
+                      {isUnderReview && (
+                        <Pressable
+                          style={styles.manageReuploadBtn}
+                          onPress={() => openUploadFromManage(doc)}>
+                          <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
+                          <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
+                        </Pressable>
+                      )}
+
+                      {/* Replace — approved */}
+                      {isApproved && (
+                        <Pressable
+                          style={styles.manageReplaceBtn}
+                          onPress={() => openUploadFromManage(doc)}>
+                          <Icon name="refresh" size={14} color="#1066B1" strokeWidth={2} />
+                          <Text style={styles.manageReplaceBtnText}>  Replace</Text>
                         </Pressable>
                       )}
 
@@ -1611,65 +1721,127 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 );
               })}
 
-              {/* Extra documents added by driver */}
-              {extraDocs.map((doc, idx) => {
-                const extraDoc = {
-                  key: `extra_${doc.name}`,
-                  backendKey: doc.name,
-                  icon: 'file' as const,
-                  label: doc.name,
-                };
-                const uploadedExtraDoc = localDocuments.find(
-                  d => String(d.documentType ?? d.docType ?? d.type) === doc.name,
+              {/* Extra documents: merge uploaded OTHER docs from backend + locally added not-yet-uploaded */}
+              {(() => {
+                // Docs already uploaded to backend (source of truth)
+                const uploadedOther = localDocuments.filter(
+                  d => (d.docType === 'OTHER' || d.documentType === 'OTHER') && d.customName,
                 );
-                const extraStatus = uploadedExtraDoc?.status?.toLowerCase();
-                const isExtraApproved = extraStatus === 'approved' || extraStatus === 'verified';
-                const isExtraReview = extraStatus === 'pending' || extraStatus === 'under_review';
-                const isExtraNotUploaded = !uploadedExtraDoc;
-                const cExtra = isExtraApproved
-                  ? {bg: '#DBEAFE', text: '#1066B1'}
-                  : isExtraReview
-                  ? {bg: '#FEF9C3', text: '#854D0E'}
-                  : {bg: '#F1F5F9', text: '#64748B'};
-                const extraLabelText = isExtraApproved ? 'ACTIVE' : isExtraReview ? 'UNDER REVIEW' : 'NOT UPLOADED';
+                const uploadedNames = new Set(uploadedOther.map(d => d.customName));
+                // Locally added in edit form but not yet uploaded
+                const pendingLocal = extraDocs.filter(d => d.name && !uploadedNames.has(d.name));
 
-                return (
-                  <View
-                    key={idx}
-                    style={[styles.manageDocItem, styles.manageDocItemBorder]}>
-                    <View style={styles.docRow}>
-                      <View style={styles.docIcon}>
-                        <Icon name={extraDoc.icon} size={18} color="#000000" strokeWidth={2} />
+                const allExtraDocs: Array<{name: string; docNumber: string; uploaded: any | null}> = [
+                  ...uploadedOther.map(d => ({name: d.customName, docNumber: '', uploaded: d})),
+                  ...pendingLocal.map(d => ({name: d.name, docNumber: d.docNumber, uploaded: null})),
+                ];
+
+                return allExtraDocs.map((doc, idx) => {
+                  const uploadedExtraDoc = doc.uploaded;
+                  const extraDoc = {
+                    key: `extra_${doc.name}`,
+                    backendKey: 'OTHER',
+                    customName: doc.name,
+                    icon: 'file' as const,
+                    label: doc.name,
+                  };
+                  const extraStatus = uploadedExtraDoc?.status?.toLowerCase();
+                  const isExtraApproved = extraStatus === 'approved' || extraStatus === 'verified';
+                  const isExtraReview = extraStatus === 'pending' || extraStatus === 'under_review';
+                  const isExtraRejected = extraStatus === 'rejected';
+                  const isExtraNotUploaded = !uploadedExtraDoc;
+                  const cExtra = isExtraApproved
+                    ? {bg: '#DBEAFE', text: '#1066B1'}
+                    : isExtraReview
+                    ? {bg: '#FEF9C3', text: '#854D0E'}
+                    : isExtraRejected
+                    ? {bg: '#FEE2E2', text: '#B91C1C'}
+                    : {bg: '#F1F5F9', text: '#64748B'};
+                  const extraLabelText = isExtraApproved
+                    ? 'ACTIVE'
+                    : isExtraReview
+                    ? 'UNDER REVIEW'
+                    : isExtraRejected
+                    ? 'REJECTED'
+                    : 'NOT UPLOADED';
+
+                  const extraExpiry = uploadedExtraDoc?.expiryDate
+                    ? (() => {
+                        const d = new Date(uploadedExtraDoc.expiryDate);
+                        const isExpired = d < new Date();
+                        const label = d.toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'});
+                        return {label, isExpired};
+                      })()
+                    : null;
+
+                  return (
+                    <View key={idx} style={[styles.manageDocItem, styles.manageDocItemBorder]}>
+                      <View style={styles.docRow}>
+                        <View style={[styles.docIconCircle, {backgroundColor: cExtra.bg}]}>
+                          <Icon name={extraDoc.icon} size={16} color={cExtra.text} strokeWidth={2.2} />
+                        </View>
+                        <View style={{flex: 1, gap: 3}}>
+                          <Text style={styles.docLabel}>{extraDoc.label}</Text>
+                          {doc.docNumber ? <Text style={styles.docSubNumber}>{doc.docNumber}</Text> : null}
+                          {extraExpiry && (
+                            <View style={styles.docExpiryRow}>
+                              <Icon name="calendar" size={11} color={extraExpiry.isExpired ? '#B91C1C' : '#6B7280'} strokeWidth={2} />
+                              <Text style={[styles.docExpiryText, extraExpiry.isExpired && styles.docExpiryExpired]}>
+                                {extraExpiry.isExpired ? 'Expired' : 'Expires'}: {extraExpiry.label}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={[styles.docBadge, {backgroundColor: cExtra.bg}]}>
+                          <Text style={[styles.docBadgeText, {color: cExtra.text}]}>{extraLabelText}</Text>
+                        </View>
                       </View>
-                      <View style={{flex: 1}}>
-                        <Text style={styles.docLabel}>{extraDoc.label}</Text>
-                        {doc.docNumber ? <Text style={styles.docSubNumber}>{doc.docNumber}</Text> : null}
-                      </View>
-                      <View style={[styles.docBadge, {backgroundColor: cExtra.bg}]}>
-                        <Text style={[styles.docBadgeText, {color: cExtra.text}]}>{extraLabelText}</Text>
+                      <View style={styles.manageDocActions}>
+                        {isExtraNotUploaded && (
+                          <Pressable
+                            style={styles.manageUploadBtn}
+                            onPress={() => openUploadFromManage(extraDoc)}>
+                            <Icon name="upload" size={14} color="#1066B1" strokeWidth={2} />
+                            <Text style={styles.manageUploadBtnText}>  Upload Document</Text>
+                          </Pressable>
+                        )}
+                        {(isExtraReview || isExtraApproved || isExtraRejected) && uploadedExtraDoc?.fileUrl && (
+                          <Pressable
+                            style={styles.manageViewBtn}
+                            onPress={() => openDocViewer(uploadedExtraDoc.fileUrl)}>
+                            <Icon name="eye" size={14} color="#374151" strokeWidth={2} />
+                            <Text style={styles.manageViewBtnText}>  View</Text>
+                          </Pressable>
+                        )}
+                        {isExtraReview && (
+                          <Pressable
+                            style={styles.manageReuploadBtn}
+                            onPress={() => openUploadFromManage(extraDoc)}>
+                            <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
+                            <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
+                          </Pressable>
+                        )}
+                        {isExtraApproved && (
+                          <Pressable
+                            style={styles.manageReplaceBtn}
+                            onPress={() => openUploadFromManage(extraDoc)}>
+                            <Icon name="refresh" size={14} color="#1066B1" strokeWidth={2} />
+                            <Text style={styles.manageReplaceBtnText}>  Replace</Text>
+                          </Pressable>
+                        )}
+                        {isExtraRejected && (
+                          <Pressable
+                            style={styles.manageReuploadBtn}
+                            onPress={() => openUploadFromManage(extraDoc)}>
+                            <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
+                            <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
+                          </Pressable>
+                        )}
                       </View>
                     </View>
-                    <View style={styles.manageDocActions}>
-                      {isExtraNotUploaded && (
-                        <Pressable
-                          style={styles.manageUploadBtn}
-                          onPress={() => openUploadFromManage(extraDoc)}>
-                          <Icon name="upload" size={14} color="#000000" strokeWidth={2} />
-                          <Text style={styles.manageUploadBtnText}>  Upload</Text>
-                        </Pressable>
-                      )}
-                      {isExtraReview && (
-                        <Pressable
-                          style={styles.manageReuploadBtn}
-                          onPress={() => openUploadFromManage(extraDoc)}>
-                          <Icon name="refresh" size={14} color="#000000" strokeWidth={2} />
-                          <Text style={styles.manageReuploadBtnText}>  Re-upload</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
+                  );
+                });
+              })()}
             </ScrollView>
 
           </Pressable>
@@ -1970,8 +2142,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   docIcon: {width: 28, alignItems: 'center', justifyContent: 'center'},
-  docLabel: {fontSize: 14, fontWeight: '600', color: '#111827'},
+  docIconCircle: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  docLabel: {fontSize: 14, fontWeight: '700', color: '#111827'},
   docSubNumber: {fontSize: 11, color: '#6B7280', marginTop: 1},
+  docExpiryRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  docExpiryText: {fontSize: 11, color: '#6B7280', fontWeight: '600'},
+  docExpiryExpired: {color: '#B91C1C'},
   docBadge: {borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4},
   docBadgeText: {fontSize: 10, fontWeight: '900', letterSpacing: 0.5},
   docRejectBox: {
@@ -2123,16 +2302,22 @@ const styles = StyleSheet.create({
   manageViewBtnTextApproved: {fontSize: 13, fontWeight: '700', color: '#000000'},
   manageUploadBtn: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
-    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
+    backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#1066B1',
     flexDirection: 'row', alignItems: 'center',
   },
-  manageUploadBtnText: {fontSize: 13, fontWeight: '800', color: '#000000'},
+  manageUploadBtnText: {fontSize: 13, fontWeight: '800', color: '#1066B1'},
   manageReuploadBtn: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
     backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#000000',
     flexDirection: 'row', alignItems: 'center',
   },
   manageReuploadBtnText: {fontSize: 13, fontWeight: '800', color: '#000000'},
+  manageReplaceBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md,
+    backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#1066B1',
+    flexDirection: 'row', alignItems: 'center',
+  },
+  manageReplaceBtnText: {fontSize: 13, fontWeight: '800', color: '#1066B1'},
 
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtn: {
@@ -2271,7 +2456,29 @@ const cptStyles = StyleSheet.create({
     borderRadius: radius.md, minHeight: 46, paddingHorizontal: 12,
   },
   capacityField: {flex: 1, fontSize: 15, color: '#111827', fontWeight: '600'},
-  capacityUnit: {fontSize: 13, fontWeight: '700', color: '#6B7280'},
+
+  unitTrigger: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: '#1066B1',
+    backgroundColor: '#EAF3FD',
+  },
+  unitTriggerText: {fontSize: 13, fontWeight: '800', color: '#1066B1'},
+  unitTriggerChevron: {fontSize: 12, color: '#1066B1'},
+  unitList: {
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D1D5DB',
+    borderRadius: radius.md, overflow: 'hidden',
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  unitListItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, paddingHorizontal: 14, backgroundColor: '#FFFFFF',
+  },
+  unitListItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F0F2F5'},
+  unitListItemText: {fontSize: 14, fontWeight: '700', color: '#111827'},
+  unitListItemActive: {color: '#1066B1'},
+  unitListItemTick: {fontSize: 14, color: '#1066B1', fontWeight: '900'},
 
   error: {fontSize: 12, fontWeight: '700', color: '#DC2626'},
 
@@ -2281,6 +2488,41 @@ const cptStyles = StyleSheet.create({
   },
   addBtnDisabled: {opacity: 0.4},
   addBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+});
+
+const capStyles = StyleSheet.create({
+  fieldGroup: {marginBottom: 0},
+  fieldLabel: {
+    fontSize: 11, fontWeight: '800', color: '#6B7280',
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8,
+  },
+  row: {flexDirection: 'row', alignItems: 'stretch', gap: 8},
+  numInput: {
+    flex: 1, backgroundColor: '#FFFFFF', borderColor: '#C9D0DB', borderWidth: 1.5,
+    borderRadius: radius.md, minHeight: 52, paddingHorizontal: 14,
+    fontSize: 15, color: '#111827', fontWeight: '600',
+  },
+  unitTrigger: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#1066B1',
+    borderRadius: radius.md, minHeight: 52, paddingHorizontal: 12,
+  },
+  unitTriggerText: {fontSize: 13, fontWeight: '800', color: '#1066B1'},
+  unitChevron: {fontSize: 13, color: '#1066B1'},
+  unitList: {
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#C9D0DB',
+    borderRadius: radius.md, marginTop: 4, overflow: 'hidden',
+    shadowColor: '#0B1320', shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  unitItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#FFFFFF',
+  },
+  unitItemBorder: {borderBottomWidth: 1, borderBottomColor: '#F0F2F5'},
+  unitItemText: {fontSize: 14, fontWeight: '700', color: '#111827'},
+  unitItemActive: {color: '#1066B1'},
+  unitItemTick: {fontSize: 14, color: '#1066B1', fontWeight: '900'},
 });
 
 const countryStyles = StyleSheet.create({

@@ -110,6 +110,8 @@ interface ShiftsScreenProps {
   onGoToDocuments?: () => void;
   onGoToProfile?: () => void;
   onGoToAvailability?: () => void;
+  paymentSetupComplete?: boolean;
+  onGoToPaymentSetup?: () => void;
 }
 
 const REQ_LABELS: Record<string, string> = {
@@ -828,7 +830,7 @@ function BookedShiftCard({
           )}
 
           {/* ── Codes ── */}
-          {(shift.accessCode || shift.loadCode) && (
+          {false && (shift.accessCode || shift.loadCode) && (
             <>
               <Text style={[styles.detailSection, {marginTop: 10}]}>Codes</Text>
               {shift.accessCode ? (
@@ -1063,17 +1065,24 @@ function QuoteModal({
   onSubmit,
   onClose,
   currency,
+  paymentSetupComplete = true,
+  onGoToPaymentSetup,
 }: {
   shift: ShiftItem;
   loading: boolean;
   onSubmit: (amountPerDay: number, notes: string) => void;
   onClose: () => void;
   currency?: string;
+  paymentSetupComplete?: boolean;
+  onGoToPaymentSetup?: () => void;
 }) {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
+  const [driverOnlyConfirmed, setDriverOnlyConfirmed] = useState(false);
+  const isDriverOnly = shift.requirementType === 'DRIVER_ONLY';
   const sym = currencySymbol(currency || shift.currency);
   const total = amount ? (Number(amount) * shift.totalDays).toLocaleString() : '—';
+  const canSubmit = paymentSetupComplete && !!amount && Number(amount) > 0 && !loading && (!isDriverOnly || driverOnlyConfirmed);
 
   return (
     <View style={styles.modalOverlay}>
@@ -1084,47 +1093,90 @@ function QuoteModal({
           <Text style={styles.modalTitle}>Submit Quote</Text>
           <Text style={styles.modalSub}>{shift.shiftRef} · {shift.totalDays} day(s)</Text>
 
-          <Text style={styles.inputLabel}>Daily Rate ({sym || 'amount'})</Text>
-          <TextInput
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="Enter your daily rate"
-            placeholderTextColor={colors.inkSoft}
-            autoFocus
-          />
-          {amount ? (
-            <Text style={styles.totalPreview}>Total: {sym}{total} for {shift.totalDays} days</Text>
-          ) : null}
+          {/* Payment setup required banner */}
+          {!paymentSetupComplete && (
+            <View style={styles.shiftPaymentSetupBanner}>
+              <Text style={styles.shiftPaymentSetupIcon}>💳</Text>
+              <View style={{flex: 1}}>
+                <Text style={styles.shiftPaymentSetupTitle}>Payment Setup Required</Text>
+                <Text style={styles.shiftPaymentSetupSub}>
+                  Complete your payment account setup before submitting quotes.
+                </Text>
+              </View>
+              {onGoToPaymentSetup && (
+                <Pressable onPress={() => { onClose(); onGoToPaymentSetup(); }} style={styles.shiftPaymentSetupBtn}>
+                  <Text style={styles.shiftPaymentSetupBtnText}>Set Up →</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
 
-          <Text style={styles.inputLabel}>Notes (optional)</Text>
-          <TextInput
-            style={[styles.input, {height: 72, textAlignVertical: 'top'}]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Any availability details, vehicle info…"
-            placeholderTextColor={colors.inkSoft}
-            multiline
-          />
+          {paymentSetupComplete && (
+            <>
+              <Text style={styles.inputLabel}>Daily Rate ({sym || 'amount'})</Text>
+              <TextInput
+                style={styles.input}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+                placeholder="Enter your daily rate"
+                placeholderTextColor={colors.inkSoft}
+                autoFocus
+              />
+              {amount ? (
+                <Text style={styles.totalPreview}>Total: {sym}{total} for {shift.totalDays} days</Text>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, {height: 72, textAlignVertical: 'top'}]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Any availability details…"
+                placeholderTextColor={colors.inkSoft}
+                multiline
+              />
+
+              {/* Driver-only confirmation checkbox */}
+              {isDriverOnly && (
+                <Pressable
+                  onPress={() => setDriverOnlyConfirmed(v => !v)}
+                  style={styles.driverOnlyToggleRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{checked: driverOnlyConfirmed}}>
+                  <View style={[styles.shiftCheckbox, driverOnlyConfirmed && styles.shiftCheckboxChecked]}>
+                    {driverOnlyConfirmed && <Text style={styles.shiftCheckboxTick}>✓</Text>}
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.driverOnlyToggleTitle}>I am available as Driver Only</Text>
+                    <Text style={styles.driverOnlyToggleSub}>
+                      This shift requires a driver without a truck. Confirm you are bidding without your vehicle.
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
+            </>
+          )}
 
           <View style={styles.modalActions}>
             <Pressable onPress={onClose} style={styles.cancelBtn}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </Pressable>
-            <Pressable
-              onPress={() => {
-                const amt = Number(amount);
-                if (!amt || amt <= 0) {
-                  Alert.alert('Required', 'Please enter a valid daily rate');
-                  return;
-                }
-                onSubmit(amt, notes.trim());
-              }}
-              disabled={loading}
-              style={[styles.primaryBtn, {flex: 2, height: 52}, loading && {opacity: 0.5}]}>
-              <Text style={styles.primaryBtnText}>{loading ? 'Submitting…' : 'Submit Quote'}</Text>
-            </Pressable>
+            {paymentSetupComplete && (
+              <Pressable
+                onPress={() => {
+                  const amt = Number(amount);
+                  if (!amt || amt <= 0) {
+                    Alert.alert('Required', 'Please enter a valid daily rate');
+                    return;
+                  }
+                  onSubmit(amt, notes.trim());
+                }}
+                disabled={!canSubmit}
+                style={[styles.primaryBtn, {flex: 2, height: 52}, !canSubmit && {opacity: 0.5}]}>
+                <Text style={styles.primaryBtnText}>{loading ? 'Submitting…' : 'Submit Quote'}</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -1153,6 +1205,8 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   onGoToProfile,
   onGoToAvailability,
   currency = '',
+  paymentSetupComplete = true,
+  onGoToPaymentSetup,
 }) => {
   const [tab, setTab] = useState<TabKey>('available');
   const [quotingShift, setQuotingShift] = useState<ShiftItem | null>(null);
@@ -1646,6 +1700,8 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
           onSubmit={handleSubmitQuote}
           onClose={() => setQuotingShift(null)}
           currency={currency}
+          paymentSetupComplete={paymentSetupComplete}
+          onGoToPaymentSetup={onGoToPaymentSetup}
         />
       )}
 
@@ -2199,6 +2255,33 @@ const styles = StyleSheet.create({
     fontSize: 15, color: colors.navy, fontWeight: '700',
   },
   totalPreview: {color: '#1066B1', fontWeight: '900', fontSize: 13, marginTop: -spacing.xs},
+  shiftPaymentSetupBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#FEF3C7', borderWidth: 1.5, borderColor: '#FCD34D',
+    borderRadius: radius.md, padding: 12, marginTop: spacing.xs,
+  },
+  shiftPaymentSetupIcon: {fontSize: 20, lineHeight: 24},
+  shiftPaymentSetupTitle: {fontSize: 13, fontWeight: '900', color: '#92400E', marginBottom: 2},
+  shiftPaymentSetupSub: {fontSize: 11, fontWeight: '500', color: '#B45309', lineHeight: 15},
+  shiftPaymentSetupBtn: {
+    backgroundColor: '#D97706', borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start',
+  },
+  shiftPaymentSetupBtnText: {color: '#fff', fontSize: 11, fontWeight: '900'},
+  driverOnlyToggleRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: '#FED7AA',
+    borderRadius: radius.md, padding: 14, marginTop: spacing.xs,
+  },
+  shiftCheckbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D97706',
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  shiftCheckboxChecked: {backgroundColor: '#D97706', borderColor: '#D97706'},
+  shiftCheckboxTick: {color: '#fff', fontSize: 13, fontWeight: '900'},
+  driverOnlyToggleTitle: {fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3},
+  driverOnlyToggleSub: {fontSize: 12, fontWeight: '500', color: '#B45309', lineHeight: 17},
   modalActions: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm},
   cancelBtn: {
     flex: 1, height: 52, borderRadius: radius.lg, borderWidth: 1,

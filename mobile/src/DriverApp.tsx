@@ -249,14 +249,29 @@ function getAvailabilityGate(
   const anyDocRejected  = docChecks.some(c => c.status === 'rejected');
   const anyDocMissing   = docChecks.some(c => c.status === 'missing');
 
+  // Check for any approved doc with a passed expiry date
+  const now = new Date();
+  const expiredDoc = documents.find(d => {
+    const s = String(d.status).toUpperCase();
+    if (s !== 'APPROVED' && s !== 'VERIFIED') {return false;}
+    if (!d.expiryDate) {return false;}
+    return new Date(d.expiryDate) < now;
+  });
+
   let nextAction: AvailabilityGateInfo['nextAction'] = 'wait_approval';
   if (!allProfileDone) {
     nextAction = 'complete_profile';
   } else if (anyDocMissing || anyDocRejected) {
     nextAction = 'upload_docs';
+  } else if (expiredDoc) {
+    nextAction = 'doc_expired';
   } else if (!allDocsApproved) {
     nextAction = 'wait_approval';
   }
+
+  const expiredDocName = expiredDoc
+    ? (expiredDoc.customName || (DOC_TYPE_LABELS as any)[String((expiredDoc as any).docType ?? expiredDoc.documentType ?? '').toUpperCase()] || String((expiredDoc as any).docType ?? expiredDoc.documentType ?? '').replace(/_/g, ' '))
+    : undefined;
 
   return {
     availabilityMode: mode,
@@ -264,7 +279,8 @@ function getAvailabilityGate(
     profileChecks,
     docChecks,
     nextAction,
-    canAccess: allProfileDone && allDocsApproved,
+    expiredDocName,
+    canAccess: allProfileDone && allDocsApproved && !expiredDoc,
   };
 }
 
@@ -364,7 +380,7 @@ function normalizeComplianceStep(
     return 'compliance.handover';
   }
   if (currentStep === 'compliance.loadcode' || currentStep === 'compliance.loadcode') {
-    return 'compliance.loadCode';
+    return 'compliance.handover';
   }
 
   const complianceJobStatus = String(
@@ -388,7 +404,7 @@ function normalizeComplianceStep(
     return 'compliance.handover';
   }
 
-  return 'compliance.loadCode';
+  return 'compliance.handover';
 }
 
 function normalizeTrackingEta(payload: Record<string, unknown> | null | undefined) {
@@ -697,6 +713,7 @@ function DriverApp(): React.JSX.Element {
   const [setupStep, setSetupStep] = useState<SetupStep>(null);
   const [setupAvailability, setSetupAvailability] = useState<string>('');
   const [setupExtraDocs, setSetupExtraDocs] = useState<{name: string; docNumber: string; docType: string}[]>([]);
+  const [setupLegal, setSetupLegal] = useState<null | 'terms' | 'privacy'>(null);
 
   // Quote accepted/rejected notification
   const [quoteStatusData, setQuoteStatusData] = useState<{
@@ -1846,12 +1863,12 @@ function DriverApp(): React.JSX.Element {
         jobReference: String(compliance?.job_ref ?? compliance?.jobReference ?? ''),
       } as DashboardOverview['activeJob']);
       if (route === 'tracking.active' || route === 'compliance.handover' || route === 'compliance.loadCode') {
-        return route;
+        return route === 'compliance.loadCode' ? 'compliance.handover' : route;
       }
     } catch {
       /* fall through */
     }
-    return 'compliance.loadCode';
+    return 'compliance.handover';
   };
 
   const handleProceedToBooking = async (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => {
@@ -1879,7 +1896,7 @@ function DriverApp(): React.JSX.Element {
       }
     } catch {
       // 404 means no booking yet — go straight to compliance
-      navigate('tracking', 'compliance.loadCode');
+      navigate('tracking', 'compliance.handover');
     }
   };
 
@@ -2254,12 +2271,14 @@ function DriverApp(): React.JSX.Element {
     documentType: string,
     expiryDate: string,
     file: any,
+    customName?: string,
   ) => {
     setActionLoading(true);
     setErrorBanner(null);
     try {
       const formData = new FormData();
       formData.append('documentType', documentType);
+      if (customName) {formData.append('customName', customName);}
       formData.append('expiryDate', expiryDate);
       if (file?.uri) {
         formData.append('file', {
@@ -2447,12 +2466,8 @@ function DriverApp(): React.JSX.Element {
         accessCode,
       };
       setShiftHandoverInfo(info);
-      // Day 1 with an access code → verify it first; otherwise go straight to handover
-      if (dayNum === 1 && accessCode) {
-        navigate('shifts', 'shifts.accessCode');
-      } else {
-        navigate('shifts', 'shifts.handover');
-      }
+      // Day 1 with an access code → go straight to handover (access code screen hidden)
+      navigate('shifts', 'shifts.handover');
     });
   };
 
@@ -2836,7 +2851,7 @@ function DriverApp(): React.JSX.Element {
   };
 
   const goBackFromHandover = () => {
-    navigate('tracking', 'compliance.loadCode');
+    navigate('tracking', 'tracking.active');
   };
 
   const goBackFromDelivery = () => {
@@ -2920,7 +2935,7 @@ function DriverApp(): React.JSX.Element {
       );
       navigate('tracking', route);
     } catch {
-      navigate('tracking', 'compliance.loadCode');
+      navigate('tracking', 'compliance.handover');
     }
   };
 
@@ -3058,13 +3073,13 @@ function DriverApp(): React.JSX.Element {
                     ✓ Payment secured — tap Start Trip
                   </Text>
                 </View>
-                {item.accessCode ? (
+                {false && item.accessCode ? (
                   <View style={styles.codeRevealRow}>
                     <Text style={styles.codeRevealLabel}>Access Code</Text>
                     <Text style={styles.codeRevealValue}>{String(item.accessCode)}</Text>
                   </View>
                 ) : null}
-                {item.loadCode ? (
+                {false && item.loadCode ? (
                   <View style={styles.codeRevealRow}>
                     <Text style={styles.codeRevealLabel}>Load Code</Text>
                     <Text style={styles.codeRevealValue}>{String(item.loadCode)}</Text>
@@ -3237,7 +3252,7 @@ function DriverApp(): React.JSX.Element {
       }
 
       // ── Access Code screen (Day 1, if shift has an access code) ───────────
-      if (activeRoute === 'shifts.accessCode' && shiftHandoverInfo) {
+      if (false && activeRoute === 'shifts.accessCode' && shiftHandoverInfo) {
         return (
           <ShiftAccessCodeScreen
             shiftId={shiftHandoverInfo.shiftId}
@@ -3345,12 +3360,14 @@ function DriverApp(): React.JSX.Element {
           onGoToDocuments={goToShiftDocuments}
           onGoToProfile={() => navigate('profile', 'profile.edit')}
           onGoToAvailability={() => navigate('profile', 'profile.edit')}
+          paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete)}
+          onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
         />
       );
     }
 
     // ── COMPLIANCE SCREENS (must be checked BEFORE tracking tab check) ──────────
-    if (activeRoute === 'compliance.loadCode') {
+    if (false && activeRoute === 'compliance.loadCode') {
       const lcJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
       const lcJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? lcJobId;
       const lcVerified = complianceStatus?.load_code_verified === true;
@@ -3441,7 +3458,7 @@ function DriverApp(): React.JSX.Element {
               if (selectedBooking) {
                 setComplianceJobId(selectedBooking.jobId);
                 setComplianceStatus(null);
-                navigate('tracking', 'compliance.loadCode');
+                navigate('tracking', 'compliance.handover');
               } else {
                 navigate('jobs', 'jobs.myQuotes');
               }
@@ -3661,6 +3678,8 @@ function DriverApp(): React.JSX.Element {
             loading={actionLoading}
             error={errorBanner}
             isApplied={myQuotes.some(q => String(q.jobId) === String(selectedJob?.jobId ?? ''))}
+            paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete)}
+            onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
           />
         );
       }
@@ -3757,7 +3776,7 @@ function DriverApp(): React.JSX.Element {
                 const route = await resolveComplianceRoute(escrowJobId);
                 navigate('tracking', route);
               } else {
-                navigate('tracking', 'compliance.loadCode');
+                navigate('tracking', 'compliance.handover');
               }
             }}
             onBack={() => {
@@ -4182,7 +4201,7 @@ function DriverApp(): React.JSX.Element {
       case 'compliance.scanner':
         return (
           <ScannerInterfaceScreen
-            onClose={() => navigate('tracking', 'compliance.loadCode')}
+            onClose={() => navigate('tracking', 'compliance.handover')}
           />
         );
       case 'legal.terms':
@@ -4372,6 +4391,22 @@ function DriverApp(): React.JSX.Element {
   // ─── Post-login setup flow ────────────────────────────────────────────────────
 
   if (session && setupStep === 'profile') {
+    if (setupLegal === 'terms') {
+      return (
+        <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+          <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+          <TermsAndConditionsScreen onBack={() => setSetupLegal(null)} />
+        </SafeAreaView>
+      );
+    }
+    if (setupLegal === 'privacy') {
+      return (
+        <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+          <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+          <PrivacyPolicyScreen onBack={() => setSetupLegal(null)} />
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
         <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
@@ -4387,6 +4422,8 @@ function DriverApp(): React.JSX.Element {
           }}
           loading={actionLoading}
           error={errorBanner}
+          onTermsPress={() => setSetupLegal('terms')}
+          onPrivacyPress={() => setSetupLegal('privacy')}
         />
       </SafeAreaView>
     );

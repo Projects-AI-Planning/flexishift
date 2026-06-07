@@ -183,11 +183,11 @@ const BookingAcceptanceScreen: React.FC<BookingAcceptanceScreenProps> = ({
               </View>
             </View>
             <View style={styles.divider} />
-            <Text style={styles.nextStepHint}>
+            {false && <Text style={styles.nextStepHint}>
               Head to the pickup location and enter the access code provided by the haulier to begin.
-            </Text>
+            </Text>}
             <Pressable onPress={onBack} style={styles.proceedBtn}>
-              <Text style={styles.proceedBtnText}>Continue to Access Code →</Text>
+              <Text style={styles.proceedBtnText}>Continue →</Text>
             </Pressable>
           </View>
         ) : (

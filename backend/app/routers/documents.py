@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -6,9 +7,10 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.document import Document, DocType, DocStatus
 from app.models.local_upload import LocalUploadKind, LocalUploadStatus
-from app.models.user import User
+from app.models.user import User, Role
 from app.services import documents as doc_svc
 from app.services import local_storage as local_svc
+from app.services.notifications import create_notification
 from app.config import settings
 
 router = APIRouter(prefix="/users/me/documents", tags=["Documents"])
@@ -29,6 +31,7 @@ def _doc_dict(d: Document) -> dict:
         "fileUrl": _fix_url(d.file_url),
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
+        "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
         "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
         "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
@@ -111,8 +114,21 @@ def get_my_document(
     return ok(data=_doc_dict(doc), message="Document retrieved")
 
 
+async def _notify_admins_new_doc(db: Session, submitter: User, doc: Document) -> None:
+    admins = db.query(User).filter(User.role == Role.ADMIN).all()
+    doc_label = doc.doc_type.value.replace("_", " ").title()
+    for admin in admins:
+        await create_notification(
+            db, admin.id, "DOCUMENT_SUBMITTED",
+            "New Document for Review",
+            f"{submitter.full_name} submitted a {doc_label} for verification.",
+            {"doc_id": doc.id, "doc_type": doc.doc_type.value, "user_id": submitter.id},
+        )
+    db.commit()
+
+
 @router.post("", status_code=201)
-def submit_document(
+async def submit_document(
     doc_type: str = Query(...),
     file_url: str = Query(...),
     db: Session = Depends(get_db),
@@ -120,14 +136,16 @@ def submit_document(
 ):
     _validate_doc_type(doc_type)
     doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
+    await _notify_admins_new_doc(db, current_user, doc)
     return created(data=_doc_dict(doc), message="Document submitted for review")
 
 
 @router.post("/submit-upload", status_code=201)
-def submit_uploaded_document(
+async def submit_uploaded_document(
     request: Request,
     doc_type: str = Query(...),
     key: str = Query(...),
+    expiry_date: str = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -141,5 +159,16 @@ def submit_uploaded_document(
         if upload.status != LocalUploadStatus.STORED:
             raise HTTPException(status_code=400, detail="File has not been uploaded yet. Please upload the file first.")
         file_url = upload.public_url or local_svc.local_upload_url(request, key)
-    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
+
+    parsed_expiry = None
+    if expiry_date:
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                parsed_expiry = datetime.strptime(expiry_date.strip(), fmt)
+                break
+            except ValueError:
+                continue
+
+    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url, expiry_date=parsed_expiry)
+    await _notify_admins_new_doc(db, current_user, doc)
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")

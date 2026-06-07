@@ -590,7 +590,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               )}
 
               {/* Codes */}
-              {(detail.loadCode || detail.accessCode) && (
+              {false && (detail.loadCode || detail.accessCode) && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
                   {detail.loadCode && (
@@ -655,7 +655,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {activeQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} />
                 ))}
               </div>
             </div>
@@ -668,7 +668,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} />
                 ))}
               </div>
             </div>
@@ -684,12 +684,14 @@ interface BidCardProps {
   actionLoading: string | null;
   onApprove: (quoteId: string) => void;
   onReject: (quoteId: string) => void;
+  driverRequirement?: string;
 }
 
-const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject }) => {
+const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject, driverRequirement }) => {
   const isActive = quote.status.toUpperCase() === 'ACTIVE';
   const isWorking = actionLoading === quote.quoteId;
   const sup = quote.supplier;
+  const isDriverOnly = (driverRequirement ?? '').toUpperCase() === 'DRIVER_ONLY';
 
   return (
     <div className={`rounded-2xl border p-4 transition ${isActive ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60'}`}>
@@ -708,13 +710,13 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
           </div>
 
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-            {sup?.vehicleType && (
+            {!isDriverOnly && sup?.vehicleType && (
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">local_shipping</span>
                 {sup.vehicleType}
               </span>
             )}
-            {sup?.vehicleNumber && (
+            {!isDriverOnly && sup?.vehicleNumber && (
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">confirmation_number</span>
                 {sup.vehicleNumber}
@@ -734,8 +736,8 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
             )}
           </div>
 
-          {/* Truck info — shown when driver has a truck */}
-          {(sup?.driverAvailability === 'TRUCK_ONLY' || sup?.driverAvailability === 'DRIVER_WITH_TRUCK') && (
+          {/* Truck info — hidden when job requires driver only */}
+          {!isDriverOnly && (sup?.driverAvailability === 'TRUCK_ONLY' || sup?.driverAvailability === 'DRIVER_WITH_TRUCK') && (
             <div className="mt-2 rounded-xl border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-2 space-y-2">
               <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]">
                 {sup.driverAvailability === 'TRUCK_ONLY' ? 'Truck Only' : 'Driver with Truck'}
@@ -1625,7 +1627,7 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
               )}
 
               {/* Codes */}
-              {(detail.loadCode || detail.accessCode) && (
+              {false && (detail.loadCode || detail.accessCode) && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
                   {detail.loadCode && (
@@ -2232,7 +2234,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                         </div>
                         <div>
                           <p className="font-black text-[#041627]">{job.jobReference ?? job.jobRef}</p>
-                          {job.loadCode ? (
+                          {false && job.loadCode ? (
                             <button
                               onClick={() => { void navigator.clipboard.writeText(job.loadCode ?? ''); }}
                               className="flex items-center gap-1 mt-0.5 group"
@@ -2242,7 +2244,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                               <span className="material-symbols-outlined text-[11px] text-slate-400 group-hover:text-primary">content_copy</span>
                             </button>
                           ) : (
-                            <p className="text-xs text-slate-400">No load code</p>
+                            false && <p className="text-xs text-slate-400">No load code</p>
                           )}
                         </div>
                       </div>
@@ -2301,7 +2303,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                               <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>
                               <span className="text-xs font-black text-emerald-700">Payment Secured</span>
                             </div>
-                            {job.loadCode && (
+                            {false && job.loadCode && (
                               <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1.5">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-0.5">Load Code</p>
                                 <div className="flex items-center gap-2">
