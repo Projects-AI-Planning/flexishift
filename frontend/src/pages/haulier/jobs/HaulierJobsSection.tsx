@@ -691,7 +691,11 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
   const isActive = quote.status.toUpperCase() === 'ACTIVE';
   const isWorking = actionLoading === quote.quoteId;
   const sup = quote.supplier;
-  const isDriverOnly = (driverRequirement ?? '').toUpperCase() === 'DRIVER_ONLY';
+  const req = (driverRequirement ?? 'DRIVER_WITH_TRUCK').toUpperCase();
+  const isDriverOnly    = req === 'DRIVER_ONLY';
+  const isTruckOnly     = req === 'TRUCK_ONLY';
+  const isDriverWithTruck = req === 'DRIVER_WITH_TRUCK';
+  const showTruckBlock  = isTruckOnly || isDriverWithTruck;
 
   return (
     <div className={`rounded-2xl border p-4 transition ${isActive ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60'}`}>
@@ -710,13 +714,13 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
           </div>
 
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-            {!isDriverOnly && sup?.vehicleType && (
+            {showTruckBlock && sup?.vehicleType && (
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">local_shipping</span>
                 {sup.vehicleType}
               </span>
             )}
-            {!isDriverOnly && sup?.vehicleNumber && (
+            {showTruckBlock && sup?.vehicleNumber && (
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">confirmation_number</span>
                 {sup.vehicleNumber}
@@ -736,11 +740,11 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
             )}
           </div>
 
-          {/* Truck info — hidden when job requires driver only */}
-          {!isDriverOnly && (sup?.driverAvailability === 'TRUCK_ONLY' || sup?.driverAvailability === 'DRIVER_WITH_TRUCK') && (
+          {/* Truck info — shown for TRUCK_ONLY and DRIVER_WITH_TRUCK jobs */}
+          {showTruckBlock && (
             <div className="mt-2 rounded-xl border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-2 space-y-2">
               <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]">
-                {sup.driverAvailability === 'TRUCK_ONLY' ? 'Truck Only' : 'Driver with Truck'}
+                {isTruckOnly ? 'Truck Only' : 'Driver with Truck'}
               </p>
 
               {/* Stats: Capacity + Compartment count */}

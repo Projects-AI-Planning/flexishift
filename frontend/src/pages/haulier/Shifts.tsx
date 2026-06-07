@@ -742,7 +742,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {pendingQuotes.map((q) => (
-                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} />
+                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} requirementType={shift.requirementType} />
                 ))}
               </div>
             </div>
@@ -755,7 +755,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} />
+                  <QuoteCard key={q.quoteId} quote={q} actionLoading={actionLoading} onAccept={onAccept} requirementType={shift.requirementType} />
                 ))}
               </div>
             </div>
@@ -773,13 +773,18 @@ interface QuoteCardProps {
   quote: QuoteItem;
   actionLoading: string | null;
   onAccept: (quoteId: string) => void;
+  requirementType: string;
 }
 
 const PLATFORM_FEE_RATE = 0.125; // 12.5 %
 
-const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept }) => {
+const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept, requirementType }) => {
   const isPending  = quote.status.toUpperCase() === 'PENDING';
   const isWorking  = actionLoading === quote.quoteId;
+  const req = (requirementType ?? 'TRUCK_WITH_DRIVER').toUpperCase();
+  const isTruckOnly      = req === 'TRUCK_ONLY';
+  const isTruckWithDriver = req === 'TRUCK_WITH_DRIVER';
+  const showTruckBlock   = isTruckOnly || isTruckWithDriver;
 
   const driverFeePerDay  = Number(quote.amountPerDay);
   const platformFeePerDay = Math.round(driverFeePerDay * PLATFORM_FEE_RATE * 100) / 100;
@@ -824,19 +829,24 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept })
         </div>
       </div>
 
-      {/* Vehicle info — shown only for TRUCK_WITH_DRIVER / TRUCK_ONLY shifts */}
-      {(quote.vehicleType || quote.vehicleRegistration) && (
-        <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5">
-          <span className="material-symbols-outlined text-slate-400 text-[18px]">local_shipping</span>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-            {quote.vehicleType && (
-              <span className="text-xs font-bold text-[#044474]">{quote.vehicleType}</span>
-            )}
-            {quote.vehicleRegistration && (
-              <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#44474C]">
-                {quote.vehicleRegistration}
-              </span>
-            )}
+      {/* Vehicle info — shown for TRUCK_ONLY and TRUCK_WITH_DRIVER shifts */}
+      {showTruckBlock && (quote.vehicleType || quote.vehicleRegistration) && (
+        <div className="mt-3 rounded-xl border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-2.5 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]">
+            {isTruckOnly ? 'Truck Only' : 'Driver with Truck'}
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1066b1] text-[18px]">local_shipping</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+              {quote.vehicleType && (
+                <span className="text-xs font-bold text-[#044474]">{quote.vehicleType}</span>
+              )}
+              {quote.vehicleRegistration && (
+                <span className="rounded bg-white border border-[#1066b1]/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#44474C]">
+                  {quote.vehicleRegistration}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}
