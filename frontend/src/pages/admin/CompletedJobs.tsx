@@ -28,10 +28,6 @@ const CompletedJobsPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">payments</span>
             ${totalRevenue.toLocaleString()} (this page)
           </div>
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export
-          </button>
         </div>
       </div>
 
