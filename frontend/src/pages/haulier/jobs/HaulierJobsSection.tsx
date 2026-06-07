@@ -105,6 +105,7 @@ type JobDetail = {
     stopLabel?: string | null;
   }> | null;
   driverRequirement?: string;
+  deliverBy?: string | null;
   stops?: Array<{
     order?: number;
     address?: string;
@@ -655,7 +656,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {activeQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDate={detail?.jobDate} />
                 ))}
               </div>
             </div>
@@ -668,7 +669,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDate={detail?.jobDate} />
                 ))}
               </div>
             </div>
@@ -685,13 +686,23 @@ interface BidCardProps {
   onApprove: (quoteId: string) => void;
   onReject: (quoteId: string) => void;
   driverRequirement?: string;
+  jobDeliverBy?: string | null;
+  jobDate?: string | null;
 }
 
-const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject, driverRequirement }) => {
+const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject, driverRequirement, jobDeliverBy, jobDate }) => {
   const isActive = quote.status.toUpperCase() === 'ACTIVE';
   const isWorking = actionLoading === quote.quoteId;
   const sup = quote.supplier;
   const req = (driverRequirement ?? 'DRIVER_WITH_TRUCK').toUpperCase();
+
+  // True when driver's proposed deliver-by is later than the job's required deliver-by
+  const isDeliverByLate: boolean = (() => {
+    if (!quote.deliverBy || !jobDeliverBy || !jobDate) return false;
+    const jobDeadline = new Date(`${jobDate}T${jobDeliverBy}:00`);
+    const driverTime  = new Date(quote.deliverBy);
+    return !isNaN(jobDeadline.getTime()) && !isNaN(driverTime.getTime()) && driverTime > jobDeadline;
+  })();
   const isDriverOnly    = req === 'DRIVER_ONLY';
   const isTruckOnly     = req === 'TRUCK_ONLY';
   const isDriverWithTruck = req === 'DRIVER_WITH_TRUCK';
@@ -776,13 +787,13 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
           )}
 
           {/* Deliver By & Stop ETAs — always visible */}
-          <div className="mt-3 rounded-xl border border-[#1066b1]/15 bg-[#1066b1]/5 px-3 py-2.5 space-y-2">
+          <div className={`mt-3 rounded-xl border px-3 py-2.5 space-y-2 ${isDeliverByLate ? 'border-red-200 bg-red-50' : 'border-[#1066b1]/15 bg-[#1066b1]/5'}`}>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">
-                <span className="material-symbols-outlined text-[13px]">schedule</span>
-                Deliver By
+              <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest ${isDeliverByLate ? 'text-red-500' : 'text-[#1066b1]'}`}>
+                <span className="material-symbols-outlined text-[13px]">{isDeliverByLate ? 'warning' : 'schedule'}</span>
+                Deliver By{isDeliverByLate && ' · Late'}
               </span>
-              <span className="text-xs font-black text-[#041627]">
+              <span className={`text-xs font-black ${isDeliverByLate ? 'text-red-600' : 'text-[#041627]'}`}>
                 {quote.deliverBy
                   ? new Date(quote.deliverBy).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
                   : '—'}
