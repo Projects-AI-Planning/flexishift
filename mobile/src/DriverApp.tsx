@@ -115,6 +115,7 @@ const palette = {
   ink: '#041627',
   inkSoft: '#44474C',
   nav: '#102235',
+  navy: '#102235',
   success: '#18794E',
 };
 
