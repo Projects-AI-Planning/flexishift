@@ -2185,7 +2185,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
 
       {/* Embedded tab pages */}
       {activeStatus === 'HANDOVER' && <HaulierHandoverPage />}
-      {activeStatus === 'DELIVERY_REPORTS' && <HaulierDeliveryReportsPage />}
+      {activeStatus === 'DELIVERY_REPORTS' && <HaulierDeliveryReportsPage onlyTab="jobs" />}
 
       {activeStatus !== 'HANDOVER' && activeStatus !== 'DELIVERY_REPORTS' && <>
 

@@ -63,8 +63,8 @@ const fmtCurrency = (amount?: number | null, currency?: string | null) => {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function HaulierDeliveryReportsPage() {
-  const [tab, setTab] = useState<'jobs' | 'shifts'>('jobs');
+export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'jobs' | 'shifts' } = {}) {
+  const [tab, setTab] = useState<'jobs' | 'shifts'>(onlyTab ?? 'jobs');
 
   // ── Jobs state ──────────────────────────────────────────────────────────────
   const [jobs, setJobs] = useState<PendingJob[]>([]);
@@ -235,28 +235,30 @@ export default function HaulierDeliveryReportsPage() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 w-fit">
-        {([['jobs', 'Job Deliveries'], ['shifts', 'Shift Day Proofs']] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`rounded-xl px-5 py-2 text-sm font-black transition-all ${
-              tab === key
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-slate-500 hover:text-primary'
-            }`}
-          >
-            {label}
-            {key === 'jobs' && jobs.length > 0 && (
-              <span className="ml-2 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-black text-white">{jobs.length}</span>
-            )}
-            {key === 'shifts' && shifts.length > 0 && (
-              <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-black text-white">{shifts.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — hidden when locked to a single tab */}
+      {!onlyTab && (
+        <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 w-fit">
+          {([['jobs', 'Job Deliveries'], ['shifts', 'Shift Day Proofs']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-xl px-5 py-2 text-sm font-black transition-all ${
+                tab === key
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-slate-500 hover:text-primary'
+              }`}
+            >
+              {label}
+              {key === 'jobs' && jobs.length > 0 && (
+                <span className="ml-2 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-black text-white">{jobs.length}</span>
+              )}
+              {key === 'shifts' && shifts.length > 0 && (
+                <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-black text-white">{shifts.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Jobs Tab ──────────────────────────────────────────────────────────── */}
       {tab === 'jobs' && (

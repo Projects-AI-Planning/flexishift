@@ -5,6 +5,7 @@ import { fmtMoney } from '../../utils/currency';
 import ConfirmModal from '../../components/ConfirmModal';
 import SignatureRenderer from '../../components/SignatureRenderer';
 import ShiftsHandoverPage from './ShiftsHandover';
+import HaulierDeliveryReportsPage from './DeliveryReports';
 
 // ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
 declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
@@ -21,7 +22,7 @@ const loadStripe = (): Promise<void> => {
   });
 };
 
-type ShiftStatus = 'OPEN' | 'BOOKED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' | 'HANDOVER';
+type ShiftStatus = 'OPEN' | 'BOOKED' | 'HANDOVER' | 'IN_PROGRESS' | 'DELIVERY_REPORTS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 type RequirementType = 'DRIVER_ONLY' | 'TRUCK_WITH_DRIVER' | 'TRUCK_ONLY';
 
 interface StopItem {
@@ -125,12 +126,28 @@ const SECTIONS: SectionMeta[] = [
     tone: 'bg-indigo-50 text-indigo-700 border-indigo-100',
   },
   {
+    key: 'HANDOVER',
+    label: 'Handover',
+    title: 'Shift Handovers',
+    description: 'Pre-trip vehicle handover records submitted by drivers.',
+    icon: 'fact_check',
+    tone: 'bg-violet-50 text-violet-700 border-violet-100',
+  },
+  {
     key: 'IN_PROGRESS',
     label: 'In Progress',
     title: 'Active Shifts',
     description: 'Shifts currently underway.',
     icon: 'local_shipping',
     tone: 'bg-amber-50 text-amber-700 border-amber-100',
+  },
+  {
+    key: 'DELIVERY_REPORTS',
+    label: 'Delivery Reports',
+    title: 'Delivery Reports',
+    description: 'End-of-day delivery proofs submitted by drivers.',
+    icon: 'assignment_turned_in',
+    tone: 'bg-teal-50 text-teal-700 border-teal-100',
   },
   {
     key: 'COMPLETED',
@@ -155,14 +172,6 @@ const SECTIONS: SectionMeta[] = [
     description: 'Open shifts whose start date has passed without a driver being booked.',
     icon: 'schedule_send',
     tone: 'bg-orange-50 text-orange-600 border-orange-100',
-  },
-  {
-    key: 'HANDOVER',
-    label: 'Handover',
-    title: 'Shift Handovers',
-    description: 'Pre-trip vehicle handover records submitted by drivers.',
-    icon: 'fact_check',
-    tone: 'bg-violet-50 text-violet-700 border-violet-100',
   },
 ];
 
@@ -1542,13 +1551,14 @@ const HaulierShiftsPage: React.FC = () => {
 
   /* Column count for empty state colspan */
   const colCount =
-    activeStatus === 'OPEN'        ? 6 :
-    activeStatus === 'BOOKED'      ? 7 :
-    activeStatus === 'IN_PROGRESS' ? 7 :
-    activeStatus === 'EXPIRED'     ? 5 :
-    activeStatus === 'HANDOVER'    ? 7 :
-    activeStatus === 'COMPLETED'   ? 6 :
-    /* CANCELLED */                  6;
+    activeStatus === 'OPEN'             ? 6 :
+    activeStatus === 'BOOKED'           ? 7 :
+    activeStatus === 'IN_PROGRESS'      ? 7 :
+    activeStatus === 'EXPIRED'          ? 5 :
+    activeStatus === 'HANDOVER'         ? 7 :
+    activeStatus === 'DELIVERY_REPORTS' ? 5 :
+    activeStatus === 'COMPLETED'        ? 6 :
+    /* CANCELLED */                       6;
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
@@ -1626,7 +1636,7 @@ const HaulierShiftsPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#041627]">{activeSection.title}</h1>
           <p className="text-sm font-medium text-slate-500">{activeSection.description}</p>
         </div>
-        {activeStatus !== 'HANDOVER' && (
+        {activeStatus !== 'HANDOVER' && activeStatus !== 'DELIVERY_REPORTS' && (
           <div className="flex gap-3">
             <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
@@ -1674,10 +1684,11 @@ const HaulierShiftsPage: React.FC = () => {
         </button>
       </section>
 
-      {/* Embedded handover page */}
+      {/* Embedded tab pages */}
       {activeStatus === 'HANDOVER' && <ShiftsHandoverPage />}
+      {activeStatus === 'DELIVERY_REPORTS' && <HaulierDeliveryReportsPage onlyTab="shifts" />}
 
-      {activeStatus !== 'HANDOVER' && <>
+      {activeStatus !== 'HANDOVER' && activeStatus !== 'DELIVERY_REPORTS' && <>
 
       {/* Stats row */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-3">
