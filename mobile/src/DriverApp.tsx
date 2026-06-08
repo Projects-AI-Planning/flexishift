@@ -2472,26 +2472,33 @@ function DriverApp(): React.JSX.Element {
     const haulierId     = String(shift?.haulierId ?? '');
     const accessCode    = shift?.accessCode ? String(shift.accessCode) : null;
 
+    const info = {
+      shiftId,
+      shiftRef:      ref,
+      dayNumber:     dayNum,
+      totalDays,
+      daysCompleted,
+      pickupAddress: String(shift?.pickupAddress ?? shift?.location ?? ''),
+      dropAddress:   String(shift?.dropAddress ?? ''),
+      pickupLat:     shift?.pickupLat != null ? Number(shift.pickupLat) : null,
+      pickupLng:     shift?.pickupLng != null ? Number(shift.pickupLng) : null,
+      dropLat:       shift?.dropLat   != null ? Number(shift.dropLat)  : null,
+      dropLng:       shift?.dropLng   != null ? Number(shift.dropLng)  : null,
+      haulierId,
+      accessCode,
+    };
+
+    // Handover already completed — skip straight to tracking
+    if (shift?.handoverSubmitted && shift?.handoverHaulierSigned) {
+      setShiftHandoverInfo(info);
+      navigate('shifts', 'shifts.tracking');
+      return;
+    }
+
     await runAction(async () => {
       await driverApi.shifts.startDay(shiftId);
       await loadShifts();
-      const info = {
-        shiftId,
-        shiftRef:      ref,
-        dayNumber:     dayNum,
-        totalDays,
-        daysCompleted,
-        pickupAddress: String(shift?.pickupAddress ?? shift?.location ?? ''),
-        dropAddress:   String(shift?.dropAddress ?? ''),
-        pickupLat:     shift?.pickupLat != null ? Number(shift.pickupLat) : null,
-        pickupLng:     shift?.pickupLng != null ? Number(shift.pickupLng) : null,
-        dropLat:       shift?.dropLat   != null ? Number(shift.dropLat)  : null,
-        dropLng:       shift?.dropLng   != null ? Number(shift.dropLng)  : null,
-        haulierId,
-        accessCode,
-      };
       setShiftHandoverInfo(info);
-      // Day 1 with an access code → go straight to handover (access code screen hidden)
       navigate('shifts', 'shifts.handover');
     });
   };

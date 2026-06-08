@@ -220,13 +220,17 @@ export default function ShiftsHandoverPage() {
 
   const handleSign = async (signatureData: string) => {
     if (!selectedShift) return;
+    const shiftId = selectedShift.shiftId;
     setSignLoading(true);
     setSignError('');
     try {
-      await haulierService.signShiftHandover(selectedShift.shiftId, signatureData);
+      await haulierService.signShiftHandover(shiftId, signatureData);
       setSignModal(false);
       setSuccess(`Handover signed for ${selectedShift.shiftRef} — driver can now start their trip.`);
       await loadShifts();
+      // useEffect only fires on shiftId change — re-fetch detail explicitly after signing
+      const updatedDetail = await haulierService.getShiftHandoverStatus(shiftId);
+      setDetail(updatedDetail as HandoverStatus);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setSignError(e.response?.data?.message ?? (err instanceof Error ? err.message : 'Failed to sign handover.'));

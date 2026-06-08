@@ -1909,7 +1909,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
         };
       }
     });
-    setHandoverMap(map);
+    setHandoverMap((prev) => ({ ...prev, ...map }));
   }, [activeStatus]);
 
   useEffect(() => {

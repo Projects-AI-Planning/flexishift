@@ -70,6 +70,8 @@ interface ShiftItem {
   pickupLat?: number;
   pickupLng?: number;
   currentDayEscrowed?: boolean;
+  handoverSubmitted?: boolean;
+  handoverHaulierSigned?: boolean;
 }
 
 interface ShiftQuoteItem {
@@ -679,7 +681,21 @@ function BookedShiftCard({
 
       {/* ── Day-start panel (shown for all active shifts) ── */}
       {isOngoing && (
-        shift.currentDayEscrowed ? (
+        (shift.handoverSubmitted && shift.handoverHaulierSigned) ? (
+          <Pressable
+            onPress={() => onStartDay && onStartDay(shift.shiftId)}
+            style={styles.startDayBtn}>
+            <Text style={styles.startDayBtnText}>
+              ▶  Continue Day {currentDay} Trip
+            </Text>
+          </Pressable>
+        ) : (shift.handoverSubmitted && !shift.handoverHaulierSigned) ? (
+          <View style={styles.awaitingPayBanner}>
+            <Text style={styles.awaitingPayText}>
+              🔏  Handover submitted — awaiting haulier signature
+            </Text>
+          </View>
+        ) : shift.currentDayEscrowed ? (
           <Pressable
             onPress={() => onStartDay && onStartDay(shift.shiftId)}
             style={styles.startDayBtn}>
