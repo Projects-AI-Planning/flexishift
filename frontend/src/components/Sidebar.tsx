@@ -217,15 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/shifts/handover', label: 'Handover' },
       ],
     },
-    {
-      icon: 'local_shipping',
-      label: 'My Jobs',
-      children: [
-        { to: '/haulier/jobs', label: 'All Jobs' },
-        { to: '/haulier/jobs/handover', label: 'Handover' },
-        { to: '/haulier/jobs/delivery-reports', label: 'Delivery Reports' },
-      ],
-    },
+    { to: '/haulier/jobs', icon: 'local_shipping', label: 'My Jobs' },
     // { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },
     {

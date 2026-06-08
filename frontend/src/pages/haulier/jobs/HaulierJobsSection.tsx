@@ -4,8 +4,10 @@ import { useHaulierJobs } from '../../../hooks/useHaulier';
 import haulierService from '../../../api/haulierService';
 import { fmtMoney } from '../../../utils/currency';
 import ConfirmModal from '../../../components/ConfirmModal';
+import HaulierHandoverPage from '../Handover';
+import HaulierDeliveryReportsPage from '../DeliveryReports';
 
-type JobStatus = 'OPEN' | 'BOOKED' | 'IN_TRANSIT' | 'COMPLETED' | 'EXPIRED';
+type JobStatus = 'OPEN' | 'BOOKED' | 'HANDOVER' | 'IN_TRANSIT' | 'DELIVERY_REPORTS' | 'COMPLETED' | 'EXPIRED';
 
 type QuoteRow = {
   quoteId: string;
@@ -148,12 +150,28 @@ const SECTIONS: SectionMeta[] = [
     tone: 'bg-indigo-50 text-indigo-700 border-indigo-100',
   },
   {
+    key: 'HANDOVER',
+    label: 'Handover',
+    title: 'Handover',
+    description: 'Jobs awaiting or pending handover sign-off.',
+    icon: 'fact_check',
+    tone: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+  },
+  {
     key: 'IN_TRANSIT',
     label: 'In Transit',
     title: 'Active Trip',
     description: 'Jobs currently moving with active handover or live tracking.',
     icon: 'local_shipping',
     tone: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  },
+  {
+    key: 'DELIVERY_REPORTS',
+    label: 'Delivery Reports',
+    title: 'Delivery Reports',
+    description: 'Delivery confirmation reports for completed trips.',
+    icon: 'assignment_turned_in',
+    tone: 'bg-teal-50 text-teal-700 border-teal-100',
   },
   {
     key: 'COMPLETED',
@@ -2098,16 +2116,18 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#041627]">{activeSection.title}</h1>
           <p className="text-sm font-medium text-slate-500">{activeSection.description}</p>
         </div>
-        <div className="flex gap-3">
-          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
-            <p className="mt-1 text-2xl font-black text-[#041627]">{String(data?.total ?? jobs.length).padStart(2, '0')}</p>
+        {activeStatus !== 'HANDOVER' && activeStatus !== 'DELIVERY_REPORTS' && (
+          <div className="flex gap-3">
+            <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
+              <p className="mt-1 text-2xl font-black text-[#041627]">{String(data?.total ?? jobs.length).padStart(2, '0')}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
+              <p className="mt-1 text-2xl font-black text-[#041627]">{page} / {totalPages}</p>
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
-            <p className="mt-1 text-2xl font-black text-[#041627]">{page} / {totalPages}</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ── Signature required banner ── */}
@@ -2162,6 +2182,12 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           Refresh
         </button>
       </section>
+
+      {/* Embedded tab pages */}
+      {activeStatus === 'HANDOVER' && <HaulierHandoverPage />}
+      {activeStatus === 'DELIVERY_REPORTS' && <HaulierDeliveryReportsPage />}
+
+      {activeStatus !== 'HANDOVER' && activeStatus !== 'DELIVERY_REPORTS' && <>
 
       {/* Stats row */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-3">
@@ -2441,6 +2467,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 };
