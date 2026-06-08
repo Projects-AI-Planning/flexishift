@@ -113,7 +113,7 @@ export default function HaulierNotificationsPage() {
   const items = data?.notifications ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.totalNotifications ?? 0) / limit));
 
-  const unreadBreakdown = Object.entries(unread?.breakdown ?? {});
+  const _unreadBreakdown = Object.entries(unread?.breakdown ?? {});
 
   return (
     <div className="space-y-8">

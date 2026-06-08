@@ -652,17 +652,6 @@ export default function HaulierDeliveryReportsPage() {
 
 // ── Stripe helper ──────────────────────────────────────────────────────────────
 
-declare global {
-  interface Window {
-    Stripe?: (key: string) => {
-      confirmCardPayment: (
-        clientSecret: string,
-        data?: { payment_method: string }
-      ) => Promise<{ error?: { message?: string }; paymentIntent?: { status: string } }>;
-    };
-  }
-}
-
 async function loadStripeAndConfirm(clientSecret: string, publishableKey: string): Promise<void> {
   if (!window.Stripe) {
     await new Promise<void>((resolve, reject) => {

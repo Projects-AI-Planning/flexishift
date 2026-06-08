@@ -101,7 +101,7 @@ function haversineM(a: {latitude: number; longitude: number}, b: {latitude: numb
 // Fetch road-snapped route from Google Directions via backend
 async function fetchRoadRoute(
   waypoints: Array<{latitude: number; longitude: number}>,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ): Promise<google.maps.LatLngLiteral[]> {
   if (waypoints.length < 2) return [];
   const origin = waypoints[0];

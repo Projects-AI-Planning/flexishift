@@ -591,27 +591,27 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               )}
 
               {/* Codes */}
-              {false && (detail.loadCode || detail.accessCode) && (
+              {false && (detail?.loadCode || detail?.accessCode) && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
-                  {detail.loadCode && (
+                  {detail?.loadCode && (
                     <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Load Code</p>
-                        <p className="font-mono text-base font-black text-[#041627]">{detail.loadCode}</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail?.loadCode}</p>
                       </div>
-                      <button onClick={() => { void navigator.clipboard.writeText(detail.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                      <button onClick={() => { void navigator.clipboard.writeText(detail?.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                       </button>
                     </div>
                   )}
-                  {detail.accessCode && (
+                  {detail?.accessCode && (
                     <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Access Code</p>
-                        <p className="font-mono text-base font-black text-[#041627]">{detail.accessCode}</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail?.accessCode}</p>
                       </div>
-                      <button onClick={() => { void navigator.clipboard.writeText(detail.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                      <button onClick={() => { void navigator.clipboard.writeText(detail?.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                       </button>
                     </div>
@@ -703,7 +703,7 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
     const driverTime  = new Date(quote.deliverBy);
     return !isNaN(jobDeadline.getTime()) && !isNaN(driverTime.getTime()) && driverTime > jobDeadline;
   })();
-  const isDriverOnly    = req === 'DRIVER_ONLY';
+  const _isDriverOnly   = req === 'DRIVER_ONLY';
   const isTruckOnly     = req === 'TRUCK_ONLY';
   const isDriverWithTruck = req === 'DRIVER_WITH_TRUCK';
   const showTruckBlock  = isTruckOnly || isDriverWithTruck;
@@ -762,18 +762,18 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-white border border-[#1066b1]/15 px-2.5 py-1.5 text-center">
                   <p className="text-[8px] font-black uppercase tracking-widest text-[#1066b1]/70 mb-0.5">Capacity</p>
-                  <p className="text-xs font-black text-[#041627]">{sup.truckCapacity ?? '—'}</p>
+                  <p className="text-xs font-black text-[#041627]">{sup?.truckCapacity ?? '—'}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-[#1066b1]/15 px-2.5 py-1.5 text-center">
                   <p className="text-[8px] font-black uppercase tracking-widest text-[#1066b1]/70 mb-0.5">Compartments</p>
                   <p className="text-xs font-black text-[#041627]">
-                    {sup.equipmentDetails && sup.equipmentDetails.length > 0 ? sup.equipmentDetails.length : '—'}
+                    {sup?.equipmentDetails && sup.equipmentDetails.length > 0 ? sup.equipmentDetails.length : '—'}
                   </p>
                 </div>
               </div>
 
               {/* Individual compartment chips */}
-              {sup.equipmentDetails && sup.equipmentDetails.length > 0 && (
+              {sup?.equipmentDetails && sup.equipmentDetails.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {sup.equipmentDetails.map((c, i) => (
                     <span key={i} className="inline-flex items-center gap-1 rounded-lg bg-white border border-[#1066b1]/20 px-2 py-0.5 text-[10px] font-bold text-[#041627]">
@@ -1642,27 +1642,27 @@ const JobDetailPanel: React.FC<JobDetailPanelProps> = ({ jobId, jobRef, onClose 
               )}
 
               {/* Codes */}
-              {false && (detail.loadCode || detail.accessCode) && (
+              {false && (detail?.loadCode || detail?.accessCode) && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Codes</p>
-                  {detail.loadCode && (
+                  {detail?.loadCode && (
                     <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Load Code</p>
-                        <p className="font-mono text-base font-black text-[#041627]">{detail.loadCode}</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail?.loadCode}</p>
                       </div>
-                      <button onClick={() => { void navigator.clipboard.writeText(detail.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                      <button onClick={() => { void navigator.clipboard.writeText(detail?.loadCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                       </button>
                     </div>
                   )}
-                  {detail.accessCode && (
+                  {detail?.accessCode && (
                     <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Access Code</p>
-                        <p className="font-mono text-base font-black text-[#041627]">{detail.accessCode}</p>
+                        <p className="font-mono text-base font-black text-[#041627]">{detail?.accessCode}</p>
                       </div>
-                      <button onClick={() => { void navigator.clipboard.writeText(detail.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
+                      <button onClick={() => { void navigator.clipboard.writeText(detail?.accessCode ?? ''); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-200">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                       </button>
                     </div>

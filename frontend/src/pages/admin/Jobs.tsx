@@ -246,7 +246,7 @@ const AdminJobsPage: React.FC = () => {
                 const pickup = typeof job.pickupLocation === 'string' ? job.pickupLocation : (job.pickupLocation as any)?.address;
                 const drop = typeof job.dropLocation === 'string' ? job.dropLocation : (job.dropLocation as any)?.address;
                 const date = job.jobDate || job.createdAt;
-                const quoteCount = (job as ExtendedJob).quoteCount ?? 0;
+                const _quoteCount = (job as ExtendedJob).quoteCount ?? 0;
                 return (
                   <tr key={job.jobId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">

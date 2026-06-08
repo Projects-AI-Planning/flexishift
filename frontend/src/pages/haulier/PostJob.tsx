@@ -403,10 +403,10 @@ const PostJobPage: React.FC = () => {
               <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Job Reference</p>
               <p className="text-2xl font-black text-white font-mono tracking-tight">{created.jobRef}</p>
             </div>
-            {false && created.loadCode && (
+            {false && created?.loadCode && (
               <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-left backdrop-blur-sm">
                 <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Load Code</p>
-                <p className="text-2xl font-black text-white font-mono tracking-tight">{created.loadCode}</p>
+                <p className="text-2xl font-black text-white font-mono tracking-tight">{created?.loadCode}</p>
               </div>
             )}
           </div>
