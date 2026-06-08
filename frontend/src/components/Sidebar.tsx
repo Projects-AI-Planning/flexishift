@@ -209,14 +209,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
   const haulierLinks: SidebarLink[] = [
     { to: '/haulier', icon: 'dashboard', label: 'Dashboard' },
     { to: '/haulier/post-job', icon: 'add_circle', label: 'Post Job' },
-    {
-      icon: 'event_available',
-      label: 'Shifts',
-      children: [
-        { to: '/haulier/shifts', label: 'All Shifts' },
-        { to: '/haulier/shifts/handover', label: 'Handover' },
-      ],
-    },
+    { to: '/haulier/shifts', icon: 'event_available', label: 'Shifts' },
     { to: '/haulier/jobs', icon: 'local_shipping', label: 'My Jobs' },
     // { to: '/haulier/disputes', icon: 'gavel', label: 'Disputes' },
     { to: '/haulier/payments', icon: 'payments', label: 'Payments' },

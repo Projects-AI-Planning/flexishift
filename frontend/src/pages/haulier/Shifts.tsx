@@ -4,6 +4,7 @@ import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
 import ConfirmModal from '../../components/ConfirmModal';
 import SignatureRenderer from '../../components/SignatureRenderer';
+import ShiftsHandoverPage from './ShiftsHandover';
 
 // ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
 declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
@@ -1625,16 +1626,18 @@ const HaulierShiftsPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#041627]">{activeSection.title}</h1>
           <p className="text-sm font-medium text-slate-500">{activeSection.description}</p>
         </div>
-        <div className="flex gap-3">
-          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
-            <p className="mt-1 text-2xl font-black text-[#041627]">{String(allShifts.length).padStart(2, '0')}</p>
+        {activeStatus !== 'HANDOVER' && (
+          <div className="flex gap-3">
+            <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total</p>
+              <p className="mt-1 text-2xl font-black text-[#041627]">{String(allShifts.length).padStart(2, '0')}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
+              <p className="mt-1 text-2xl font-black text-[#041627]">{page} / {totalPages}</p>
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Page</p>
-            <p className="mt-1 text-2xl font-black text-[#041627]">{page} / {totalPages}</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Nav tabs */}
@@ -1670,6 +1673,11 @@ const HaulierShiftsPage: React.FC = () => {
           Refresh
         </button>
       </section>
+
+      {/* Embedded handover page */}
+      {activeStatus === 'HANDOVER' && <ShiftsHandoverPage />}
+
+      {activeStatus !== 'HANDOVER' && <>
 
       {/* Stats row */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-3">
@@ -1947,6 +1955,7 @@ const HaulierShiftsPage: React.FC = () => {
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 };
