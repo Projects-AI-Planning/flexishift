@@ -76,6 +76,14 @@ export default function HaulierDeliveryReportsPage() {
   const [approveError, setApproveError] = useState('');
   const [approvedIds, setApprovedIds] = useState<Set<string>>(new Set());
 
+  // ── Rating modal state ──────────────────────────────────────────────────────
+  const [ratingModal, setRatingModal] = useState<{ jobId: string; jobRef: string; driverId: string; driverName: string } | null>(null);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [ratingReview, setRatingReview] = useState('');
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+
   // ── Shifts state ────────────────────────────────────────────────────────────
   const [shifts, setShifts] = useState<PendingShift[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(true);
@@ -142,15 +150,48 @@ export default function HaulierDeliveryReportsPage() {
     try {
       await haulierService.approveDelivery(selectedJobId, { bookingId: '', approvalNote: 'Approved' });
       setApprovedIds((prev) => new Set([...prev, selectedJobId]));
-      setJobs((prev) => prev.filter((j) => j.jobId !== selectedJobId));
-      setSelectedJobId(null);
-      setDeliveryDetail(null);
+      // Show rating modal if driver is known — keep report visible so haulier can still review it
+      const job = jobs.find((j) => j.jobId === selectedJobId);
+      if (job?.driverId) {
+        setRatingStars(0);
+        setRatingReview('');
+        setRatingDone(false);
+        setRatingModal({
+          jobId: job.jobId,
+          jobRef: job.jobReference,
+          driverId: job.driverId,
+          driverName: job.driver?.name ?? deliveryDetail?.driver?.name ?? 'Driver',
+        });
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setApproveError(msg ?? 'Failed to release payment. Please try again.');
     } finally {
       setApproving(false);
     }
+  };
+
+  const handleRatingSubmit = async () => {
+    if (!ratingModal || ratingStars === 0) return;
+    setRatingSubmitting(true);
+    try {
+      await haulierService.submitRating({
+        jobId: ratingModal.jobId,
+        ratedUserId: ratingModal.driverId,
+        starRating: ratingStars,
+        review: ratingReview.trim() || undefined,
+      });
+      setRatingDone(true);
+    } catch { /* silently ignore rating errors */ }
+    finally { setRatingSubmitting(false); }
+  };
+
+  const closeRatingModal = () => {
+    setRatingModal(null);
+    setRatingStars(0);
+    setRatingHover(0);
+    setRatingReview('');
+    setRatingDone(false);
   };
 
   // ── Approve shift day payment ────────────────────────────────────────────────
@@ -259,12 +300,21 @@ export default function HaulierDeliveryReportsPage() {
                         <p className={`text-xs font-black ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
                           {job.jobReference}
                         </p>
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          <span className="material-symbols-outlined text-[10px]">pending</span>
-                          Delivery Submitted
-                        </span>
+                        {approvedIds.has(job.jobId) ? (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            <span className="material-symbols-outlined text-[10px]">check_circle</span>
+                            Approved
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            <span className="material-symbols-outlined text-[10px]">pending</span>
+                            Delivery Submitted
+                          </span>
+                        )}
                       </div>
                       <p className={`text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-primary'}`}>
                         {job.pickupLocation ?? '?'} → {job.dropLocation ?? '?'}
@@ -449,6 +499,99 @@ export default function HaulierDeliveryReportsPage() {
               </>
             )}
           </section>
+        </div>
+      )}
+
+      {/* ── Rating Modal ──────────────────────────────────────────────────────── */}
+      {ratingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+            {ratingDone ? (
+              <div className="flex flex-col items-center justify-center gap-4 px-8 py-12 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
+                  <span className="material-symbols-outlined text-3xl text-emerald-600">check_circle</span>
+                </div>
+                <h3 className="text-xl font-black text-[#041627]">Thank you for your rating!</h3>
+                <p className="text-sm text-slate-500">Your feedback helps improve the platform.</p>
+                <button
+                  onClick={closeRatingModal}
+                  className="mt-2 rounded-2xl bg-primary px-8 py-3 text-sm font-black text-white hover:opacity-90 transition-opacity"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gradient-to-br from-primary to-[#0a4a8f] px-6 py-5 text-white">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Payment Released</p>
+                  <h3 className="mt-1 text-xl font-black">Rate Your Driver</h3>
+                  <p className="mt-1 text-sm text-white/80">Job {ratingModal.jobRef}</p>
+                </div>
+                <div className="px-6 py-6 space-y-6">
+                  <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                      <span className="material-symbols-outlined text-primary">person</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-400">Driver</p>
+                      <p className="font-black text-[#041627]">{ratingModal.driverName}</p>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">How would you rate this driver?</p>
+                    <div className="flex items-center justify-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onMouseEnter={() => setRatingHover(star)}
+                          onMouseLeave={() => setRatingHover(0)}
+                          onClick={() => setRatingStars(star)}
+                          className="transition-transform hover:scale-110"
+                        >
+                          <span className={`material-symbols-outlined text-4xl transition-colors ${
+                            star <= (ratingHover || ratingStars) ? 'text-amber-400' : 'text-slate-200'
+                          }`}>star</span>
+                        </button>
+                      ))}
+                    </div>
+                    {ratingStars > 0 && (
+                      <p className="mt-2 text-sm font-black text-amber-500">
+                        {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][ratingStars]}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">
+                      Leave a comment <span className="font-normal text-slate-300">(optional)</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={ratingReview}
+                      onChange={(e) => setRatingReview(e.target.value)}
+                      placeholder="How was the driver's punctuality, professionalism, and care of goods?"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={closeRatingModal}
+                      className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-500 hover:bg-slate-50 transition-colors"
+                    >
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => void handleRatingSubmit()}
+                      disabled={ratingStars === 0 || ratingSubmitting}
+                      className="flex-1 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
+                    >
+                      {ratingSubmitting && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                      Submit Rating
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
