@@ -490,6 +490,28 @@ def submit_quote(
     return created(_quote_dict(quote), "Quote submitted")
 
 
+class EditShiftQuoteRequest(BaseModel):
+    amount_per_day: float = Field(..., alias="amountPerDay")
+    notes: str | None = None
+    model_config = {"populate_by_name": True}
+
+
+@router.patch("/{shift_id}/quote")
+def edit_quote(
+    shift_id: str,
+    body: EditShiftQuoteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = body.model_dump(by_alias=False)
+    quote = shifts_svc.edit_shift_quote(
+        db, shift_id, current_user,
+        amount_per_day=data["amount_per_day"],
+        notes=data.get("notes"),
+    )
+    return ok(_quote_dict(quote), "Quote updated")
+
+
 @router.delete("/{shift_id}/quote")
 def withdraw_quote(
     shift_id: str,

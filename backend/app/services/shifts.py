@@ -121,6 +121,7 @@ def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day:
         .filter(
             ShiftQuote.shift_id == shift_id,
             ShiftQuote.driver_id == driver.id,
+            ShiftQuote.status == ShiftQuoteStatus.PENDING,
         )
         .first()
     )
@@ -300,6 +301,30 @@ def withdraw_shift_quote(db: Session, shift_id: str, driver: User) -> ShiftQuote
     if not quote:
         raise HTTPException(status_code=404, detail="No active quote found to withdraw")
     quote.status = ShiftQuoteStatus.WITHDRAWN
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def edit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day: float, notes: str | None) -> ShiftQuote:
+    shift = get_shift(db, shift_id)
+    if shift.status != ShiftStatus.OPEN:
+        raise HTTPException(status_code=422, detail="Shift is no longer open for editing quotes")
+    quote = (
+        db.query(ShiftQuote)
+        .filter(
+            ShiftQuote.shift_id == shift_id,
+            ShiftQuote.driver_id == driver.id,
+            ShiftQuote.status == ShiftQuoteStatus.PENDING,
+        )
+        .first()
+    )
+    if not quote:
+        raise HTTPException(status_code=404, detail="No active quote found to edit")
+    total = round(amount_per_day * shift.total_days, 2)
+    quote.amount_per_day = amount_per_day
+    quote.total_amount = total
+    quote.notes = notes
     db.commit()
     db.refresh(quote)
     return quote

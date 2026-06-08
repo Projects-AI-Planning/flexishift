@@ -1877,6 +1877,27 @@ function DriverApp(): React.JSX.Element {
     });
   };
 
+  const handleEditJobQuote = async (quoteId: string, newAmount: number) => {
+    await runAction(async () => {
+      await driverApi.quotes.edit(quoteId, {price: newAmount});
+      setSuccessBanner('Quote updated successfully.');
+      await loadMyQuotes();
+    });
+  };
+
+  const handleResubmitJobQuote = async (jobId: string, newAmount: number, notes: string) => {
+    await runAction(async () => {
+      await driverApi.quotes.submit({
+        jobId,
+        quoteAmount: newAmount,
+        notes: notes || undefined,
+        currency: session?.currency,
+      });
+      setSuccessBanner('Quote re-submitted!');
+      await loadMyQuotes();
+    });
+  };
+
   // ─── Booking acceptance ──────────────────────────────────────────────────────
 
   const resolveComplianceRoute = async (jobId: string): Promise<'compliance.loadCode' | 'compliance.handover' | 'tracking.active'> => {
@@ -2450,6 +2471,14 @@ function DriverApp(): React.JSX.Element {
     await runAction(async () => {
       await driverApi.shifts.withdrawQuote(shiftId);
       setSuccessBanner('Quote withdrawn.');
+      await loadShifts();
+    });
+  };
+
+  const handleShiftQuoteEdit = async (shiftId: string, amountPerDay: number, notes: string) => {
+    await runAction(async () => {
+      await driverApi.shifts.editQuote(shiftId, {amountPerDay, notes: notes || undefined});
+      setSuccessBanner('Quote updated successfully.');
       await loadShifts();
     });
   };
@@ -3386,6 +3415,7 @@ function DriverApp(): React.JSX.Element {
           }}
           onSubmitQuote={handleShiftQuoteSubmit}
           onWithdrawQuote={handleShiftQuoteWithdraw}
+          onEditShiftQuote={handleShiftQuoteEdit}
           onCancelShift={handleShiftCancel}
           onStartDay={handleShiftStartDay}
           canBrowse={docsChecked ? shiftGate.canAccess : true}
@@ -3522,6 +3552,8 @@ function DriverApp(): React.JSX.Element {
               loadEscrowPayment(jobId);
             }}
             onWithdrawQuote={handleWithdrawQuote}
+            onEditQuote={handleEditJobQuote}
+            onResubmitQuote={handleResubmitJobQuote}
             onViewQuoteStatus={(quote: Record<string, unknown>) => {
               setHighlightedQuoteJobId(null);
               const status = String(quote.status ?? '').toLowerCase();

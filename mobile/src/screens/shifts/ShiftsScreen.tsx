@@ -104,6 +104,7 @@ interface ShiftsScreenProps {
   onRefresh: () => void;
   currency?: string;
   onSubmitQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
+  onEditShiftQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
   onWithdrawQuote: (shiftId: string) => Promise<void>;
   onCancelShift: (shiftId: string) => Promise<void>;
   onStartDay?: (shiftId: string) => Promise<void>;
@@ -476,10 +477,14 @@ function QuoteCard({
   quote,
   onWithdraw,
   onGoToBooked,
+  onEdit,
+  onResubmit,
 }: {
   quote: ShiftQuoteItem;
   onWithdraw: (shiftId: string) => void;
   onGoToBooked?: () => void;
+  onEdit?: (quote: ShiftQuoteItem) => void;
+  onResubmit?: (quote: ShiftQuoteItem) => void;
 }) {
   const sym = currencySymbol(quote.currency);
   const statusUpper = (quote.status ?? '').toUpperCase();
@@ -598,9 +603,16 @@ function QuoteCard({
         </>
       )}
 
-      {/* Pending — Withdraw */}
+      {/* Pending — Edit + Withdraw */}
       {isPending && (
-        <View>
+        <View style={{gap: 8}}>
+          {onEdit && !shiftDatePassed && (
+            <Pressable
+              onPress={() => onEdit(quote)}
+              style={styles.qEditBtn}>
+              <Text style={styles.qEditText}>✏️  Edit Quote</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => { if (!shiftDatePassed) { onWithdraw(quote.shiftId); } }}
             disabled={shiftDatePassed}
@@ -615,6 +627,15 @@ function QuoteCard({
             </Text>
           )}
         </View>
+      )}
+
+      {/* Withdrawn — Re-submit */}
+      {isDeclined && statusUpper === 'WITHDRAWN' && onResubmit && !shiftDatePassed && (
+        <Pressable
+          onPress={() => onResubmit(quote)}
+          style={styles.qResubmitBtn}>
+          <Text style={styles.qResubmitText}>↩  Re-submit Quote</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -1083,6 +1104,9 @@ function QuoteModal({
   currency,
   paymentSetupComplete = true,
   onGoToPaymentSetup,
+  initialAmount = '',
+  initialNotes = '',
+  mode = 'submit',
 }: {
   shift: ShiftItem;
   loading: boolean;
@@ -1091,9 +1115,12 @@ function QuoteModal({
   currency?: string;
   paymentSetupComplete?: boolean;
   onGoToPaymentSetup?: () => void;
+  initialAmount?: string;
+  initialNotes?: string;
+  mode?: 'submit' | 'edit';
 }) {
-  const [amount, setAmount] = useState('');
-  const [notes, setNotes] = useState('');
+  const [amount, setAmount] = useState(initialAmount);
+  const [notes, setNotes] = useState(initialNotes);
   const [driverOnlyConfirmed, setDriverOnlyConfirmed] = useState(false);
   const isDriverOnly = shift.requirementType === 'DRIVER_ONLY';
   const sym = currencySymbol(currency || shift.currency);
@@ -1106,7 +1133,7 @@ function QuoteModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={{width: '100%', alignItems: 'center'}}>
         <View style={styles.modal}>
-          <Text style={styles.modalTitle}>Submit Quote</Text>
+          <Text style={styles.modalTitle}>{mode === 'edit' ? 'Edit Quote' : 'Submit Quote'}</Text>
           <Text style={styles.modalSub}>{shift.shiftRef} · {shift.totalDays} day(s)</Text>
 
           {/* Payment setup required banner */}
@@ -1190,7 +1217,7 @@ function QuoteModal({
                 }}
                 disabled={!canSubmit}
                 style={[styles.primaryBtn, {flex: 2, height: 52}, !canSubmit && {opacity: 0.5}]}>
-                <Text style={styles.primaryBtnText}>{loading ? 'Submitting…' : 'Submit Quote'}</Text>
+                <Text style={styles.primaryBtnText}>{loading ? 'Saving…' : mode === 'edit' ? 'Update Quote' : 'Submit Quote'}</Text>
               </Pressable>
             )}
           </View>
@@ -1223,9 +1250,12 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   currency = '',
   paymentSetupComplete = true,
   onGoToPaymentSetup,
+  onEditShiftQuote,
 }) => {
   const [tab, setTab] = useState<TabKey>('available');
   const [quotingShift, setQuotingShift] = useState<ShiftItem | null>(null);
+  const [editingQuote, setEditingQuote] = useState<ShiftQuoteItem | null>(null);
+  const [resubmittingQuote, setResubmittingQuote] = useState<ShiftQuoteItem | null>(null);
   const [selectedHistoryShift, setSelectedHistoryShift] = useState<ShiftItem | null>(null);
 
   // ── Search / filter state ──────────────────────────────────────────────────
@@ -1374,9 +1404,24 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   );
 
   const handleSubmitQuote = async (amountPerDay: number, notes: string) => {
-    if (!quotingShift) {return;}
-    await onSubmitQuote(quotingShift.shiftId, amountPerDay, notes);
-    setQuotingShift(null);
+    if (editingQuote) {
+      await onEditShiftQuote(editingQuote.shiftId, amountPerDay, notes);
+      setEditingQuote(null);
+    } else if (resubmittingQuote) {
+      await onSubmitQuote(resubmittingQuote.shiftId, amountPerDay, notes);
+      setResubmittingQuote(null);
+    } else if (quotingShift) {
+      await onSubmitQuote(quotingShift.shiftId, amountPerDay, notes);
+      setQuotingShift(null);
+    }
+  };
+
+  const handleOpenEditModal = (quote: ShiftQuoteItem) => {
+    setEditingQuote(quote);
+  };
+
+  const handleOpenResubmitModal = (quote: ShiftQuoteItem) => {
+    setResubmittingQuote(quote);
   };
 
   const handleWithdraw = (shiftId: string) => {
@@ -1631,6 +1676,8 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
                         ? () => setTab('mine')
                         : undefined
                     }
+                    onEdit={handleOpenEditModal}
+                    onResubmit={handleOpenResubmitModal}
                   />
                 ))
               )}
@@ -1708,18 +1755,39 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
       {activeModal === 'radius' &&
         renderFilterModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, setRadiusFilter)}
 
-      {/* ── Quote modal ──────────────────────────────────────────────────── */}
-      {quotingShift && (
-        <QuoteModal
-          shift={quotingShift}
-          loading={actionLoading}
-          onSubmit={handleSubmitQuote}
-          onClose={() => setQuotingShift(null)}
-          currency={currency}
-          paymentSetupComplete={paymentSetupComplete}
-          onGoToPaymentSetup={onGoToPaymentSetup}
-        />
-      )}
+      {/* ── Quote modal (new / edit / resubmit) ─────────────────────────── */}
+      {(quotingShift || editingQuote || resubmittingQuote) && (() => {
+        const quoteItem = editingQuote || resubmittingQuote;
+        const shiftForModal: ShiftItem = quotingShift ?? {
+          shiftId: quoteItem!.shiftId,
+          shiftRef: quoteItem!.shiftRef ?? `Shift #${quoteItem!.shiftId.slice(-6)}`,
+          totalDays: quoteItem!.totalDays ?? 1,
+          hoursPerDay: quoteItem!.hoursPerDay ?? 0,
+          startDate: quoteItem!.startDate ?? '',
+          endDate: quoteItem!.endDate ?? '',
+          pickupAddress: quoteItem!.pickupAddress ?? '',
+          dropAddress: quoteItem!.dropAddress ?? '',
+          location: quoteItem!.location ?? '',
+          requirementType: 'DRIVER_VEHICLE',
+          status: 'OPEN',
+          currency: undefined as any,
+        } as unknown as ShiftItem;
+        const isEdit = !!editingQuote;
+        return (
+          <QuoteModal
+            shift={shiftForModal}
+            loading={actionLoading}
+            onSubmit={handleSubmitQuote}
+            onClose={() => { setQuotingShift(null); setEditingQuote(null); setResubmittingQuote(null); }}
+            currency={currency}
+            paymentSetupComplete={paymentSetupComplete}
+            onGoToPaymentSetup={onGoToPaymentSetup}
+            initialAmount={quoteItem ? String(quoteItem.amountPerDay) : ''}
+            initialNotes={quoteItem?.notes ?? ''}
+            mode={isEdit ? 'edit' : 'submit'}
+          />
+        );
+      })()}
 
       {/* ── History shift detail modal ────────────────────────────────── */}
       {selectedHistoryShift && (
@@ -2215,6 +2283,20 @@ const styles = StyleSheet.create({
     color: '#94A3B8', fontSize: 11, fontWeight: '600',
     textAlign: 'center', marginTop: 6,
   },
+  qEditBtn: {
+    borderWidth: 1, borderColor: '#1066B1',
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+  },
+  qEditText: {color: '#1066B1', fontSize: 13, fontWeight: '800'},
+  qResubmitBtn: {
+    borderWidth: 1, borderColor: colors.success,
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#F0FBF4',
+  },
+  qResubmitText: {color: colors.success, fontSize: 13, fontWeight: '800'},
 
   statusPill: {
     borderRadius: radius.pill, borderWidth: 1,

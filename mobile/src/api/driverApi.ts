@@ -356,6 +356,11 @@ export const driverApi = {
       request<Record<string, unknown>>(`/shifts/${shiftId}/quote`, {
         method: 'DELETE',
       }),
+    editQuote: (shiftId: string, payload: {amountPerDay: number; notes?: string}) =>
+      request<Record<string, unknown>>(`/shifts/${shiftId}/quote`, {
+        method: 'PATCH',
+        body: jsonBody(payload),
+      }),
     cancel: (shiftId: string) =>
       request<Record<string, unknown>>(`/shifts/cancel/${shiftId}`, {
         method: 'PUT',

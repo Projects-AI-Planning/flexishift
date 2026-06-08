@@ -28,7 +28,7 @@ export const setApiSessionRefresher = (
   refreshSessionHandler = handler;
 };
 
-type HttpMethod = 'DELETE' | 'GET' | 'POST' | 'PUT';
+type HttpMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
 
 interface RequestOptions {
   body?: FormData | string | null;

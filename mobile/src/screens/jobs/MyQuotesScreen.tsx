@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {fmtMoney} from '../../utils/currency';
 import {
   View,
@@ -8,6 +8,8 @@ import {
   Pressable,
   RefreshControl,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import {colors, radius, spacing, shadow} from '../../theme';
 
@@ -17,6 +19,8 @@ interface MyQuotesScreenProps {
   onRefresh: () => void;
   onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
+  onEditQuote?: (quoteId: string, newAmount: number) => Promise<void>;
+  onResubmitQuote?: (jobId: string, newAmount: number, notes: string) => Promise<void>;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
   highlightedJobId?: string | null;
 }
@@ -30,57 +34,73 @@ const STATUS_LABELS: Record<string, string> = {
   WITHDRAWN: 'Withdrawn',
 };
 
-const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
-  quotes,
-  refreshing,
-  onRefresh,
-  onProceedToCompliance,
-  onWithdrawQuote,
-  onViewQuoteStatus,
+function JobQuoteCard({
+  item,
   highlightedJobId,
-}) => {
-  const listRef = useRef<FlatList>(null);
+  onWithdrawQuote,
+  onEditQuote,
+  onResubmitQuote,
+  onProceedToCompliance,
+  onViewQuoteStatus,
+}: {
+  item: any;
+  highlightedJobId?: string | null;
+  onWithdrawQuote: (quoteId: string) => void;
+  onEditQuote?: (quoteId: string, newAmount: number) => Promise<void>;
+  onResubmitQuote?: (jobId: string, newAmount: number, notes: string) => Promise<void>;
+  onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
+  onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
+}) {
+  const [editAmount, setEditAmount] = useState('');
+  const [resubmitAmount, setResubmitAmount] = useState('');
+  const [resubmitNotes, setResubmitNotes] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [resubmitMode, setResubmitMode] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!highlightedJobId || !quotes.length) return;
-    const index = quotes.findIndex(q => String(q.jobId ?? '') === highlightedJobId);
-    if (index < 0) return;
-    const timer = setTimeout(() => {
-      listRef.current?.scrollToIndex({index, animated: true, viewPosition: 0.2});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [highlightedJobId, quotes]);
+  const statusUpper = (item.status ?? '').toUpperCase();
+  const isAccepted   = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
+  const isPending    = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
+  const isDeclined   = statusUpper === 'DECLINED';
+  const isWithdrawn  = statusUpper === 'WITHDRAWN';
+  const jobId        = String(item.jobId ?? '');
+  const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
 
-  const handleWithdraw = (quoteId: string) => {
-    Alert.alert('Withdraw Quote', 'Are you sure you want to withdraw this quote?', [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Withdraw', style: 'destructive', onPress: () => onWithdrawQuote(quoteId)},
-    ]);
+  const jobDatePassed = (() => {
+    const jd: string | null = item.job?.jobDate ?? item.jobDate ?? null;
+    if (!jd) {return false;}
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = new Date(String(jd).slice(0, 10) + 'T00:00:00');
+    return d < today;
+  })();
+  const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
+  const dropLocation   = item.dropLocation   ?? item.job?.dropLocation   ?? null;
+
+  const handleSaveEdit = async () => {
+    const amount = Number(editAmount);
+    if (!amount || amount <= 0 || !onEditQuote) {return;}
+    setSaving(true);
+    try {
+      await onEditQuote(item.quoteId, amount);
+      setEditMode(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const renderItem = ({item}: {item: any}) => {
-    const statusUpper = (item.status ?? '').toUpperCase();
-    const isAccepted   = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
-    const isPending    = statusUpper === 'ACTIVE'   || statusUpper === 'PENDING';
-    const isDeclined   = statusUpper === 'DECLINED';
-    const isWithdrawn  = statusUpper === 'WITHDRAWN';
-    const jobId        = String(item.jobId ?? '');
-    const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
+  const handleSaveResubmit = async () => {
+    const amount = Number(resubmitAmount);
+    if (!amount || amount <= 0 || !onResubmitQuote) {return;}
+    setSaving(true);
+    try {
+      await onResubmitQuote(jobId, amount, resubmitNotes);
+      setResubmitMode(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    // Disable Withdraw when the job's pickup date is in the past
-    const jobDatePassed = (() => {
-      const jd: string | null = item.job?.jobDate ?? item.jobDate ?? null;
-      if (!jd) {return false;}
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      // Append T00:00:00 so JS parses as local midnight, not UTC midnight
-      const d = new Date(String(jd).slice(0, 10) + 'T00:00:00');
-      return d < today;
-    })();
-    // API nests route info under item.job
-    const pickupLocation = item.pickupLocation ?? item.job?.pickupLocation ?? null;
-    const dropLocation   = item.dropLocation   ?? item.job?.dropLocation   ?? null;
-
-    return (
+  return (
       <View style={[
         styles.card,
         isAccepted && styles.cardAccepted,
@@ -193,33 +213,148 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           </View>
         )}
 
-        {/* Pending — Withdraw */}
-        {isPending && (
+        {/* Pending — Edit + Withdraw */}
+        {isPending && !jobDatePassed && (
           <View style={styles.actionRow}>
-            <Pressable
-              onPress={() => { if (!jobDatePassed) { handleWithdraw(item.quoteId); } }}
-              disabled={jobDatePassed}
-              style={[styles.withdrawBtn, jobDatePassed && styles.withdrawBtnDisabled]}>
-              <Text style={[styles.withdrawBtnText, jobDatePassed && styles.withdrawBtnTextDisabled]}>
-                {jobDatePassed ? '⏰  Job Date Passed' : 'Withdraw Quote'}
-              </Text>
-            </Pressable>
-            {jobDatePassed && (
-              <Text style={styles.expiredNote}>
-                This job's pickup date has passed — withdrawal is no longer available.
-              </Text>
+            {editMode ? (
+              <View style={{gap: 8}}>
+                <TextInput
+                  style={styles.editInput}
+                  keyboardType="numeric"
+                  placeholder="New quote amount"
+                  placeholderTextColor="#94A3B8"
+                  value={editAmount}
+                  onChangeText={setEditAmount}
+                />
+                <View style={{flexDirection: 'row', gap: 8}}>
+                  <Pressable
+                    onPress={handleSaveEdit}
+                    disabled={saving || !editAmount}
+                    style={[styles.editSaveBtn, (!editAmount || saving) && {opacity: 0.5}]}>
+                    {saving
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={styles.editSaveBtnText}>Save Changes</Text>}
+                  </Pressable>
+                  <Pressable onPress={() => setEditMode(false)} style={styles.editCancelBtn}>
+                    <Text style={styles.editCancelBtnText}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={{gap: 8}}>
+                {onEditQuote && (
+                  <Pressable
+                    onPress={() => { setEditAmount(String(item.quoteAmount ?? item.amount ?? '')); setEditMode(true); }}
+                    style={styles.editBtn}>
+                    <Text style={styles.editBtnText}>✏️  Edit Quote</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => onWithdrawQuote(item.quoteId)}
+                  style={styles.withdrawBtn}>
+                  <Text style={styles.withdrawBtnText}>Withdraw Quote</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+        {isPending && jobDatePassed && (
+          <Text style={styles.expiredNote}>⏰  Job Date Passed — no actions available.</Text>
+        )}
+
+        {/* Withdrawn — Re-submit */}
+        {isWithdrawn && !jobDatePassed && onResubmitQuote && (
+          <View style={styles.actionRow}>
+            {resubmitMode ? (
+              <View style={{gap: 8}}>
+                <TextInput
+                  style={styles.editInput}
+                  keyboardType="numeric"
+                  placeholder="Quote amount"
+                  placeholderTextColor="#94A3B8"
+                  value={resubmitAmount}
+                  onChangeText={setResubmitAmount}
+                />
+                <TextInput
+                  style={[styles.editInput, {minHeight: 60}]}
+                  placeholder="Notes (optional)"
+                  placeholderTextColor="#94A3B8"
+                  value={resubmitNotes}
+                  onChangeText={setResubmitNotes}
+                  multiline
+                />
+                <View style={{flexDirection: 'row', gap: 8}}>
+                  <Pressable
+                    onPress={handleSaveResubmit}
+                    disabled={saving || !resubmitAmount}
+                    style={[styles.resubmitSaveBtn, (!resubmitAmount || saving) && {opacity: 0.5}]}>
+                    {saving
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={styles.resubmitSaveBtnText}>Submit Quote</Text>}
+                  </Pressable>
+                  <Pressable onPress={() => setResubmitMode(false)} style={styles.editCancelBtn}>
+                    <Text style={styles.editCancelBtnText}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setResubmitMode(true)}
+                style={styles.resubmitBtn}>
+                <Text style={styles.resubmitBtnText}>↩  Re-submit Quote</Text>
+              </Pressable>
             )}
           </View>
         )}
       </View>
-    );
+  );
+}
+
+const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
+  quotes,
+  refreshing,
+  onRefresh,
+  onProceedToCompliance,
+  onWithdrawQuote,
+  onEditQuote,
+  onResubmitQuote,
+  onViewQuoteStatus,
+  highlightedJobId,
+}) => {
+  const listRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (!highlightedJobId || !quotes.length) return;
+    const index = quotes.findIndex(q => String(q.jobId ?? '') === highlightedJobId);
+    if (index < 0) return;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({index, animated: true, viewPosition: 0.2});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightedJobId, quotes]);
+
+  const handleWithdraw = (quoteId: string) => {
+    Alert.alert('Withdraw Quote', 'Are you sure you want to withdraw this quote?', [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Withdraw', style: 'destructive', onPress: () => onWithdrawQuote(quoteId)},
+    ]);
   };
 
   return (
     <FlatList
       ref={listRef}
       data={quotes}
-      renderItem={renderItem}
+      renderItem={({item}) => (
+        <JobQuoteCard
+          item={item}
+          highlightedJobId={highlightedJobId}
+          onWithdrawQuote={handleWithdraw}
+          onEditQuote={onEditQuote}
+          onResubmitQuote={onResubmitQuote}
+          onProceedToCompliance={onProceedToCompliance}
+          onViewQuoteStatus={onViewQuoteStatus}
+        />
+      )}
       keyExtractor={item => item.quoteId ?? String(Math.random())}
       style={styles.screen}
       contentContainerStyle={styles.listContent}
@@ -486,6 +621,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     lineHeight: 20,
   },
+  editInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.navy,
+    backgroundColor: '#F8FAFD',
+  },
+  editBtn: {
+    borderWidth: 1, borderColor: '#1066B1',
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+  },
+  editBtnText: {color: '#1066B1', fontSize: 13, fontWeight: '800'},
+  editSaveBtn: {
+    flex: 1, backgroundColor: '#1066B1',
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  editSaveBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+  editCancelBtn: {
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  editCancelBtnText: {color: colors.inkSoft, fontSize: 13, fontWeight: '700'},
+  resubmitBtn: {
+    borderWidth: 1, borderColor: '#059669',
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#F0FBF4',
+  },
+  resubmitBtnText: {color: '#059669', fontSize: 13, fontWeight: '800'},
+  resubmitSaveBtn: {
+    flex: 1, backgroundColor: '#059669',
+    borderRadius: radius.md, minHeight: 44,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  resubmitSaveBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
 });
 
 export default MyQuotesScreen;
