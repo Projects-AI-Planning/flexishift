@@ -703,8 +703,7 @@ const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onRe
     const driverTime  = new Date(quote.deliverBy);
     return !isNaN(jobDeadline.getTime()) && !isNaN(driverTime.getTime()) && driverTime > jobDeadline;
   })();
-  const _isDriverOnly   = req === 'DRIVER_ONLY';
-  const isTruckOnly     = req === 'TRUCK_ONLY';
+const isTruckOnly     = req === 'TRUCK_ONLY';
   const isDriverWithTruck = req === 'DRIVER_WITH_TRUCK';
   const showTruckBlock  = isTruckOnly || isDriverWithTruck;
 

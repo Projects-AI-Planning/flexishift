@@ -113,8 +113,6 @@ export default function HaulierNotificationsPage() {
   const items = data?.notifications ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.totalNotifications ?? 0) / limit));
 
-  const _unreadBreakdown = Object.entries(unread?.breakdown ?? {});
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
