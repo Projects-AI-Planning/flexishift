@@ -562,6 +562,7 @@ function DriverApp(): React.JSX.Element {
   const [contentLoading, setContentLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
+  const stripeOnboardingPendingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Data
@@ -1502,10 +1503,11 @@ function DriverApp(): React.JSX.Element {
       }
 
       if (url.startsWith('freightflex://stripe-connect/return')) {
+        stripeOnboardingPendingRef.current = false; // AppState fallback no longer needed
         try {
           await loadProfile().catch(() => undefined);
           setActiveTab('profile');
-          setActiveRoute('profile.payments' as any);
+          setActiveRoute('profile.payments');
           setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
         } catch {
           /* user can pull to refresh */
@@ -1521,6 +1523,27 @@ function DriverApp(): React.JSX.Element {
     return () => sub.remove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // When the app comes back to the foreground after the driver opened the Stripe
+  // onboarding browser, automatically refresh the profile and return to the
+  // payments screen. This covers cases where the custom-scheme deep link
+  // (freightflex://) is silently dropped by some Android browsers.
+  useEffect(() => {
+    if (!session) return;
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState !== 'active' || !stripeOnboardingPendingRef.current) return;
+      stripeOnboardingPendingRef.current = false;
+      try {
+        await loadProfile().catch(() => undefined);
+        setActiveTab('profile');
+        setActiveRoute('profile.payments');
+      } catch {
+        // silent — user can pull-to-refresh
+      }
+    });
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, loadProfile]);
 
   // ─── Action helpers ───────────────────────────────────────────────────────────
 
@@ -2313,11 +2336,13 @@ function DriverApp(): React.JSX.Element {
       const result = await driverApi.stripeConnect.startOnboarding();
       const url = (result as any)?.onboardingUrl as string | undefined;
       if (url) {
+        stripeOnboardingPendingRef.current = true;
         await Linking.openURL(url);
       } else {
         Alert.alert('Error', 'Could not get onboarding link. Please try again.');
       }
     } catch (e: any) {
+      stripeOnboardingPendingRef.current = false;
       Alert.alert('Error', e?.message ?? 'Failed to start Stripe onboarding.');
     } finally {
       setStripeConnectLoading(false);
