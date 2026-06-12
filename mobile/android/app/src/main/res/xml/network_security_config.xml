@@ -7,6 +7,8 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="false">20.65.202.44</domain>
         <trust-anchors>
+            <!-- Pinned self-signed server certificate (res/raw/freightflex_server.pem) -->
+            <certificates src="@raw/freightflex_server" />
             <certificates src="system" />
             <certificates src="user" />
         </trust-anchors>
