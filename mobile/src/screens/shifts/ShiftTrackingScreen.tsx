@@ -94,7 +94,7 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{shiftRef}</Text>
           <Text style={styles.headerSub}>
-            Day {dayNumber} of {totalDays} · {daysCompleted} completed
+            Shift in progress
           </Text>
         </View>
         <View style={styles.backBtn} />
@@ -103,7 +103,7 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
       {/* ── Info row ─────────────────────────────────────────────────────────── */}
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>From</Text>
+          <Text style={styles.infoLabel}>Reporting Location</Text>
           <Text style={styles.infoValue} numberOfLines={1}>{pickupAddress || '—'}</Text>
         </View>
         <Text style={styles.infoArrow}>→</Text>
@@ -144,7 +144,7 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
         </Text>
         {/* Primary action: end the work day and submit proof */}
         <Pressable onPress={onEndDay} style={styles.endDayBtn}>
-          <Text style={styles.endDayBtnText}>✓  End Day {dayNumber} — Submit Proof</Text>
+          <Text style={styles.endDayBtnText}>✓  End Shift — Submit Proof</Text>
         </Pressable>
         {/* Secondary: go back without ending the day */}
         <Pressable onPress={onBack} style={styles.backLink} hitSlop={8}>

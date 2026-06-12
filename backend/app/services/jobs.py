@@ -37,6 +37,15 @@ def _compute_eta(data: dict):
     return departure + timedelta(minutes=int(duration_min))
 
 
+def _parse_deliver_by_dt(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+    except (ValueError, AttributeError):
+        return None
+
+
 async def create_job(db: Session, haulier: User, data: dict) -> Job:
     from app.services.maps import geocode_address
 
@@ -153,6 +162,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
         job_date=data["job_date"],
         time_slot=data["time_slot"],
         job_time=(data.get("job_time") or data.get("jobTime") or "").strip() or None,
+        deliver_by_dt=_parse_deliver_by_dt(data.get("deliverByDt") or data.get("deliver_by_dt")),
         driver_requirement=data.get("driver_requirement", "DRIVER_WITH_TRUCK"),
         stops=geocoded_stops if geocoded_stops else None,
         distance_km=route["distance_km"],

@@ -7,21 +7,6 @@ import SignatureRenderer from '../../components/SignatureRenderer';
 import ShiftsHandoverPage from './ShiftsHandover';
 import HaulierDeliveryReportsPage from './DeliveryReports';
 
-// ── Stripe types (CDN-loaded Stripe.js) ──────────────────────────────────────
-declare global { interface Window { Stripe?: (pk: string) => StripeInst; } }
-interface StripeCardEl { mount(el: HTMLElement): void; unmount(): void; on(ev: string, fn: (e: { error?: { message: string } }) => void): void; }
-interface StripeInst { elements(o?: object): { create(t: 'card', o?: object): StripeCardEl }; confirmCardPayment(cs: string, d?: { payment_method: string | { card: StripeCardEl } }): Promise<{ paymentIntent?: { id: string; status: string }; error?: { message: string } }>; }
-const loadStripe = (): Promise<void> => {
-  if (window.Stripe) return Promise.resolve();
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'https://js.stripe.com/v3/';
-    s.onload = () => res();
-    s.onerror = () => rej(new Error('Stripe.js failed to load'));
-    document.body.appendChild(s);
-  });
-};
-
 type ShiftStatus = 'OPEN' | 'BOOKED' | 'HANDOVER' | 'IN_PROGRESS' | 'DELIVERY_REPORTS' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 type RequirementType = 'DRIVER_ONLY' | 'TRUCK_WITH_DRIVER' | 'TRUCK_ONLY';
 
@@ -48,9 +33,8 @@ interface ShiftItem {
   shiftRef:            string;
   requirementType:     string;
   startDate:           string;
-  endDate:             string;
-  totalDays:           number;
   hoursPerDay:         number;
+  reportingLocation?:  string;
   pickupAddress?:      string;
   dropAddress?:        string;
   location?:           string;
@@ -67,7 +51,7 @@ interface ShiftItem {
   durationMin?:        number;
   notes?:              string;
   status:                  string;
-  daysCompleted:           number;
+  daysCompleted?:          number;
   dailyRate?:              number;
   currency?:               string;
   selectedDriverId?:       string;
@@ -197,175 +181,6 @@ const quoteBadge = (status: string) => {
 };
 
 
-/* ── Shift Day Payment Modal ────────────────────────────────────────────────── */
-
-interface ShiftDayPaymentOrder {
-  paymentId:       string;
-  dayNumber:       number;
-  totalDays:       number;
-  gatewayOrderId:  string;
-  clientSecret:    string;
-  amount:          number;
-  currency:        string;
-  publishableKey:  string;
-  driverAmount:    number;
-  platformFee:     number;
-}
-
-interface ShiftPaymentModalProps {
-  shiftRef: string;
-  shiftId:  string;
-  order:    ShiftDayPaymentOrder;
-  onSuccess: () => void;
-  onCancel:  () => void;
-  onError:   (msg: string) => void;
-}
-
-const ShiftPaymentModal: React.FC<ShiftPaymentModalProps> = ({
-  shiftRef, shiftId, order, onSuccess, onCancel, onError,
-}) => {
-  const cardRef     = useRef<HTMLDivElement>(null);
-  const mountedRef  = useRef<StripeCardEl | null>(null);
-  const [stripe, setStripe]         = useState<StripeInst | null>(null);
-  const [card, setCard]             = useState<StripeCardEl | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const [cardError, setCardError]   = useState('');
-  const isTest = order.publishableKey.startsWith('pk_test');
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await loadStripe();
-        if (!alive) return;
-        const si = window.Stripe!(order.publishableKey);
-        setStripe(si);
-        if (cardRef.current) {
-          const el = si.elements().create('card', {
-            style: { base: { fontSize: '15px', color: '#041627', '::placeholder': { color: '#94a3b8' } } },
-          });
-          el.mount(cardRef.current);
-          el.on('change', (e) => setCardError(e.error?.message ?? ''));
-          setCard(el);
-          mountedRef.current = el;
-        }
-      } catch { onError('Failed to load payment SDK. Please refresh and try again.'); }
-    })();
-    return () => { alive = false; mountedRef.current?.unmount(); mountedRef.current = null; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleConfirm = async () => {
-    if (!stripe || !card) return;
-    setConfirming(true);
-    setCardError('');
-    try {
-      const result = await stripe.confirmCardPayment(order.clientSecret, { payment_method: { card } });
-      if (result.error) { setCardError(result.error.message); setConfirming(false); return; }
-      const status = result.paymentIntent?.status;
-      if (status === 'requires_capture' || status === 'succeeded') {
-        await haulierService.verifyShiftDayPayment(shiftId, order.dayNumber, result.paymentIntent!.id);
-        onSuccess();
-      } else {
-        setCardError(`Unexpected payment status: ${status ?? 'unknown'}`);
-        setConfirming(false);
-      }
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      onError(e.response?.data?.message ?? e.message ?? 'Payment failed. Please try again.');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#1066b1] to-[#0a4a8f] px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Daily Payment</p>
-              <h3 className="text-lg font-black text-white font-mono">{shiftRef}</h3>
-              <p className="text-sm font-bold text-white/70 mt-0.5">
-                Day {order.dayNumber} of {order.totalDays}
-              </p>
-            </div>
-            <button onClick={onCancel} disabled={confirming} className="rounded-full p-1.5 text-white/60 hover:bg-white/15 transition-colors disabled:opacity-40">
-              <span className="material-symbols-outlined text-lg">close</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-5">
-          {/* Fee breakdown */}
-          <div className="rounded-xl border border-slate-100 overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Day {order.dayNumber} Breakdown</span>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-50 bg-white">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#1066b1] text-[15px]">person</span>
-                <span className="text-sm font-bold text-[#041627]">Driver Fee</span>
-              </div>
-              <span className="text-sm font-black text-[#1066b1]">{fmtMoney(order.driverAmount, order.currency)}</span>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-50 bg-white">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-amber-500 text-[15px]">bolt</span>
-                <span className="text-sm font-bold text-[#041627]">Platform Fee <span className="text-slate-400 font-medium">(12.5%)</span></span>
-              </div>
-              <span className="text-sm font-black text-amber-600">{fmtMoney(order.platformFee, order.currency)}</span>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3.5 bg-[#1066b1]/5">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#1066b1] text-[15px]">calculate</span>
-                <span className="text-sm font-black text-[#041627]">Today's Charge</span>
-              </div>
-              <span className="text-base font-black text-[#041627]">{fmtMoney(order.amount, order.currency)}</span>
-            </div>
-          </div>
-
-          {/* Test mode banner */}
-          {isTest && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <span className="material-symbols-outlined text-amber-500 text-base mt-0.5 shrink-0">science</span>
-              <div className="text-xs text-amber-800">
-                <p className="font-black mb-0.5">Test Mode</p>
-                <p>Use <span className="font-mono font-black">4242 4242 4242 4242</span>, any future expiry, any CVC.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Card input */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
-            <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
-            {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
-          </div>
-
-          {/* Escrow notice */}
-          <div className="flex items-start gap-2 text-xs text-slate-500">
-            <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
-            <span>Funds are held securely in escrow and released to the driver when you mark the day complete.</span>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
-            <button onClick={onCancel} disabled={confirming}
-              className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-[#44474C] hover:bg-slate-50 transition-colors disabled:opacity-50">
-              Cancel
-            </button>
-            <button onClick={() => void handleConfirm()} disabled={confirming || !stripe || !card}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition-colors shadow-md shadow-[#1066b1]/20 disabled:opacity-50 disabled:cursor-not-allowed">
-              <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>
-              {confirming ? 'Processing…' : `Pay ${fmtMoney(order.amount, order.currency)}`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /* ── Quotes Panel ───────────────────────────────────────────────────────────── */
 
 interface QuotesPanelProps {
@@ -391,7 +206,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
   shiftRef, shift, quotes, loading, error, actionLoading, onAccept, onClose,
 }) => {
   const pendingQuotes = quotes.filter((q) => q.status.toUpperCase() === 'PENDING');
-  const otherQuotes   = quotes.filter((q) => q.status.toUpperCase() !== 'PENDING');
+  const otherQuotes   = quotes.filter((q) => !['PENDING', 'WITHDRAWN'].includes(q.status.toUpperCase()));
   const reqOpt = REQUIREMENT_OPTIONS.find((o) => o.value === shift.requirementType);
   const intermStops = (shift.stops ?? []).filter(s => !s.isFinalDestination);
 
@@ -431,75 +246,12 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
 
           {/* ─ Route card (dark) ─ */}
           <div className="rounded-2xl bg-[#041627] p-5 space-y-4">
-            {/* Pickup → Stops → Drop */}
-            <div className="space-y-0">
-              {/* Pickup */}
-              <div className="flex items-start gap-3">
-                <div className="flex flex-col items-center shrink-0 mt-1">
-                  <span className="h-3 w-3 rounded-full bg-[#1066b1] ring-2 ring-[#1066b1]/40" />
-                  <span className="w-px flex-1 bg-white/15 min-h-[20px]" />
-                </div>
-                <div className="pb-3">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Pickup</p>
-                  <p className="text-sm font-bold text-white leading-snug">{shift.pickupAddress ?? shift.location ?? '—'}</p>
-                </div>
-              </div>
-
-              {/* Intermediate stops */}
-              {intermStops.map((s, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="flex flex-col items-center shrink-0 mt-1">
-                    <span className="h-3 w-3 rounded-full bg-amber-400 ring-2 ring-amber-400/40" />
-                    <span className="w-px flex-1 bg-white/15 min-h-[20px]" />
-                  </div>
-                  <div className="pb-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stop {i + 1}</p>
-                    <p className="text-sm font-bold text-white leading-snug">{s.address}</p>
-                    {s.deliveryTime && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="material-symbols-outlined text-amber-400 text-xs">schedule</span>
-                        <span className="text-[11px] font-bold text-amber-400">Est. {s.deliveryTime}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {/* Drop */}
-              <div className="flex items-start gap-3">
-                <span className="h-3 w-3 rounded-full bg-red-400 ring-2 ring-red-400/40 shrink-0 mt-1" />
-                <div className="flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Drop-off</p>
-                  <p className="text-sm font-bold text-white leading-snug">{shift.dropAddress ?? '—'}</p>
-                  {(() => {
-                    const fin = (shift.stops ?? []).find(s => s.isFinalDestination);
-                    return fin?.deliveryTime ? (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="material-symbols-outlined text-emerald-400 text-xs">schedule</span>
-                        <span className="text-[11px] font-bold text-emerald-400">Est. {fin.deliveryTime}</span>
-                      </div>
-                    ) : null;
-                  })()}
-                  {/* Final-destination cargo */}
-                  {(() => {
-                    const finalCargo = (shift.compartmentDetails ?? []).filter(c =>
-                      c.stopLabel?.startsWith('Final Destination:')
-                    );
-                    return finalCargo.length > 0 ? (
-                      <div className="mt-1.5 space-y-1">
-                        {finalCargo.map((c, ci) => (
-                          <div key={ci} className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-md bg-white/15 flex items-center justify-center text-[10px] font-black text-white/70 shrink-0">
-                              {c.compartment}
-                            </span>
-                            <span className="text-[11px] text-white/60">{c.contents}</span>
-                            <span className="text-[11px] font-black text-white/80 ml-auto">{Number(c.quantity).toLocaleString()} {c.unit}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
+            {/* Pickup Location */}
+            <div className="flex items-start gap-3">
+              <span className="h-3 w-3 rounded-full bg-[#1066b1] ring-2 ring-[#1066b1]/40 shrink-0 mt-1" />
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Reporting Location</p>
+                <p className="text-sm font-bold text-white leading-snug">{shift.reportingLocation ?? shift.pickupAddress ?? shift.location ?? '—'}</p>
               </div>
             </div>
 
@@ -525,21 +277,13 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
           {/* ─ Schedule ─ */}
           <div>
             <SectionTitle icon="calendar_month" label="Schedule" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-3 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Start</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Date</p>
                 <p className="text-sm font-black text-emerald-800">{fmtDate(shift.startDate)}</p>
               </div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">End</p>
-                <p className="text-sm font-black text-[#041627]">{fmtDate(shift.endDate)}</p>
-              </div>
-              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Days</p>
-                <p className="text-sm font-black text-[#041627]">{shift.totalDays}</p>
-              </div>
-              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Hrs/Day</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Hours</p>
                 <p className="text-sm font-black text-[#041627]">{shift.hoursPerDay}h</p>
               </div>
             </div>
@@ -591,9 +335,9 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
                 )}
                 {shift.dailyRate != null && (
                   <div className="col-span-2 sm:col-span-2 rounded-xl bg-[#1066b1]/5 border border-[#1066b1]/20 px-3 py-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]/60 mb-0.5">Your Daily Rate</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1]/60 mb-0.5">Rate</p>
                     <p className="text-base font-black text-[#1066b1]">
-                      {fmtMoney(Number(shift.dailyRate), shift.currency)}<span className="text-sm font-bold text-slate-400">/day</span>
+                      {fmtMoney(Number(shift.dailyRate), shift.currency)}
                     </p>
                   </div>
                 )}
@@ -735,7 +479,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
           )}
 
-          {!loading && !error && quotes.length === 0 && (
+          {!loading && !error && pendingQuotes.length === 0 && otherQuotes.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                 <span className="material-symbols-outlined text-2xl text-slate-400">inbox</span>
@@ -796,16 +540,9 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept, r
   const isTruckWithDriver = req === 'TRUCK_WITH_DRIVER';
   const showTruckBlock   = isTruckOnly || isTruckWithDriver;
 
-  const driverFeePerDay  = Number(quote.amountPerDay);
-  const platformFeePerDay = Math.round(driverFeePerDay * PLATFORM_FEE_RATE * 100) / 100;
-  const totalPerDay      = driverFeePerDay + platformFeePerDay;
-
-  const driverTotal   = Number(quote.totalAmount);
-  const platformTotal = Math.round(driverTotal * PLATFORM_FEE_RATE * 100) / 100;
-  const grandTotal    = driverTotal + platformTotal;
-
-  // Derive number of days from totalAmount ÷ amountPerDay
-  const numDays = driverFeePerDay > 0 ? Math.round(driverTotal / driverFeePerDay) : 1;
+  const driverFee   = Number(quote.amountPerDay);
+  const platformFee = Math.round(driverFee * PLATFORM_FEE_RATE * 100) / 100;
+  const grandTotal  = driverFee + platformFee;
 
   return (
     <div className={`rounded-2xl border p-4 transition ${isPending ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60'}`}>
@@ -864,39 +601,35 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept, r
       {/* Fee breakdown table */}
       <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 bg-slate-50 px-4 py-2 border-b border-slate-100">
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 bg-slate-50 px-4 py-2 border-b border-slate-100">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fee</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Per Day</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">{numDays} Day{numDays !== 1 ? 's' : ''}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Amount</span>
         </div>
 
         {/* Driver fee row */}
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#1066b1] text-[15px]">person</span>
             <span className="text-sm font-bold text-[#041627]">Driver Fee</span>
           </div>
-          <span className="text-sm font-black text-[#1066b1] text-right">{fmtMoney(driverFeePerDay, quote.currency)}</span>
-          <span className="text-sm font-black text-[#1066b1] text-right">{fmtMoney(driverTotal, quote.currency)}</span>
+          <span className="text-sm font-black text-[#1066b1] text-right">{fmtMoney(driverFee, quote.currency)}</span>
         </div>
 
         {/* Platform fee row */}
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-amber-500 text-[15px]">bolt</span>
             <span className="text-sm font-bold text-[#041627]">Platform Fee <span className="text-slate-400 font-medium">(12.5%)</span></span>
           </div>
-          <span className="text-sm font-black text-amber-600 text-right">{fmtMoney(platformFeePerDay, quote.currency)}</span>
-          <span className="text-sm font-black text-amber-600 text-right">{fmtMoney(platformTotal, quote.currency)}</span>
+          <span className="text-sm font-black text-amber-600 text-right">{fmtMoney(platformFee, quote.currency)}</span>
         </div>
 
         {/* Total row */}
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-3 bg-[#1066b1]/5">
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 px-4 py-3 bg-[#1066b1]/5">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#1066b1] text-[15px]">calculate</span>
             <span className="text-sm font-black text-[#041627]">Total</span>
           </div>
-          <span className="text-sm font-black text-[#041627] text-right">{fmtMoney(totalPerDay, quote.currency)}<span className="text-[10px] text-slate-400 font-bold">/day</span></span>
           <span className="text-base font-black text-[#041627] text-right">{fmtMoney(grandTotal, quote.currency)}</span>
         </div>
       </div>
@@ -940,62 +673,8 @@ function ShiftSignatureCanvas({
   error:           string;
   savedSignature?: string | null;
 }) {
-  // 'saved' = show saved sig preview; 'draw' = show canvas
-  const [mode, setMode]           = React.useState<'saved' | 'draw'>(savedSignature ? 'saved' : 'draw');
-  const canvasRef                 = React.useRef<HTMLCanvasElement>(null);
-  const drawing                   = React.useRef(false);
-  const lastPoint                 = React.useRef<Point | null>(null);
-  const [hasStrokes, setHasStrokes] = React.useState(false);
-
-  const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
-    const canvas = canvasRef.current!;
-    const rect   = canvas.getBoundingClientRect();
-    if ('touches' in e) {
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-    }
-    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
-  };
-
-  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    drawing.current   = true;
-    lastPoint.current = getPos(e);
-    setHasStrokes(true);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!drawing.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const pos = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = '#1e3a5f';
-    ctx.lineWidth   = 2.5;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
-    ctx.stroke();
-    lastPoint.current = pos;
-  };
-
-  const endDraw = () => {
-    drawing.current   = false;
-    lastPoint.current = null;
-  };
-
-  const clear = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-    setHasStrokes(false);
-  };
-
-  const save = () => {
-    if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
-    if (!canvasRef.current || !hasStrokes) return;
-    onSave(canvasRef.current.toDataURL('image/png'));
-  };
+  // Handover counter-signature uses ONLY the saved profile e-signature — no drawing.
+  const save = () => { if (savedSignature) onSave(savedSignature); };
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -1018,11 +697,10 @@ function ShiftSignatureCanvas({
 
         <div className="p-6 space-y-4">
 
-          {/* ── MODE: saved signature ── */}
-          {mode === 'saved' && savedSignature ? (
+          {savedSignature ? (
             <>
               <p className="text-sm text-slate-500">
-                Your saved e-signature is ready. Tap <strong>Sign with This</strong> to confirm, or draw a new one.
+                Your saved e-signature is ready. Tap <strong>Sign with This</strong> to confirm.
               </p>
 
               {/* Saved sig preview */}
@@ -1040,110 +718,44 @@ function ShiftSignatureCanvas({
               <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
                 AUTHORISING OFFICER — SHIFT VEHICLE RELEASE
               </p>
-
-              {error && (
-                <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">{error}</p>
-              )}
-
-              {/* Primary action row */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setMode('draw')}
-                  disabled={loading}
-                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Draw New
-                </button>
-                <button
-                  onClick={save}
-                  disabled={loading}
-                  className="flex-[2] rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0] disabled:opacity-40"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Submitting…
-                    </span>
-                  ) : (
-                    '✓  Sign with This'
-                  )}
-                </button>
-              </div>
             </>
           ) : (
-            /* ── MODE: draw canvas ── */
-            <>
-              <p className="text-sm text-slate-500">
-                Sign below to confirm you have reviewed the driver's pre-trip handover and authorise departure.
+            <div className="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 px-4 py-6 text-center">
+              <span className="material-symbols-outlined text-3xl text-amber-500">draw</span>
+              <p className="mt-2 text-sm font-black text-amber-800">No e-signature found</p>
+              <p className="mt-1 text-xs font-medium text-amber-700">
+                Please add your e-signature in your profile before signing the handover.
               </p>
-
-              {/* "← Use Saved" link when a saved sig exists */}
-              {savedSignature && (
-                <button
-                  onClick={() => { clear(); setMode('saved'); }}
-                  disabled={loading}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/5 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1]/10 disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-                  Use Saved E-Signature
-                </button>
-              )}
-
-              {/* Canvas */}
-              <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-                <canvas
-                  ref={canvasRef}
-                  width={480}
-                  height={180}
-                  className="w-full cursor-crosshair touch-none"
-                  onMouseDown={startDraw}
-                  onMouseMove={draw}
-                  onMouseUp={endDraw}
-                  onMouseLeave={endDraw}
-                  onTouchStart={startDraw}
-                  onTouchMove={draw}
-                  onTouchEnd={endDraw}
-                />
-                {!hasStrokes && (
-                  <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
-                    Draw your signature here
-                  </p>
-                )}
-              </div>
-
-              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
-                AUTHORISING OFFICER — SHIFT VEHICLE RELEASE
-              </p>
-
-              {error && (
-                <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">{error}</p>
-              )}
-
-              <div className="flex gap-3 pt-1">
-                <button
-                  onClick={clear}
-                  disabled={loading}
-                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={save}
-                  disabled={loading || !hasStrokes}
-                  className="flex-[2] rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0] disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Submitting…
-                    </span>
-                  ) : (
-                    'Confirm Signature'
-                  )}
-                </button>
-              </div>
-            </>
+            </div>
           )}
+
+          {error && (
+            <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">{error}</p>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={loading || !savedSignature}
+              className="flex-[2] rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Submitting…
+                </span>
+              ) : (
+                '✓  Sign with This'
+              )}
+            </button>
+          </div>
 
         </div>
       </div>
@@ -1364,12 +976,6 @@ const HaulierShiftsPage: React.FC = () => {
   const [quotesError, setQuotesError]        = useState('');
   const [quoteActionLoading, setQuoteActionLoading] = useState<string | null>(null);
 
-  /* Day payment modal state */
-  const [payingEntry, setPayingEntry] = useState<{
-    shift: ShiftItem; order: ShiftDayPaymentOrder;
-  } | null>(null);
-  const [dayPaymentLoading, setDayPaymentLoading] = useState<string | null>(null); // shiftId
-
   /* Handover signature modal */
   const [signModalShift, setSignModalShift] = useState<ShiftItem | null>(null);
   const [signLoading,    setSignLoading]    = useState(false);
@@ -1450,12 +1056,13 @@ const HaulierShiftsPage: React.FC = () => {
 
   const handleAcceptQuote = async (quoteId: string) => {
     if (!quotesShiftId) return;
+    const shiftId = quotesShiftId;
     setQuoteActionLoading(quoteId);
     try {
-      await haulierService.acceptShiftQuote(quotesShiftId, quoteId);
+      await haulierService.acceptShiftQuote(shiftId, quoteId);
       closeQuotesPanel();
-      setSuccess('Quote accepted — shift is now booked. Pay for Day 1 to start the shift.');
-      await loadShifts();
+      // Job-style flow: go straight to the payment page to secure the escrow.
+      navigate(`/haulier/payments/create?shiftId=${shiftId}`);
     } catch (err) {
       setQuotesError(err instanceof Error ? err.message : 'Failed to accept quote');
     } finally {
@@ -1463,26 +1070,9 @@ const HaulierShiftsPage: React.FC = () => {
     }
   };
 
-  /* Day payment */
-  const handlePayDay = async (shift: ShiftItem) => {
-    setDayPaymentLoading(shift.shiftId);
-    setError(null);
-    try {
-      const order = await haulierService.createShiftDayPayment(shift.shiftId);
-      setPayingEntry({ shift, order: order as ShiftDayPaymentOrder });
-    } catch (err) {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(e.response?.data?.message ?? (err instanceof Error ? err.message : 'Failed to initiate payment'));
-    } finally {
-      setDayPaymentLoading(null);
-    }
-  };
-
-  const handleDayPaymentSuccess = async () => {
-    const day = payingEntry?.order.dayNumber;
-    setPayingEntry(null);
-    setSuccess(`Day ${day} payment secured in escrow. Click "Complete & Release Payment" at end of day to release funds to the driver.`);
-    await loadShifts();
+  /* Payment — job-style: send the haulier to the shared payment page */
+  const goToShiftPayment = (shift: ShiftItem) => {
+    navigate(`/haulier/payments/create?shiftId=${shift.shiftId}`);
   };
 
   /* Row actions */
@@ -1616,18 +1206,6 @@ const HaulierShiftsPage: React.FC = () => {
         />
       )}
 
-      {/* Day payment modal */}
-      {payingEntry && (
-        <ShiftPaymentModal
-          shiftRef={payingEntry.shift.shiftRef}
-          shiftId={payingEntry.shift.shiftId}
-          order={payingEntry.order}
-          onSuccess={() => void handleDayPaymentSuccess()}
-          onCancel={() => setPayingEntry(null)}
-          onError={(msg) => { setPayingEntry(null); setError(msg); }}
-        />
-      )}
-
 
       {/* Page header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1739,12 +1317,9 @@ const HaulierShiftsPage: React.FC = () => {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Shift Ref</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Reporting Location</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Requirement</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
-                {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
-                  <th className="pl-6 pr-14 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-r border-slate-200">Progress</th>
-                )}
                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                 {activeStatus !== 'CANCELLED' && activeStatus !== 'COMPLETED' && activeStatus !== 'EXPIRED' && (
                   <th className="pl-10 pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Action</th>
@@ -1754,9 +1329,8 @@ const HaulierShiftsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {pagedShifts.map((shift) => {
                 const reqOpt   = REQUIREMENT_OPTIONS.find((o) => o.value === shift.requirementType);
-                const canComplete = ['BOOKED', 'IN_PROGRESS'].includes(shift.status.toUpperCase()) && shift.daysCompleted < shift.totalDays;
+                const canComplete = ['BOOKED', 'IN_PROGRESS'].includes(shift.status.toUpperCase());
                 const canCancel   = !['COMPLETED', 'CANCELLED'].includes(shift.status.toUpperCase());
-                const progress    = shift.totalDays > 0 ? (shift.daysCompleted / shift.totalDays) * 100 : 0;
 
                 return (
                   <tr key={shift.shiftId} className="transition hover:bg-slate-50/70">
@@ -1770,11 +1344,9 @@ const HaulierShiftsPage: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Route */}
+                    {/* Reporting Location */}
                     <td className="px-6 py-5 max-w-[240px]">
-                      <p className="text-sm font-bold text-[#041627] truncate">{shift.pickupAddress ?? shift.location ?? 'N/A'}</p>
-                      <p className="text-[10px] text-slate-300 my-1">▼</p>
-                      <p className="text-sm text-slate-500 truncate">{shift.dropAddress ?? '—'}</p>
+                      <p className="text-sm font-bold text-[#041627] truncate">{shift.reportingLocation ?? shift.pickupAddress ?? shift.location ?? '—'}</p>
                     </td>
 
                     {/* Requirement */}
@@ -1783,42 +1355,16 @@ const HaulierShiftsPage: React.FC = () => {
                         <span className="material-symbols-outlined text-slate-400 text-base">{reqOpt?.icon ?? 'person'}</span>
                         <p className="text-sm font-bold text-[#041627]">{reqOpt?.label ?? shift.requirementType}</p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{shift.hoursPerDay}h/day</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{shift.hoursPerDay}h</p>
                     </td>
 
                     {/* Schedule */}
                     <td className="px-6 py-5">
                       <p className="text-sm font-bold text-[#041627]">{shift.startDate}</p>
-                      <p className="text-xs text-slate-400">→ {shift.endDate}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{shift.totalDays} day{shift.totalDays !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{shift.hoursPerDay}h</p>
                     </td>
 
-                    {/* Progress (all tabs except OPEN and EXPIRED) */}
-                    {activeStatus !== 'OPEN' && activeStatus !== 'EXPIRED' && (
-                      <td className="pl-6 pr-14 py-5 min-w-[210px] border-r border-slate-100">
-                        <p className="text-sm font-black text-[#041627]">
-                          {shift.daysCompleted}
-                          <span className="text-slate-400 text-xs font-bold">/{shift.totalDays}</span>
-                        </p>
-                        <div className="mt-1.5 h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${activeStatus === 'CANCELLED' ? 'bg-red-400' : 'bg-[#1066b1]'}`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        {shift.dailyRate && shift.daysCompleted > 0 && (
-                          <p className={`text-xs font-black mt-1 ${activeStatus === 'CANCELLED' ? 'text-slate-500' : 'text-[#1066b1]'}`}>
-                            {activeStatus === 'CANCELLED'
-                              ? `Partial: ${fmtMoney(shift.dailyRate * shift.daysCompleted, shift.currency)}`
-                              : `${fmtMoney(shift.dailyRate, shift.currency)}/day`}
-                          </p>
-                        )}
-                        {shift.dailyRate && shift.daysCompleted === 0 && (
-                          <p className="text-xs font-black text-[#1066b1] mt-1">{fmtMoney(shift.dailyRate, shift.currency)}/day</p>
-                        )}
-                      </td>
-                    )}
-
+                    {/* Rate (all tabs except OPEN and EXPIRED) */}
                     {/* Status */}
                     <td className="px-8 py-5">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusBadge(shift.status)}`}>
@@ -1847,23 +1393,21 @@ const HaulierShiftsPage: React.FC = () => {
                           </div>
                         ) : (
                           <div className="flex flex-col gap-2 mt-3">
-                            {/* Pay Day N — shown when day is not yet escrowed */}
+                            {/* Pay Shift — shown when payment is not yet escrowed; goes to the shared payment page (job-style) */}
                             {canComplete && !shift.currentDayEscrowed && (
                               <button
-                                onClick={() => void handlePayDay(shift)}
-                                disabled={dayPaymentLoading === shift.shiftId || !!actionLoading}
+                                onClick={() => goToShiftPayment(shift)}
+                                disabled={!!actionLoading}
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-3 py-2 text-xs font-black text-white transition hover:bg-[#0e57a0] disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {dayPaymentLoading === shift.shiftId
-                                  ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                  : <span className="material-symbols-outlined text-[15px]">payment</span>}
-                                Pay Day {shift.daysCompleted + 1}
+                                <span className="material-symbols-outlined text-[15px]">payment</span>
+                                Pay Shift
                               </button>
                             )}
                             {/* Complete & Release Payment — shown when that day's payment is escrowed */}
                             {canComplete && shift.currentDayEscrowed && (
                               <button
-                                onClick={() => handleCompleteDay(shift.shiftId, shift.daysCompleted + 1, shift.shiftRef)}
+                                onClick={() => handleCompleteDay(shift.shiftId, 1, shift.shiftRef)}
                                 disabled={!!actionLoading || releaseLoading}
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-300"
                               >

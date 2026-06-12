@@ -28,7 +28,7 @@ const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const loginResponse = await client.post('/auth/login', { email, password });
+      const loginResponse = await client.post('/auth/login', { email: email.trim().toLowerCase(), password, expectedRole: 'HAULIER,ADMIN' });
       const authData = loginResponse.data?.data;
       const accessToken = authData?.accessToken;
       const refreshToken = authData?.refreshToken ?? null;
@@ -54,6 +54,7 @@ const Login: React.FC = () => {
         currency: profile?.currency ?? authData?.currency,
         role: profile?.role ?? authData?.role ?? 'USER',
         status: profile?.status ?? authData?.status ?? 'ACTIVE',
+        isAdminApproved: profile?.isAdminApproved ?? authData?.isAdminApproved ?? true,
       });
     } catch (err) {
       if (axios.isAxiosError(err)) {
@@ -361,8 +362,13 @@ const Login: React.FC = () => {
           </p>
         </div>
 
-        <div className="mt-6 text-center text-xs text-gray-400">
+        <div className="mt-6 text-center text-xs text-gray-400 space-y-1">
           <p>FlexiShift Logistics Platform v1.0</p>
+          <p>
+            <Link to="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-navy hover:underline transition-colors">
+              Terms &amp; Conditions
+            </Link>
+          </p>
         </div>
       </div>
     </div>

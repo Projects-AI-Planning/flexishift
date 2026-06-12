@@ -16,6 +16,8 @@ const mapSpendSummary = (data: {
 const haulierService = {
   // EPIC 1: Auth & Profile
   register: (data: Record<string, unknown>) => client.post('/auth/register', data).then(res => res.data),
+  uploadOrganisationDocument: (formData: FormData) =>
+    client.post('/auth/register/organisation-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data) as Promise<{ fileUrl: string }>,
   verifyEmail: (data: { email: string, otp: string }) => client.post('/auth/verify-email', data).then(res => res.data),
   resendOTP: (email: string) => client.post('/auth/resend-verification', { email }).then(res => res.data),
   login: (data: Record<string, unknown>) => client.post('/auth/login', data).then(res => res.data),
@@ -112,7 +114,9 @@ const haulierService = {
   getOverview: () => client.get('/dashboard/haulier/overview').then(res => res.data.data),
   getActiveJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/active', { params }).then(res => res.data.data),
   getPendingApprovalJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/pending-approval', { params }).then(res => res.data.data),
+  getCompletedJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/completed', { params }).then(res => res.data.data),
   getPendingShiftPayments: () => client.get('/dashboard/haulier/shifts/pending-payment').then(res => res.data.data),
+  getCompletedShifts: () => client.get('/dashboard/haulier/shifts/completed').then(res => res.data.data),
   listDisputes: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/disputes', { params }).then(res => res.data.data),
   getSpendSummary: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/spend-summary', { params }).then(res => mapSpendSummary(res.data.data)),
   getRevenueAnalytics: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/revenue', { params }).then(res => res.data.data),
@@ -133,6 +137,8 @@ const haulierService = {
 
   // EPIC 8: Ratings
   submitRating: (data: Record<string, unknown>) => client.post('/ratings/submit', data).then(res => res.data),
+  submitShiftRating: (shiftId: string, data: { ratedUserId: string; stars: number; review?: string }) =>
+    client.post(`/shifts/${shiftId}/rating`, data).then(res => res.data),
   viewDriverRatings: (userId: string, params?: Record<string, unknown>) => client.get(`/ratings/user/${userId}`, { params }).then(res => res.data.data),
   getJobRatings: (jobId: string) => client.get(`/ratings/job/${jobId}`).then(res => res.data.data),
   getDriverRatingSummary: (userId: string) => client.get(`/ratings/summary/${userId}`).then(res => res.data.data),
@@ -170,6 +176,15 @@ const haulierService = {
     }>,
   verifyShiftDayPayment: (shiftId: string, dayNumber: number, paymentIntentId: string) =>
     client.post(`/shifts/${shiftId}/days/payment/verify`, { dayNumber, paymentIntentId }).then(res => res.data.data),
+  // Single-day shift payment (job-style — no day numbers)
+  initiateShiftPayment: (shiftId: string) =>
+    client.post(`/shifts/${shiftId}/payment`).then(res => res.data.data) as Promise<{
+      paymentId: string; gatewayOrderId: string; clientSecret: string;
+      amount: number; currency: string; publishableKey: string;
+      driverAmount: number; platformFee: number;
+    }>,
+  verifyShiftPayment: (shiftId: string, paymentIntentId: string) =>
+    client.post(`/shifts/${shiftId}/payment/verify`, { paymentIntentId }).then(res => res.data.data),
   getShiftDriverLocation: (shiftId: string) =>
     client.get(`/shifts/${shiftId}/driver-location`).then(res => res.data.data) as Promise<{
       driverId: string; driverName: string;

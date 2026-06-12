@@ -30,9 +30,6 @@ interface ShiftDayCompleteScreenProps {
 
 const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
   shiftRef,
-  dayNumber,
-  totalDays,
-  isLastDay,
   waitingForPayment = false,
   releasedAmount,
   currency,
@@ -50,7 +47,7 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
             </View>
             <Text style={styles.heroTitle}>Proof Submitted!</Text>
             <Text style={styles.heroSub}>
-              Day {dayNumber} of {totalDays} — {shiftRef}
+              {shiftRef}
             </Text>
           </View>
 
@@ -58,8 +55,8 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
             <ActivityIndicator color={colors.accent} size="large" />
             <Text style={styles.waitingTitle}>Waiting for Payment Release</Text>
             <Text style={styles.waitingText}>
-              Your end-of-day proof has been submitted.{'\n'}
-              The haulier will review and release your Day {dayNumber} payment.{'\n'}
+              Your end-of-shift proof has been submitted.{'\n'}
+              The haulier will review and release your payment.{'\n'}
               This screen updates automatically.
             </Text>
           </View>
@@ -68,11 +65,6 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Shift</Text>
               <Text style={styles.summaryValue}>{shiftRef}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Day</Text>
-              <Text style={styles.summaryValue}>{dayNumber} of {totalDays}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
@@ -101,13 +93,9 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
           <View style={styles.heroCircle}>
             <Text style={styles.heroIcon}>✓</Text>
           </View>
-          <Text style={styles.heroTitle}>
-            {isLastDay ? 'Shift Complete!' : `Day ${dayNumber} Done!`}
-          </Text>
+          <Text style={styles.heroTitle}>Shift Complete!</Text>
           <Text style={styles.heroSub}>
-            {isLastDay
-              ? `You've completed all ${totalDays} day${totalDays !== 1 ? 's' : ''} of shift ${shiftRef}.`
-              : `Day ${dayNumber} of ${totalDays} payment released. Great work!`}
+            You've completed shift {shiftRef}. Great work!
           </Text>
         </View>
 
@@ -130,53 +118,24 @@ const ShiftDayCompleteScreen: React.FC<ShiftDayCompleteScreenProps> = ({
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Day Completed</Text>
-            <Text style={styles.summaryValue}>{dayNumber} of {totalDays}</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Status</Text>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>
-                {isLastDay ? 'SHIFT COMPLETE' : 'DAY COMPLETE'}
-              </Text>
+              <Text style={styles.statusBadgeText}>SHIFT COMPLETE</Text>
             </View>
           </View>
         </View>
 
-        {/* ── What happens next ─────────────────────────────────────────────── */}
-        {!isLastDay && (
-          <View style={styles.nextCard}>
-            <Text style={styles.nextLabel}>WHAT HAPPENS NEXT</Text>
-            <Text style={styles.nextTitle}>Haulier pays for Day {dayNumber + 1}</Text>
-            <Text style={styles.nextText}>
-              Once the haulier confirms payment for Day {dayNumber + 1}, you can start your next day.{'\n\n'}
-              Come back tomorrow and tap "Start Day {dayNumber + 1}" when payment is secured.
-            </Text>
-          </View>
-        )}
-
-        {/* ── Progress bar ──────────────────────────────────────────────────── */}
-        <View style={styles.progressWrap}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, {width: `${(dayNumber / totalDays) * 100}%`}]} />
-          </View>
-          <Text style={styles.progressLabel}>
-            {dayNumber} / {totalDays} days {isLastDay ? 'complete' : 'done'}
-          </Text>
-        </View>
-
         {/* ── Actions ───────────────────────────────────────────────────────── */}
-        {isLastDay && (
+        {(
           <Pressable onPress={onRate} style={styles.rateBtn}>
             <Text style={styles.rateBtnIcon}>⭐</Text>
             <Text style={styles.rateBtnText}>Rate Your Haulier</Text>
           </Pressable>
         )}
 
-        <Pressable onPress={onDone} style={[styles.doneBtn, isLastDay && styles.doneBtnOutlined]}>
-          <Text style={[styles.doneBtnText, isLastDay && styles.doneBtnOutlinedText]}>
-            {isLastDay ? 'Back to My Shifts' : '← My Shifts — See you tomorrow!'}
+        <Pressable onPress={onDone} style={[styles.doneBtn, styles.doneBtnOutlined]}>
+          <Text style={[styles.doneBtnText, styles.doneBtnOutlinedText]}>
+            Back to My Shifts
           </Text>
         </Pressable>
 

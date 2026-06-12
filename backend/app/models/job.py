@@ -1,6 +1,7 @@
 import enum
 from uuid import uuid4
 from datetime import datetime, date
+from typing import Optional
 
 from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -54,6 +55,7 @@ class Job(Base):
     job_date:             Mapped[date]      = mapped_column(Date, nullable=False)
     time_slot:            Mapped[TimeSlot]  = mapped_column(Enum(TimeSlot), nullable=False)
     job_time:             Mapped[str]       = mapped_column(String(10), nullable=True)   # exact "Deliver By" time e.g. "14:30"
+    deliver_by_dt:        Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # full UTC datetime for deliver-by
     distance_km:          Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
     duration_min:         Mapped[int]       = mapped_column(Integer, nullable=True)
     status:               Mapped[JobStatus] = mapped_column(Enum(JobStatus), nullable=False, default=JobStatus.OPEN)

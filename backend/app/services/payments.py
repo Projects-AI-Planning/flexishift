@@ -12,6 +12,15 @@ log = structlog.get_logger()
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+# Bound Stripe HTTP calls so a slow/unreachable Stripe can never hang a request for
+# Stripe's default ~80s. Keeps haulier approve/release and payment flows responsive.
+try:
+    import stripe._http_client as _stripe_http
+    stripe.default_http_client = _stripe_http.RequestsClient(timeout=20)
+    stripe.max_network_retries = 1
+except Exception:
+    pass
+
 _STRIPE_CANCEL_REASONS = {"duplicate", "fraudulent", "requested_by_customer", "abandoned"}
 _STRIPE_REFUND_REASONS = {"duplicate", "fraudulent", "requested_by_customer"}
 
@@ -241,16 +250,12 @@ def get_payment_details(db: Session, job_id: str, user_id: str) -> dict:
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found for this job")
 
-    # Live intent status is best-effort; DB status is authoritative
+    # DB status is authoritative. We deliberately do NOT call Stripe here: this
+    # endpoint is polled frequently by the driver's "awaiting approval" screen, and a
+    # live PaymentIntent.retrieve adds ~1-3s per request — which, under polling, makes
+    # requests overlap and time out so the driver never sees the released status.
+    # Clients derive everything they need from `status` (ESCROWED / RELEASED / ...).
     intent_status = None
-    if payment.gateway_payment_id or payment.gateway_order_id:
-        client = _stripe_client()
-        try:
-            intent_id = payment.gateway_payment_id or payment.gateway_order_id
-            intent = client.PaymentIntent.retrieve(intent_id)
-            intent_status = intent["status"]
-        except Exception:
-            pass
 
     stops_raw = job.stops or []
     stops = [

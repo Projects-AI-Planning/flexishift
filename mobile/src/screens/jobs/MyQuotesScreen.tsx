@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {fmtMoney} from '../../utils/currency';
+import {driverApi} from '../../api/driverApi';
 import {
   View,
   Text,
@@ -10,8 +11,85 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import {colors, radius, spacing, shadow} from '../../theme';
+
+function DeliverByPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+}) {
+  const [step, setStep] = useState<'idle' | 'date' | 'time'>('idle');
+  // pendingDate holds the date chosen in step 1 so step 2 can use it without stale closure
+  const pendingDateRef = React.useRef<Date>(new Date());
+
+  const parsed = value ? new Date(value) : null;
+
+  const displayLabel = parsed
+    ? parsed.toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) +
+      '  ' +
+      parsed.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', hour12: true})
+    : 'Set deliver by date & time';
+
+  const onDateChange = (_: DateTimePickerEvent, selected?: Date) => {
+    setStep('idle');
+    if (!selected) {return;}
+    // Store the picked date; carry over existing time if already set
+    const base = parsed ? new Date(parsed) : new Date();
+    base.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    pendingDateRef.current = base;
+    // Delay opening time picker so Android can fully dismiss the date dialog first
+    setTimeout(() => setStep('time'), 50);
+  };
+
+  const onTimeChange = (_: DateTimePickerEvent, selected?: Date) => {
+    setStep('idle');
+    if (!selected) {return;}
+    const base = new Date(pendingDateRef.current);
+    base.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+    // Send full UTC ISO (e.g. "2026-06-10T08:30:00.000Z") so backend stores correct UTC
+    onChange(base.toISOString());
+  };
+
+  const pickerValue = step === 'time' ? pendingDateRef.current : (parsed ?? new Date());
+
+  return (
+    <View>
+      <Pressable
+        onPress={() => {
+          pendingDateRef.current = parsed ?? new Date();
+          setStep('date');
+        }}
+        style={styles.deliverByBtn}>
+        <Text style={[styles.deliverByBtnText, !parsed && {color: '#94A3B8'}]}>
+          📅  {displayLabel}
+        </Text>
+      </Pressable>
+      {step === 'date' && (
+        <DateTimePicker
+          value={pickerValue}
+          mode="date"
+          display={Platform.OS === 'android' ? 'default' : 'spinner'}
+          minimumDate={new Date()}
+          onChange={onDateChange}
+        />
+      )}
+      {step === 'time' && (
+        <DateTimePicker
+          value={pickerValue}
+          mode="time"
+          display={Platform.OS === 'android' ? 'default' : 'spinner'}
+          is24Hour={false}
+          onChange={onTimeChange}
+        />
+      )}
+    </View>
+  );
+}
 
 interface MyQuotesScreenProps {
   quotes: any[];
@@ -19,8 +97,8 @@ interface MyQuotesScreenProps {
   onRefresh: () => void;
   onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onWithdrawQuote: (quoteId: string) => Promise<void>;
-  onEditQuote?: (quoteId: string, newAmount: number) => Promise<void>;
-  onResubmitQuote?: (jobId: string, newAmount: number, notes: string) => Promise<void>;
+  onEditQuote?: (quoteId: string, newAmount: number, notes: string, deliverBy: string) => Promise<void>;
+  onResubmitQuote?: (jobId: string, newAmount: number, notes: string, deliverBy: string) => Promise<void>;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
   highlightedJobId?: string | null;
 }
@@ -46,17 +124,21 @@ function JobQuoteCard({
   item: any;
   highlightedJobId?: string | null;
   onWithdrawQuote: (quoteId: string) => void;
-  onEditQuote?: (quoteId: string, newAmount: number) => Promise<void>;
-  onResubmitQuote?: (jobId: string, newAmount: number, notes: string) => Promise<void>;
+  onEditQuote?: (quoteId: string, newAmount: number, notes: string, deliverBy: string) => Promise<void>;
+  onResubmitQuote?: (jobId: string, newAmount: number, notes: string, deliverBy: string) => Promise<void>;
   onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
 }) {
   const [editAmount, setEditAmount] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editDeliverBy, setEditDeliverBy] = useState('');
   const [resubmitAmount, setResubmitAmount] = useState('');
   const [resubmitNotes, setResubmitNotes] = useState('');
+  const [resubmitDeliverBy, setResubmitDeliverBy] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [resubmitMode, setResubmitMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [handover, setHandover] = useState<{driverSigned?: boolean; haulierSigned?: boolean} | null>(null);
 
   const statusUpper = (item.status ?? '').toUpperCase();
   const isAccepted   = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
@@ -65,6 +147,23 @@ function JobQuoteCard({
   const isWithdrawn  = statusUpper === 'WITHDRAWN';
   const jobId        = String(item.jobId ?? '');
   const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
+
+  // For accepted jobs, fetch handover status so we can show "waiting for haulier
+  // approval" once the driver has submitted the handover but the haulier hasn't signed.
+  useEffect(() => {
+    if (!isAccepted || !jobId) { return; }
+    let cancelled = false;
+    const load = () => {
+      driverApi.compliance.getHandoverStatus(jobId)
+        .then((s: any) => { if (!cancelled) { setHandover({driverSigned: !!s?.driverSigned, haulierSigned: !!s?.haulierSigned}); } })
+        .catch(() => undefined);
+    };
+    load();
+    const timer = setInterval(load, 5000);  // poll so it clears once the haulier signs
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isAccepted, jobId]);
+
+  const awaitingHaulierHandover = !!(handover?.driverSigned && !handover?.haulierSigned);
 
   const jobDatePassed = (() => {
     const jd: string | null = item.job?.jobDate ?? item.jobDate ?? null;
@@ -81,7 +180,7 @@ function JobQuoteCard({
     if (!amount || amount <= 0 || !onEditQuote) {return;}
     setSaving(true);
     try {
-      await onEditQuote(item.quoteId, amount);
+      await onEditQuote(item.quoteId, amount, editNotes, editDeliverBy);
       setEditMode(false);
     } finally {
       setSaving(false);
@@ -93,7 +192,7 @@ function JobQuoteCard({
     if (!amount || amount <= 0 || !onResubmitQuote) {return;}
     setSaving(true);
     try {
-      await onResubmitQuote(jobId, amount, resubmitNotes);
+      await onResubmitQuote(jobId, amount, resubmitNotes, resubmitDeliverBy);
       setResubmitMode(false);
     } finally {
       setSaving(false);
@@ -180,16 +279,24 @@ function JobQuoteCard({
                 </Text>}
               </View>
             </View>
-            <Pressable
-              onPress={() => onProceedToCompliance(
-                jobId,
-                item.jobReference ?? item.jobRef ?? undefined,
-                Number(item.quoteAmount ?? item.amount ?? 0) || undefined,
-                String(item.currency ?? 'USD'),
-              )}
-              style={styles.complianceBtn}>
-              <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>
-            </Pressable>
+            {awaitingHaulierHandover ? (
+              <View style={styles.awaitingHandoverBanner}>
+                <Text style={styles.awaitingHandoverText}>
+                  ⏳  Waiting for haulier approval on handover
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => onProceedToCompliance(
+                  jobId,
+                  item.jobReference ?? item.jobRef ?? undefined,
+                  Number(item.quoteAmount ?? item.amount ?? 0) || undefined,
+                  String(item.currency ?? 'USD'),
+                )}
+                style={styles.complianceBtn}>
+                <Text style={styles.complianceBtnText}>Open Pickup Steps →</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -226,6 +333,15 @@ function JobQuoteCard({
                   value={editAmount}
                   onChangeText={setEditAmount}
                 />
+                <TextInput
+                  style={[styles.editInput, {minHeight: 60}]}
+                  placeholder="Notes (optional)"
+                  placeholderTextColor="#94A3B8"
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  multiline
+                />
+                <DeliverByPicker value={editDeliverBy} onChange={setEditDeliverBy} />
                 <View style={{flexDirection: 'row', gap: 8}}>
                   <Pressable
                     onPress={handleSaveEdit}
@@ -244,7 +360,12 @@ function JobQuoteCard({
               <View style={{gap: 8}}>
                 {onEditQuote && (
                   <Pressable
-                    onPress={() => { setEditAmount(String(item.quoteAmount ?? item.amount ?? '')); setEditMode(true); }}
+                    onPress={() => {
+                      setEditAmount(String(item.quoteAmount ?? item.amount ?? ''));
+                      setEditNotes(String(item.notes ?? ''));
+                      setEditDeliverBy(item.deliverBy ?? '');
+                      setEditMode(true);
+                    }}
                     style={styles.editBtn}>
                     <Text style={styles.editBtnText}>✏️  Edit Quote</Text>
                   </Pressable>
@@ -283,6 +404,7 @@ function JobQuoteCard({
                   onChangeText={setResubmitNotes}
                   multiline
                 />
+                <DeliverByPicker value={resubmitDeliverBy} onChange={setResubmitDeliverBy} />
                 <View style={{flexDirection: 'row', gap: 8}}>
                   <Pressable
                     onPress={handleSaveResubmit}
@@ -555,6 +677,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
+  awaitingHandoverBanner: {
+    backgroundColor: '#FEF9C3',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: radius.lg,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  awaitingHandoverText: {
+    color: '#A16207',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   actionRow: {
     marginTop: 2,
   },
@@ -664,6 +802,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   resubmitSaveBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+  deliverByBtn: {
+    borderWidth: 1,
+    borderColor: '#1066B1',
+    borderRadius: radius.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#EFF6FF',
+  },
+  deliverByBtnText: {
+    color: '#1066B1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
 
 export default MyQuotesScreen;

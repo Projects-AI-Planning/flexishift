@@ -11,12 +11,14 @@ from app.models.user import User, UserStatus, Role
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.document import Document, DocStatus
+from app.models.vehicle import Vehicle
 from app.schemas.documents import DocumentReviewRequest
 from app.schemas.admin import AdminCreateUserRequest, AdminUpdateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
 from app.core.security import hash_password
 from app.models.user import UserProfile
 from app.services import documents as doc_svc
 from app.services.notifications import create_notification
+from app.routers.profile import _presigned_photo_url
 
 _REQUIRED_DOCS_BY_AVAIL: dict[str, list[str]] = {
     'DRIVER_ONLY':       ['DRIVING_LICENCE'],
@@ -34,18 +36,51 @@ def _refresh_driver_profile_complete(db: Session, user_id: str) -> None:
     if not profile:
         return
     driver_avail = profile.driver_availability or ''
-    required = _REQUIRED_DOCS_BY_AVAIL.get(driver_avail, [])
-    if not required:
+    if not driver_avail:
         user.profile_complete = False
-    else:
-        user.profile_complete = all(
-            db.query(Document).filter(
-                Document.user_id == user_id,
-                Document.doc_type == dt,
+        db.flush()
+        return
+
+    needs_licence = driver_avail in ('DRIVER_ONLY', 'DRIVER_WITH_TRUCK')
+    needs_truck_docs = driver_avail in ('TRUCK_ONLY', 'DRIVER_WITH_TRUCK')
+
+    if needs_licence:
+        has_licence = db.query(Document).filter(
+            Document.user_id == user_id,
+            Document.doc_type == 'DRIVING_LICENCE',
+            Document.status == DocStatus.APPROVED,
+        ).first() is not None
+        if not has_licence:
+            user.profile_complete = False
+            db.flush()
+            return
+
+    if needs_truck_docs:
+        vehicles = db.query(Vehicle).filter(
+            Vehicle.user_id == user_id,
+            Vehicle.is_active == True,
+        ).all()
+        verified_truck = False
+        for v in vehicles:
+            has_reg = db.query(Document).filter(
+                Document.vehicle_id == v.id,
+                Document.doc_type == 'VEHICLE_REG',
                 Document.status == DocStatus.APPROVED,
             ).first() is not None
-            for dt in required
-        )
+            has_ins = db.query(Document).filter(
+                Document.vehicle_id == v.id,
+                Document.doc_type == 'VEHICLE_INSURANCE',
+                Document.status == DocStatus.APPROVED,
+            ).first() is not None
+            if has_reg and has_ins:
+                verified_truck = True
+                break
+        if not verified_truck:
+            user.profile_complete = False
+            db.flush()
+            return
+
+    user.profile_complete = True
     db.flush()
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -54,9 +89,14 @@ AdminDep = require_role(Role.ADMIN)
 
 
 def _doc_dict(d: Document) -> dict:
+    vehicle_registration = None
+    if d.vehicle_id and d.vehicle:
+        vehicle_registration = d.vehicle.vehicle_registration
     return {
         "documentId": d.id,
         "userId": d.user_id,
+        "vehicleId": d.vehicle_id,
+        "vehicleRegistration": vehicle_registration,
         "docType": d.doc_type.value,
         "customName": d.custom_name,
         "fileUrl": d.file_url,
@@ -235,6 +275,68 @@ def create_user(
         },
         message="User created successfully",
     )
+
+
+@router.get("/hauliers/pending")
+def list_pending_hauliers(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    q = db.query(User).filter(
+        User.role == Role.HAULIER,
+        User.admin_approved == False,
+        User.deleted_at.is_(None),
+    )
+    total = q.count()
+    items = q.order_by(User.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return ok(
+        data={
+            "items": [
+                {
+                    "userId": u.id,
+                    "name": u.full_name,
+                    "email": u.email,
+                    "phone": u.phone,
+                    "photoUrl": _presigned_photo_url(u.profile.photo_url if u.profile else None),
+                    "companyName": u.profile.company_name if u.profile else None,
+                    "companyAddress": u.profile.company_address if u.profile else None,
+                    "vatNumber": u.profile.vat_number if u.profile else None,
+                    "organisationNumber": u.profile.organisation_number if u.profile else None,
+                    "country": u.country,
+                    "joinedAt": u.created_at.isoformat() if u.created_at else None,
+                }
+                for u in items
+            ],
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+        },
+        message="Pending hauliers retrieved",
+    )
+
+
+@router.patch("/hauliers/{user_id}/approve")
+async def approve_haulier(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role not in (Role.HAULIER, Role.FIRM):
+        raise HTTPException(status_code=400, detail="User is not a haulier")
+    user.admin_approved = True
+    db.commit()
+    await create_notification(
+        db, user.id, "ACCOUNT_APPROVED",
+        "Account Approved",
+        "Your haulier account has been approved. You can now post jobs and shifts.",
+        {},
+    )
+    return ok(data={"userId": user_id, "adminApproved": True}, message="Haulier approved successfully")
 
 
 @router.patch("/users/{user_id}/status")

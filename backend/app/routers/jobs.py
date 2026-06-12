@@ -43,6 +43,7 @@ def _job_dict(job: Job) -> dict:
         "jobDate": job.job_date.isoformat() if job.job_date else None,
         "timeSlot": job.time_slot,
         "deliverBy": job.job_time,
+        "deliverByDt": (job.deliver_by_dt.isoformat() + "Z") if job.deliver_by_dt else None,
         "quoteCount": len(job.quotes) if job.quotes is not None else 0,
         "distanceKm": job.distance_km,
         "durationMin": job.duration_min,
@@ -99,6 +100,8 @@ async def create_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
+    if not current_user.admin_approved:
+        raise HTTPException(status_code=403, detail="Your account is pending admin approval. You cannot post jobs until approved.")
     job = await jobs_svc.create_job(db, current_user, body.model_dump(by_alias=False))
     return created(data=_job_dict(job), message="Job created successfully")
 

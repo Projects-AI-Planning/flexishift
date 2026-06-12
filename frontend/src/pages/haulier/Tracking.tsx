@@ -597,7 +597,7 @@ export default function HaulierTrackingPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-black text-primary">{shift.shiftRef ?? shift.shiftId}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">Day {(shift.daysCompleted ?? 0) + 1} of {shift.totalDays ?? '?'}{shift.driver?.name ? ` · ${shift.driver.name}` : ''}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">Shift{shift.driver?.name ? ` · ${shift.driver.name}` : ''}</p>
                         {shift.location && <p className="mt-0.5 text-xs text-slate-400 truncate">{shift.location}</p>}
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${statusTone(shift.status)}`}>{shift.status ?? 'ACTIVE'}</span>
@@ -629,7 +629,7 @@ export default function HaulierTrackingPage() {
                   <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="rounded-2xl bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Driver</p><p className="mt-2 text-sm font-black text-primary">{shiftLoc?.driverName ?? selectedShift.driver?.name ?? 'N/A'}</p><p className="text-xs text-slate-500">{selectedShift.driver?.phone ?? '—'}</p></div>
                     <div className="rounded-2xl bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Last Update</p><p className="mt-2 text-sm font-black text-primary">{shiftLastUpdate ? formatTime(shiftLastUpdate) : 'No location yet'}</p>{shiftWsConnected && <p className="text-[10px] text-emerald-600 font-black mt-0.5">● Real-time</p>}</div>
-                    <div className="rounded-2xl bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Day Progress</p><p className="mt-2 text-sm font-black text-primary">Day {(selectedShift.daysCompleted ?? 0) + 1} of {selectedShift.totalDays ?? '?'}</p></div>
+                    <div className="rounded-2xl bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Type</p><p className="mt-2 text-sm font-black text-primary">Single-day shift</p></div>
                   </div>
                 ) : (
                   <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">No active shift selected.</div>

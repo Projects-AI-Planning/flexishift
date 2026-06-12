@@ -260,27 +260,51 @@ def driver_earnings(
         .join(Job, Job.id == Payment.job_id)
         .filter(Job.selected_supplier_id == current_user.id, Payment.status == PaymentStatus.RELEASED)
     )
-    all_time_total = q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0
-    all_time_jobs = q.count()
+    # Shifts pay the driver the same way — released shift payments count as earnings too.
+    sq = (
+        db.query(ShiftPayment, Shift)
+        .join(Shift, Shift.id == ShiftPayment.shift_id)
+        .filter(Shift.selected_driver_id == current_user.id, ShiftPayment.status == ShiftPaymentStatus.RELEASED)
+    )
+    all_time_total = (q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0) \
+        + (sq.with_entities(func.sum(func.coalesce(ShiftPayment.driver_amount, ShiftPayment.amount))).scalar() or 0.0)
+    all_time_jobs = q.count() + sq.count()
 
     month_q = q.filter(
         func.extract("month", Payment.released_at) == m,
         func.extract("year", Payment.released_at) == y,
     )
-    month_total = month_q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0
-    month_jobs = month_q.count()
+    month_sq = sq.filter(
+        func.extract("month", ShiftPayment.released_at) == m,
+        func.extract("year", ShiftPayment.released_at) == y,
+    )
+    month_total = (month_q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0) \
+        + (month_sq.with_entities(func.sum(func.coalesce(ShiftPayment.driver_amount, ShiftPayment.amount))).scalar() or 0.0)
+    month_jobs = month_q.count() + month_sq.count()
 
-    recent = month_q.order_by(Payment.released_at.desc()).limit(10).all()
-    recent_payments = [
+    recent_rows = [
         {
             "paymentId": p.id,
             "jobReference": j.job_ref,
             "amount": float(p.driver_amount) if p.driver_amount else float(p.amount),
             "currency": p.currency,
             "paidAt": p.released_at.isoformat() if p.released_at else None,
+            "_ts": p.released_at,
         }
-        for p, j in recent
+        for p, j in month_q.order_by(Payment.released_at.desc()).limit(10).all()
+    ] + [
+        {
+            "paymentId": sp.id,
+            "jobReference": s.shift_ref,
+            "amount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "currency": sp.currency,
+            "paidAt": sp.released_at.isoformat() if sp.released_at else None,
+            "_ts": sp.released_at,
+        }
+        for sp, s in month_sq.order_by(ShiftPayment.released_at.desc()).limit(10).all()
     ]
+    recent_rows.sort(key=lambda r: r["_ts"] or datetime.min, reverse=True)
+    recent_payments = [{k: v for k, v in r.items() if k != "_ts"} for r in recent_rows[:10]]
 
     month_name = datetime(y, m, 1).strftime("%B %Y")
     avg = round(float(month_total) / month_jobs, 0) if month_jobs else 0
@@ -605,6 +629,30 @@ def haulier_pending_approval(
     )
 
 
+def _shift_proof_photos(raw) -> list:
+    """Normalise a shift proof_photo_url (single URL or JSON array) into a list of
+    server-accessible URLs — rewrites host:port to BACKEND_URL and drops device-local
+    file:// URIs, exactly like job delivery photos."""
+    import json as _json
+    import re as _re
+    if not raw:
+        return []
+    try:
+        parsed = _json.loads(raw)
+        urls = parsed if isinstance(parsed, list) else [str(parsed)]
+    except Exception:
+        urls = [str(raw)]
+    out = []
+    for u in urls:
+        u = str(u)
+        if not u or u.startswith("file://"):
+            continue
+        if "/uploads/" in u:
+            u = _re.sub(r"https?://[^/]+", settings.BACKEND_URL.rstrip("/"), u)
+        out.append(u)
+    return out
+
+
 @router.get("/haulier/shifts/pending-payment")
 def haulier_shifts_pending_payment(
     db: Session = Depends(get_db),
@@ -658,6 +706,7 @@ def haulier_shifts_pending_payment(
             "shiftRef": shift.shift_ref,
             "dayNumber": pending_day,
             "totalDays": shift.total_days,
+            "driverId": shift.selected_driver_id,
             "driver": {
                 "name": driver.full_name if driver else None,
                 "phone": driver.phone if driver else None,
@@ -667,9 +716,10 @@ def haulier_shifts_pending_payment(
             "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
             "proofNotes": proof.notes,
             "recipientName": proof.recipient_name,
-            "proofPhotoUrl": proof.proof_photo_url,
+            "proofPhotos": _shift_proof_photos(proof.proof_photo_url),
+            "proofPhotoUrl": (_shift_proof_photos(proof.proof_photo_url) or [None])[0],
             "signatureData": proof.signature_data,
-            "hasPhoto": bool(proof.proof_photo_url),
+            "hasPhoto": bool(_shift_proof_photos(proof.proof_photo_url)),
             "hasSignature": bool(proof.signature_data),
         })
 
@@ -677,6 +727,88 @@ def haulier_shifts_pending_payment(
         data={"shifts": pending, "totalPending": len(pending)},
         message="Shifts pending payment fetched.",
     )
+
+
+@router.get("/haulier/jobs/completed")
+def haulier_completed_jobs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    )
+    total = q.count()
+    items = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    jobs = []
+    for j in items:
+        supplier = j.supplier
+        payment = j.payment
+        record = j.compliance
+        jobs.append({
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "status": j.status.value,
+            "driverId": supplier.id if supplier else None,
+            "driver": _driver_snippet(supplier),
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+            "payment": {
+                "amount": float(payment.amount) if payment else None,
+                "currency": payment.currency if payment else None,
+            } if payment else None,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else (current_user.currency or settings.PAYMENT_CURRENCY),
+            "deliveryProof": {
+                "deliveryPhotoUrl": record.delivery_photo_url if record else None,
+                "recipientSignatureUrl": record.recipient_signature_url if record else None,
+                "deliveryNotes": record.delivery_notes if record else None,
+                "submittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
+            } if record else None,
+            "awaitingApprovalSince": None,
+        })
+    return ok(data={"jobs": jobs, "total": total, "page": page, "limit": limit}, message="Completed jobs fetched.")
+
+
+@router.get("/haulier/shifts/completed")
+def haulier_completed_shifts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    shifts = db.query(Shift).filter(
+        Shift.haulier_id == current_user.id,
+        Shift.status == ShiftStatus.COMPLETED,
+    ).order_by(Shift.updated_at.desc()).all()
+    result = []
+    for shift in shifts:
+        driver = db.query(User).filter(User.id == shift.selected_driver_id).first()
+        proofs = db.query(ShiftDayProof).filter(
+            ShiftDayProof.shift_id == shift.id,
+        ).order_by(ShiftDayProof.day_number.asc()).all()
+        for proof in proofs:
+            result.append({
+                "shiftId": shift.id,
+                "shiftRef": shift.shift_ref,
+                "dayNumber": proof.day_number,
+                "totalDays": shift.total_days,
+                "driverId": shift.selected_driver_id,
+                "driver": {"name": driver.full_name if driver else None, "phone": driver.phone if driver else None},
+                "dailyRate": float(shift.daily_rate) if shift.daily_rate else None,
+                "currency": shift.currency or "GBP",
+                "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
+                "proofNotes": proof.notes,
+                "recipientName": proof.recipient_name,
+                "proofPhotos": _shift_proof_photos(proof.proof_photo_url),
+                "proofPhotoUrl": (_shift_proof_photos(proof.proof_photo_url) or [None])[0],
+                "signatureData": proof.signature_data,
+                "hasPhoto": bool(_shift_proof_photos(proof.proof_photo_url)),
+                "hasSignature": bool(proof.signature_data),
+                "alreadyPaid": True,
+            })
+    return ok(data={"shifts": result, "total": len(result)}, message="Completed shifts fetched.")
 
 
 @router.get("/haulier/disputes")
@@ -1545,7 +1677,7 @@ def haulier_active_map(
 @router.get("/admin/overview")
 def admin_overview(
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     now = datetime.utcnow()
     today = now.date()
@@ -1945,7 +2077,7 @@ def admin_list_invoices(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job, Payment)
@@ -1998,7 +2130,7 @@ def admin_list_payments(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
     if status:
@@ -2051,7 +2183,7 @@ def admin_revenue(
     month: int = Query(None),
     year: int = Query(None),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     now = datetime.utcnow()
     m = month or now.month
@@ -2101,7 +2233,7 @@ def admin_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     total_disputes = db.query(func.count(Job.id)).filter(Job.status == JobStatus.DISPUTED, Job.deleted_at.is_(None)).scalar() or 0
 
@@ -2264,7 +2396,7 @@ def admin_active_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job)
@@ -2310,7 +2442,7 @@ def admin_resolved_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job)
@@ -2360,7 +2492,7 @@ def admin_escalated_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     threshold = datetime.utcnow() - timedelta(hours=48)
     q = (

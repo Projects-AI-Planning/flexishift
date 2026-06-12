@@ -43,21 +43,21 @@ const REQUIRED_DOCS = [
     normalKey:  'driving_license',
     label:      'Driving License',
     icon:       '🪪',
-    subtitle:   'Standard Texas Class A CDL',
+    subtitle:   '',
   },
   {
     backendKey: 'VEHICLE_REG',
     normalKey:  'vehicle_registration',
     label:      'Vehicle Registration',
     icon:       '🚛',
-    subtitle:   'Freightliner Cascadia 2022',
+    subtitle:   '',
   },
   {
     backendKey: 'VEHICLE_INSURANCE',
     normalKey:  'vehicle_insurance',
     label:      'Insurance Policy',
     icon:       '🛡️',
-    subtitle:   'General Liability Coverage',
+    subtitle:   '',
   },
 ];
 

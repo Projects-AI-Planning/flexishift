@@ -12,6 +12,12 @@ class RegisterRequest(BaseModel):
     role: str
     country: Optional[str] = None
     currency: Optional[str] = None
+    organisation_number: Optional[str] = Field(None, alias="organisationNumber")
+    vat_number: Optional[str] = Field(None, alias="vatNumber")
+    company_name: Optional[str] = Field(None, alias="companyName")
+    address: Optional[str] = None
+    esignature_data: Optional[str] = Field(None, alias="esignatureData")
+    organisation_doc_url: Optional[str] = Field(None, alias="organisationDocUrl")
 
     model_config = {"populate_by_name": True}
 
@@ -57,6 +63,9 @@ class VerifyEmailRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    expected_role: Optional[str] = Field(None, alias="expectedRole")
+
+    model_config = {"populate_by_name": True}
 
 
 class TokenResponse(BaseModel):

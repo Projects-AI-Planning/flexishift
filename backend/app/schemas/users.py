@@ -50,6 +50,8 @@ class UpdateProfileRequest(BaseModel):
     truck_capacity: Optional[str] = Field(None, alias="truckCapacity")
     company_name: Optional[str] = Field(None, alias="companyName")
     company_address: Optional[str] = Field(None, alias="companyAddress")
+    vat_number: Optional[str] = Field(None, alias="vatNumber")
+    organisation_number: Optional[str] = Field(None, alias="organisationNumber")
     coverage_area: Optional[str] = Field(None, alias="coverageArea")
     driver_availability: Optional[str] = Field(None, alias="driverAvailability")
     equipment_details: Optional[list[dict]] = Field(None, alias="equipmentDetails")

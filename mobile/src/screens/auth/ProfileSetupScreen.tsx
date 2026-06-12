@@ -49,6 +49,11 @@ const DRIVER_MODES = [
 const CAPACITY_UNITS = ['kg', 'liters', 'tons', 'cubic m', 'cubic ft'];
 const CPT_UNITS      = ['L', 'kg', 'tons', 'cubic ft'];
 
+const VEHICLE_CATEGORIES = [
+  'HGV', 'LGV', 'Van', 'Flatbed', 'Tanker', 'Tipper',
+  'Refrigerated', 'Skip Loader', 'Curtainsider', 'Box Truck', 'Other',
+];
+
 const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   email: _email,
   initialName,
@@ -64,6 +69,9 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [licenceNumber, setLicenceNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('');
+  const [vehicleCatOpen, setVehicleCatOpen] = useState(false);
+  const [vehicleCatSelection, setVehicleCatSelection] = useState('');
+  const [vehicleCatOtherText, setVehicleCatOtherText] = useState('');
   const [truckCapacity, setTruckCapacity] = useState('');
   const [vehicleRegistration, setVehicleRegistration] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -136,7 +144,12 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
       e.licenceNumber = 'A valid driving licence number is required.';
     }
     if (showTruckSection && !vehicleType.trim()) {
-      e.vehicleType = 'Please enter your vehicle category.';
+      e.vehicleType = vehicleCatSelection === 'Other'
+        ? 'Please specify your vehicle type.'
+        : 'Please select a vehicle category.';
+    }
+    if (showTruckSection && !vehicleRegistration.trim()) {
+      e.vehicleRegistration = 'Vehicle registration number is required.';
     }
     if (showTruckSection && compartments.length === 0) {
       e.compartments = 'Please add at least one truck compartment.';
@@ -203,6 +216,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
         {/* Full Legal Name */}
         <AppInput
           label="Full Legal Name"
+          required
           autoCapitalize="words"
           onChangeText={v => { setName(v); clearErr('name'); }}
           placeholder="Enter your full name"
@@ -213,7 +227,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 
         {/* ── Driver Availability dropdown ────────────────────────────────── */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>I AM AVAILABLE AS</Text>
+          <Text style={styles.fieldLabel}>I AM AVAILABLE AS <Text style={styles.requiredStar}>*</Text></Text>
           <Pressable
             style={[styles.dropdownTrigger, fieldErrors.driverAvailability ? styles.inputError : null]}
             onPress={() => setDropdownOpen(o => !o)}>
@@ -267,6 +281,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
 
             <AppInput
               label="Driving License Number"
+              required
               autoCapitalize="characters"
               onChangeText={v => { setLicenceNumber(v); clearErr('licenceNumber'); }}
               placeholder="ABC-1234567-8"
@@ -287,15 +302,70 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             </View>
 
             {/* Vehicle Category */}
-            <AppInput
-              label="Vehicle Category"
-              autoCapitalize="words"
-              onChangeText={v => { setVehicleType(v); clearErr('vehicleType'); }}
-              placeholder="e.g. Flatbed, HGV, Van, Tanker"
-              value={vehicleType}
-              error={fieldErrors.vehicleType}
-              containerStyle={styles.fieldGroup}
-            />
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Vehicle Category <Text style={styles.requiredStar}>*</Text></Text>
+              <Pressable
+                style={[styles.dropdownTrigger, fieldErrors.vehicleType ? styles.inputError : null]}
+                onPress={() => { setVehicleCatOpen(o => !o); clearErr('vehicleType'); }}>
+                <Text style={vehicleCatSelection ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {vehicleCatSelection || 'Select vehicle category'}
+                </Text>
+                <Text style={[styles.dropdownChevron, vehicleCatOpen && styles.dropdownChevronUp]}>▾</Text>
+              </Pressable>
+
+              {vehicleCatOpen && (
+                <View style={styles.dropdownList}>
+                  {VEHICLE_CATEGORIES.map((cat, i) => {
+                    const active = vehicleCatSelection === cat;
+                    const isLast = i === VEHICLE_CATEGORIES.length - 1;
+                    return (
+                      <Pressable
+                        key={cat}
+                        onPress={() => {
+                          setVehicleCatSelection(cat);
+                          setVehicleCatOpen(false);
+                          clearErr('vehicleType');
+                          if (cat !== 'Other') {
+                            setVehicleType(cat);
+                            setVehicleCatOtherText('');
+                          } else {
+                            setVehicleType('');
+                          }
+                        }}
+                        style={[
+                          styles.dropdownItem,
+                          !isLast && styles.dropdownItemBorder,
+                          active && styles.dropdownItemActive,
+                        ]}>
+                        <Text style={[styles.dropdownItemLabel, active && styles.dropdownItemLabelActive]}>
+                          {cat}
+                        </Text>
+                        {active && <Text style={styles.dropdownItemTick}>✓</Text>}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {vehicleCatSelection === 'Other' && (
+                <TextInput
+                  style={[styles.input, {marginTop: 10}]}
+                  placeholder="Specify your vehicle type"
+                  placeholderTextColor="#9CA4B0"
+                  autoCapitalize="words"
+                  value={vehicleCatOtherText}
+                  onChangeText={v => {
+                    setVehicleCatOtherText(v);
+                    setVehicleType(v);
+                    clearErr('vehicleType');
+                  }}
+                />
+              )}
+
+              {fieldErrors.vehicleType
+                ? <Text style={styles.inlineError}>{fieldErrors.vehicleType}</Text>
+                : null}
+            </View>
 
             {/* Truck Capacity */}
             <View style={styles.fieldGroup}>
@@ -338,7 +408,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             <View style={cptStyles.sectionBlock}>
               <View style={styles.sectionHeadingRow}>
                 <Icon name="package" size={15} color="#374151" strokeWidth={2.2} />
-                <Text style={styles.sectionHeading}>Truck Compartments</Text>
+                <Text style={styles.sectionHeading}>Truck Compartments <Text style={styles.requiredStar}>*</Text></Text>
               </View>
               {fieldErrors.compartments ? (
                 <Text style={styles.inlineError}>{fieldErrors.compartments}</Text>
@@ -433,6 +503,7 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
             {/* Vehicle Registration */}
             <AppInput
               label="Vehicle Registration Number"
+              required
               autoCapitalize="characters"
               onChangeText={v => { setVehicleRegistration(v); clearErr('vehicleRegistration'); }}
               placeholder="e.g. TX-LOG-8892"
@@ -592,6 +663,7 @@ const styles = StyleSheet.create({
     color: colors.inkSoft, fontSize: 11, fontWeight: '800',
     letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8,
   },
+  requiredStar: {color: '#EF4444', fontWeight: '900'},
   input: {
     backgroundColor: '#FFFFFF', borderColor: '#C9D0DB', borderWidth: 1.5,
     borderRadius: radius.md, minHeight: 54, paddingHorizontal: spacing.lg,

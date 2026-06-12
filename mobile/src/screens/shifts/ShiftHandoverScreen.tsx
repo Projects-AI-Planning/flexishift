@@ -255,7 +255,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
           </Pressable>
           <View style={styles.topBarCenter}>
             <Text style={styles.topBarTitle}>{shiftRef}</Text>
-            <Text style={styles.topBarSub}>Day {dayNumber} of {totalDays} · Handover</Text>
+            <Text style={styles.topBarSub}>Handover</Text>
           </View>
           <View style={{width: 44}} />
         </View>
@@ -430,42 +430,30 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Two-button row */}
-                <View style={{flexDirection: 'row', gap: 10}}>
-                  <Pressable
-                    style={{
-                      flex: 2, backgroundColor: '#1066B1', borderRadius: 10,
-                      paddingVertical: 13, alignItems: 'center',
-                    }}
-                    onPress={() => {
-                      setDriverSigned(true);
-                      setDriverHasSig(true);
-                    }}>
-                    <Text style={{fontSize: 14, fontWeight: '800', color: '#fff'}}>
-                      ✓  Use This Signature
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={{
-                      flex: 1, borderWidth: 1.5, borderColor: '#D1D5DB',
-                      borderRadius: 10, paddingVertical: 13, alignItems: 'center',
-                    }}
-                    onPress={() => setShowSigModal(true)}>
-                    <Text style={{fontSize: 13, fontWeight: '700', color: '#374151'}}>
-                      Draw New
-                    </Text>
-                  </Pressable>
-                </View>
+                {/* Use saved profile e-signature (drawing disabled) */}
+                <Pressable
+                  style={{
+                    backgroundColor: '#1066B1', borderRadius: 10,
+                    paddingVertical: 13, alignItems: 'center',
+                  }}
+                  onPress={() => {
+                    setDriverSigned(true);
+                    setDriverHasSig(true);
+                  }}>
+                  <Text style={{fontSize: 14, fontWeight: '800', color: '#fff'}}>
+                    ✓  Use This Signature
+                  </Text>
+                </Pressable>
               </>
             );
           })() : !driverSigned ? (
-            /* ── Case B: No saved signature — normal Tap to Sign ── */
-            <Pressable
-              onPress={() => setShowSigModal(true)}
-              style={styles.sigBox}>
+            /* ── Case B: No saved e-signature — must add one in profile ── */
+            <View style={[styles.sigBox, {borderColor: '#FCD34D', backgroundColor: '#FFFBEB'}]}>
               <Text style={styles.sigTapIcon}>✍</Text>
-              <Text style={styles.sigHint}>Tap to Sign</Text>
-            </Pressable>
+              <Text style={[styles.sigHint, {color: '#B45309', textAlign: 'center', paddingHorizontal: 16}]}>
+                Add your e-signature in your profile to sign the handover.
+              </Text>
+            </View>
           ) : (
             /* ── Case C: Signed ── */
             <View style={[styles.sigBox, styles.sigBoxSigned]}>
@@ -534,12 +522,12 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
             <View style={styles.waitingInfoRow}>
               <Text style={styles.waitingInfoDot}>●</Text>
               <Text style={styles.waitingInfoText}>
-                Route: {pickupAddress || '—'} → {dropAddress || '—'}
+                Reporting Location: {pickupAddress || '—'} → Drop: {dropAddress || '—'}
               </Text>
             </View>
             <View style={styles.waitingInfoRow}>
               <Text style={styles.waitingInfoDot}>●</Text>
-              <Text style={styles.waitingInfoText}>Day {dayNumber} of {totalDays}</Text>
+              <Text style={styles.waitingInfoText}>{shiftRef}</Text>
             </View>
           </View>
         )}

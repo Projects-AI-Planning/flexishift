@@ -206,6 +206,7 @@ function getAvailabilityGate(
   driverAvailability: string,
   profileForm: {licenceNumber: string; vehicleType: string; vehicleRegistration: string},
   documents: DocumentSummary[],
+  esignatureData?: string | null,
 ): AvailabilityGateInfo & {canAccess: boolean} {
   const mode = (driverAvailability ?? '').trim().toUpperCase();
   const modeLabel = AVAILABILITY_MODE_LABELS[mode] ?? '';
@@ -216,6 +217,7 @@ function getAvailabilityGate(
       modeLabel: '',
       profileChecks: [],
       docChecks: [],
+      esignatureCheck: {done: Boolean(esignatureData)},
       nextAction: 'set_availability',
       canAccess: false,
     };
@@ -249,14 +251,20 @@ function getAvailabilityGate(
   const allDocsApproved = docChecks.every(c => c.status === 'approved');
   const anyDocRejected  = docChecks.some(c => c.status === 'rejected');
   const anyDocMissing   = docChecks.some(c => c.status === 'missing');
+  const hasEsignature   = Boolean(esignatureData);
+  const esignatureCheck = {done: hasEsignature};
 
-  // Check for any approved doc with a passed expiry date
+  // Check for any approved doc with a passed expiry date.
+  // If admin reviewed the doc after its expiry date, they explicitly accepted it — don't block.
   const now = new Date();
   const expiredDoc = documents.find(d => {
     const s = String(d.status).toUpperCase();
     if (s !== 'APPROVED' && s !== 'VERIFIED') {return false;}
     if (!d.expiryDate) {return false;}
-    return new Date(d.expiryDate) < now;
+    if (new Date(d.expiryDate) >= now) {return false;}
+    const reviewedAt = (d as any).reviewedAt;
+    if (reviewedAt && new Date(reviewedAt) > new Date(d.expiryDate)) {return false;}
+    return true;
   });
 
   let nextAction: AvailabilityGateInfo['nextAction'] = 'wait_approval';
@@ -266,6 +274,8 @@ function getAvailabilityGate(
     nextAction = 'upload_docs';
   } else if (expiredDoc) {
     nextAction = 'doc_expired';
+  } else if (!hasEsignature) {
+    nextAction = 'add_esignature';
   } else if (!allDocsApproved) {
     nextAction = 'wait_approval';
   }
@@ -279,9 +289,10 @@ function getAvailabilityGate(
     modeLabel,
     profileChecks,
     docChecks,
+    esignatureCheck,
     nextAction,
     expiredDocName,
-    canAccess: allProfileDone && allDocsApproved && !expiredDoc,
+    canAccess: allProfileDone && allDocsApproved && !expiredDoc && hasEsignature,
   };
 }
 
@@ -747,6 +758,9 @@ function DriverApp(): React.JSX.Element {
   const [escrowDetails, setEscrowDetails] = useState<Record<string, unknown> | null>(null);
   const [escrowLoading, setEscrowLoading] = useState(false);
   const [escrowRefreshing, setEscrowRefreshing] = useState(false);
+  // Bumped when a PAYMENT_RELEASED push arrives — forces an immediate escrow re-check
+  // so the driver leaves the "awaiting approval" screen instantly (no poll wait).
+  const [paymentReleasedHint, setPaymentReleasedHint] = useState(0);
 
   // ─── Data loaders ────────────────────────────────────────────────────────────
 
@@ -986,6 +1000,7 @@ function DriverApp(): React.JSX.Element {
       equipmentDetails: (nextProfileData?.equipmentDetails ?? []) as any[],
     });
     setRatings(ratingResult.status === 'fulfilled' && ratingResult.value ? cast<RatingSummary>(ratingResult.value) : null);
+    return nextProfile;
   }, [session?.userId]);
 
   const loadMyQuotes = useCallback(async () => {
@@ -1366,6 +1381,11 @@ function DriverApp(): React.JSX.Element {
             return [nextItem, ...current];
           });
           setNotificationUnreadCount(count => count + 1);
+          // Payment released by the haulier — trigger an immediate escrow re-check so the
+          // driver transitions off the "awaiting approval" screen without waiting for the poll.
+          if (String(payload.type ?? '').toUpperCase() === 'PAYMENT_RELEASED') {
+            setPaymentReleasedHint(Date.now());
+          }
           if (activeRoute === 'notifications.all') {
             loadNotifications().catch(() => undefined);
           }
@@ -1506,10 +1526,15 @@ function DriverApp(): React.JSX.Element {
       if (url.startsWith('freightflex://stripe-connect/return')) {
         stripeOnboardingPendingRef.current = false; // AppState fallback no longer needed
         try {
-          await loadProfile().catch(() => undefined);
+          const p = await loadProfile().catch(() => null);
           setActiveTab('profile');
           setActiveRoute('profile.payments');
-          setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
+          const complete = Boolean((p as any)?.stripeConnect?.onboardingComplete || (p as any)?.bankAccountId);
+          if (complete) {
+            setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
+          } else {
+            setErrorBanner('Bank setup is not complete yet. Please finish connecting your bank to receive payments.');
+          }
         } catch {
           /* user can pull to refresh */
         }
@@ -1535,9 +1560,15 @@ function DriverApp(): React.JSX.Element {
       if (nextState !== 'active' || !stripeOnboardingPendingRef.current) return;
       stripeOnboardingPendingRef.current = false;
       try {
-        await loadProfile().catch(() => undefined);
+        const p = await loadProfile().catch(() => null);
         setActiveTab('profile');
         setActiveRoute('profile.payments');
+        const complete = Boolean((p as any)?.stripeConnect?.onboardingComplete || (p as any)?.bankAccountId);
+        if (complete) {
+          setSuccessBanner('Bank account setup complete. Your earnings will be transferred after each completed job.');
+        } else {
+          setErrorBanner('Bank setup is not complete yet. Please finish connecting your bank to receive payments.');
+        }
       } catch {
         // silent — user can pull-to-refresh
       }
@@ -1877,20 +1908,25 @@ function DriverApp(): React.JSX.Element {
     });
   };
 
-  const handleEditJobQuote = async (quoteId: string, newAmount: number) => {
+  const handleEditJobQuote = async (quoteId: string, newAmount: number, notes: string, deliverBy: string) => {
     await runAction(async () => {
-      await driverApi.quotes.edit(quoteId, {price: newAmount});
+      await driverApi.quotes.edit(quoteId, {
+        quoteAmount: newAmount,
+        notes: notes || undefined,
+        deliverBy: deliverBy || undefined,
+      });
       setSuccessBanner('Quote updated successfully.');
       await loadMyQuotes();
     });
   };
 
-  const handleResubmitJobQuote = async (jobId: string, newAmount: number, notes: string) => {
+  const handleResubmitJobQuote = async (jobId: string, newAmount: number, notes: string, deliverBy: string) => {
     await runAction(async () => {
       await driverApi.quotes.submit({
         jobId,
         quoteAmount: newAmount,
         notes: notes || undefined,
+        deliverBy: deliverBy || undefined,
         currency: session?.currency,
       });
       setSuccessBanner('Quote re-submitted!');
@@ -2017,9 +2053,39 @@ function DriverApp(): React.JSX.Element {
     };
 
     poll();
-    const timer = setInterval(poll, 10_000);
+    // Poll frequently so the driver leaves the "awaiting approval" screen
+    // promptly once the haulier approves & releases payment. `paymentReleasedHint`
+    // re-runs this effect (immediate poll) the moment a PAYMENT_RELEASED push lands.
+    const timer = setInterval(poll, 3_000);
     return () => clearInterval(timer);
-  }, [activeRoute, escrowJobId]);
+  }, [activeRoute, escrowJobId, paymentReleasedHint]);
+
+  // ─── Poll shift status while driver waits on the shift day-complete screen ───
+  // Parity with jobs: auto-transition to the "payment released" state without
+  // needing the driver to tap the notification (fallback if the WS push is missed).
+  useEffect(() => {
+    if (activeRoute !== 'shifts.dayComplete' || !shiftHandoverInfo || shiftPaymentReleased !== null) { return; }
+    const shiftId = shiftHandoverInfo.shiftId;
+    const poll = async () => {
+      try {
+        const s = await driverApi.shifts.getDetails(shiftId) as any;
+        const status = String(s?.status ?? '').toUpperCase();
+        const payStatus = String(s?.paymentStatus ?? '').toUpperCase();
+        if (status === 'COMPLETED' || payStatus === 'RELEASED') {
+          setShiftPaymentReleased({
+            amount: Number(s?.dailyRate ?? 0),
+            currency: String(s?.currency ?? session?.currency ?? ''),
+            isLastDay: true,
+          });
+          loadShifts().catch(() => undefined);
+          driverApi.dashboard.getEarnings().then(d => setEarnings(cast<EarningsResponse>(d))).catch(() => undefined);
+        }
+      } catch { /* silent */ }
+    };
+    poll();
+    const timer = setInterval(poll, 3_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, shiftHandoverInfo, shiftPaymentReleased]);
 
   // ─── Poll haulier signature when driver is on handover screen ───────────────
 
@@ -2188,26 +2254,41 @@ function DriverApp(): React.JSX.Element {
       let deliveryPhotoUrl: string | undefined;
       if (photoItems.length > 0) {
         try {
-          const formData = new FormData();
-          const asset = photoItems.find((p: any) => p?.type === 'delivery') ?? photoItems[0];
-          formData.append('photos', {
-            uri: asset.uri,
-            name: asset.fileName ?? 'delivery_photo.jpg',
-            type: asset.type ?? 'image/jpeg',
-          } as any);
-          const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData, jobId) as any;
-          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
-          deliveryPhotoUrl = Array.isArray(uploaded) && uploaded[0]
-            ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? asset.uri)
-            : String(asset.uri);
+          // Upload each photo individually to avoid React Native FormData multi-append issues
+          const collectedUrls: string[] = [];
+          for (const asset of photoItems) {
+            const formData = new FormData();
+            formData.append('photos', {
+              uri: asset.uri,
+              name: asset.fileName ?? 'delivery_photo.jpg',
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+            const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData, jobId) as any;
+            const uploaded: {fileUrl?: string; url?: string}[] = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+            if (Array.isArray(uploaded) && uploaded.length > 0) {
+              const url = String(uploaded[0].fileUrl ?? uploaded[0].url ?? '');
+              if (url) collectedUrls.push(url);
+            }
+          }
+          if (collectedUrls.length > 0) {
+            deliveryPhotoUrl = collectedUrls.length === 1 ? collectedUrls[0] : JSON.stringify(collectedUrls);
+          }
+          // If all uploads failed, leave deliveryPhotoUrl undefined — don't store device-local paths
         } catch {
-          deliveryPhotoUrl = String(photoItems[0].uri);
+          // upload failed — deliveryPhotoUrl stays undefined
         }
       }
-      const recipientSignatureUrl =
-        typeof proofData?.recipientSignature === 'string'
-          ? proofData.recipientSignature
-          : JSON.stringify(proofData?.recipientSignature ?? []);
+      const recipientSignatureUrl = (() => {
+        if (typeof proofData?.recipientSignature === 'string') return proofData.recipientSignature;
+        // Convert array-of-strokes [[{x,y},...]] to [{x1,y1,x2,y2},...] for SignatureRenderer
+        const strokes: {x: number; y: number}[][] = proofData?.recipientSignature ?? [];
+        const segments = strokes.flatMap((stroke: {x: number; y: number}[]) =>
+          stroke.slice(1).map((pt: {x: number; y: number}, idx: number) => ({
+            x1: stroke[idx].x, y1: stroke[idx].y, x2: pt.x, y2: pt.y,
+          }))
+        );
+        return JSON.stringify(segments);
+      })();
       const payload = {
         jobId,
         deliveryPhotoUrl,
@@ -2508,7 +2589,7 @@ function DriverApp(): React.JSX.Element {
       dayNumber:     dayNum,
       totalDays,
       daysCompleted,
-      pickupAddress: String(shift?.pickupAddress ?? shift?.location ?? ''),
+      pickupAddress: String((shift as any)?.reportingLocation ?? shift?.location ?? ''),
       dropAddress:   String(shift?.dropAddress ?? ''),
       pickupLat:     shift?.pickupLat != null ? Number(shift.pickupLat) : null,
       pickupLng:     shift?.pickupLng != null ? Number(shift.pickupLng) : null,
@@ -2556,28 +2637,23 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      // Upload handover photos via the shared compliance endpoint
+      // Upload handover photos to the shift-specific endpoint
       const photoUrls: string[] = [];
       if (photos.length > 0) {
-        try {
-          const formData = new FormData();
-          photos.forEach(asset => {
-            formData.append('photos', {
-              uri:  asset.uri,
-              name: asset.fileName ?? 'handover_photo.jpg',
-              type: asset.type ?? 'image/jpeg',
-            } as any);
-          });
-          const uploadResult = await driverApi.compliance.submitHandoverPhotos(formData) as any;
-          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
-          uploaded.forEach((u: any) => {
-            const url = String(u.fileUrl ?? u.url ?? '');
-            if (url) {photoUrls.push(url);}
-          });
-        } catch {
-          // If upload fails, fall back to local URIs (non-blocking)
-          photos.forEach(a => photoUrls.push(String(a.uri)));
-        }
+        const formData = new FormData();
+        photos.forEach(asset => {
+          formData.append('photos', {
+            uri:  asset.uri,
+            name: asset.fileName ?? 'handover_photo.jpg',
+            type: asset.type ?? 'image/jpeg',
+          } as any);
+        });
+        const uploadResult = await driverApi.shifts.uploadHandoverPhotos(shiftHandoverInfo.shiftId, formData) as any;
+        const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+        uploaded.forEach((u: any) => {
+          const url = String(u.fileUrl ?? u.url ?? '');
+          if (url) {photoUrls.push(url);}
+        });
       }
 
       // Extract the driver signature from the augmented checklist
@@ -2612,25 +2688,30 @@ function DriverApp(): React.JSX.Element {
     setActionLoading(true);
     setErrorBanner(null);
     try {
-      // Upload proof photo if present
+      // Upload each proof photo to the shift proof endpoint (returns server URLs).
+      // Store as a JSON array (like jobs) so the haulier's delivery report shows them.
       let proofPhotoUrl: string | undefined;
       const photoAssets: any[] = data.photoAssets ?? [];
       if (photoAssets.length > 0) {
-        try {
-          const formData = new FormData();
-          const asset = photoAssets[0];
-          formData.append('photos', {
-            uri:  asset.uri,
-            name: asset.fileName ?? 'eod_photo.jpg',
-            type: asset.type ?? 'image/jpeg',
-          } as any);
-          const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData) as any;
-          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
-          proofPhotoUrl = Array.isArray(uploaded) && uploaded[0]
-            ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? asset.uri)
-            : String(asset.uri);
-        } catch {
-          proofPhotoUrl = String(photoAssets[0].uri);
+        const collected: string[] = [];
+        for (const asset of photoAssets) {
+          try {
+            const formData = new FormData();
+            formData.append('photos', {
+              uri:  asset.uri,
+              name: asset.fileName ?? 'eod_photo.jpg',
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+            const uploadResult = await driverApi.shifts.uploadProofPhotos(shiftHandoverInfo.shiftId, formData) as any;
+            const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+            const url = Array.isArray(uploaded) && uploaded[0] ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? '') : '';
+            if (url) {collected.push(url);}
+          } catch {
+            // upload failed — skip this photo (never store a device-local file:// URI)
+          }
+        }
+        if (collected.length > 0) {
+          proofPhotoUrl = collected.length === 1 ? collected[0] : JSON.stringify(collected);
         }
       }
 
@@ -3250,6 +3331,7 @@ function DriverApp(): React.JSX.Element {
         profileForm.driverAvailability,
         profileForm,
         documents,
+        (profile?.profile as {esignatureData?: string | null})?.esignatureData,
       );
 
       const goToShiftDocuments = () => {
@@ -3423,7 +3505,7 @@ function DriverApp(): React.JSX.Element {
           onGoToDocuments={goToShiftDocuments}
           onGoToProfile={() => navigate('profile', 'profile.edit')}
           onGoToAvailability={() => navigate('profile', 'profile.edit')}
-          paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete)}
+          paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete || (profile as any)?.bankAccountId)}
           onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
         />
       );
@@ -3580,6 +3662,7 @@ function DriverApp(): React.JSX.Element {
         profileForm.driverAvailability,
         profileForm,
         documents,
+        (profile?.profile as {esignatureData?: string | null})?.esignatureData,
       );
 
       const goToDocuments = () => {
@@ -3743,7 +3826,7 @@ function DriverApp(): React.JSX.Element {
             loading={actionLoading}
             error={errorBanner}
             isApplied={myQuotes.some(q => String(q.jobId) === String(selectedJob?.jobId ?? ''))}
-            paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete)}
+            paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete || (profile as any)?.bankAccountId)}
             onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
           />
         );

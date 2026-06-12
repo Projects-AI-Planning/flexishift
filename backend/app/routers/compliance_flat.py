@@ -21,11 +21,22 @@ from app.services import local_storage as local_svc
 from app.services import s3
 from app.config import settings
 
+import re as _re
+
 router = APIRouter(prefix="/compliance", tags=["Compliance"])
 
 DriverDep = require_role(Role.DRIVER, Role.FIRM)
 HaulierDep = require_role(Role.HAULIER, Role.FIRM)
 AdminDep = require_role(Role.ADMIN)
+
+
+def _fix_photo_url(url: str) -> str:
+    """Rewrite any host:port to BACKEND_URL for upload paths. Filter device-local file:// URIs."""
+    if not url or url.startswith('file://'):
+        return ''
+    if '/uploads/' in url:
+        return _re.sub(r'https?://[^/]+', settings.BACKEND_URL.rstrip("/"), url)
+    return url
 
 
 # ── Load Code ─────────────────────────────────────────────────────────────────
@@ -176,8 +187,8 @@ async def upload_handover_photos_direct(
             file_path = local_svc.LOCAL_UPLOAD_ROOT / key
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_bytes(contents)
-            file_url = local_svc.local_upload_url(request, key)
-            record = local_svc.create_pending_upload(
+            file_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{key}"
+            rec = local_svc.create_pending_upload(
                 db,
                 user_id=current_user.id,
                 kind=LocalUploadKind.IMAGE,
@@ -185,8 +196,8 @@ async def upload_handover_photos_direct(
                 content_type=photo.content_type or "image/jpeg",
                 storage_key=key,
             )
-            record.public_url = file_url
-            record.status = LocalUploadStatus.STORED
+            rec.public_url = file_url
+            rec.status = LocalUploadStatus.STORED
             db.commit()
         uploaded.append({"key": key, "fileUrl": file_url})
 
@@ -207,7 +218,8 @@ def list_handover_photos(
     current_user: User = Depends(get_current_user),
 ):
     record = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
-    photos = record.condition_photo_urls or [] if record else []
+    raw = record.condition_photo_urls or [] if record else []
+    photos = [u for u in (_fix_photo_url(x) for x in raw) if u]
     return ok(data={"jobId": job_id, "photos": photos, "total": len(photos)}, message="Photos listed")
 
 
@@ -295,7 +307,7 @@ def get_handover_status(
             "haulierSignedAt": record.haulier_signed_at.isoformat() if record and record.haulier_signed_at else None,
             "step1Completed": bool(record and record.step1_completed_at),
             "step1CompletedAt": record.step1_completed_at.isoformat() if record and record.step1_completed_at else None,
-            "conditionPhotos": record.condition_photo_urls or [] if record else [],
+            "conditionPhotos": [u for u in (_fix_photo_url(x) for x in (record.condition_photo_urls or [])) if u] if record else [],
         },
         message="Handover status retrieved",
     )
@@ -305,8 +317,8 @@ def get_handover_status(
 
 class DeliverySubmitRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
-    delivery_photo_url: str = Field(..., alias="deliveryPhotoUrl")
-    recipient_signature_url: str = Field(..., alias="recipientSignatureUrl")
+    delivery_photo_url: Optional[str] = Field(None, alias="deliveryPhotoUrl")
+    recipient_signature_url: Optional[str] = Field(None, alias="recipientSignatureUrl")
     recipient_name: Optional[str] = Field(None, alias="recipientName")
     delivery_notes: Optional[str] = Field(None, alias="deliveryNotes")
     model_config = {"populate_by_name": True}
@@ -329,6 +341,11 @@ async def submit_delivery(
     db: Session = Depends(get_db),
     current_user: User = Depends(DriverDep),
 ):
+    import logging as _logging
+    _logging.getLogger("delivery_submit").warning(
+        "DELIVERY SUBMIT | job=%s | driver=%s | deliveryPhotoUrl=%r",
+        body.job_id, current_user.id, body.delivery_photo_url
+    )
     record = await comp_svc.complete_step2(db, body.job_id, current_user.id, body.model_dump(by_alias=False))
     return ok(
         data={
@@ -365,6 +382,11 @@ async def upload_delivery_photos_direct(
     job_id: str = Query(..., alias="jobId"),
     photos: List[UploadFile] = File(...),
 ):
+    import logging as _logging
+    _logging.getLogger("delivery_upload").warning(
+        "DELIVERY UPLOAD | job=%s | driver=%s | num_photos=%d | filenames=%s",
+        job_id, current_user.id, len(photos), [p.filename for p in photos]
+    )
     uploaded = []
     for photo in photos[:10]:
         suffix = {
@@ -394,7 +416,51 @@ async def upload_delivery_photos_direct(
             record.status = LocalUploadStatus.STORED
             db.commit()
         uploaded.append({"key": key, "fileUrl": file_url})
+
+    # Accumulate uploaded URLs into the compliance record so that all photos
+    # are captured regardless of what the mobile sends to submitDeliveryProof.
+    if uploaded:
+        import json as _json2
+        from app.models.compliance import ComplianceRecord
+        comp = db.query(ComplianceRecord).filter(ComplianceRecord.job_id == job_id).first()
+        if comp and not comp.step2_completed_at:
+            new_urls = [u["fileUrl"] for u in uploaded]
+            existing: list = []
+            if comp.delivery_photo_url:
+                try:
+                    existing = _json2.loads(comp.delivery_photo_url)
+                    if not isinstance(existing, list):
+                        existing = [comp.delivery_photo_url]
+                except Exception:
+                    existing = [comp.delivery_photo_url]
+            all_urls = existing + new_urls
+            comp.delivery_photo_url = all_urls[0] if len(all_urls) == 1 else _json2.dumps(all_urls)
+            db.commit()
+
     return ok(data={"uploads": uploaded, "photos": uploaded}, message="Delivery photos uploaded")
+
+
+def _dispatch_notify_and_invoice(job_id: str) -> None:
+    """Run the heavy post-approve work (PDF generation, blocking Stripe invoice
+    calls, SMTP email) on a dedicated thread with its own event loop.
+
+    These operations make synchronous/blocking network calls. If they ran on the
+    main server event loop (as a normal async BackgroundTask does), they would
+    freeze every other request for several seconds — which is exactly what left
+    the driver stuck on "awaiting approval" and blocked the haulier's rating
+    submit right after an approve. Isolating them on a worker thread keeps the
+    server responsive.
+    """
+    import asyncio
+    import threading
+
+    def _runner() -> None:
+        try:
+            asyncio.run(_notify_and_invoice_background(job_id))
+        except Exception:
+            pass
+
+    threading.Thread(target=_runner, daemon=True, name=f"post-approve-{job_id[:8]}").start()
 
 
 async def _notify_and_invoice_background(job_id: str) -> None:
@@ -413,6 +479,20 @@ async def _notify_and_invoice_background(job_id: str) -> None:
             return
         driver = job.supplier
 
+        # Notify the driver FIRST so the real-time PAYMENT_RELEASED push lands
+        # immediately — this is what moves them off the "awaiting approval" screen.
+        # Invoice generation + email follow (they're slower and not time-critical).
+        try:
+            await create_notification(
+                db, job.selected_supplier_id, "PAYMENT_RELEASED",
+                "Payment Released",
+                f"Haulier approved delivery for job {job.job_ref}. Payment has been released.",
+                {"job_id": job_id, "job_ref": job.job_ref},
+            )
+            db.commit()
+        except Exception:
+            pass
+
         try:
             url = await generate_and_upload_invoice(job, p)
             job.invoice_url = url
@@ -422,17 +502,6 @@ async def _notify_and_invoice_background(job_id: str) -> None:
 
         try:
             await send_invoice_to_driver(job, p, driver, db=db)
-        except Exception:
-            pass
-
-        try:
-            await create_notification(
-                db, job.selected_supplier_id, "PAYMENT_RELEASED",
-                "Payment Released",
-                f"Haulier approved delivery for job {job.job_ref}. Payment has been released.",
-                {"job_id": job_id, "job_ref": job.job_ref},
-            )
-            db.commit()
         except Exception:
             pass
     finally:
@@ -450,8 +519,9 @@ async def approve_delivery(
     if not job or job.haulier_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
     record = await comp_svc.approve_delivery(db, job_id, current_user.id)
-    # Invoice + notification run in background so the HTTP response returns immediately.
-    background_tasks.add_task(_notify_and_invoice_background, job_id)
+    # Invoice + notification run on a dedicated worker thread so their blocking
+    # PDF/Stripe/SMTP calls never freeze the main event loop.
+    background_tasks.add_task(_dispatch_notify_and_invoice, job_id)
     return ok(
         data={
             "jobId": job_id,
@@ -514,11 +584,12 @@ def get_delivery_status(
             try:
                 parsed = _json.loads(record.delivery_photo_url)
                 if isinstance(parsed, list):
-                    delivery_photos = parsed
+                    raw_photos = [str(p) for p in parsed if p]
                 else:
-                    delivery_photos = [str(parsed)]
+                    raw_photos = [str(parsed)]
             except Exception:
-                delivery_photos = [record.delivery_photo_url]
+                raw_photos = [record.delivery_photo_url]
+            delivery_photos = [u for u in (_fix_photo_url(x) for x in raw_photos) if u]
 
     return ok(
         data={

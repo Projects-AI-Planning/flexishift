@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 import RouteMapStep, { type RouteStepData } from './RouteMapStep';
+import { useAuth } from '../../hooks/useAuth';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 
@@ -57,6 +58,7 @@ interface FormState {
   compartments:        string;
   jobDate:             string;
   timeSlot:            string;
+  deliverByDt:         string;
   specialInstructions: string;
   driverRequirement:   string;
   accessCode:          string;
@@ -91,6 +93,7 @@ const EMPTY: FormState = {
   compartments:        '',
   jobDate:             '',
   timeSlot:            '',
+  deliverByDt:         '',
   specialInstructions: '',
   driverRequirement:   'DRIVER_WITH_TRUCK',
   accessCode:          '',
@@ -151,6 +154,7 @@ const StepBar: React.FC<{ current: number }> = ({ current }) => (
 
 const PostJobPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
   const [step, setStep]           = useState(1);
   const [form, setForm]           = useState<FormState>(EMPTY);
   const [stops, setStops]         = useState<StopEntry[]>([]);
@@ -345,6 +349,7 @@ const PostJobPage: React.FC = () => {
         estimatedDelivery: deliveryDate || undefined,
         timeSlot:          timeToSlot(form.timeSlot),
         jobTime:           form.timeSlot,
+        deliverByDt:       form.deliverByDt || undefined,
         driverRequirement: form.driverRequirement,
         stops:             stops.map((s, i) => ({
           address:      s.address,
@@ -384,6 +389,20 @@ const PostJobPage: React.FC = () => {
     }
   };
 
+  /* ── Refresh approval status from server on mount ── */
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (user?.role !== 'HAULIER' && user?.role !== 'FIRM') return;
+    if (user?.isAdminApproved) return;
+    import('../../api/client').then(({ default: client }) => {
+      client.get('/profile/me').then((res) => {
+        const approved = res.data?.data?.isAdminApproved;
+        if (approved === true) updateUser({ isAdminApproved: true });
+      }).catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ── SUCCESS SCREEN ── */
   if (created) {
     return (
@@ -411,16 +430,6 @@ const PostJobPage: React.FC = () => {
             )}
           </div>
           <div className="flex flex-col gap-3 w-full mt-auto">
-            <button
-              onClick={() => navigate(`/haulier/payments${created.jobId ? `?jobId=${created.jobId}` : ''}`)}
-              className="w-full flex items-center justify-center gap-2 bg-white text-[#1066b1] py-3.5 rounded-xl font-black text-sm transition-all hover:bg-blue-50 shadow-xl shadow-black/10 active:scale-[0.98]"
-            >
-              <span className="material-symbols-outlined text-base">lock</span>
-              Secure Payment
-            </button>
-            <p className="text-[10px] text-blue-100/60 font-bold uppercase tracking-widest">
-              Note: Secure payment after accepting a bid
-            </p>
             <div className="flex gap-3 w-full">
               <button
                 onClick={() => navigate('/haulier/jobs')}
@@ -489,6 +498,27 @@ const PostJobPage: React.FC = () => {
             <p className="text-xs text-blue-700 font-medium leading-relaxed">
               You'll receive a notification as soon as a driver submits a quote. Go to <strong>My Jobs</strong> to review and accept offers.
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── PENDING ADMIN APPROVAL ── */
+  if (user?.isAdminApproved === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgba(16,102,177,0.12)] border border-[#1066b1]/20 p-10 max-w-lg w-full text-center">
+          <div className="w-20 h-20 rounded-full bg-[#1066b1]/10 ring-8 ring-[#1066b1]/10 flex items-center justify-center mx-auto mb-6">
+            <span className="material-symbols-outlined text-[#1066b1] text-4xl">hourglass_top</span>
+          </div>
+          <h2 className="text-2xl font-black text-primary mb-3">Waiting for Admin Approval</h2>
+          <p className="text-slate-500 font-medium leading-relaxed">
+            Your haulier account is currently under review by the admin. Once approved, you will be able to post jobs.
+          </p>
+          <div className="mt-6 bg-[#1066b1]/5 border border-[#1066b1]/20 rounded-2xl px-5 py-4 text-sm text-[#1066b1] font-medium flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1066b1] text-lg shrink-0">info</span>
+            You will be notified as soon as your account is approved.
           </div>
         </div>
       </div>
@@ -756,13 +786,13 @@ const PostJobPage: React.FC = () => {
                 </div>
               </div>}
 
-              {/* Deliver By — custom time picker */}
+              {/* Deliver By — date + time picker */}
               <div>
-                <Label text="Deliver By" required hint="expected delivery time" />
+                <Label text="Deliver By" required hint="exact delivery date & time" />
                 <div className="relative max-w-xs">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">schedule</span>
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">event</span>
                   <input
-                    type="time"
+                    type="datetime-local"
                     className={`${inputCls} pl-10 font-mono tracking-widest ${
                       form.timeSlot
                         ? form.jobDate === today && isTimePassed(form.timeSlot)
@@ -770,8 +800,18 @@ const PostJobPage: React.FC = () => {
                           : 'border-primary/40 bg-primary/5 text-primary font-black'
                         : ''
                     }`}
-                    value={form.timeSlot}
-                    onChange={set('timeSlot')}
+                    value={form.jobDate && form.timeSlot ? `${form.jobDate}T${form.timeSlot}` : ''}
+                    min={`${today}T00:00`}
+                    onChange={e => {
+                      const val = e.target.value; // "YYYY-MM-DDTHH:MM"
+                      if (!val) {
+                        setForm(f => ({ ...f, timeSlot: '', deliverByDt: '' }));
+                        return;
+                      }
+                      const hhmm = val.slice(11, 16); // "HH:MM"
+                      const utcIso = new Date(val).toISOString(); // full UTC ISO
+                      setForm(f => ({ ...f, timeSlot: hhmm, deliverByDt: utcIso }));
+                    }}
                   />
                 </div>
                 {form.timeSlot && form.jobDate === today && isTimePassed(form.timeSlot) && (
@@ -782,7 +822,7 @@ const PostJobPage: React.FC = () => {
                 )}
                 {form.timeSlot && !(form.jobDate === today && isTimePassed(form.timeSlot)) && (
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    Mapped to time window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
+                    Time window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
                   </p>
                 )}
               </div>

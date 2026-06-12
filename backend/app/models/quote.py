@@ -27,6 +27,7 @@ class Quote(Base):
     status:      Mapped[QuoteStatus] = mapped_column(Enum(QuoteStatus), nullable=False, default=QuoteStatus.ACTIVE)
     deliver_by:  Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     stop_etas:   Mapped[Optional[list]]     = mapped_column(JSON, nullable=True)
+    notes:       Mapped[Optional[str]]      = mapped_column(String(1000), nullable=True)
     created_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:  Mapped[datetime]    = mapped_column(DateTime, default=datetime.utcnow,
                                                      onupdate=datetime.utcnow)

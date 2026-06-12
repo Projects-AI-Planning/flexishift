@@ -80,8 +80,12 @@ async def complete_step2(db: Session, job_id: str, supplier_id: str, data: dict)
         raise HTTPException(status_code=409, detail="Delivery proof already submitted")
 
     now = datetime.utcnow()
-    record.delivery_photo_url = data["delivery_photo_url"]
-    record.recipient_signature_url = data["recipient_signature_url"]
+    # Prefer the server-accumulated delivery_photo_url (set by upload endpoint) over
+    # whatever the mobile passes here — the upload endpoint is the ground truth.
+    # Only fall back to the mobile-provided value if nothing was accumulated.
+    if not record.delivery_photo_url:
+        record.delivery_photo_url = data.get("delivery_photo_url")
+    record.recipient_signature_url = data.get("recipient_signature_url")
     record.recipient_name = data.get("recipient_name")
     record.delivery_notes = data.get("delivery_notes")
     record.delivery_submitted_at = now

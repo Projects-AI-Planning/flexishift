@@ -108,6 +108,7 @@ type JobDetail = {
   }> | null;
   driverRequirement?: string;
   deliverBy?: string | null;
+  deliverByDt?: string | null;
   stops?: Array<{
     order?: number;
     address?: string;
@@ -233,67 +234,10 @@ interface SignatureModalProps {
 }
 
 const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, onCancel, loading, error, savedEsig }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const lastPt = useRef<Point | null>(null);
-  const [hasStrokes, setHasStrokes] = useState(false);
-  const [useSaved, setUseSaved] = useState(!!savedEsig);
-
-  const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const scaleX = canvasRef.current!.width / rect.width;
-    const scaleY = canvasRef.current!.height / rect.height;
-    if ('touches' in e) {
-      return {
-        x: (e.touches[0].clientX - rect.left) * scaleX,
-        y: (e.touches[0].clientY - rect.top) * scaleY,
-      };
-    }
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
-  };
-
-  const start = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    drawing.current = true;
-    lastPt.current = getPos(e);
-    setHasStrokes(true);
-  };
-
-  const move = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!drawing.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const pt = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(lastPt.current!.x, lastPt.current!.y);
-    ctx.lineTo(pt.x, pt.y);
-    ctx.strokeStyle = '#1e3a5f';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-    lastPt.current = pt;
-  };
-
-  const end = () => { drawing.current = false; lastPt.current = null; };
-
-  const clear = () => {
-    canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    setHasStrokes(false);
-  };
-
+  // Handover signing uses ONLY the e-signature saved in the profile — no drawing.
   const handleConfirm = () => {
-    if (useSaved && savedEsig) {
-      onSave(savedEsig);
-    } else if (canvasRef.current && hasStrokes) {
-      onSave(canvasRef.current.toDataURL('image/png'));
-    }
+    if (savedEsig) onSave(savedEsig);
   };
-
-  const canConfirm = useSaved ? !!savedEsig : hasStrokes;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
@@ -309,26 +253,7 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
           </button>
         </div>
 
-        {/* Tab toggle — only shown when a saved e-sig exists */}
-        {savedEsig && (
-          <div className="mt-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1 gap-1">
-            <button
-              onClick={() => setUseSaved(true)}
-              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Use Saved E-Signature
-            </button>
-            <button
-              onClick={() => setUseSaved(false)}
-              className={`flex-1 rounded-lg py-2 text-xs font-black transition ${!useSaved ? 'bg-white shadow text-[#1066b1]' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Draw New Signature
-            </button>
-          </div>
-        )}
-
-        {/* Saved e-signature preview */}
-        {useSaved && savedEsig ? (
+        {savedEsig ? (
           <div className="mt-4">
             <div className="overflow-hidden rounded-2xl border-2 border-[#1066b1]/30 bg-slate-50">
               <img src={savedEsig} alt="Saved e-signature" className="h-40 w-full object-contain" />
@@ -338,34 +263,11 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
             </p>
           </div>
         ) : (
-          <div className="mt-4">
-            {!savedEsig && (
-              <p className="mb-3 text-sm font-medium text-[#44474C]">
-                Draw your signature below to confirm dispatch officer vehicle release.
-              </p>
-            )}
-            <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-              <canvas
-                ref={canvasRef}
-                width={560}
-                height={200}
-                className="w-full cursor-crosshair touch-none"
-                onMouseDown={start}
-                onMouseMove={move}
-                onMouseUp={end}
-                onMouseLeave={end}
-                onTouchStart={start}
-                onTouchMove={move}
-                onTouchEnd={end}
-              />
-              {!hasStrokes && (
-                <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">
-                  Draw your signature here
-                </p>
-              )}
-            </div>
-            <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">
-              DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+          <div className="mt-4 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 px-4 py-6 text-center">
+            <span className="material-symbols-outlined text-3xl text-amber-500">draw</span>
+            <p className="mt-2 text-sm font-black text-amber-800">No e-signature found</p>
+            <p className="mt-1 text-xs font-medium text-amber-700">
+              Please add your e-signature in your profile before signing the handover.
             </p>
           </div>
         )}
@@ -375,27 +277,16 @@ const SignatureModal: React.FC<SignatureModalProps> = ({ jobReference, onSave, o
         )}
 
         <div className="mt-5 flex gap-3">
-          {!useSaved && (
-            <button
-              onClick={clear}
-              disabled={loading}
-              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Clear
-            </button>
-          )}
-          {useSaved && (
-            <button
-              onClick={onCancel}
-              disabled={loading}
-              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Cancel
-            </button>
-          )}
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleConfirm}
-            disabled={loading || !canConfirm}
+            disabled={loading || !savedEsig}
             className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40"
           >
             {loading ? 'Submitting…' : 'Confirm Signature'}
@@ -458,7 +349,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 shrink-0">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Job & Bids</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Job & Requests</p>
             <h2 className="text-xl font-black text-[#041627]">{jobRef}</h2>
           </div>
           <button onClick={onClose} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100">
@@ -536,6 +427,23 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               {/* Job info grid */}
               <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Job Info</p>
+
+                {/* Required Deliver By — prominent banner */}
+                {(detail.deliverByDt || (detail.deliverBy && detail.jobDate)) && (
+                  <div className="flex items-center justify-between rounded-xl border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-2.5">
+                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">
+                      <span className="material-symbols-outlined text-[13px]">schedule</span>
+                      Required Deliver By
+                    </span>
+                    <span className="text-sm font-black text-[#041627]">
+                      {detail.deliverByDt
+                        ? new Date(detail.deliverByDt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                        : new Date(`${detail.jobDate}T${detail.deliverBy}:00`).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+                      }
+                    </span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {detail.timeSlot && (
                     <div>
@@ -642,7 +550,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
           {/* ── Divider ── */}
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Bids</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Requests</span>
             <div className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -662,7 +570,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                 <span className="material-symbols-outlined text-2xl text-slate-400">inbox</span>
               </span>
-              <p className="font-black text-[#44474C]">No bids yet</p>
+              <p className="font-black text-[#44474C]">No requests yet</p>
               <p className="text-sm text-slate-400">Drivers haven't submitted any quotes for this job.</p>
             </div>
           )}
@@ -674,7 +582,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {activeQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDate={detail?.jobDate} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDeliverByDt={detail?.deliverByDt} jobDate={detail?.jobDate} />
                 ))}
               </div>
             </div>
@@ -687,7 +595,7 @@ const BidsPanel: React.FC<BidsPanelProps> = ({
               </p>
               <div className="space-y-3">
                 {otherQuotes.map((q) => (
-                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDate={detail?.jobDate} />
+                  <BidCard key={q.quoteId} quote={q} actionLoading={actionLoading} onApprove={onApprove} onReject={onReject} driverRequirement={detail?.driverRequirement} jobDeliverBy={detail?.deliverBy} jobDeliverByDt={detail?.deliverByDt} jobDate={detail?.jobDate} />
                 ))}
               </div>
             </div>
@@ -705,22 +613,29 @@ interface BidCardProps {
   onReject: (quoteId: string) => void;
   driverRequirement?: string;
   jobDeliverBy?: string | null;
+  jobDeliverByDt?: string | null;
   jobDate?: string | null;
 }
 
-const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject, driverRequirement, jobDeliverBy, jobDate }) => {
+const BidCard: React.FC<BidCardProps> = ({ quote, actionLoading, onApprove, onReject, driverRequirement, jobDeliverBy, jobDeliverByDt, jobDate }) => {
   const isActive = quote.status.toUpperCase() === 'ACTIVE';
   const isWorking = actionLoading === quote.quoteId;
   const sup = quote.supplier;
   const req = (driverRequirement ?? 'DRIVER_WITH_TRUCK').toUpperCase();
 
-  // True when driver's proposed deliver-by is later than the job's required deliver-by
-  const isDeliverByLate: boolean = (() => {
-    if (!quote.deliverBy || !jobDeliverBy || !jobDate) return false;
-    const jobDeadline = new Date(`${jobDate}T${jobDeliverBy}:00`);
-    const driverTime  = new Date(quote.deliverBy);
-    return !isNaN(jobDeadline.getTime()) && !isNaN(driverTime.getTime()) && driverTime > jobDeadline;
+  // The same Date objects used for display — comparison is always consistent with what's shown
+  const jobDeadlineDate: Date | null = (() => {
+    if (jobDeliverByDt) return new Date(jobDeliverByDt);
+    if (jobDeliverBy && jobDate) return new Date(`${jobDate}T${jobDeliverBy}:00`);
+    return null;
   })();
+  const driverDeliverDate: Date | null = quote.deliverBy ? new Date(quote.deliverBy) : null;
+  const isDeliverByLate: boolean = !!(
+    jobDeadlineDate && driverDeliverDate &&
+    !isNaN(jobDeadlineDate.getTime()) &&
+    !isNaN(driverDeliverDate.getTime()) &&
+    driverDeliverDate > jobDeadlineDate
+  );
 const isTruckOnly     = req === 'TRUCK_ONLY';
   const isDriverWithTruck = req === 'DRIVER_WITH_TRUCK';
   const showTruckBlock  = isTruckOnly || isDriverWithTruck;
@@ -804,18 +719,35 @@ const isTruckOnly     = req === 'TRUCK_ONLY';
           )}
 
           {/* Deliver By & Stop ETAs — always visible */}
-          <div className={`mt-3 rounded-xl border px-3 py-2.5 space-y-2 ${isDeliverByLate ? 'border-red-200 bg-red-50' : 'border-[#1066b1]/15 bg-[#1066b1]/5'}`}>
-            <div className="flex items-center justify-between">
-              <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest ${isDeliverByLate ? 'text-red-500' : 'text-[#1066b1]'}`}>
-                <span className="material-symbols-outlined text-[13px]">{isDeliverByLate ? 'warning' : 'schedule'}</span>
-                Deliver By{isDeliverByLate && ' · Late'}
+          <div className="mt-3 rounded-xl border border-[#1066b1]/15 bg-[#1066b1]/5 px-3 py-2.5 space-y-2">
+            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1066b1]">
+              <span className="material-symbols-outlined text-[13px]">schedule</span>
+              Deliver By
+            </p>
+
+            {/* Haulier's required deliver-by */}
+            {jobDeadlineDate && !isNaN(jobDeadlineDate.getTime()) && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-semibold">Required</span>
+                <span className="font-black text-[#041627]">
+                  {jobDeadlineDate.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                </span>
+              </div>
+            )}
+
+            {/* Driver's proposed deliver-by — red if later than required */}
+            <div className={`flex items-center justify-between text-xs rounded-lg px-2 py-1 ${isDeliverByLate ? 'bg-red-50 border border-red-200' : ''}`}>
+              <span className={`font-semibold flex items-center gap-1 ${isDeliverByLate ? 'text-red-500' : 'text-slate-500'}`}>
+                {isDeliverByLate && <span className="material-symbols-outlined text-[12px]">warning</span>}
+                Driver's ETA{isDeliverByLate && ' · Late'}
               </span>
-              <span className={`text-xs font-black ${isDeliverByLate ? 'text-red-600' : 'text-[#041627]'}`}>
-                {quote.deliverBy
-                  ? new Date(quote.deliverBy).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+              <span className={`font-black ${isDeliverByLate ? 'text-red-600' : 'text-[#041627]'}`}>
+                {driverDeliverDate && !isNaN(driverDeliverDate.getTime())
+                  ? driverDeliverDate.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
                   : '—'}
               </span>
             </div>
+
             {quote.stopEtas && quote.stopEtas.length > 0 && (
               <div className="border-t border-[#1066b1]/15 pt-2 space-y-1">
                 <p className="text-[9px] font-black uppercase tracking-widest text-[#1066b1] mb-1">Stop ETAs</p>
@@ -833,7 +765,7 @@ const isTruckOnly     = req === 'TRUCK_ONLY';
             <div className="flex items-center justify-between text-xs text-slate-600">
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px] text-slate-400">person</span>
-                Driver Bid
+                Driver Request
               </span>
               <span className="font-bold">{fmtMoney(Number(quote.driverAmount ?? quote.quoteAmount), quote.currency)}</span>
             </div>
@@ -913,15 +845,23 @@ const DriverRatingModal: React.FC<DriverRatingModalProps> = ({ jobId, driverId, 
     if (!canSubmit) return;
     setSubmitting(true);
     setError('');
-    try {
-      await haulierService.submitRating({ jobId, ratedUserId: driverId, starRating: stars, review: reason.trim() || undefined });
-      setDone(true);
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to submit rating.';
-      setError(msg);
-    } finally {
-      setSubmitting(false);
-    }
+    const payload = { jobId, ratedUserId: driverId, starRating: stars, review: reason.trim() || undefined };
+    // Retry once on a transient network failure (no HTTP response — e.g. a dropped
+    // connection). Submitting is idempotent server-side: a duplicate returns 409,
+    // which we treat as success.
+    const attempt = async (retrying: boolean): Promise<void> => {
+      try {
+        await haulierService.submitRating(payload);
+        setDone(true);
+      } catch (err: unknown) {
+        const response = (err as { response?: { status?: number; data?: { message?: string; detail?: string } } })?.response;
+        if (response?.status === 409) { setDone(true); return; }      // already rated → success
+        if (!response && !retrying) { await new Promise(r => setTimeout(r, 600)); return attempt(true); }
+        setError(response?.data?.message ?? response?.data?.detail ?? 'Failed to submit rating. Please check your connection and try again.');
+      }
+    };
+    await attempt(false);
+    setSubmitting(false);
   };
 
   return (
@@ -2238,7 +2178,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Schedule</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                 {activeStatus === 'OPEN' && (
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Bids</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Requests</th>
                 )}
                 {activeStatus === 'BOOKED' && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Payment</th>
@@ -2320,7 +2260,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                           {(job.quoteCount ?? 0) === 0 && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-600">
                               <span className="material-symbols-outlined text-[11px]">info</span>
-                              No Quotes Yet
+                              No Requests Yet
                             </span>
                           )}
                           <button
@@ -2328,7 +2268,7 @@ const HaulierJobsSection: React.FC<HaulierJobsSectionProps> = ({ status: initial
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/8 px-3 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1] hover:text-white"
                           >
                             <span className="material-symbols-outlined text-[15px]">gavel</span>
-                            {(job.quoteCount ?? 0) > 0 ? `${job.quoteCount} Bid${(job.quoteCount ?? 0) > 1 ? 's' : ''}` : 'View Bids'}
+                            {(job.quoteCount ?? 0) > 0 ? `${job.quoteCount} Request${(job.quoteCount ?? 0) > 1 ? 's' : ''}` : 'View Requests'}
                           </button>
                         </div>
                       </td>

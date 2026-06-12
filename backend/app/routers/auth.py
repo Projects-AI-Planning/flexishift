@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -78,7 +78,16 @@ async def register(request: Request, body: RegisterRequest, db: Session = Depend
     name = body.name or body.full_name or ""
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    result = await auth_svc.register(db, name, body.email, body.phone, body.password, body.role, r=r, currency=body.currency, country=body.country)
+    result = await auth_svc.register(
+        db, name, body.email, body.phone, body.password, body.role, r=r,
+        currency=body.currency, country=body.country,
+        organisation_number=body.organisation_number,
+        vat_number=body.vat_number,
+        company_name=body.company_name,
+        address=body.address,
+        esignature_data=body.esignature_data,
+        organisation_doc_url=body.organisation_doc_url,
+    )
 
     from app.services.audit import log_audit, upsert_device
     user_obj = db.query(User).filter(User.email == body.email).first()
@@ -107,6 +116,34 @@ async def register(request: Request, body: RegisterRequest, db: Session = Depend
     )
 
 
+@router.post("/register/organisation-document", status_code=201)
+async def upload_registration_org_document(request: Request, file: UploadFile = File(...)):
+    """Public (pre-auth) upload for the OPTIONAL organisation registration document a
+    haulier can attach while registering. Stores the file and returns its URL, which the
+    client then includes as `organisationDocUrl` in the register payload. On email
+    verification this becomes a PENDING document for admin review."""
+    from uuid import uuid4
+    from app.services import local_storage as local_svc
+
+    suffix = {
+        "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+        "image/webp": "webp", "application/pdf": "pdf",
+    }.get(file.content_type or "", "bin")
+    key = f"registration/organisation/{uuid4()}.{suffix}"
+    contents = await file.read()
+    if local_svc.azure_available():
+        from app.services import s3
+        s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "application/octet-stream")
+        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+    else:
+        local_svc.ensure_local_upload_root()
+        path = local_svc.LOCAL_UPLOAD_ROOT / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(contents)
+        file_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{key}"
+    return created(data={"fileUrl": file_url}, message="Organisation document uploaded")
+
+
 @router.post("/verify-email")
 async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
     token = body.get_token()
@@ -127,6 +164,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), 
             "currency": _user_currency(user),
             "isVerified": user.verified,
             "isProfileComplete": getattr(user, "profile_complete", False),
+            "isAdminApproved": user.admin_approved,
         },
         message="Email verified successfully.",
     )
@@ -134,7 +172,7 @@ async def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db), 
 
 @router.post("/login")
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), r=Depends(get_redis)):
-    tokens = auth_svc.login(db, r, body.email, body.password)
+    tokens = auth_svc.login(db, r, body.email, body.password, expected_role=body.expected_role)
     user = db.query(User).filter(User.email == body.email).first()
     profile = user.profile if user else None
 
@@ -163,6 +201,7 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), r
             "isVerified": user.verified if user else None,
             "isProfileComplete": user.profile_complete if user else None,
             "profilePhoto": profile.photo_url if profile else None,
+            "isAdminApproved": user.admin_approved if user else None,
         },
         message="Login successful",
     )

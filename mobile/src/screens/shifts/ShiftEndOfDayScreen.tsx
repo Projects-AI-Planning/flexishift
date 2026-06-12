@@ -185,7 +185,7 @@ const ShiftEndOfDayScreen: React.FC<ShiftEndOfDayScreenProps> = ({
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{shiftRef}</Text>
-          <Text style={styles.headerSub}>End of Day {dayNumber}</Text>
+          <Text style={styles.headerSub}>End of Shift</Text>
         </View>
         <View style={styles.backBtn} />
       </View>
@@ -217,9 +217,7 @@ const ShiftEndOfDayScreen: React.FC<ShiftEndOfDayScreenProps> = ({
         <View style={styles.refRow}>
           <View style={styles.refPill}><Text style={styles.refText}>{shiftRef}</Text></View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {isLastDay ? 'FINAL DAY' : `DAY ${dayNumber} / ${totalDays}`}
-            </Text>
+            <Text style={styles.badgeText}>SHIFT</Text>
           </View>
         </View>
 
@@ -316,14 +314,10 @@ const ShiftEndOfDayScreen: React.FC<ShiftEndOfDayScreenProps> = ({
         <View style={styles.infoCard}>
           <Text style={styles.infoLabel}>NEXT STEP</Text>
           <Text style={styles.infoTitle}>
-            {isLastDay
-              ? 'Shift complete — haulier will process final payment'
-              : `Day ${dayNumber} done — haulier confirms & pays for Day ${dayNumber + 1}`}
+            Shift complete — haulier will process payment
           </Text>
           <Text style={styles.infoText}>
-            {isLastDay
-              ? 'Once the haulier approves, your final payment will be released. You can then leave a rating.'
-              : 'Once the haulier processes Day payment, you can start Day ' + (dayNumber + 1) + '.'}
+            Once the haulier approves, your payment will be released. You can then leave a rating.
           </Text>
         </View>
 

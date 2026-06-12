@@ -62,6 +62,21 @@ async def _check_expired_documents() -> None:
             owner_name = owner.full_name if owner else "Unknown User"
             doc_label = doc.doc_type.value.replace("_", " ").title()
             expiry_str = doc.expiry_date.strftime("%d %b %Y")
+            # Notify the driver/owner
+            if owner:
+                vehicle_suffix = ""
+                if doc.vehicle_id:
+                    from app.models.vehicle import Vehicle
+                    v = db.get(Vehicle, doc.vehicle_id)
+                    if v and v.vehicle_registration:
+                        vehicle_suffix = f" for truck {v.vehicle_registration}"
+                await create_notification(
+                    db, owner.id, "DOCUMENT_EXPIRED",
+                    "Document Expired",
+                    f"Your {doc_label}{vehicle_suffix} expired on {expiry_str}. Please upload a new one.",
+                    {"doc_id": doc.id, "doc_type": doc.doc_type.value, "vehicle_id": doc.vehicle_id},
+                )
+            # Notify admins
             for admin in admins:
                 await create_notification(
                     db, admin.id, "DOCUMENT_EXPIRED",

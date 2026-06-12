@@ -7,11 +7,14 @@ import SignatureRenderer from '../../components/SignatureRenderer';
 type PendingJob = {
   jobId: string;
   jobReference: string;
+  status?: string;
   pickupLocation?: string;
   dropLocation?: string;
   driver?: { name?: string; phone?: string } | null;
   driverId?: string | null;
   payment?: { amount?: number; currency?: string } | null;
+  agreedAmount?: number | null;
+  currency?: string;
 };
 
 type DeliveryDetail = {
@@ -33,16 +36,19 @@ type PendingShift = {
   shiftRef: string;
   dayNumber: number;
   totalDays: number;
+  driverId?: string | null;
   driver?: { name?: string | null; phone?: string | null } | null;
   dailyRate?: number | null;
   currency?: string | null;
   proofSubmittedAt?: string | null;
   proofNotes?: string | null;
   recipientName?: string | null;
+  proofPhotos?: string[] | null;
   proofPhotoUrl?: string | null;
   signatureData?: string | null;
   hasPhoto: boolean;
   hasSignature: boolean;
+  alreadyPaid?: boolean;
 };
 
 const fmt = (d?: string | null) =>
@@ -77,12 +83,13 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
   const [approvedIds, setApprovedIds] = useState<Set<string>>(new Set());
 
   // ── Rating modal state ──────────────────────────────────────────────────────
-  const [ratingModal, setRatingModal] = useState<{ jobId: string; jobRef: string; driverId: string; driverName: string } | null>(null);
+  const [ratingModal, setRatingModal] = useState<{ jobId?: string; shiftId?: string; jobRef: string; driverId: string; driverName: string } | null>(null);
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingHover, setRatingHover] = useState(0);
   const [ratingReview, setRatingReview] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingDone, setRatingDone] = useState(false);
+  const [ratingError, setRatingError] = useState('');
 
   // ── Shifts state ────────────────────────────────────────────────────────────
   const [shifts, setShifts] = useState<PendingShift[]>([]);
@@ -96,8 +103,14 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
   const loadJobs = async () => {
     setJobsLoading(true);
     try {
-      const res = await haulierService.getPendingApprovalJobs({ page: 1, limit: 50 });
-      const list = (res as { jobs?: PendingJob[] })?.jobs ?? [];
+      const [pending, completed] = await Promise.all([
+        haulierService.getPendingApprovalJobs({ page: 1, limit: 50 }),
+        haulierService.getCompletedJobs({ page: 1, limit: 50 }),
+      ]);
+      const list = [
+        ...((pending as { jobs?: PendingJob[] })?.jobs ?? []),
+        ...((completed as { jobs?: PendingJob[] })?.jobs ?? []),
+      ];
       setJobs(list);
       if (!selectedJobId && list.length > 0) setSelectedJobId(list[0].jobId);
     } catch { /* ignore */ }
@@ -108,8 +121,13 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
   const loadShifts = async () => {
     setShiftsLoading(true);
     try {
-      const res = await haulierService.getPendingShiftPayments();
-      const list = (res as { shifts?: PendingShift[] })?.shifts ?? [];
+      const [pending, completed] = await Promise.all([
+        haulierService.getPendingShiftPayments(),
+        haulierService.getCompletedShifts(),
+      ]);
+      const pendingList = (pending as { shifts?: PendingShift[] })?.shifts ?? [];
+      const completedList = (completed as { shifts?: PendingShift[] })?.shifts ?? [];
+      const list = [...pendingList, ...completedList];
       setShifts(list);
       if (!selectedShiftId && list.length > 0) setSelectedShiftId(list[0].shiftId);
     } catch { /* ignore */ }
@@ -174,16 +192,38 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
   const handleRatingSubmit = async () => {
     if (!ratingModal || ratingStars === 0) return;
     setRatingSubmitting(true);
-    try {
-      await haulierService.submitRating({
-        jobId: ratingModal.jobId,
-        ratedUserId: ratingModal.driverId,
-        starRating: ratingStars,
-        review: ratingReview.trim() || undefined,
-      });
-      setRatingDone(true);
-    } catch { /* silently ignore rating errors */ }
-    finally { setRatingSubmitting(false); }
+    setRatingError('');
+    const review = ratingReview.trim() || undefined;
+    const isShift = Boolean(ratingModal.shiftId);
+    // Retry once on a transient network failure (no HTTP response — e.g. a dropped
+    // connection). Submitting is idempotent server-side: a duplicate returns 409,
+    // which we treat as success.
+    const attempt = async (retrying: boolean): Promise<void> => {
+      try {
+        if (isShift) {
+          await haulierService.submitShiftRating(ratingModal.shiftId!, {
+            ratedUserId: ratingModal.driverId,
+            stars: ratingStars,
+            review,
+          });
+        } else {
+          await haulierService.submitRating({
+            jobId: ratingModal.jobId,
+            ratedUserId: ratingModal.driverId,
+            starRating: ratingStars,
+            review,
+          });
+        }
+        setRatingDone(true);
+      } catch (err: unknown) {
+        const response = (err as { response?: { status?: number; data?: { message?: string; detail?: string } } })?.response;
+        if (response?.status === 409) { setRatingDone(true); return; }   // already rated → success
+        if (!response && !retrying) { await new Promise((r) => setTimeout(r, 600)); return attempt(true); }
+        setRatingError(response?.data?.message ?? response?.data?.detail ?? 'Failed to submit rating. Please check your connection and try again.');
+      }
+    };
+    await attempt(false);
+    setRatingSubmitting(false);
   };
 
   const closeRatingModal = () => {
@@ -192,26 +232,36 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
     setRatingHover(0);
     setRatingReview('');
     setRatingDone(false);
+    setRatingError('');
   };
 
-  // ── Approve shift day payment ────────────────────────────────────────────────
+  // ── Approve shift & release escrowed payment (job-style) ─────────────────────
+  // The shift was already paid up-front (on quote accept), so reviewing the driver's
+  // proof here just releases the escrow to the driver — exactly like a job.
   const handleApproveShift = async () => {
     if (!selectedShiftId) return;
     setShiftApproving(true);
     setShiftApproveError('');
     try {
-      // Create shift day payment → get client secret → confirm via Stripe
-      const order = await haulierService.createShiftDayPayment(selectedShiftId);
-      // Load Stripe and confirm payment
-      await loadStripeAndConfirm(order.clientSecret, order.publishableKey);
-      // Verify
-      await haulierService.verifyShiftDayPayment(selectedShiftId, order.dayNumber, order.gatewayOrderId);
+      await haulierService.completeShiftDay(selectedShiftId);
       setShiftApprovedIds((prev) => new Set([...prev, selectedShiftId]));
-      setShifts((prev) => prev.filter((s) => s.shiftId !== selectedShiftId));
-      setSelectedShiftId(null);
+      // Open the rating popup for the driver — same as the job delivery flow.
+      const shift = shifts.find((s) => s.shiftId === selectedShiftId);
+      if (shift?.driverId) {
+        setRatingStars(0);
+        setRatingReview('');
+        setRatingDone(false);
+        setRatingError('');
+        setRatingModal({
+          shiftId: shift.shiftId,
+          jobRef: shift.shiftRef,
+          driverId: shift.driverId,
+          driverName: shift.driver?.name ?? 'Driver',
+        });
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setShiftApproveError(msg ?? 'Payment failed. Please try again from the Payments page.');
+      setShiftApproveError(msg ?? 'Failed to release payment. Please try again.');
     } finally {
       setShiftApproving(false);
     }
@@ -302,19 +352,19 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                         <p className={`text-xs font-black ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
                           {job.jobReference}
                         </p>
-                        {approvedIds.has(job.jobId) ? (
+                        {job.status?.toUpperCase() === 'COMPLETED' || approvedIds.has(job.jobId) ? (
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
                             isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
                           }`}>
                             <span className="material-symbols-outlined text-[10px]">check_circle</span>
-                            Approved
+                            Completed
                           </span>
                         ) : (
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
                             isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
                           }`}>
                             <span className="material-symbols-outlined text-[10px]">pending</span>
-                            Delivery Submitted
+                            Pending Review
                           </span>
                         )}
                       </div>
@@ -357,8 +407,12 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                         </p>
                       )}
                     </div>
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-amber-700">
-                      Awaiting Review
+                    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] ${
+                      selectedJob.status?.toUpperCase() === 'COMPLETED' || approvedIds.has(selectedJob.jobId)
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedJob.status?.toUpperCase() === 'COMPLETED' || approvedIds.has(selectedJob.jobId) ? 'Completed' : 'Awaiting Review'}
                     </span>
                   </div>
                 </div>
@@ -479,7 +533,7 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                         </div>
                       )}
 
-                      {deliveryDetail.step3Approved || approvedIds.has(selectedJobId ?? '') ? (
+                      {deliveryDetail.step3Approved || approvedIds.has(selectedJobId ?? '') || selectedJob?.status?.toUpperCase() === 'COMPLETED' ? (
                         <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
                           <span className="material-symbols-outlined text-emerald-600">check_circle</span>
                           <p className="text-sm font-black text-emerald-800">Payment released to driver.</p>
@@ -574,6 +628,11 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary resize-none"
                     />
                   </div>
+                  {ratingError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                      {ratingError}
+                    </div>
+                  )}
                   <div className="flex gap-3">
                     <button
                       onClick={closeRatingModal}
@@ -642,7 +701,7 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${
                           isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
                         }`}>
-                          Day {shift.dayNumber}/{shift.totalDays}
+                          Shift
                         </span>
                       </div>
                       <p className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-primary'}`}>
@@ -673,7 +732,7 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{selectedShift.shiftRef}</p>
                       <h2 className="text-lg font-black text-primary mt-0.5">
-                        Day {selectedShift.dayNumber} of {selectedShift.totalDays}
+                        Shift Delivery Report
                       </h2>
                       {selectedShift.driver?.name && (
                         <p className="text-sm text-slate-500 mt-1">
@@ -732,25 +791,35 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                     </div>
                   )}
 
-                  {/* Proof photo */}
-                  {selectedShift.proofPhotoUrl && (
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Proof Photo</p>
-                      <a
-                        href={selectedShift.proofPhotoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-48 aspect-square overflow-hidden rounded-xl border border-slate-200 hover:opacity-90 transition-opacity"
-                      >
-                        <img
-                          src={selectedShift.proofPhotoUrl}
-                          alt="Proof photo"
-                          className="h-full w-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      </a>
-                    </div>
-                  )}
+                  {/* Proof photos (same grid as job delivery photos) */}
+                  {(() => {
+                    const photos = selectedShift.proofPhotos ?? (selectedShift.proofPhotoUrl ? [selectedShift.proofPhotoUrl] : []);
+                    return photos.length > 0 ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">
+                          Delivery Photos ({photos.length})
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {photos.map((url, i) => (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 hover:opacity-90 transition-opacity"
+                            >
+                              <img
+                                src={url}
+                                alt={`Proof photo ${i + 1}`}
+                                className="h-full w-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Signature */}
                   {selectedShift.signatureData && !selectedShift.signatureData.startsWith('driver_signed') && (
@@ -769,10 +838,10 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                     </div>
                   )}
 
-                  {shiftApprovedIds.has(selectedShift.shiftId) ? (
+                  {selectedShift.alreadyPaid || shiftApprovedIds.has(selectedShift.shiftId) ? (
                     <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
                       <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                      <p className="text-sm font-black text-emerald-800">Payment sent to driver for Day {selectedShift.dayNumber}.</p>
+                      <p className="text-sm font-black text-emerald-800">Payment released to driver.</p>
                     </div>
                   ) : (
                     <button
@@ -781,8 +850,8 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
                       className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-md shadow-emerald-600/20 hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {shiftApproving && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
-                      <span className="material-symbols-outlined text-sm">payments</span>
-                      Pay {fmtCurrency(selectedShift.dailyRate, selectedShift.currency)} for Day {selectedShift.dayNumber}
+                      <span className="material-symbols-outlined text-sm">check_circle</span>
+                      Approve &amp; Release Payment
                     </button>
                   )}
                 </div>
@@ -795,19 +864,3 @@ export default function HaulierDeliveryReportsPage({ onlyTab }: { onlyTab?: 'job
   );
 }
 
-// ── Stripe helper ──────────────────────────────────────────────────────────────
-
-async function loadStripeAndConfirm(clientSecret: string, publishableKey: string): Promise<void> {
-  if (!window.Stripe) {
-    await new Promise<void>((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://js.stripe.com/v3/';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Stripe.js failed to load'));
-      document.head.appendChild(s);
-    });
-  }
-  const stripe = window.Stripe!(publishableKey);
-  const result = await stripe.confirmCardPayment(clientSecret);
-  if (result.error) throw new Error(result.error.message ?? 'Payment failed');
-}

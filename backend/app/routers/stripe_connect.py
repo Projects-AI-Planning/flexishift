@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -58,11 +58,59 @@ def refresh_onboarding_link(
     return ok(data={"onboardingUrl": url}, message="Onboarding link refreshed")
 
 
+def _deep_link_html(custom_url: str, android_package: str = "com.mobile") -> HTMLResponse:
+    """Return an HTML page that re-opens the mobile app after Stripe onboarding.
+
+    Stripe only accepts http(s) return URLs, so we land here briefly and then bounce
+    straight back into the app via its deep link. Android uses the `intent://` form
+    (with the app package so Chrome opens the app, not the Play Store); iOS and other
+    platforms use the `freightflex://` custom scheme directly. We auto-redirect on
+    load (with a retry) and also expose a prominent tap fallback in case the browser
+    blocks the automatic launch.
+    """
+    import json as _json
+    path = custom_url.split("://", 1)[1] if "://" in custom_url else custom_url
+    intent_url = f"intent://{path}#Intent;scheme=freightflex;package={android_package};end"
+    deep_js = _json.dumps(custom_url)
+    intent_js = _json.dumps(intent_url)
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Returning to FreightFlex...</title>
+</head>
+<body style="font-family:sans-serif;text-align:center;margin:0;padding:48px 20px;background:#0a1726;color:#fff">
+  <h2 style="margin:0 0 8px">Bank setup complete ✓</h2>
+  <p style="color:#9fb3c8;margin:0 0 24px">Returning you to the FreightFlex app&hellip;</p>
+  <a id="lnk" href="{custom_url}"
+     style="display:inline-block;background:#1066B1;color:#fff;text-decoration:none;font-weight:800;padding:14px 28px;border-radius:14px">
+    Open FreightFlex App
+  </a>
+  <script>
+    (function() {{
+      var deep = {deep_js};
+      var intent = {intent_js};
+      var isAndroid = /android/i.test(navigator.userAgent || '');
+      var target = isAndroid ? intent : deep;
+      try {{ document.getElementById('lnk').setAttribute('href', target); }} catch (e) {{}}
+      function go() {{ try {{ window.location.href = target; }} catch (e) {{}} }}
+      go();
+      setTimeout(go, 500);
+    }})();
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 @router.get("/return")
 def stripe_return_redirect(redirect_to: Optional[str] = Query(default=None)):
     """Stripe redirects here after onboarding; we forward to the real destination."""
     frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
     target = redirect_to or f"{frontend}/stripe-connect/return"
+    if target.startswith("freightflex://"):
+        return _deep_link_html(target)
     return RedirectResponse(url=target, status_code=302)
 
 
@@ -71,6 +119,8 @@ def stripe_refresh_redirect(redirect_to: Optional[str] = Query(default=None)):
     """Stripe redirects here when the onboarding link expires; forward to real destination."""
     frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
     target = redirect_to or f"{frontend}/stripe-connect/refresh"
+    if target.startswith("freightflex://"):
+        return _deep_link_html(target)
     return RedirectResponse(url=target, status_code=302)
 
 

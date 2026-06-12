@@ -10,10 +10,10 @@ from app.models.rating import Rating
 
 def create_shift(db: Session, haulier: User, data: dict) -> Shift:
     start = data["start_date"]
-    end = data["end_date"]
-    if end < start:
-        raise HTTPException(status_code=422, detail="end_date must be on or after start_date")
-    total_days = (end - start).days + 1
+    # Shifts are now always single-day. Ignore any end_date input and force the
+    # shift to a single day so the whole flow (payment, completion) behaves like a job.
+    end = start
+    total_days = 1
 
     req_type = data.get("requirement_type", "").upper()
     try:
@@ -21,8 +21,7 @@ def create_shift(db: Session, haulier: User, data: dict) -> Shift:
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid requirement_type: {req_type}")
 
-    pickup = data.get("pickup_address", "").strip()
-    drop   = data.get("drop_address", "").strip()
+    pickup = (data.get("pickup_address") or "").strip()
     haulier_currency = (haulier.currency or "").upper() or None
     shift = Shift(
         haulier_id=haulier.id,
@@ -31,14 +30,14 @@ def create_shift(db: Session, haulier: User, data: dict) -> Shift:
         end_date=end,
         total_days=total_days,
         hours_per_day=data["hours_per_day"],
-        pickup_address=pickup,
+        pickup_address=pickup or None,
         pickup_lat=data.get("pickup_lat"),
         pickup_lng=data.get("pickup_lng"),
-        drop_address=drop,
-        drop_lat=data.get("drop_lat"),
-        drop_lng=data.get("drop_lng"),
-        location=f"{pickup} → {drop}" if pickup and drop else pickup or drop,
+        location=pickup or None,
         goods_type=data.get("goods_type"),
+        reporting_location=data.get("reporting_location"),
+        reporting_lat=data.get("reporting_lat"),
+        reporting_lng=data.get("reporting_lng"),
         total_capacity=data.get("total_capacity"),
         compartments=data.get("compartments"),
         compartment_details=data.get("compartment_details") or None,
@@ -110,13 +109,16 @@ def list_driver_shifts(db: Session, driver_id: str) -> list[Shift]:
 
 
 def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day: float, notes: str | None) -> ShiftQuote:
-    if not driver.stripe_onboarding_complete:
+    if not driver.stripe_onboarding_complete and not driver.bank_account_id:
         raise HTTPException(status_code=403, detail="Payment setup required. Complete your payment account setup in Profile → Payments before submitting quotes.")
     shift = get_shift(db, shift_id)
     if shift.status != ShiftStatus.OPEN:
         raise HTTPException(status_code=422, detail="Shift is not open for quotes")
 
-    existing = (
+    total = round(amount_per_day, 2)
+
+    # Block duplicate PENDING quotes
+    existing_pending = (
         db.query(ShiftQuote)
         .filter(
             ShiftQuote.shift_id == shift_id,
@@ -125,10 +127,28 @@ def submit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day:
         )
         .first()
     )
-    if existing:
+    if existing_pending:
         raise HTTPException(status_code=422, detail="You have already submitted a quote for this shift")
 
-    total = round(amount_per_day * shift.total_days, 2)
+    # Reuse a withdrawn quote to avoid duplicate entries for the haulier
+    existing_withdrawn = (
+        db.query(ShiftQuote)
+        .filter(
+            ShiftQuote.shift_id == shift_id,
+            ShiftQuote.driver_id == driver.id,
+            ShiftQuote.status == ShiftQuoteStatus.WITHDRAWN,
+        )
+        .first()
+    )
+    if existing_withdrawn:
+        existing_withdrawn.amount_per_day = amount_per_day
+        existing_withdrawn.total_amount = total
+        existing_withdrawn.notes = notes
+        existing_withdrawn.status = ShiftQuoteStatus.PENDING
+        db.commit()
+        db.refresh(existing_withdrawn)
+        return existing_withdrawn
+
     quote = ShiftQuote(
         shift_id=shift_id,
         driver_id=driver.id,
@@ -226,48 +246,76 @@ def complete_shift_day(db: Session, shift_id: str, haulier: User) -> Shift:
     db.commit()
     db.refresh(shift)
 
-    # Notify driver + send invoice email
-    if shift.selected_driver_id:
-        from app.models.user import User as _User
-        _driver = db.query(_User).filter(_User.id == shift.selected_driver_id).first()
+    # Driver notification + Stripe invoice email run on a worker thread so the
+    # haulier's request returns immediately and the blocking PDF/Stripe/SMTP calls
+    # never block the server — exactly like the job approve/release flow.
+    _dispatch_shift_release_followup(shift_id, current_day)
 
-        # In-app notification
+    return shift
+
+
+def _dispatch_shift_release_followup(shift_id: str, day_number: int) -> None:
+    """Run post-release work (driver notification first, then Stripe invoice email)
+    on a dedicated thread so the haulier's complete request returns fast (job parity)."""
+    import threading
+    import asyncio
+
+    def _runner() -> None:
         try:
-            import asyncio as _asyncio
-            from app.services.notifications import create_notification as _notify
-            is_final = shift.status == ShiftStatus.COMPLETED
-            msg = (
-                f"Your shift {shift.shift_ref} is complete! Final day payment released."
-                if is_final else
-                f"Day {current_day} payment released for {shift.shift_ref}. Ready for Day {current_day + 1}."
-            )
-            _asyncio.run(_notify(
+            asyncio.run(_shift_release_followup(shift_id, day_number))
+        except Exception:
+            pass
+
+    threading.Thread(target=_runner, daemon=True, name=f"shift-release-{shift_id[:8]}").start()
+
+
+async def _shift_release_followup(shift_id: str, day_number: int) -> None:
+    from app.database import SessionLocal
+    from app.models.user import User as _User
+    from app.services.notifications import create_notification as _notify
+    from app.services.invoice import send_shift_invoice_to_driver
+
+    db = SessionLocal()
+    try:
+        shift = db.query(Shift).filter(Shift.id == shift_id).first()
+        payment = (
+            db.query(ShiftPayment)
+            .filter(ShiftPayment.shift_id == shift_id, ShiftPayment.day_number == day_number)
+            .first()
+        )
+        if not shift or not payment or not shift.selected_driver_id:
+            return
+        driver = db.query(_User).filter(_User.id == shift.selected_driver_id).first()
+        is_final = shift.status == ShiftStatus.COMPLETED
+
+        # Notify the driver FIRST — this push is what moves them off the waiting screen.
+        try:
+            await _notify(
                 db, shift.selected_driver_id, "SHIFT_PAYMENT_RELEASED",
-                "Shift Day Payment Released",
-                msg,
+                "Shift Payment Released",
+                f"Your shift {shift.shift_ref} is complete! Payment has been released to your account.",
                 {
                     "shift_id": shift_id,
                     "shift_ref": shift.shift_ref,
-                    "day_number": current_day,
+                    "day_number": day_number,
                     "total_days": shift.total_days,
                     "is_final_day": is_final,
                     "amount": float(payment.driver_amount) if payment.driver_amount else float(payment.amount),
                     "currency": payment.currency,
                 },
-            ))
+            )
+            db.commit()
         except Exception:
             pass
 
-        # Invoice email + Stripe invoice
-        if _driver:
+        # Then the Stripe invoice + email (slower, not time-critical).
+        if driver:
             try:
-                import asyncio as _asyncio
-                from app.services.invoice import send_shift_invoice_to_driver
-                _asyncio.run(send_shift_invoice_to_driver(shift, payment, _driver, current_day, db=db))
+                await send_shift_invoice_to_driver(shift, payment, driver, day_number, db=db)
             except Exception:
                 pass
-
-    return shift
+    finally:
+        db.close()
 
 
 def cancel_shift(db: Session, shift_id: str, user: User) -> Shift:
@@ -321,7 +369,7 @@ def edit_shift_quote(db: Session, shift_id: str, driver: User, amount_per_day: f
     )
     if not quote:
         raise HTTPException(status_code=404, detail="No active quote found to edit")
-    total = round(amount_per_day * shift.total_days, 2)
+    total = round(amount_per_day, 2)
     quote.amount_per_day = amount_per_day
     quote.total_amount = total
     quote.notes = notes
@@ -405,7 +453,6 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
                 return {
                     "paymentId":      existing.id,
                     "dayNumber":      next_day,
-                    "totalDays":      shift.total_days,
                     "gatewayOrderId": prev["id"],
                     "clientSecret":   prev["client_secret"],
                     "amount":         grand_total,
@@ -435,7 +482,7 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
                 "haulier_id": haulier.id,
                 "driver_id":  quote.driver_id,
             },
-            description=f"FlexiShift {shift.shift_ref} – Day {next_day} of {shift.total_days}",
+            description=f"FlexiShift {shift.shift_ref}",
         )
     except stripe.StripeError as e:
         raise HTTPException(status_code=400, detail=f"Payment gateway error: {e.user_message or str(e)}")
@@ -760,6 +807,16 @@ def submit_shift_rating(
         review_text=review,
     )
     db.add(rating)
+    db.flush()
+
+    # Keep the rated user's cached avg_rating in sync (parity with job ratings) so it
+    # reflects on the driver's profile, not just the live ratings summary.
+    from sqlalchemy import func as _func
+    avg = db.query(_func.avg(Rating.stars)).filter(Rating.rated_id == rated_id).scalar() or 0.0
+    rated_user = db.get(User, rated_id)
+    if rated_user:
+        rated_user.avg_rating = round(float(avg), 2)
+
     db.commit()
     db.refresh(rating)
     return rating

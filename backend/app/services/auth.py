@@ -35,22 +35,42 @@ _pending_store: dict[str, dict] = {}      # email → pending registration data
 
 def _store_refresh(r, user_id: str, token: str, db=None) -> None:
     ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
-    if r is not None:
-        r.setex(f"{REFRESH_PREFIX}{token}", ttl, user_id)
-    elif db is not None:
+    # Always persist in DB so tokens survive Redis restarts
+    if db is not None:
         token_hash = hash_token(token)
         expires_at = datetime.utcnow() + timedelta(seconds=ttl)
         db.add(RefreshToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
         db.commit()
+    # Also cache in Redis for fast lookup
+    if r is not None:
+        try:
+            r.setex(f"{REFRESH_PREFIX}{token}", ttl, user_id)
+        except Exception:
+            pass
 
 
 def _consume_refresh(r, token: str, db=None) -> str | None:
+    # Try Redis fast path first
     if r is not None:
-        key = f"{REFRESH_PREFIX}{token}"
-        user_id = r.get(key)
-        if user_id:
-            r.delete(key)
-        return user_id
+        try:
+            key = f"{REFRESH_PREFIX}{token}"
+            user_id = r.get(key)
+            if user_id:
+                r.delete(key)
+                # Also revoke in DB
+                if db is not None:
+                    token_hash = hash_token(token)
+                    row = db.query(RefreshToken).filter(
+                        RefreshToken.token_hash == token_hash,
+                        RefreshToken.revoked.is_(False),
+                    ).first()
+                    if row:
+                        row.revoked = True
+                        db.commit()
+                return user_id
+        except Exception:
+            pass
+    # Fall back to DB (handles Redis cache miss or Redis unavailable)
     if db is not None:
         token_hash = hash_token(token)
         row = db.query(RefreshToken).filter(
@@ -67,8 +87,11 @@ def _consume_refresh(r, token: str, db=None) -> str | None:
 
 def _revoke_refresh(r, token: str, db=None) -> None:
     if r is not None:
-        r.delete(f"{REFRESH_PREFIX}{token}")
-    elif db is not None:
+        try:
+            r.delete(f"{REFRESH_PREFIX}{token}")
+        except Exception:
+            pass
+    if db is not None:
         token_hash = hash_token(token)
         row = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
         if row:
@@ -97,7 +120,8 @@ def _delete_pending(r, email: str) -> None:
         _pending_store.pop(email, None)
 
 
-async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None, country: str | None = None) -> dict:
+async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None, country: str | None = None, organisation_number: str | None = None, vat_number: str | None = None, company_name: str | None = None, address: str | None = None, esignature_data: str | None = None, organisation_doc_url: str | None = None) -> dict:
+    email = email.strip().lower()
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -115,6 +139,12 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
         "role": role,
         "country": final_country,
         "currency": final_currency,
+        "organisation_number": organisation_number or None,
+        "vat_number": vat_number or None,
+        "company_name": company_name or None,
+        "company_address": address or None,
+        "esignature_data": esignature_data or None,
+        "organisation_doc_url": organisation_doc_url or None,
         "otp": otp,
     }
     _store_pending(r, email, pending)
@@ -134,20 +164,40 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
         # New flow: create user in DB only after OTP is verified
         pending = _get_pending(r, email)
         if pending and pending.get("otp") == token:
+            _role = Role(pending["role"])
             user = User(
                 full_name=pending["full_name"],
                 email=pending["email"],
                 phone=pending["phone"],
                 password_hash=pending["password_hash"],
-                role=Role(pending["role"]),
+                role=_role,
                 country=pending.get("country"),
                 currency=pending.get("currency") or None,
                 status=UserStatus.ACTIVE,
                 verified=True,
+                admin_approved=(_role != Role.HAULIER),
             )
             db.add(user)
             db.flush()
-            db.add(UserProfile(user_id=user.id))
+            db.add(UserProfile(
+                user_id=user.id,
+                organisation_number=pending.get("organisation_number"),
+                vat_number=pending.get("vat_number"),
+                company_name=pending.get("company_name"),
+                company_address=pending.get("company_address"),
+                esignature_data=pending.get("esignature_data"),
+            ))
+            # Optional organisation registration document → goes to admin for verification.
+            org_doc_url = pending.get("organisation_doc_url")
+            if org_doc_url and _role == Role.HAULIER:
+                from app.models.document import Document, DocType, DocStatus
+                db.add(Document(
+                    user_id=user.id,
+                    doc_type=DocType.COMPANY_REG,
+                    custom_name="Organisation Registration",
+                    file_url=org_doc_url,
+                    status=DocStatus.PENDING,
+                ))
             db.commit()
             db.refresh(user)
             _delete_pending(r, email)
@@ -171,6 +221,8 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
             user = db.get(User, ev.user_id)
             user.verified = True
             user.status = UserStatus.ACTIVE
+            if user.role != Role.HAULIER:
+                user.admin_approved = True
             db.commit()
             db.refresh(user)
     else:
@@ -186,6 +238,8 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
         user = db.get(User, ev.user_id)
         user.verified = True
         user.status = UserStatus.ACTIVE
+        if user.role != Role.HAULIER:
+            user.admin_approved = True
         db.commit()
         db.refresh(user)
 
@@ -196,7 +250,8 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
     return {"user": user, "access_token": access_token, "refresh_token": raw_refresh}
 
 
-def login(db: Session, r, email: str, password: str) -> dict:
+def login(db: Session, r, email: str, password: str, expected_role: str | None = None) -> dict:
+    email = email.strip().lower()
     user = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
     if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -204,6 +259,13 @@ def login(db: Session, r, email: str, password: str) -> dict:
         raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox (and spam folder) for the verification code.")
     if user.status == UserStatus.SUSPENDED:
         raise HTTPException(status_code=403, detail="Account suspended")
+    if expected_role:
+        allowed = [role_str.strip().upper() for role_str in expected_role.split(",")]
+        if user.role.value.upper() not in allowed:
+            if user.role.value.upper() == "DRIVER":
+                raise HTTPException(status_code=403, detail="This account is registered as a driver. Please use the driver mobile app to log in.")
+            else:
+                raise HTTPException(status_code=403, detail="This account is registered as a haulier. Please use the haulier web portal to log in.")
 
     access_token = create_access_token(user.id, user.role.value)
     raw_refresh = generate_token()

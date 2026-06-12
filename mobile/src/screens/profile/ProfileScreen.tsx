@@ -105,6 +105,10 @@ const DRIVER_MODES = [
 
 const CAPACITY_UNITS = ['kg', 'liters', 'tons', 'cubic m', 'cubic ft'];
 const CPT_UNITS      = ['L', 'kg', 'tons', 'cubic ft'];
+const VEHICLE_CATEGORIES = [
+  'HGV', 'LGV', 'Van', 'Flatbed', 'Tanker', 'Tipper',
+  'Refrigerated', 'Skip Loader', 'Curtainsider', 'Box Truck', 'Other',
+];
 
 interface ProfileForm {
   name: string;
@@ -293,18 +297,33 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [vehicleReg, setVehicleReg] = useState('');
   const [vehicleSaving, setVehicleSaving] = useState(false);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
+  // Vehicle category dropdown — modal
+  const [modalVehCatOpen, setModalVehCatOpen] = useState(false);
+  const [modalVehCatSelection, setModalVehCatSelection] = useState('');
+  const [modalVehCatOther, setModalVehCatOther] = useState('');
+  // Vehicle category dropdown — profile form
+  const [profVehCatOpen, setProfVehCatOpen] = useState(false);
+  const [profVehCatSelection, setProfVehCatSelection] = useState('');
+  const [profVehCatOther, setProfVehCatOther] = useState('');
 
   // ── E-Signature ──────────────────────────────────────────────────────────
   const [esigModalVisible,  setEsigModalVisible]  = useState(false);
   const [esigSaving,        setEsigSaving]        = useState(false);
   const [esigError,         setEsigError]         = useState('');
   const [esigSuccess,       setEsigSuccess]       = useState(false);
+  const [esigRequired,      setEsigRequired]      = useState(false);
   const [esigSegments,      setEsigSegments]      = useState<{x1:number;y1:number;x2:number;y2:number}[]>([]);
   const esigDrawing         = useRef(false);
   const esigLastPoint       = useRef<{x:number;y:number}|null>(null);
   const [esigCanvasSize,    setEsigCanvasSize]    = useState({width: 0, height: 0});
-  // Derive saved esig from profile prop
-  const savedEsignature: string | null = (profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null;
+  // Local override so a just-saved (or just-removed) signature reflects immediately,
+  // even before the parent profile prop refreshes. undefined = use profile prop;
+  // null = locally removed; string = locally saved.
+  const [localEsig, setLocalEsig] = useState<string | null | undefined>(undefined);
+  const savedEsignature: string | null =
+    localEsig !== undefined
+      ? localEsig
+      : ((profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null);
 
   const esigPanResponder = useMemo(
     () =>
@@ -339,10 +358,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setEsigError('');
     try {
       await driverApi.profile.saveEsignature(sigData);
+      setLocalEsig(sigData);          // reflect immediately so "save profile" no longer asks for it
       setEsigModalVisible(false);
       setEsigSegments([]);
       setEsigSuccess(true);
+      setEsigRequired(false);
       setTimeout(() => setEsigSuccess(false), 3000);
+      onRefresh();                    // sync the parent profile in the background
     } catch {
       setEsigError('Failed to save e-signature. Please try again.');
     } finally {
@@ -359,7 +381,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         onPress: async () => {
           try {
             await driverApi.profile.deleteEsignature();
-            // Force a profile refresh in parent - just clear locally for now
+            setLocalEsig(null);   // reflect removal immediately
+            onRefresh();          // sync the parent profile
           } catch { /* ignore */ }
         },
       },
@@ -395,9 +418,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [cptError, setCptError] = useState('');
 
   const openVehicleModal = () => {
-    setVehicleType(profileForm.vehicleType ?? '');
+    const currentType = profileForm.vehicleType ?? '';
+    const presets = VEHICLE_CATEGORIES.filter(c => c !== 'Other');
+    const isPreset = presets.includes(currentType);
+    setVehicleType(currentType);
+    setModalVehCatSelection(isPreset ? currentType : currentType ? 'Other' : '');
+    setModalVehCatOther(isPreset ? '' : currentType);
     setVehicleReg(profileForm.vehicleRegistration ?? '');
     setVehicleError(null);
+    setModalVehCatOpen(false);
     setVehicleModalVisible(true);
   };
 
@@ -1037,12 +1066,64 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Icon name="truck" size={14} color="#000000" strokeWidth={2} />
               <Text style={daStyles.sectionHeading}>Truck Details</Text>
             </View>
-            <InfoField
-              label="VEHICLE TYPE"
-              value={profileForm.vehicleType}
-              onChange={v => onChange({vehicleType: v})}
-              placeholder="e.g. FLATBED, VAN, HGV"
-            />
+            {/* Vehicle Type dropdown */}
+            {(() => {
+              const presets = VEHICLE_CATEGORIES.filter(c => c !== 'Other');
+              const isOther = profVehCatSelection === 'Other';
+              const displayLabel = profVehCatSelection
+                ? (isOther ? 'Other' : profVehCatSelection)
+                : (profileForm.vehicleType || '');
+              return (
+                <View style={{gap: 6}}>
+                  <Text style={daStyles.label}>VEHICLE TYPE</Text>
+                  <Pressable
+                    style={[daStyles.trigger, profVehCatOpen && {borderColor: '#1066B1'}]}
+                    onPress={() => setProfVehCatOpen(o => !o)}>
+                    <Text style={displayLabel ? daStyles.triggerValue : daStyles.triggerPlaceholder}>
+                      {displayLabel || 'Select vehicle type'}
+                    </Text>
+                    <Text style={daStyles.chevron}>{profVehCatOpen ? '▴' : '▾'}</Text>
+                  </Pressable>
+                  {profVehCatOpen && (
+                    <View style={daStyles.dropList}>
+                      {VEHICLE_CATEGORIES.map((cat, i) => {
+                        const active = profVehCatSelection
+                          ? profVehCatSelection === cat
+                          : presets.includes(profileForm.vehicleType ?? '') ? profileForm.vehicleType === cat : false;
+                        return (
+                          <Pressable
+                            key={cat}
+                            style={[daStyles.dropItem, i < VEHICLE_CATEGORIES.length - 1 && daStyles.dropItemBorder, active && daStyles.dropItemActive]}
+                            onPress={() => {
+                              setProfVehCatSelection(cat);
+                              setProfVehCatOpen(false);
+                              if (cat !== 'Other') {
+                                onChange({vehicleType: cat});
+                                setProfVehCatOther('');
+                              } else {
+                                onChange({vehicleType: profVehCatOther});
+                              }
+                            }}>
+                            <Text style={[daStyles.dropItemLabel, active && daStyles.dropItemLabelActive]}>{cat}</Text>
+                            {active && <Text style={daStyles.dropItemTick}>✓</Text>}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {isOther && (
+                    <AppInput
+                      label=""
+                      value={profVehCatOther}
+                      onChangeText={v => { setProfVehCatOther(v); onChange({vehicleType: v}); }}
+                      placeholder="Specify vehicle type"
+                      autoCapitalize="words"
+                      containerStyle={{marginBottom: 0, marginTop: 4}}
+                    />
+                  )}
+                </View>
+              );
+            })()}
             {/* Truck Capacity with unit */}
             <View style={capStyles.fieldGroup}>
               <Text style={capStyles.fieldLabel}>CAPACITY OF TRUCK</Text>
@@ -1386,6 +1467,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Text style={{color: '#fff', fontSize: 13, fontWeight: '700'}}>＋  Add E-Signature</Text>
           </Pressable>
         )}
+
+        {esigRequired && !savedEsignature && (
+          <View style={{backgroundColor: '#FEF2F2', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: '#FECACA'}}>
+            <Text style={{fontSize: 12, fontWeight: '700', color: '#DC2626'}}>⚠️  E-Signature is required before saving your profile.</Text>
+          </View>
+        )}
       </View>
 
       {/* ── E-Signature Draw Modal ─────────────────────────────────────────── */}
@@ -1471,7 +1558,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* ── Save Changes ──────────────────────────────────────────────────── */}
       <Pressable
-        onPress={onSave}
+        onPress={() => {
+          if (!savedEsignature) {
+            setEsigRequired(true);
+            return;
+          }
+          onSave();
+        }}
         disabled={loading}
         style={[styles.saveBtn, loading && styles.saveBtnDisabled]}>
         {loading
@@ -1955,17 +2048,59 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </Pressable>
             </View>
 
-            <AppInput
-              label="Vehicle Type"
-              placeholder="e.g. FLATBED, VAN, HGV, TRAILER"
-              value={vehicleType}
-              onChangeText={v => { setVehicleType(v); setVehicleError(null); }}
-              autoCapitalize="characters"
-              editable={!vehicleSaving}
-            />
+            {/* Vehicle Type dropdown */}
+            <View style={{gap: 6, marginBottom: 12}}>
+              <Text style={{fontSize: 11, fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.8}}>Vehicle Type</Text>
+              <Pressable
+                style={[daStyles.trigger, modalVehCatOpen && {borderColor: '#1066B1'}]}
+                onPress={() => { if (!vehicleSaving) setModalVehCatOpen(o => !o); }}>
+                <Text style={modalVehCatSelection ? daStyles.triggerValue : daStyles.triggerPlaceholder}>
+                  {modalVehCatSelection === 'Other' ? 'Other' : modalVehCatSelection || 'Select vehicle type'}
+                </Text>
+                <Text style={daStyles.chevron}>{modalVehCatOpen ? '▴' : '▾'}</Text>
+              </Pressable>
+              {modalVehCatOpen && (
+                <View style={daStyles.dropList}>
+                  {VEHICLE_CATEGORIES.map((cat, i) => {
+                    const active = modalVehCatSelection === cat;
+                    return (
+                      <Pressable
+                        key={cat}
+                        style={[daStyles.dropItem, i < VEHICLE_CATEGORIES.length - 1 && daStyles.dropItemBorder, active && daStyles.dropItemActive]}
+                        onPress={() => {
+                          setModalVehCatSelection(cat);
+                          setModalVehCatOpen(false);
+                          setVehicleError(null);
+                          if (cat !== 'Other') {
+                            setVehicleType(cat);
+                            setModalVehCatOther('');
+                          } else {
+                            setVehicleType(modalVehCatOther);
+                          }
+                        }}>
+                        <Text style={[daStyles.dropItemLabel, active && daStyles.dropItemLabelActive]}>{cat}</Text>
+                        {active && <Text style={daStyles.dropItemTick}>✓</Text>}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+              {modalVehCatSelection === 'Other' && (
+                <AppInput
+                  label=""
+                  value={modalVehCatOther}
+                  onChangeText={v => { setModalVehCatOther(v); setVehicleType(v); setVehicleError(null); }}
+                  placeholder="Specify vehicle type"
+                  autoCapitalize="words"
+                  editable={!vehicleSaving}
+                  containerStyle={{marginBottom: 0, marginTop: 4}}
+                />
+              )}
+            </View>
 
             <AppInput
               label="Registration Number"
+              required
               placeholder="e.g. TX-LOG-8892"
               value={vehicleReg}
               onChangeText={v => { setVehicleReg(v); setVehicleError(null); }}

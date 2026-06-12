@@ -88,7 +88,7 @@ def generate_shift_invoice_pdf(shift, payment, day_number: int) -> bytes:
     pdf.set_font("Helvetica", "B", 20)
     pdf.cell(0, 10, "FlexiShift", ln=True, align="C")
     pdf.set_font("Helvetica", size=12)
-    pdf.cell(0, 6, "Tax Invoice — Shift Day Payment", ln=True, align="C")
+    pdf.cell(0, 6, "Tax Invoice - Shift Payment", ln=True, align="C")
     pdf.ln(8)
 
     pdf.set_font("Helvetica", "B", 11)

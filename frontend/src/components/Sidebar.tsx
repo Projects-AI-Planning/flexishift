@@ -125,7 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       icon: 'group',
       label: 'User Management',
       children: [
-        { to: '/admin/users/all', label: 'All Users' },
+        { to: '/admin/users/all', label: 'All Users' }
       ],
     },
     {
@@ -134,6 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       children: [
         { to: '/admin/verifications/pending', label: 'Pending' },
         { to: '/admin/verifications/processed', label: 'Processed' },
+        { to: '/admin/users/hauliers?tab=pending', label: 'Haulier Approvals' },
       ],
     },
     {
@@ -222,6 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/analytics/costs', label: 'Costs' },
       ],
     },
+    /* Documents section hidden (kept for future use, not removed)
     {
       icon: 'description',
       label: 'Documents',
@@ -230,6 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         { to: '/haulier/documents/insurance', label: 'Insurance' },
       ],
     },
+    */
     { icon: 'settings', label: 'Settings', children: [
       { to: '/haulier/settings/profile', label: 'Profile' },
     ] },
@@ -343,7 +346,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
           </button>
         </div>
 
-        <div className="px-4 pb-6">
+        <div className="px-4 pb-6 space-y-0.5">
           <a
             className={`flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'gap-3'} text-slate-500 hover:text-white px-4 py-2 mx-2 transition-colors text-xs font-bold`}
             href="#"
@@ -351,6 +354,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
           >
             <span className="material-symbols-outlined text-sm">help</span>
             {(!isCollapsed || isMobileOpen) && <span>Support Center</span>}
+          </a>
+          <a
+            className={`flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'gap-3'} text-slate-500 hover:text-white px-4 py-2 mx-2 transition-colors text-xs font-bold`}
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={isCollapsed && !isMobileOpen ? 'Terms & Conditions' : undefined}
+          >
+            <span className="material-symbols-outlined text-sm">gavel</span>
+            {(!isCollapsed || isMobileOpen) && <span>Terms &amp; Conditions</span>}
           </a>
         </div>
       </aside>

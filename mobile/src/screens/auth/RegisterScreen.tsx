@@ -253,31 +253,37 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
         <View style={styles.form}>
 
           {/* Full Name */}
-          <AppInput
-            leftIcon={<AccountIcon size={20} color="#9CA4B0" />}
-            autoCapitalize="words"
-            onChangeText={update('name')}
-            placeholder="Full Name"
-            value={registerForm.name}
-            error={fieldErrors.name}
-            containerStyle={{marginBottom: 0}}
-          />
+          <View>
+            <Text style={styles.fieldLabel}>Full Name <Text style={styles.requiredStar}>*</Text></Text>
+            <AppInput
+              leftIcon={<AccountIcon size={20} color="#9CA4B0" />}
+              autoCapitalize="words"
+              onChangeText={update('name')}
+              placeholder="Full Name"
+              value={registerForm.name}
+              error={fieldErrors.name}
+              containerStyle={{marginBottom: 0}}
+            />
+          </View>
 
           {/* Email Address */}
-          <AppInput
-            leftIcon={<MailIcon size={20} color="#9CA4B0" />}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onChangeText={update('email')}
-            placeholder="Email Address"
-            value={registerForm.email}
-            error={fieldErrors.email}
-            containerStyle={{marginBottom: 0}}
-          />
+          <View>
+            <Text style={styles.fieldLabel}>Email Address <Text style={styles.requiredStar}>*</Text></Text>
+            <AppInput
+              leftIcon={<MailIcon size={20} color="#9CA4B0" />}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              onChangeText={update('email')}
+              placeholder="Email Address"
+              value={registerForm.email}
+              error={fieldErrors.email}
+              containerStyle={{marginBottom: 0}}
+            />
+          </View>
 
           {/* ── Country Selector (dedicated field) ── */}
           <View>
-            <Text style={styles.fieldLabel}>Country</Text>
+            <Text style={styles.fieldLabel}>Country <Text style={styles.requiredStar}>*</Text></Text>
             <Pressable
               style={styles.countrySelector}
               onPress={() => setCountryPickerVisible(true)}>
@@ -290,6 +296,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
           {/* ── Phone Number (dial code auto-filled from country) ── */}
           <View>
+            <Text style={styles.fieldLabel}>Phone Number <Text style={styles.requiredStar}>*</Text></Text>
             <View style={[styles.phoneRow, fieldErrors.phone ? styles.phoneRowError : null]}>
               <PhoneIcon size={20} color="#9CA4B0" />
               <View style={styles.dialCodeBadge}>
@@ -315,18 +322,22 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           </View>
 
           {/* Password */}
-          <AppInput
-            leftIcon={<LockIcon size={20} color="#9CA4B0" />}
-            onChangeText={update('password')}
-            placeholder="Password"
-            secureTextEntry
-            value={registerForm.password}
-            error={fieldErrors.password}
-            containerStyle={{marginBottom: 0}}
-          />
+          <View>
+            <Text style={styles.fieldLabel}>Password <Text style={styles.requiredStar}>*</Text></Text>
+            <AppInput
+              leftIcon={<LockIcon size={20} color="#9CA4B0" />}
+              onChangeText={update('password')}
+              placeholder="Password"
+              secureTextEntry
+              value={registerForm.password}
+              error={fieldErrors.password}
+              containerStyle={{marginBottom: 0}}
+            />
+          </View>
 
           {/* Confirm Password */}
           <View>
+            <Text style={styles.fieldLabel}>Confirm Password <Text style={styles.requiredStar}>*</Text></Text>
             <AppInput
               leftIcon={<LockCheckIcon size={20} color="#9CA4B0" />}
               onChangeText={handleConfirmChange}
@@ -361,7 +372,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
           )}
 
           {/* F-Skat Number */}
-          <AppInput
+          <View>
+            <Text style={styles.fieldLabel}>F-Skat Number <Text style={styles.requiredStar}>*</Text></Text>
+            <AppInput
             leftIcon={<BoxIcon size={20} color="#9CA4B0" />}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -370,7 +383,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({
             value={registerForm.fSkatNumber ?? ''}
             error={fieldErrors.fSkatNumber}
             containerStyle={{marginBottom: 0}}
-          />
+            />
+          </View>
 
           {/* VAT Number question */}
           <View style={styles.vatCard}>
@@ -478,6 +492,7 @@ const styles = StyleSheet.create({
     color: '#6B7280', fontSize: 12, fontWeight: '700',
     letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase',
   },
+  requiredStar: {color: '#EF4444', fontWeight: '900'},
 
   // Dedicated country selector
   countrySelector: {

@@ -25,6 +25,7 @@ def _doc_dict(d: Document) -> dict:
     return {
         "documentId": d.id,
         "userId": d.user_id,
+        "vehicleId": d.vehicle_id,
         "docType": d.doc_type.value,
         "customName": d.custom_name,
         "fileUrl": d.file_url,
@@ -48,6 +49,7 @@ async def upload_document_direct(
     doc_type: str = Form(None),
     customName: str = Form(None),
     expiryDate: str = Form(None),
+    vehicleId: str = Form(None),
     file: UploadFile = File(...),
 ):
     raw_type = (documentType or doc_type or "").strip().upper()
@@ -102,10 +104,13 @@ async def upload_document_direct(
             except ValueError:
                 continue
 
+    resolved_vehicle_id = vehicleId.strip() if vehicleId and vehicleId.strip() else None
+
     doc = doc_svc.upsert_document(
         db, current_user.id, raw_type, file_url,
         custom_name=resolved_custom_name,
         expiry_date=parsed_expiry,
+        vehicle_id=resolved_vehicle_id,
     )
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")
 

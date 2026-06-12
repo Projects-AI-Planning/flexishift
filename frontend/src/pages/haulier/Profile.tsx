@@ -85,6 +85,8 @@ type HaulierProfile = {
     photoUrl?: string | null;
     companyName?: string | null;
     companyAddress?: string | null;
+    vatNumber?: string | null;
+    organisationNumber?: string | null;
     coverageArea?: string | null;
     vehicleType?: string | null;
     vehicleRegistration?: string | null;
@@ -134,8 +136,10 @@ export default function HaulierProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [phoneDialCode, setPhoneDialCode] = useState('+44');
   const [phoneNumber, setPhoneNumber] = useState('');
 
@@ -154,6 +158,7 @@ export default function HaulierProfilePage() {
     try {
       const data = await haulierService.getMe();
       setProfile(data);
+      if (data?.profile?.photoUrl) setPhotoPreview(data.profile.photoUrl);
       const parsed = splitPhone(data?.phone ?? '');
       setPhoneDialCode(
         parsed.dialCode || (data?.country ? (COUNTRY_DIAL[data.country] ?? '+44') : '+44')
@@ -212,6 +217,8 @@ export default function HaulierProfilePage() {
         currency: profile.currency ?? '',
         companyName: profile.profile?.companyName ?? '',
         companyAddress: profile.profile?.companyAddress ?? '',
+        vatNumber: profile.profile?.vatNumber ?? '',
+        organisationNumber: profile.profile?.organisationNumber ?? '',
       });
       await fetchProfile();
       setSuccess(true);
@@ -310,11 +317,17 @@ export default function HaulierProfilePage() {
   };
 
   const uploadPhoto = async (file: File) => {
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setPhotoPreview(localUrl);
     setUploading(true);
     try {
-      await haulierService.uploadProfilePhoto(file);
+      const result = await haulierService.uploadProfilePhoto(file);
+      // Use the returned URL if available, otherwise keep local preview
+      if (result?.photoUrl) setPhotoPreview(result.photoUrl);
       await fetchProfile();
     } catch (err: unknown) {
+      setPhotoPreview(null);
       const response = err as { response?: { data?: { message?: string; detail?: string } } };
       const message = response.response?.data?.message || response.response?.data?.detail;
       setError(message ? `Failed to upload profile photo: ${message}` : 'Failed to upload profile photo.');
@@ -345,22 +358,59 @@ export default function HaulierProfilePage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         {/* ── Left card: avatar + photo upload ── */}
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#1066b1] text-2xl font-black text-white">
-              {profile?.name?.charAt(0) || 'H'}
+          {/* Avatar */}
+          <div className="flex flex-col items-center text-center">
+            <div className="relative mb-4">
+              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#1066b1]/20 shadow-md">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-[#1066b1] text-4xl font-black text-white">
+                    {profile?.name?.charAt(0)?.toUpperCase() || 'H'}
+                  </div>
+                )}
+              </div>
+              {uploading && (
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white animate-spin text-2xl">progress_activity</span>
+                </div>
+              )}
             </div>
-            <div>
-              <h2 className="text-xl font-black text-primary">{profile?.name ?? 'Haulier account'}</h2>
-              <p className="text-sm font-bold text-slate-500">{profile?.email}</p>
-              <p className="text-xs font-black uppercase tracking-widest text-[#1066b1]">
-                {profile?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
-              </p>
-            </div>
+            <h2 className="text-xl font-black text-primary">{profile?.name ?? 'Haulier account'}</h2>
+            <p className="text-sm font-bold text-slate-500 mb-1">{profile?.email}</p>
+            <p className="text-xs font-black uppercase tracking-widest text-[#1066b1]">
+              {profile?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
+            </p>
           </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadPhoto(f); e.target.value = ''; }}
+          />
+
+          {/* Upload button */}
+          <div className="mt-5">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-full flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-[#1066b1]/30 bg-[#1066b1]/5 px-3 py-4 text-[#1066b1] hover:bg-[#1066b1]/10 hover:border-[#1066b1]/50 transition-all disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-2xl">photo_library</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Choose Photo</span>
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-slate-400 font-medium">
+            {uploading ? 'Uploading...' : 'Select a photo from your device'}
+          </p>
 
           {/* Country + currency badges */}
           {(profile?.country || profile?.currency) && (
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2 justify-center">
               {profile.country && (
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#1066b1]/20 bg-[#1066b1]/5 px-3 py-1.5 text-xs font-black text-[#1066b1]">
                   <span className="material-icons-outlined text-[14px]">public</span>
@@ -375,25 +425,6 @@ export default function HaulierProfilePage() {
               )}
             </div>
           )}
-
-          <div className="mt-6 space-y-4">
-            <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">Photo</span>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void uploadPhoto(file);
-                }}
-                className="block w-full text-sm text-[#44474C] file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-widest file:text-white"
-              />
-            </label>
-            <p className="text-xs text-slate-500">
-              {uploading ? 'Uploading photo...' : 'Upload a new profile photo.'}
-            </p>
-          </div>
         </section>
 
         {/* ── Right card: editable fields ── */}
@@ -504,6 +535,31 @@ export default function HaulierProfilePage() {
                   onChange={(e) => updateField('companyAddress', e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
                 />
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Organisation Number <span className="text-rose-500">*</span>
+                </span>
+                <input
+                  value={profile?.profile?.organisationNumber ?? ''}
+                  onChange={(e) => updateField('organisationNumber', e.target.value)}
+                  placeholder="e.g. 12345678"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="block text-[10px] text-slate-400">Company registration / org number</span>
+              </label>
+              <label className="space-y-2">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  VAT Number
+                  <span className="ml-1 font-normal text-slate-400">(optional)</span>
+                </span>
+                <input
+                  value={profile?.profile?.vatNumber ?? ''}
+                  onChange={(e) => updateField('vatNumber', e.target.value)}
+                  placeholder="e.g. GB123456789"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="block text-[10px] text-slate-400">Leave blank if not VAT registered</span>
               </label>
             </div>
           </div>

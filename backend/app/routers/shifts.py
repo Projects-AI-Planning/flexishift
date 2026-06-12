@@ -1,14 +1,29 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+import re as _re
+from uuid import uuid4
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.core.response import ok, created
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.shift import ShiftPayment, ShiftPaymentStatus, ShiftStatus, RequirementType
+from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.models.user import User, Role
 from app.schemas.shifts import ShiftCreateRequest, ShiftQuoteCreateRequest
 from app.services import shifts as shifts_svc
+from app.services import local_storage as local_svc
+
+
+def _fix_url(url: str) -> str:
+    """Rewrite any host:port to BACKEND_URL for upload paths. Filter out device-local file:// URIs."""
+    if not url or url.startswith('file://'):
+        return ''
+    if '/uploads/' in url:
+        return _re.sub(r'https?://[^/]+', settings.BACKEND_URL.rstrip("/"), url)
+    return url
 
 
 class UpdateShiftLocationRequest(BaseModel):
@@ -26,8 +41,8 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "haulierId": shift.haulier_id,
         "requirementType": shift.requirement_type.value if hasattr(shift.requirement_type, "value") else shift.requirement_type,
         "startDate": str(shift.start_date),
-        "endDate": str(shift.end_date),
-        "totalDays": shift.total_days,
+        "endDate": str(shift.start_date),
+        "totalDays": 1,
         "hoursPerDay": shift.hours_per_day,
         "pickupAddress": shift.pickup_address,
         "pickupLat": float(shift.pickup_lat) if shift.pickup_lat else None,
@@ -37,6 +52,7 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "dropLng": float(shift.drop_lng) if shift.drop_lng else None,
         "location": shift.location,
         "goodsType": shift.goods_type,
+        "reportingLocation": shift.reporting_location,
         "totalCapacity": float(shift.total_capacity) if shift.total_capacity else None,
         "compartments": shift.compartments,
         "compartmentDetails": shift.compartment_details or [],
@@ -50,7 +66,7 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "notes": shift.notes,
         "dailyRate": float(shift.daily_rate) if shift.daily_rate else None,
         "status": shift.status.value if hasattr(shift.status, "value") else shift.status,
-        "quoteCount": len(shift.quotes) if shift.quotes is not None else 0,
+        "quoteCount": sum(1 for q in shift.quotes if q.status.value == 'PENDING') if shift.quotes is not None else 0,
         "selectedDriverId": shift.selected_driver_id,
         "daysCompleted": shift.days_completed,
         "createdAt": shift.created_at.isoformat() if shift.created_at else None,
@@ -66,21 +82,19 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "handoverHaulierSignatureData": shift.handover_haulier_signature_data,
     }
 
-    # Tell the frontend whether today's day payment is already in escrow
+    # Tell the frontend whether the (single) shift payment is already in escrow,
+    # and expose a job-style `paymentStatus` so the shared payment page can treat
+    # a shift exactly like a job.
+    d["paymentStatus"] = None
     if db is not None:
-        status_val = shift.status.value if hasattr(shift.status, "value") else shift.status
-        if status_val in ("BOOKED", "IN_PROGRESS"):
-            next_day = shift.days_completed + 1
-            payment = (
-                db.query(ShiftPayment)
-                .filter(
-                    ShiftPayment.shift_id == shift.id,
-                    ShiftPayment.day_number == next_day,
-                    ShiftPayment.status == ShiftPaymentStatus.ESCROWED,
-                )
-                .first()
-            )
-            d["currentDayEscrowed"] = payment is not None
+        payment = (
+            db.query(ShiftPayment)
+            .filter(ShiftPayment.shift_id == shift.id, ShiftPayment.day_number == 1)
+            .first()
+        )
+        if payment is not None:
+            d["paymentStatus"] = payment.status.value if hasattr(payment.status, "value") else payment.status
+            d["currentDayEscrowed"] = payment.status == ShiftPaymentStatus.ESCROWED
 
     if quotes is not None:
         include_vehicle = shift.requirement_type != RequirementType.DRIVER_ONLY
@@ -124,12 +138,11 @@ def _driver_quote_dict(quote) -> dict:
         d.update({
             "shiftRef": shift.shift_ref,
             "startDate": str(shift.start_date),
-            "endDate": str(shift.end_date),
-            "totalDays": shift.total_days,
             "hoursPerDay": shift.hours_per_day,
             "location": shift.location or "",
             "pickupAddress": shift.pickup_address or "",
             "dropAddress": shift.drop_address or "",
+            "reportingLocation": shift.reporting_location or "",
             "shiftStatus": shift.status.value if hasattr(shift.status, "value") else shift.status,
         })
     return d
@@ -143,6 +156,8 @@ async def create_shift(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
+    if not current_user.admin_approved:
+        raise HTTPException(status_code=403, detail="Your account is pending admin approval. You cannot post shifts until approved.")
     data = body.model_dump(by_alias=False)
     shift = shifts_svc.create_shift(db, current_user, data)
     return created(_shift_dict(shift), "Shift created successfully")
@@ -232,7 +247,7 @@ def complete_day(
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     shift = shifts_svc.complete_shift_day(db, shift_id, current_user)
-    return ok(_shift_dict(shift, db=db), f"Day {shift.days_completed} of {shift.total_days} completed")
+    return ok(_shift_dict(shift, db=db), "Shift completed")
 
 
 @router.put("/cancel/{shift_id}")
@@ -258,7 +273,7 @@ def start_shift_day(
     Transitions BOOKED → IN_PROGRESS on Day 1.
     """
     shift = shifts_svc.start_shift_day(db, shift_id, current_user)
-    return ok(_shift_dict(shift, db=db), f"Day {shift.days_completed + 1} started — drive safe!")
+    return ok(_shift_dict(shift, db=db), "Shift started — drive safe!")
 
 
 @router.post("/{shift_id}/location")
@@ -367,6 +382,82 @@ def verify_shift_access_code_endpoint(
     return ok(_shift_dict(shift, db=db), "Access code verified — proceed to handover")
 
 
+@router.post("/{shift_id}/handover/photos")
+async def upload_shift_handover_photos(
+    shift_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    photos: List[UploadFile] = File(...),
+):
+    """Upload handover condition photos for a shift; returns server-accessible URLs."""
+    uploaded = []
+    for photo in photos[:10]:
+        suffix = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp"}.get(
+            photo.content_type or "", "jpg"
+        )
+        key = f"shifts/{shift_id}/handover/{uuid4()}.{suffix}"
+        contents = await photo.read()
+        if local_svc.azure_available():
+            from app.services import s3
+            s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, photo.content_type or "image/jpeg")
+            file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        else:
+            local_svc.ensure_local_upload_root()
+            file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(contents)
+            file_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{key}"
+            rec = local_svc.create_pending_upload(
+                db, user_id=current_user.id, kind=LocalUploadKind.IMAGE,
+                original_name=photo.filename or f"handover.{suffix}",
+                content_type=photo.content_type or "image/jpeg", storage_key=key,
+            )
+            rec.public_url = file_url
+            rec.status = LocalUploadStatus.STORED
+            db.commit()
+        uploaded.append({"key": key, "fileUrl": file_url})
+    return ok(data={"uploads": uploaded, "photos": uploaded}, message="Shift handover photos uploaded")
+
+
+@router.post("/{shift_id}/proof/photos")
+async def upload_shift_proof_photos(
+    shift_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    photos: List[UploadFile] = File(...),
+):
+    """Upload end-of-shift delivery proof photos; returns server-accessible URLs (like jobs)."""
+    uploaded = []
+    for photo in photos[:10]:
+        suffix = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp"}.get(
+            photo.content_type or "", "jpg"
+        )
+        key = f"shifts/{shift_id}/proof/{uuid4()}.{suffix}"
+        contents = await photo.read()
+        if local_svc.azure_available():
+            from app.services import s3
+            s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, photo.content_type or "image/jpeg")
+            file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
+        else:
+            local_svc.ensure_local_upload_root()
+            file_path = local_svc.LOCAL_UPLOAD_ROOT / key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(contents)
+            file_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{key}"
+            rec = local_svc.create_pending_upload(
+                db, user_id=current_user.id, kind=LocalUploadKind.IMAGE,
+                original_name=photo.filename or f"proof.{suffix}",
+                content_type=photo.content_type or "image/jpeg", storage_key=key,
+            )
+            rec.public_url = file_url
+            rec.status = LocalUploadStatus.STORED
+            db.commit()
+        uploaded.append({"key": key, "fileUrl": file_url})
+    return ok(data={"uploads": uploaded, "photos": uploaded}, message="Shift proof photos uploaded")
+
+
 @router.post("/{shift_id}/handover")
 def submit_shift_handover(
     shift_id: str,
@@ -414,6 +505,7 @@ def get_shift_handover_status(
 ):
     """Poll handover progress — called by driver app every few seconds."""
     status = shifts_svc.get_shift_handover_status(db, shift_id)
+    status["photoUrls"] = [u for u in (_fix_url(u) for u in (status.get("photoUrls") or [])) if u]
     return ok(status)
 
 
@@ -438,23 +530,16 @@ async def end_shift_day(
     shift = shifts_svc.get_shift(db, shift_id)
     if shift and shift.haulier_id:
         driver_name = current_user.full_name or "The driver"
-        is_last_day = shift.days_completed + 1 >= shift.total_days
         from app.services.notifications import create_notification
         await create_notification(
             db, shift.haulier_id, "SHIFT_DAY_COMPLETED",
-            "Shift Day Completed — Release Payment" if not is_last_day else "Shift Completed — Release Payment",
-            (
-                f"{driver_name} has completed Day {day_num} of {shift.total_days} for shift {shift.shift_ref}. "
-                f"Please review and release Day {day_num} payment."
-            ) if not is_last_day else (
-                f"{driver_name} has completed the final day of shift {shift.shift_ref}. "
-                f"Please review and release the final payment."
-            ),
+            "Shift Completed — Release Payment",
+            f"{driver_name} has completed shift {shift.shift_ref}. Please review and release payment.",
             {"shift_id": shift_id, "shift_ref": shift.shift_ref, "day_number": day_num},
         )
         db.commit()
 
-    return ok({"proofId": proof.id, "dayNumber": proof.day_number}, f"Day {day_num} end-of-day proof submitted")
+    return ok({"proofId": proof.id, "dayNumber": proof.day_number}, "End-of-shift proof submitted")
 
 
 @router.post("/{shift_id}/rating")
@@ -552,4 +637,39 @@ def verify_day_payment(
     shift = shifts_svc.verify_day_payment(
         db, shift_id, body.day_number, body.payment_intent_id, current_user
     )
-    return ok(_shift_dict(shift, db=db), f"Day {body.day_number} payment confirmed — funds held in escrow")
+    return ok(_shift_dict(shift, db=db), "Payment confirmed — funds held in escrow")
+
+
+# ── Job-style single payment aliases (single-day shifts) ─────────────────────────
+# Shifts are single-day, so payment works like a job: one order, one verify, no day
+# numbers. These wrap the existing day-1 logic so the shared web payment page can
+# treat a shift exactly like a job booking.
+
+class VerifyShiftPaymentRequest(BaseModel):
+    payment_intent_id: str = Field(..., alias="paymentIntentId")
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/{shift_id}/payment", status_code=201)
+def create_shift_payment(
+    shift_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    """Create the Stripe PaymentIntent for a (single-day) shift — job-style."""
+    order = shifts_svc.create_day_payment_order(db, shift_id, current_user)
+    return created(data=order, message="Shift payment order created")
+
+
+@router.post("/{shift_id}/payment/verify")
+def verify_shift_payment(
+    shift_id: str,
+    body: VerifyShiftPaymentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    """Verify & escrow the single shift payment — job-style (day 1)."""
+    shift = shifts_svc.verify_day_payment(
+        db, shift_id, 1, body.payment_intent_id, current_user
+    )
+    return ok(_shift_dict(shift, db=db), "Payment confirmed — funds held in escrow")

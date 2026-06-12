@@ -13,6 +13,7 @@ import {colors, fonts, spacing} from '../../theme';
 
 interface AppInputProps extends TextInputProps {
   label?: string;
+  required?: boolean;
   error?: string;
   leftIcon?: React.ReactNode;
   containerStyle?: ViewStyle;
@@ -20,6 +21,7 @@ interface AppInputProps extends TextInputProps {
 
 const AppInput: React.FC<AppInputProps> = ({
   label,
+  required,
   error,
   leftIcon,
   containerStyle,
@@ -34,7 +36,12 @@ const AppInput: React.FC<AppInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <Text style={styles.label}>
+          {label}
+          {required ? <Text style={styles.requiredStar}> *</Text> : null}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.inputWrap,
@@ -77,6 +84,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
+  },
+  requiredStar: {
+    color: '#EF4444',
+    fontWeight: '900',
   },
   inputWrap: {
     flexDirection: 'row',

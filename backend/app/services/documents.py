@@ -21,11 +21,21 @@ def upsert_document(
     file_url: str,
     custom_name: str | None = None,
     expiry_date: datetime | None = None,
+    vehicle_id: str | None = None,
 ) -> Document:
-    doc = db.query(Document).filter(
-        Document.user_id == user_id, Document.doc_type == DocType(doc_type),
+    # When vehicle_id is provided, scope the upsert to that specific vehicle.
+    # This allows multiple VEHICLE_REG / VEHICLE_INSURANCE docs, one per vehicle.
+    q = db.query(Document).filter(
+        Document.user_id == user_id,
+        Document.doc_type == DocType(doc_type),
         Document.custom_name == custom_name,
-    ).first()
+    )
+    if vehicle_id is not None:
+        q = q.filter(Document.vehicle_id == vehicle_id)
+    else:
+        q = q.filter(Document.vehicle_id.is_(None))
+    doc = q.first()
+
     if doc:
         was_rejected = doc.status == DocStatus.REJECTED or bool(doc.rejection_reason)
         doc.file_url = file_url
@@ -36,6 +46,8 @@ def upsert_document(
             doc.rejection_reason = None
         if expiry_date is not None:
             doc.expiry_date = expiry_date
+        if vehicle_id is not None:
+            doc.vehicle_id = vehicle_id
         doc.updated_at = datetime.utcnow()
     else:
         doc = Document(
@@ -44,6 +56,7 @@ def upsert_document(
             file_url=file_url,
             custom_name=custom_name,
             expiry_date=expiry_date,
+            vehicle_id=vehicle_id,
         )
         db.add(doc)
     db.commit()
@@ -64,6 +77,11 @@ def review_document(db: Session, doc_id: str, admin: User, status: str, rejectio
     doc.reviewed_by = admin.id
     doc.reviewed_at = datetime.utcnow()
     doc.rejection_reason = rejection_reason if status == "REJECTED" else None
+    # When admin approves a doc whose expiry date is in the past, clear it so the
+    # driver is not blocked by a stale expiry. The driver must supply a new expiry
+    # date when they next re-upload.
+    if status == "APPROVED" and doc.expiry_date and doc.expiry_date < datetime.utcnow():
+        doc.expiry_date = None
     db.commit()
     db.refresh(doc)
     return doc

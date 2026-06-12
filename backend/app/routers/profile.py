@@ -10,6 +10,7 @@ from app.core.response import ok, created
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserStatus
+from app.models.vehicle import Vehicle
 from app.schemas.users import UserOut, UpdateProfileRequest
 from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.services import local_storage as local_svc
@@ -23,7 +24,9 @@ LOCAL_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "static" / "uploads"
 _USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id", "country", "currency"}
 _PROFILE_FIELDS = {
     "photo_url", "licence_number", "vehicle_type",
-    "vehicle_registration", "truck_capacity", "company_name", "company_address", "coverage_area",
+    "vehicle_registration", "truck_capacity", "company_name", "company_address",
+    "vat_number", "organisation_number",
+    "coverage_area",
     "driver_availability",
     "equipment_details",
     "driver_assignments",
@@ -78,19 +81,48 @@ def _check_profile_complete(user: User, db=None) -> None:
         return
     if user.role == Role.DRIVER:
         driver_avail = p.driver_availability or ''
-        required_doc_types = _REQUIRED_DOCS_BY_AVAIL.get(driver_avail, [])
-        if not driver_avail or not required_doc_types or not db:
-            # No availability set yet — not complete
+        if not driver_avail or not db:
             user.profile_complete = False
             return
-        user.profile_complete = all(
-            db.query(Document).filter(
+
+        needs_licence = driver_avail in ('DRIVER_ONLY', 'DRIVER_WITH_TRUCK')
+        needs_truck_docs = driver_avail in ('TRUCK_ONLY', 'DRIVER_WITH_TRUCK')
+
+        if needs_licence:
+            has_licence = db.query(Document).filter(
                 Document.user_id == user.id,
-                Document.doc_type == dt,
+                Document.doc_type == 'DRIVING_LICENCE',
                 Document.status == DocStatus.APPROVED,
             ).first() is not None
-            for dt in required_doc_types
-        )
+            if not has_licence:
+                user.profile_complete = False
+                return
+
+        if needs_truck_docs:
+            vehicles = db.query(Vehicle).filter(
+                Vehicle.user_id == user.id,
+                Vehicle.is_active == True,
+            ).all()
+            verified_truck = False
+            for v in vehicles:
+                has_reg = db.query(Document).filter(
+                    Document.vehicle_id == v.id,
+                    Document.doc_type == 'VEHICLE_REG',
+                    Document.status == DocStatus.APPROVED,
+                ).first() is not None
+                has_ins = db.query(Document).filter(
+                    Document.vehicle_id == v.id,
+                    Document.doc_type == 'VEHICLE_INSURANCE',
+                    Document.status == DocStatus.APPROVED,
+                ).first() is not None
+                if has_reg and has_ins:
+                    verified_truck = True
+                    break
+            if not verified_truck:
+                user.profile_complete = False
+                return
+
+        user.profile_complete = True
     elif user.role in (Role.HAULIER, Role.FIRM):
         if p.company_name and p.company_address:
             user.profile_complete = True
@@ -132,7 +164,42 @@ def _save_local_photo(request: Request, key: str, contents: bytes) -> str:
     return _local_photo_url(request, key)
 
 
-def _user_data(user: User) -> dict:
+def _vehicle_dict(v: Vehicle, db=None) -> dict:
+    from app.models.document import Document, DocStatus
+    doc_statuses: dict = {}
+    doc_details: dict = {}
+    if db is not None:
+        for dt in ('VEHICLE_REG', 'VEHICLE_INSURANCE'):
+            doc = db.query(Document).filter(
+                Document.vehicle_id == v.id,
+                Document.doc_type == dt,
+            ).order_by(Document.updated_at.desc()).first()
+            doc_statuses[dt] = doc.status.value if doc else None
+            if doc:
+                doc_details[dt] = {
+                    "docId": doc.id,
+                    "status": doc.status.value,
+                    "fileUrl": doc.file_url,
+                    "expiryDate": doc.expiry_date.isoformat() if doc.expiry_date else None,
+                    "rejectionReason": doc.rejection_reason,
+                    "updatedAt": doc.updated_at.isoformat() if doc.updated_at else None,
+                }
+            else:
+                doc_details[dt] = None
+    return {
+        "vehicleId": v.id,
+        "vehicleType": v.vehicle_type,
+        "vehicleRegistration": v.vehicle_registration,
+        "truckCapacity": v.truck_capacity,
+        "equipmentDetails": v.equipment_details or [],
+        "isActive": v.is_active,
+        "createdAt": v.created_at.isoformat() if v.created_at else None,
+        "documentStatuses": doc_statuses,
+        "documents": doc_details,
+    }
+
+
+def _user_data(user: User, db=None) -> dict:
     from app.models.user import Role
     profile = user.profile
     stripe_connect = None
@@ -143,6 +210,33 @@ def _user_data(user: User) -> dict:
             "chargesEnabled": bool(user.stripe_onboarding_complete),
             "payoutsEnabled": bool(user.stripe_onboarding_complete),
         }
+
+    # Build vehicles list for drivers
+    vehicles_data: list[dict] = []
+    if user.role == Role.DRIVER:
+        active_vehicles = [v for v in (user.vehicles or []) if v.is_active]
+        vehicles_data = [_vehicle_dict(v, db) for v in active_vehicles]
+
+    # Haulier's optional organisation registration document (for admin verification)
+    organisation_document = None
+    if db is not None:
+        from app.models.document import Document
+        _org = (
+            db.query(Document)
+            .filter(Document.user_id == user.id, Document.doc_type == 'COMPANY_REG')
+            .order_by(Document.updated_at.desc())
+            .first()
+        )
+        if _org:
+            organisation_document = {
+                "docId": _org.id,
+                "status": _org.status.value,
+                "fileUrl": _org.file_url,
+                "customName": _org.custom_name,
+                "rejectionReason": _org.rejection_reason,
+                "updatedAt": _org.updated_at.isoformat() if _org.updated_at else None,
+            }
+
     return {
         "userId": user.id,
         "name": user.full_name,
@@ -154,12 +248,16 @@ def _user_data(user: User) -> dict:
         "status": user.status.value,
         "profileComplete": user.profile_complete,
         "isVerified": user.verified,
+        "isAdminApproved": user.admin_approved,
         "avgRating": user.avg_rating,
         "completedJobs": user.completed_jobs,
         "locationLat": user.location_lat,
         "locationLng": user.location_lng,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "stripeConnect": stripe_connect,
+        "bankAccountId": user.bank_account_id or None,
+        "vehicles": vehicles_data,
+        "organisationDocument": organisation_document,
         "profile": {
             "photoUrl": _presigned_photo_url(profile.photo_url if profile else None),
             "licenceNumber": profile.licence_number if profile else None,
@@ -168,6 +266,8 @@ def _user_data(user: User) -> dict:
             "truckCapacity": profile.truck_capacity if profile else None,
             "companyName": profile.company_name if profile else None,
             "companyAddress": profile.company_address if profile else None,
+            "vatNumber": profile.vat_number if profile else None,
+            "organisationNumber": profile.organisation_number if profile else None,
             "coverageArea": profile.coverage_area if profile else None,
             "driverAvailability": profile.driver_availability if profile else None,
             "equipmentDetails": profile.equipment_details if profile else [],
@@ -182,7 +282,7 @@ def get_my_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    data = _user_data(current_user)
+    data = _user_data(current_user, db)
     # If the driver has a Stripe account but onboarding isn't marked complete in
     # the DB yet, hit Stripe live so we return the real status (and update the DB).
     # Once complete the cached DB value is used — no extra Stripe call.
@@ -200,6 +300,18 @@ def get_my_profile(
     return ok(data=data, message="Profile retrieved")
 
 
+@router.get("/vehicles")
+def list_vehicles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vehicles = db.query(Vehicle).filter(
+        Vehicle.user_id == current_user.id,
+        Vehicle.is_active == True,
+    ).order_by(Vehicle.created_at.asc()).all()
+    return ok(data={"items": [_vehicle_dict(v, db) for v in vehicles]}, message="Vehicles retrieved")
+
+
 @router.get("/{user_id}")
 def get_public_profile(
     user_id: str,
@@ -209,7 +321,7 @@ def get_public_profile(
     user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return ok(data=_user_data(user), message="Profile retrieved")
+    return ok(data=_user_data(user, db), message="Profile retrieved")
 
 
 @router.post("/setup")
@@ -224,7 +336,7 @@ def setup_profile(
         raw["full_name"] = raw.pop("name")
     # remove alias fields already mapped
     _apply_updates(current_user, raw, db)
-    return ok(data=_user_data(current_user), message="Profile setup complete")
+    return ok(data=_user_data(current_user, db), message="Profile setup complete")
 
 
 @router.put("/update")
@@ -237,7 +349,7 @@ def update_profile(
     if "name" in raw:
         raw["full_name"] = raw.pop("name")
     _apply_updates(current_user, raw, db)
-    return ok(data=_user_data(current_user), message="Profile updated")
+    return ok(data=_user_data(current_user, db), message="Profile updated")
 
 
 @router.post("/photo/upload")
@@ -410,3 +522,69 @@ def deactivate_account(
     current_user.status = UserStatus.SUSPENDED
     db.commit()
     return ok(data=None, message="Account deactivated")
+
+
+# ─── Vehicle CRUD ──────────────────────────────────────────────────────────────
+
+class VehicleRequest(BaseModel):
+    vehicle_type: Optional[str] = None
+    vehicle_registration: Optional[str] = None
+    truck_capacity: Optional[str] = None
+    equipment_details: Optional[list] = None
+
+
+@router.post("/vehicles", status_code=201)
+def add_vehicle(
+    body: VehicleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vehicle = Vehicle(
+        user_id=current_user.id,
+        vehicle_type=body.vehicle_type,
+        vehicle_registration=body.vehicle_registration,
+        truck_capacity=body.truck_capacity,
+        equipment_details=body.equipment_details,
+    )
+    db.add(vehicle)
+    db.commit()
+    db.refresh(vehicle)
+    return created(data=_vehicle_dict(vehicle, db), message="Vehicle added")
+
+
+@router.put("/vehicles/{vehicle_id}")
+def update_vehicle(
+    vehicle_id: str,
+    body: VehicleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vehicle = db.query(Vehicle).filter(
+        Vehicle.id == vehicle_id,
+        Vehicle.user_id == current_user.id,
+        Vehicle.is_active == True,
+    ).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(vehicle, field, value)
+    db.commit()
+    db.refresh(vehicle)
+    return ok(data=_vehicle_dict(vehicle, db), message="Vehicle updated")
+
+
+@router.delete("/vehicles/{vehicle_id}")
+def delete_vehicle(
+    vehicle_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vehicle = db.query(Vehicle).filter(
+        Vehicle.id == vehicle_id,
+        Vehicle.user_id == current_user.id,
+    ).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    vehicle.is_active = False
+    db.commit()
+    return ok(data=None, message="Vehicle removed")

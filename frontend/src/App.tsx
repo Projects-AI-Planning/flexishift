@@ -93,6 +93,7 @@ import VerifyEmailPage from './pages/haulier/VerifyEmail';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
+import TermsAndConditionsPage from './pages/TermsAndConditions';
 
 const normalizeRole = (role?: string) => (
   role === 'SUPPLIER' || role === 'FIRM' ? 'HAULIER' : role
@@ -119,6 +120,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
       <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
+      <Route path="/terms" element={<TermsAndConditionsPage />} />
 
       {/* Stripe Connect return/refresh — accessible without auth so Stripe can redirect here */}
       <Route path="/stripe-connect/return" element={

@@ -31,7 +31,7 @@ export const driverApi = {
         refreshToken: string;
         role: string;
         userId: string;
-      }>('/auth/login', {method: 'POST', body: jsonBody(payload)}),
+      }>('/auth/login', {method: 'POST', body: jsonBody({...payload, email: normalizeEmail(payload.email), expectedRole: 'DRIVER'})}),
     logout: (refreshToken: string) =>
       request<null>('/auth/logout', {
         method: 'POST',
@@ -306,6 +306,22 @@ export const driverApi = {
     deleteEsignature: () =>
       request<null>('/profile/esignature', {method: 'DELETE'}),
   },
+  vehicles: {
+    list: () =>
+      request<{items: Record<string, unknown>[]}>('/profile/vehicles'),
+    add: (payload: {vehicle_type?: string; vehicle_registration?: string; truck_capacity?: string; equipment_details?: unknown[]}) =>
+      request<Record<string, unknown>>('/profile/vehicles', {
+        method: 'POST',
+        body: jsonBody(payload),
+      }),
+    update: (vehicleId: string, payload: {vehicle_type?: string; vehicle_registration?: string; truck_capacity?: string; equipment_details?: unknown[]}) =>
+      request<Record<string, unknown>>(`/profile/vehicles/${vehicleId}`, {
+        method: 'PUT',
+        body: jsonBody(payload),
+      }),
+    remove: (vehicleId: string) =>
+      request<null>(`/profile/vehicles/${vehicleId}`, {method: 'DELETE'}),
+  },
   quotes: {
     edit: (quoteId: string, payload: Record<string, unknown>) =>
       request<Record<string, unknown>>(`/quotes/edit/${quoteId}`, {
@@ -397,6 +413,18 @@ export const driverApi = {
       request<Record<string, unknown>>(`/shifts/${shiftId}/rating`, {
         method: 'POST',
         body: jsonBody(data),
+      }),
+    uploadHandoverPhotos: (shiftId: string, formData: FormData) =>
+      request<{uploads: {fileUrl: string}[]}>(`/shifts/${shiftId}/handover/photos`, {
+        method: 'POST',
+        body: formData,
+        isFormData: true,
+      }),
+    uploadProofPhotos: (shiftId: string, formData: FormData) =>
+      request<{uploads: {fileUrl: string}[]}>(`/shifts/${shiftId}/proof/photos`, {
+        method: 'POST',
+        body: formData,
+        isFormData: true,
       }),
     submitHandover: (
       shiftId: string,

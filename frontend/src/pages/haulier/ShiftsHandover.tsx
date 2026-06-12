@@ -6,6 +6,7 @@ type ShiftSummary = {
   shiftId: string;
   shiftRef: string;
   status: string;
+  reportingLocation?: string;
   pickupAddress?: string;
   dropAddress?: string;
   location?: string;
@@ -345,7 +346,7 @@ export default function ShiftsHandoverPage() {
                       )}
                     </div>
                     <p className={`text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-primary'}`}>
-                      {shift.pickupAddress ?? shift.location ?? 'Unknown'} → {shift.dropAddress ?? '—'}
+                      {shift.reportingLocation ?? shift.pickupAddress ?? shift.location ?? 'Unknown'}
                     </p>
                     {shift.driverName && (
                       <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
@@ -374,7 +375,7 @@ export default function ShiftsHandoverPage() {
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">{selectedShift.shiftRef}</p>
                     <h2 className="text-lg font-black text-primary mt-0.5">
-                      {selectedShift.pickupAddress ?? selectedShift.location ?? 'N/A'} → {selectedShift.dropAddress ?? '—'}
+                      {selectedShift.reportingLocation ?? selectedShift.pickupAddress ?? selectedShift.location ?? 'N/A'}
                     </h2>
                     {selectedShift.driverName && (
                       <p className="text-sm text-slate-500 mt-1">

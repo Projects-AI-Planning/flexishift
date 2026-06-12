@@ -18,8 +18,18 @@ function parseSignature(data: string): { segments: Segment[]; width: number; hei
     let height: number;
 
     if (Array.isArray(parsed)) {
-      segments = parsed as Segment[];
-      // Auto-compute bounding box from segments
+      // Detect array-of-strokes format: [[{x,y},...], ...] (old mobile format)
+      if (parsed.length > 0 && Array.isArray(parsed[0])) {
+        const strokes = parsed as { x: number; y: number }[][];
+        segments = strokes.flatMap((stroke) =>
+          stroke.slice(1).map((pt, idx) => ({
+            x1: stroke[idx].x, y1: stroke[idx].y, x2: pt.x, y2: pt.y,
+          }))
+        );
+      } else {
+        // Flat segments format: [{x1,y1,x2,y2}, ...]
+        segments = parsed as Segment[];
+      }
       let maxX = 0, maxY = 0;
       for (const s of segments) {
         if (s.x1 > maxX) maxX = s.x1;

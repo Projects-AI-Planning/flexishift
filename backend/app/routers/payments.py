@@ -318,19 +318,29 @@ def payment_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from datetime import datetime
     from app.models.payment import PaymentStatus
+    from app.models.shift import Shift, ShiftPayment, ShiftPaymentStatus
     q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id).filter(Job.deleted_at.is_(None))
+    # Shifts pay through ShiftPayment — include them so the driver's (and haulier's)
+    # payment history reflects shift payments just like jobs.
+    sq = db.query(ShiftPayment, Shift).join(Shift, Shift.id == ShiftPayment.shift_id)
     if current_user.role.value in ("DRIVER", "FIRM"):
         q = q.filter(Job.selected_supplier_id == current_user.id)
+        sq = sq.filter(Shift.selected_driver_id == current_user.id)
     elif current_user.role.value == "HAULIER":
         q = q.filter(Job.haulier_id == current_user.id)
+        sq = sq.filter(Shift.haulier_id == current_user.id)
     if status:
         try:
             q = q.filter(Payment.status == PaymentStatus(status.upper()))
         except ValueError:
             pass
-    total = q.count()
-    rows = q.order_by(Payment.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        try:
+            sq = sq.filter(ShiftPayment.status == ShiftPaymentStatus(status.upper()))
+        except ValueError:
+            pass
+
     items = [
         {
             "paymentId": p.id,
@@ -348,11 +358,36 @@ def payment_history(
             "failedAt": p.failed_at.isoformat() if p.failed_at else None,
             "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
+            "_ts": p.created_at,
         }
-        for p, j in rows
+        for p, j in q.all()
+    ] + [
+        {
+            "paymentId": sp.id,
+            "shiftId": s.id,
+            "jobRef": s.shift_ref,
+            "pickupAddress": s.pickup_address or s.reporting_location,
+            "dropAddress": s.drop_address,
+            "goodsType": s.goods_type,
+            "amount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "driverAmount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "currency": sp.currency,
+            "status": sp.status.value,
+            "escrowedAt": sp.escrowed_at.isoformat() if sp.escrowed_at else None,
+            "releasedAt": sp.released_at.isoformat() if sp.released_at else None,
+            "failedAt": None,
+            "refundedAt": None,
+            "createdAt": sp.created_at.isoformat() if sp.created_at else None,
+            "isShift": True,
+            "_ts": sp.created_at,
+        }
+        for sp, s in sq.all()
     ]
+    items.sort(key=lambda r: r["_ts"] or datetime.min, reverse=True)
+    total = len(items)
+    paged = [{k: v for k, v in r.items() if k != "_ts"} for r in items[(page - 1) * per_page: page * per_page]]
     return ok(
-        data={"items": items, "total": total, "page": page, "perPage": per_page},
+        data={"items": paged, "total": total, "page": page, "perPage": per_page},
         message="Payment history retrieved",
     )
 

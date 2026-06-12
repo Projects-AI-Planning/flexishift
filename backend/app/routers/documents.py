@@ -27,11 +27,13 @@ def _doc_dict(d: Document) -> dict:
     return {
         "documentId": d.id,
         "userId": d.user_id,
+        "vehicleId": d.vehicle_id,
         "docType": d.doc_type.value,
         "fileUrl": _fix_url(d.file_url),
         "status": d.status.value,
         "rejectionReason": d.rejection_reason,
         "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
+        "reviewedAt": d.reviewed_at.isoformat() if d.reviewed_at else None,
         "createdAt": d.created_at.isoformat() if d.created_at else None,
         "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
         "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
@@ -131,11 +133,12 @@ async def _notify_admins_new_doc(db: Session, submitter: User, doc: Document) ->
 async def submit_document(
     doc_type: str = Query(...),
     file_url: str = Query(...),
+    vehicle_id: str = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _validate_doc_type(doc_type)
-    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url)
+    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url, vehicle_id=vehicle_id)
     await _notify_admins_new_doc(db, current_user, doc)
     return created(data=_doc_dict(doc), message="Document submitted for review")
 
@@ -146,6 +149,7 @@ async def submit_uploaded_document(
     doc_type: str = Query(...),
     key: str = Query(...),
     expiry_date: str = Query(None),
+    vehicle_id: str = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -169,6 +173,9 @@ async def submit_uploaded_document(
             except ValueError:
                 continue
 
-    doc = doc_svc.upsert_document(db, current_user.id, doc_type, file_url, expiry_date=parsed_expiry)
+    doc = doc_svc.upsert_document(
+        db, current_user.id, doc_type, file_url,
+        expiry_date=parsed_expiry, vehicle_id=vehicle_id,
+    )
     await _notify_admins_new_doc(db, current_user, doc)
     return created(data=_doc_dict(doc), message="Document uploaded and submitted for review")

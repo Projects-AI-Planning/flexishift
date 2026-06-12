@@ -26,6 +26,7 @@ export interface User {
   role: string;
   status: string;
   isVerified?: boolean;
+  isAdminApproved?: boolean;
   joinedAt?: string;
 }
 

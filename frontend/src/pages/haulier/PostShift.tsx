@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
-import RouteMapStep, { type RouteStepData } from './RouteMapStep';
+import { useAuth } from '../../hooks/useAuth';
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 
@@ -20,75 +20,31 @@ const REQUIREMENT_OPTIONS = [
   { value: 'TRUCK_ONLY',        label: 'Truck Only',        desc: 'Hire the vehicle — no driver services needed.', icon: 'garage'         },
 ];
 
-/* ─── Haversine helper (straight-line km between two coords) ─────────────────── */
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLng = (lng2 - lng1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function fmtTime(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
 interface StopEntry { id: string; address: string; lat?: number; lng?: number; goodsType?: string; litres?: string; }
 
-interface CompartmentDetail {
-  contents:  string;
-  quantity:  string;
-  unit:      string;
-  stopId:    string;
-}
-
 interface FormState {
-  pickupAddress:       string;
-  dropAddress:         string;
   goodsType:           string;
-  totalCapacity:       string;
-  compartments:        string;
+  reportingLocation:   string;
   startDate:           string;
-  endDate:             string;
   hoursPerDay:         string;
   timeSlot:            string;
   specialInstructions: string;
   requirementType:     string;
 }
 
-interface RouteCoords {
-  pickupLat?:   number;
-  pickupLng?:   number;
-  dropLat?:     number;
-  dropLng?:     number;
-  distanceKm?:  number;
-  durationMin?: number;
-}
-
 interface CreatedShift {
-  shiftRef:   string;
-  startDate:  string;
-  endDate:    string;
-  totalDays:  number;
-  loadCode?:  string;
-  distanceKm?:  number;
-  durationMin?: number;
-  pickup:     string;
-  drop:       string;
+  shiftRef:  string;
+  startDate: string;
+  loadCode?: string;
+  reportingLocation: string;
 }
 
 const EMPTY: FormState = {
-  pickupAddress:       '',
-  dropAddress:         '',
   goodsType:           '',
-  totalCapacity:       '',
-  compartments:        '',
+  reportingLocation:   '',
   startDate:           '',
-  endDate:             '',
   hoursPerDay:         '8',
   timeSlot:            '',
   specialInstructions: '',
@@ -110,9 +66,118 @@ const Label: React.FC<{ text: string; required?: boolean; hint?: string }> = ({ 
   </label>
 );
 
+/* ─── Address autocomplete input ─────────────────────────────────────────────── */
+
+interface AddrSuggestion { description: string; placeId: string; isGoogle?: boolean; lat?: number | null; lng?: number | null; }
+
+interface AddressAutocompleteInputProps {
+  value: string;
+  onChange: (address: string, lat?: number, lng?: number) => void;
+  placeholder?: string;
+}
+
+const AddressAutocompleteInput: React.FC<AddressAutocompleteInputProps> = ({ value, onChange, placeholder }) => {
+  const [inputVal, setInputVal]       = useState(value);
+  const [suggestions, setSuggestions] = useState<AddrSuggestion[]>([]);
+  const [open, setOpen]               = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const debounceRef                   = React.useRef<ReturnType<typeof setTimeout>>();
+  const containerRef                  = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => { setInputVal(value); }, [value]);
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setInputVal(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (v.length < 3) { setSuggestions([]); setOpen(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await haulierService.addressAutocomplete(v);
+        setSuggestions(res.predictions ?? []);
+        setOpen(true);
+      } catch { /* ignore */ }
+    }, 350);
+  };
+
+  const selectSuggestion = async (s: AddrSuggestion) => {
+    setOpen(false);
+    setLoading(true);
+    try {
+      let lat: number | undefined, lng: number | undefined, address = s.description;
+      if (s.lat != null && s.lng != null) {
+        lat = s.lat; lng = s.lng;
+      } else if (s.placeId && s.isGoogle) {
+        const geo = await haulierService.getPlaceDetails(s.placeId);
+        lat = geo.lat; lng = geo.lng; address = geo.formattedAddress ?? s.description;
+      } else {
+        const geo = await haulierService.validateAddress(s.description);
+        lat = geo.lat; lng = geo.lng; address = geo.formattedAddress ?? s.description;
+      }
+      setInputVal(address);
+      onChange(address, lat, lng);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  const handleBlur = async () => {
+    setTimeout(async () => {
+      if (!open && inputVal.trim() && inputVal !== value) {
+        setLoading(true);
+        try {
+          const geo = await haulierService.validateAddress(inputVal.trim());
+          const address = geo.formattedAddress ?? inputVal.trim();
+          setInputVal(address);
+          onChange(address, geo.lat, geo.lng);
+        } catch { /* ignore */ } finally { setLoading(false); }
+      }
+    }, 200);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">location_on</span>
+        <input
+          className={`${inputCls} pl-10 pr-8`}
+          placeholder={placeholder ?? 'Search location…'}
+          value={inputVal}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          autoComplete="off"
+        />
+        {loading && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm animate-spin material-symbols-outlined text-base">progress_activity</span>
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+          {suggestions.map((s, i) => (
+            <li
+              key={i}
+              onMouseDown={() => selectSuggestion(s)}
+              className="flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50 cursor-pointer text-sm text-[#041627] border-b border-slate-100 last:border-0"
+            >
+              <span className="material-symbols-outlined text-slate-400 text-sm shrink-0">location_on</span>
+              {s.description}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 /* ─── Step indicator ─────────────────────────────────────────────────────────── */
 
-const STEPS = ['Route', 'Cargo & Schedule', 'Review'];
+const STEPS = ['Cargo & Schedule', 'Review'];
 
 const StepBar: React.FC<{ current: number }> = ({ current }) => (
   <div className="flex items-center gap-0">
@@ -148,109 +213,16 @@ const StepBar: React.FC<{ current: number }> = ({ current }) => (
 
 const PostShiftPage: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep]           = useState(1);
+  const { user, updateUser } = useAuth();
+  const [step, setStep]           = useState(2);
   const [form, setForm]           = useState<FormState>(EMPTY);
-  const [stops, setStops]         = useState<StopEntry[]>([]);
-  const [compartmentDetails, setCompartmentDetails] = useState<CompartmentDetail[]>([]);
-  const [routeCoords, setRouteCoords] = useState<RouteCoords>({});
-  const [stopDeliveryTimes, setStopDeliveryTimes] = useState<Record<string, string>>({});
+  const [reportingCoords, setReportingCoords] = useState<{ lat?: number; lng?: number }>({});
   const [error, setError]         = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated]     = useState<CreatedShift | null>(null);
-  const [firstArrivalDate, setFirstArrivalDate] = useState('');
 
   const _now  = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
-
-  const totalDaysPreview =
-    form.startDate && form.endDate && form.endDate >= form.startDate
-      ? Math.floor((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / 86_400_000) + 1
-      : null;
-
-  /* ── Auto-compute first arrival date + per-stop delivery times ── */
-  useEffect(() => {
-    if (!form.startDate || !routeCoords.durationMin || !form.timeSlot) {
-      setFirstArrivalDate('');
-      setStopDeliveryTimes({});
-      return;
-    }
-    // timeSlot = "Deliver By" deadline → arrival time; departure is calculated backwards
-    const arrival  = new Date(`${form.startDate}T${form.timeSlot}:00`);
-    const totalMs  = routeCoords.durationMin * 60 * 1000;
-    const departure = new Date(arrival.getTime() - totalMs);
-
-    // ── First arrival date (the deliver-by date) ──
-    const y = arrival.getFullYear();
-    const m = String(arrival.getMonth() + 1).padStart(2, '0');
-    const d = String(arrival.getDate()).padStart(2, '0');
-    setFirstArrivalDate(`${y}-${m}-${d}`);
-
-    // ── Per-stop delivery times via proportional Haversine distance ──
-    const pLat = routeCoords.pickupLat;
-    const pLng = routeCoords.pickupLng;
-    const dLat = routeCoords.dropLat;
-    const dLng = routeCoords.dropLng;
-    const validStops = stops.filter(s => s.lat != null && s.lng != null);
-
-    if (!pLat || !pLng || !dLat || !dLng || validStops.length === 0) {
-      setStopDeliveryTimes({ final: fmtTime(arrival) });
-      return;
-    }
-
-    // Build point chain: pickup → stops → drop
-    const chain = [
-      { lat: pLat, lng: pLng },
-      ...validStops.map(s => ({ lat: s.lat!, lng: s.lng! })),
-      { lat: dLat, lng: dLng },
-    ];
-
-    const cumDist: number[] = [0];
-    for (let i = 1; i < chain.length; i++) {
-      cumDist.push(cumDist[i - 1] + haversineKm(chain[i - 1].lat, chain[i - 1].lng, chain[i].lat, chain[i].lng));
-    }
-    const totalDist = cumDist[cumDist.length - 1];
-
-    const times: Record<string, string> = {};
-
-    if (totalDist > 0) {
-      validStops.forEach((s, i) => {
-        const proportion = cumDist[i + 1] / totalDist;
-        times[s.id] = fmtTime(new Date(departure.getTime() + proportion * totalMs));
-      });
-    }
-
-    times['final'] = fmtTime(arrival);
-
-    setStopDeliveryTimes(times);
-  }, [form.startDate, form.timeSlot, routeCoords, stops]);
-
-  /* ── Sync compartment detail rows with count ── */
-  useEffect(() => {
-    const count = Math.max(0, parseInt(form.compartments) || 0);
-    setCompartmentDetails(prev =>
-      Array.from({ length: count }, (_, i) =>
-        prev[i] ?? { contents: '', quantity: '', unit: 'L', stopId: 'final' }
-      )
-    );
-  }, [form.compartments]);
-
-  /* ── Route map callback ── */
-  const handleRouteChange = useCallback((data: RouteStepData) => {
-    setForm(f => ({
-      ...f,
-      pickupAddress: data.pickupAddress,
-      dropAddress:   data.dropAddress,
-    }));
-    setStops(data.stops);
-    setRouteCoords({
-      pickupLat:   data.pickupLat,
-      pickupLng:   data.pickupLng,
-      dropLat:     data.dropLat,
-      dropLng:     data.dropLng,
-      distanceKm:  data.distanceKm,
-      durationMin: data.durationMin,
-    });
-  }, []);
 
   /** Returns true if the user-chosen "HH:MM" time has already passed today. */
   const isTimePassed = (time: string): boolean => {
@@ -268,32 +240,14 @@ const PostShiftPage: React.FC = () => {
 
   /* ── Validation ── */
   const validate = (): string => {
-    if (step === 1) {
-      if (!form.pickupAddress.trim()) return 'Please select a pickup location on the map.';
-      if (!form.dropAddress.trim())   return 'Please select a drop-off location on the map.';
-      if (!routeCoords.pickupLat)     return 'Please choose a pickup address from the suggestions.';
-      if (!routeCoords.dropLat)       return 'Please choose a drop-off address from the suggestions.';
-    }
     if (step === 2) {
       if (!form.requirementType)              return 'Please select a requirement type.';
       if (!form.goodsType.trim())             return 'Goods type is required.';
-      if (!form.totalCapacity)                return 'Total capacity is required.';
-      if (parseFloat(form.totalCapacity) <= 0) return 'Total capacity must be greater than 0.';
-      if (!form.compartments)                 return 'Number of compartments is required.';
-      if (parseInt(form.compartments) < 1)    return 'Compartments must be at least 1.';
-      for (let i = 0; i < compartmentDetails.length; i++) {
-        const c = compartmentDetails[i];
-        if (!c.contents.trim())       return `Compartment ${i + 1}: contents are required.`;
-        if (!c.quantity)              return `Compartment ${i + 1}: quantity is required.`;
-        if (parseFloat(c.quantity) <= 0) return `Compartment ${i + 1}: quantity must be greater than 0.`;
-        if (!c.stopId)                return `Compartment ${i + 1}: please select a destination stop.`;
-      }
+      if (!form.reportingLocation.trim())     return 'Reporting location is required.';
       if (!form.startDate)                    return 'Start date is required.';
       if (form.startDate < today)             return 'Start date cannot be in the past.';
-      if (!form.endDate)                      return 'End date is required.';
-      if (form.endDate < form.startDate)      return 'End date must be on or after start date.';
-      if (!form.hoursPerDay || Number(form.hoursPerDay) < 1 || Number(form.hoursPerDay) > 24)
-        return 'Hours per day must be between 1 and 24.';
+      if (!form.hoursPerDay || Number(form.hoursPerDay) < 1 || Number(form.hoursPerDay) > 12)
+        return 'Shift hours must be between 1 and 12.';
       if (!form.timeSlot)                     return 'Please select a delivery time.';
       if (form.startDate === today && isTimePassed(form.timeSlot))
         return 'The selected start time has already passed for today. Please choose a later time.';
@@ -318,55 +272,21 @@ const PostShiftPage: React.FC = () => {
       const res = await haulierService.createShift({
         requirementType:     form.requirementType,
         startDate:           form.startDate,
-        endDate:             form.endDate,
+        endDate:             form.startDate,
         hoursPerDay:         Number(form.hoursPerDay),
-        pickupAddress:       form.pickupAddress.trim(),
-        pickupLat:           routeCoords.pickupLat,
-        pickupLng:           routeCoords.pickupLng,
-        dropAddress:         form.dropAddress.trim(),
-        dropLat:             routeCoords.dropLat,
-        dropLng:             routeCoords.dropLng,
         goodsType:           form.goodsType.trim(),
-        totalCapacity:       form.totalCapacity ? parseFloat(form.totalCapacity) : undefined,
-        compartments:        form.compartments ? parseInt(form.compartments, 10) : undefined,
-        compartmentDetails:  compartmentDetails.map((c, i) => ({
-          compartment: i + 1,
-          contents:    c.contents.trim(),
-          quantity:    parseFloat(c.quantity),
-          unit:        c.unit,
-          stopId:      c.stopId,
-          stopLabel:   c.stopId === 'final'
-            ? `Final Destination: ${form.dropAddress}`
-            : (() => { const idx = stops.findIndex(s => s.id === c.stopId); return `Stop ${idx + 1}: ${stops[idx]?.address ?? ''}`; })(),
-        })),
+        reportingLocation:   form.reportingLocation.trim(),
+        reportingLat:        reportingCoords.lat,
+        reportingLng:        reportingCoords.lng,
         jobTime:             form.timeSlot,
-        stops:               stops.map((s, i) => ({
-          address:      s.address,
-          lat:          s.lat,
-          lng:          s.lng,
-          order:        i + 1,
-          ...(stopDeliveryTimes[s.id] ? { deliveryTime: stopDeliveryTimes[s.id] } : {}),
-        })),
         specialInstructions: form.specialInstructions.trim(),
-        distanceKm:          routeCoords.distanceKm,
-        durationMin:         routeCoords.durationMin,
-      }) as {
-        shiftRef?: string; startDate?: string; endDate?: string; totalDays?: number;
-        loadCode?: string; distanceKm?: number; durationMin?: number;
-        pickupAddress?: string; dropAddress?: string;
-      };
+      }) as { shiftRef?: string; startDate?: string; loadCode?: string; reportingLocation?: string; };
 
-      const days = totalDaysPreview ?? res?.totalDays ?? 1;
       setCreated({
-        shiftRef:    res?.shiftRef    ?? 'N/A',
-        startDate:   res?.startDate   ?? form.startDate,
-        endDate:     res?.endDate     ?? form.endDate,
-        totalDays:   days,
-        loadCode:    res?.loadCode,
-        distanceKm:  res?.distanceKm  ?? routeCoords.distanceKm,
-        durationMin: res?.durationMin ?? routeCoords.durationMin,
-        pickup:      res?.pickupAddress ?? form.pickupAddress,
-        drop:        res?.dropAddress   ?? form.dropAddress,
+        shiftRef:          res?.shiftRef  ?? 'N/A',
+        startDate:         res?.startDate ?? form.startDate,
+        loadCode:          res?.loadCode,
+        reportingLocation: res?.reportingLocation ?? form.reportingLocation,
       });
     } catch (e: unknown) {
       const err = e as { code?: string; response?: { data?: { message?: string; detail?: string } } };
@@ -380,6 +300,20 @@ const PostShiftPage: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  /* ── Refresh approval status from server on mount ── */
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (user?.role !== 'HAULIER' && user?.role !== 'FIRM') return;
+    if (user?.isAdminApproved) return;
+    import('../../api/client').then(({ default: client }) => {
+      client.get('/profile/me').then((res) => {
+        const approved = res.data?.data?.isAdminApproved;
+        if (approved === true) updateUser({ isAdminApproved: true });
+      }).catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── SUCCESS SCREEN ── */
   if (created) {
@@ -401,18 +335,14 @@ const PostShiftPage: React.FC = () => {
               <p className="text-[10px] font-black text-blue-100/60 uppercase tracking-widest mb-1">Shift Reference</p>
               <p className="text-2xl font-black text-white font-mono tracking-tight">{created.shiftRef}</p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="bg-white/10 border border-white/20 rounded-xl p-3 text-center">
-                <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">Start</p>
-                <p className="text-xs font-black text-white">{new Date(created.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">Date</p>
+                <p className="text-xs font-black text-white">{new Date(created.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
               </div>
               <div className="bg-white/10 border border-white/20 rounded-xl p-3 text-center">
-                <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">End</p>
-                <p className="text-xs font-black text-white">{new Date(created.endDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
-              </div>
-              <div className="bg-white/10 border border-white/20 rounded-xl p-3 text-center">
-                <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">Days</p>
-                <p className="text-xs font-black text-white">{created.totalDays}</p>
+                <p className="text-[9px] font-black text-blue-100/60 uppercase tracking-widest mb-0.5">Hours</p>
+                <p className="text-xs font-black text-white">{form.hoursPerDay}h</p>
               </div>
             </div>
           </div>
@@ -435,12 +365,8 @@ const PostShiftPage: React.FC = () => {
                 onClick={() => {
                   setCreated(null);
                   setForm(EMPTY);
-                  setStops([]);
-                  setCompartmentDetails([]);
-                  setRouteCoords({});
-                  setStopDeliveryTimes({});
-                  setFirstArrivalDate('');
-                  setStep(1);
+                  setReportingCoords({});
+                  setStep(2);
                   setError('');
                 }}
                 className="flex-1 bg-[#0a4a8f]/40 border border-white/10 text-white py-3 rounded-xl font-black text-sm hover:bg-[#0a4a8f]/60 transition-colors"
@@ -458,74 +384,56 @@ const PostShiftPage: React.FC = () => {
             <p className="text-sm text-slate-500 font-medium mt-1">Quotes from drivers typically arrive within 30 minutes. You'll be notified when drivers respond.</p>
           </div>
 
-          {(created.distanceKm != null || created.durationMin != null) && (
-            <div className="flex gap-4">
-              {created.distanceKm != null && (
-                <div className="flex-1 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-blue-500">route</span>
-                  <div>
-                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Distance</p>
-                    <p className="font-black text-blue-700">{created.distanceKm} km</p>
-                  </div>
-                </div>
-              )}
-              {created.durationMin != null && (
-                <div className="flex-1 bg-white border border-[#1066b1]/15 rounded-xl p-4 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#1066b1]">schedule</span>
-                  <div>
-                    <p className="text-[10px] font-black text-[#1066b1] uppercase tracking-widest">Est. Duration</p>
-                    <p className="font-black text-[#0a4a8f]">{Math.round(created.durationMin / 60 * 10) / 10} hrs</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schedule</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Start Date</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Date</p>
                 <p className="text-sm font-bold text-[#44474C]">{new Date(created.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">End Date</p>
-                <p className="text-sm font-bold text-[#44474C]">{new Date(created.endDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Days</p>
-                <p className="text-sm font-bold text-[#44474C]">{created.totalDays} day{created.totalDays !== 1 ? 's' : ''}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hours / Day</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hours</p>
                 <p className="text-sm font-bold text-[#44474C]">{form.hoursPerDay}h</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route</p>
-            <div className="flex items-start gap-3">
-              <span className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-100 shrink-0 mt-1" />
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pickup</p>
-                <p className="text-sm font-bold text-[#44474C]">{created.pickup}</p>
+          {created.reportingLocation && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporting Location</p>
+              <div className="flex items-start gap-3">
+                <span className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-100 shrink-0 mt-1" />
+                <p className="text-sm font-bold text-[#44474C]">{created.reportingLocation}</p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="w-3 h-3 rounded-full bg-red-500 ring-4 ring-red-100 shrink-0 mt-1" />
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Drop-off</p>
-                <p className="text-sm font-bold text-[#44474C]">{created.drop}</p>
-              </div>
-            </div>
-          </div>
+          )}
 
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
             <span className="material-symbols-outlined text-blue-500 shrink-0 text-base mt-0.5">notifications_active</span>
             <p className="text-xs text-blue-700 font-medium leading-relaxed">
               You'll receive a notification as soon as a driver submits a quote. Go to <strong>My Shifts</strong> to review and accept offers.
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── PENDING ADMIN APPROVAL ── */
+  if (user?.isAdminApproved === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgba(16,102,177,0.12)] border border-[#1066b1]/20 p-10 max-w-lg w-full text-center">
+          <div className="w-20 h-20 rounded-full bg-[#1066b1]/10 ring-8 ring-[#1066b1]/10 flex items-center justify-center mx-auto mb-6">
+            <span className="material-symbols-outlined text-[#1066b1] text-4xl">hourglass_top</span>
+          </div>
+          <h2 className="text-2xl font-black text-primary mb-3">Waiting for Admin Approval</h2>
+          <p className="text-slate-500 font-medium leading-relaxed">
+            Your haulier account is currently under review by the admin. Once approved, you will be able to post shifts.
+          </p>
+          <div className="mt-6 bg-[#1066b1]/5 border border-[#1066b1]/20 rounded-2xl px-5 py-4 text-sm text-[#1066b1] font-medium flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1066b1] text-lg shrink-0">info</span>
+            You will be notified as soon as your account is approved.
           </div>
         </div>
       </div>
@@ -541,39 +449,16 @@ const PostShiftPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-black text-primary tracking-tight sm:text-2xl">Post a New Shift</h2>
           <p className="text-slate-500 font-medium mt-0.5 text-sm">
-            Schedule a multi-day shift and receive quotes from our driver network.
+            Schedule a shift and receive quotes from our driver network.
           </p>
         </div>
         <div className="shrink-0">
-          <StepBar current={step} />
+          <StepBar current={step - 1} />
         </div>
       </div>
 
       {/* Form card */}
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(26,43,60,0.08)] border border-slate-100 overflow-hidden">
-
-        {/* ── STEP 1: Route (Map) ── */}
-        {step === 1 && (
-          <div>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-8 py-6 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#1066b1] flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white text-sm">route</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-[#041627]">Plan Your Route</h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Search locations using the map. Add stops between pickup and drop-off — route updates live.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-4 sm:px-8 py-6 sm:py-8">
-              <RouteMapStep onChange={handleRouteChange} />
-            </div>
-          </div>
-        )}
 
         {/* ── STEP 2: Cargo & Schedule ── */}
         {step === 2 && (
@@ -635,98 +520,30 @@ const PostShiftPage: React.FC = () => {
                 <div className="flex-1 h-px bg-slate-100" />
               </div>
 
-              {/* Goods Type / Total Capacity / Compartments */}
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_140px] gap-4">
-                <div>
-                  <Label text="Goods Type" required />
-                  <input
-                    className={inputCls}
-                    placeholder="e.g. Fuel, Palletised Goods, Machinery…"
-                    value={form.goodsType}
-                    onChange={set('goodsType')}
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <Label text="Total Capacity" required hint="L / kg" />
-                  <input
-                    className={inputCls}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g. 5000"
-                    value={form.totalCapacity}
-                    onChange={set('totalCapacity')}
-                  />
-                </div>
-                <div>
-                  <Label text="Compartments" required hint="no." />
-                  <input
-                    className={inputCls}
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="e.g. 3"
-                    value={form.compartments}
-                    onChange={set('compartments')}
-                  />
-                </div>
+              {/* Goods Type */}
+              <div>
+                <Label text="Goods Type" required />
+                <input
+                  className={inputCls}
+                  placeholder="e.g. Fuel, Palletised Goods, Machinery…"
+                  value={form.goodsType}
+                  onChange={set('goodsType')}
+                  autoComplete="off"
+                />
               </div>
 
-              {/* Compartment details */}
-              {compartmentDetails.length > 0 && (
-                <div>
-                  <Label text="Compartment Details" required hint="what goes in each compartment" />
-                  <div className="mt-1 rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
-                    <div className="hidden sm:grid sm:grid-cols-[44px_1fr_110px_76px_1fr] gap-3 px-4 py-2 bg-slate-50">
-                      {['#', 'Contents', 'Qty', 'Unit', 'Destination Stop'].map(h => (
-                        <span key={h} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</span>
-                      ))}
-                    </div>
-                    {compartmentDetails.map((c, i) => {
-                      const stopOptions = [
-                        ...stops.map((s, si) => ({ value: s.id, label: `Stop ${si + 1}: ${s.address.length > 32 ? s.address.slice(0, 32) + '…' : s.address}` })),
-                        { value: 'final', label: `Final: ${form.dropAddress ? (form.dropAddress.length > 32 ? form.dropAddress.slice(0, 32) + '…' : form.dropAddress) : 'Final Destination'}` },
-                      ];
-                      const upd = (field: keyof CompartmentDetail) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-                        setCompartmentDetails(prev => prev.map((x, j) => j === i ? { ...x, [field]: e.target.value } : x));
-                      return (
-                        <div key={i} className="grid grid-cols-1 sm:grid-cols-[44px_1fr_110px_76px_1fr] gap-3 px-4 py-3 bg-white items-center">
-                          <div className="w-8 h-8 rounded-lg bg-[#1066b1]/10 flex items-center justify-center">
-                            <span className="text-xs font-black text-[#1066b1]">{i + 1}</span>
-                          </div>
-                          <input
-                            className={inputCls}
-                            placeholder="e.g. Petrol, Diesel…"
-                            value={c.contents}
-                            onChange={upd('contents')}
-                          />
-                          <input
-                            className={inputCls}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="2000"
-                            value={c.quantity}
-                            onChange={upd('quantity')}
-                          />
-                          <select className={inputCls} value={c.unit} onChange={upd('unit')}>
-                            <option value="L">L</option>
-                            <option value="kg">kg</option>
-                            <option value="t">t</option>
-                            <option value="units">units</option>
-                          </select>
-                          <select className={inputCls} value={c.stopId} onChange={upd('stopId')}>
-                            {stopOptions.map(o => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* Reporting Location */}
+              <div>
+                <Label text="Reporting Location" required />
+                <AddressAutocompleteInput
+                  value={form.reportingLocation}
+                  onChange={(address, lat, lng) => {
+                    setForm(f => ({ ...f, reportingLocation: address }));
+                    setReportingCoords({ lat, lng });
+                  }}
+                  placeholder="Search for reporting location…"
+                />
+              </div>
 
               {/* ── Section divider: Schedule ── */}
               <div className="flex items-center gap-3">
@@ -737,10 +554,10 @@ const PostShiftPage: React.FC = () => {
                 <div className="flex-1 h-px bg-slate-100" />
               </div>
 
-              {/* Start Date / End Date / Hours per Day */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Shift Date / Hours */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label text="Start Date" required />
+                  <Label text="Shift Date" required />
                   <input
                     className={inputCls}
                     type="date"
@@ -750,39 +567,18 @@ const PostShiftPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label text="End Date" required />
-                  <input
-                    className={inputCls}
-                    type="date"
-                    min={form.startDate || today}
-                    value={form.endDate}
-                    onChange={set('endDate')}
-                  />
-                </div>
-                <div>
-                  <Label text="Hours per Day" required hint="1–24" />
+                  <Label text="Shift Hours" required hint="1–12" />
                   <input
                     className={inputCls}
                     type="number"
                     min={1}
-                    max={24}
+                    max={12}
                     placeholder="8"
                     value={form.hoursPerDay}
                     onChange={set('hoursPerDay')}
                   />
                 </div>
               </div>
-
-              {/* Days preview banner */}
-              {totalDaysPreview && (
-                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-                  <span className="material-symbols-outlined text-emerald-500 text-base">event_available</span>
-                  <p className="text-sm font-bold text-emerald-700">
-                    {totalDaysPreview} day{totalDaysPreview !== 1 ? 's' : ''} scheduled
-                    {form.hoursPerDay ? ` · ${Number(form.hoursPerDay) * totalDaysPreview} total hours` : ''}
-                  </p>
-                </div>
-              )}
 
               {/* Deliver By — daily delivery deadline */}
               <div>
@@ -814,77 +610,6 @@ const PostShiftPage: React.FC = () => {
                   </p>
                 )}
               </div>
-
-              {/* ── Per-Stop Delivery Times (auto-calculated, read-only) ── */}
-              {(stops.length > 0 || form.dropAddress) && (
-                <div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-6 h-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-amber-500 text-sm">schedule_send</span>
-                    </div>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Est. Delivery Times</p>
-                    <div className="flex-1 h-px bg-slate-100" />
-                    <span className="text-[10px] text-slate-400 font-medium italic">auto-calculated</span>
-                  </div>
-
-                  {!form.startDate || !routeCoords.durationMin ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <span className="material-symbols-outlined text-slate-300 text-base">info</span>
-                      <p className="text-xs text-slate-400 font-medium">Set a start date and time to see estimated arrival times at each stop.</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
-                      <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-2 bg-slate-50">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. Arrival</span>
-                      </div>
-                      {stops.map((s, i) => (
-                        <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-[11px] font-black shrink-0">
-                              {i + 1}
-                            </span>
-                            <span className="text-sm font-medium text-[#44474C] truncate">
-                              {s.address || `Stop ${i + 1}`}
-                            </span>
-                          </div>
-                          <div className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg font-black text-sm ${
-                            stopDeliveryTimes[s.id]
-                              ? 'bg-amber-50 border border-amber-200 text-amber-700'
-                              : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            <span className="material-symbols-outlined text-[14px]">schedule</span>
-                            {stopDeliveryTimes[s.id] ?? '—'}
-                          </div>
-                        </div>
-                      ))}
-                      {form.dropAddress && (
-                        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-white text-xs">flag</span>
-                            </span>
-                            <span className="text-sm font-medium text-[#44474C] truncate">
-                              {form.dropAddress}
-                            </span>
-                          </div>
-                          <div className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg font-black text-sm ${
-                            stopDeliveryTimes['final']
-                              ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                              : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            <span className="material-symbols-outlined text-[14px]">schedule</span>
-                            {stopDeliveryTimes['final'] ?? '—'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <p className="mt-1.5 text-[10px] text-slate-400">
-                    Calculated backwards from the Deliver By time minus route duration. Updates when you change the date or time.
-                  </p>
-                </div>
-              )}
 
               {/* Special instructions */}
               <div>
@@ -918,86 +643,24 @@ const PostShiftPage: React.FC = () => {
             </div>
 
             <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-5">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-                {/* Route section */}
-                <ReviewSection title="Route" icon="route" iconBg="bg-blue-50" iconColor="text-blue-500">
-                  <div className="space-y-3 mb-3">
-                    <RoutePoint color="bg-blue-500 ring-blue-200" label="Pickup" value={form.pickupAddress} />
-                    {stops.map((s, i) => (
-                      <RoutePoint
-                        key={s.id}
-                        color="bg-amber-400 ring-amber-100"
-                        label={`Stop ${i + 1}`}
-                        value={s.address}
-                        deliveryTime={stopDeliveryTimes[s.id]}
-                      />
-                    ))}
-                    <RoutePoint
-                      color="bg-red-500 ring-red-200"
-                      label="Drop-off"
-                      value={form.dropAddress}
-                      deliveryTime={stopDeliveryTimes['final']}
-                    />
-                  </div>
-                  {(routeCoords.distanceKm || routeCoords.durationMin) && (
-                    <div className="flex gap-3 mb-3 pt-3 border-t border-slate-100">
-                      {routeCoords.distanceKm && (
-                        <div className="flex-1 text-center">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Distance</p>
-                          <p className="text-sm font-black text-[#1066b1]">{routeCoords.distanceKm} km</p>
-                        </div>
-                      )}
-                      {routeCoords.durationMin && (
-                        <div className="flex-1 text-center">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. Time</p>
-                          <p className="text-sm font-black text-[#1066b1]">{Math.round(routeCoords.durationMin / 60 * 10) / 10} hrs</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <button onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline">Edit Route</button>
-                </ReviewSection>
+              <div className="grid grid-cols-1 gap-5">
 
                 {/* Cargo & Schedule section */}
                 <ReviewSection title="Cargo & Schedule" icon="inventory_2" iconBg="bg-[#1066b1]/10" iconColor="text-[#1066b1]">
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
-                    <ReviewRow label="Requirement"    value={REQUIREMENT_OPTIONS.find(r => r.value === form.requirementType)?.label ?? form.requirementType} />
-                    <ReviewRow label="Goods Type"     value={form.goodsType} />
-                    <ReviewRow label="Total Capacity" value={form.totalCapacity ? `${form.totalCapacity} L/kg` : '—'} />
-                    <ReviewRow label="Compartments"   value={form.compartments || '—'} />
+                    <ReviewRow label="Requirement"        value={REQUIREMENT_OPTIONS.find(r => r.value === form.requirementType)?.label ?? form.requirementType} />
+                    <ReviewRow label="Goods Type"         value={form.goodsType} />
                   </div>
-                  {compartmentDetails.length > 0 && (
+                  {form.reportingLocation && (
                     <div className="pt-3 border-t border-slate-100 mb-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Compartment Breakdown</p>
-                      <div className="space-y-1.5">
-                        {compartmentDetails.map((c, i) => {
-                          const stopLabel = c.stopId === 'final'
-                            ? (form.dropAddress || 'Final Destination')
-                            : (() => { const idx = stops.findIndex(s => s.id === c.stopId); return `Stop ${idx + 1}: ${stops[idx]?.address ?? ''}`; })();
-                          return (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              <span className="w-6 h-6 rounded bg-[#1066b1]/10 flex items-center justify-center font-black text-[#1066b1] shrink-0">{i + 1}</span>
-                              <span className="font-semibold text-[#44474C]">{c.contents || '—'}</span>
-                              <span className="text-slate-400">·</span>
-                              <span className="font-bold text-[#1066b1]">{c.quantity} {c.unit}</span>
-                              <span className="text-slate-400">→</span>
-                              <span className="text-slate-500 truncate">{stopLabel}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reporting Location</p>
+                      <p className="text-sm text-[#44474C]">{form.reportingLocation}</p>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
-                    <ReviewRow label="Start Date"     value={form.startDate ? new Date(form.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                    <ReviewRow label="End Date"       value={form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                    <ReviewRow label="Total Days"     value={totalDaysPreview ? `${totalDaysPreview} day${totalDaysPreview !== 1 ? 's' : ''}` : '—'} />
-                    <ReviewRow label="Hours / Day"    value={form.hoursPerDay ? `${form.hoursPerDay}h` : '—'} />
-                    <ReviewRow label="Deliver By"     value={form.timeSlot || '—'} />
-                    {firstArrivalDate && (
-                      <ReviewRow label="Est. First Arrival" value={new Date(firstArrivalDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
-                    )}
+                    <ReviewRow label="Shift Date"  value={form.startDate ? new Date(form.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
+                    <ReviewRow label="Shift Hours" value={form.hoursPerDay ? `${form.hoursPerDay}h` : '—'} />
+                    <ReviewRow label="Deliver By"  value={form.timeSlot || '—'} />
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">
@@ -1030,10 +693,10 @@ const PostShiftPage: React.FC = () => {
         {/* Footer nav */}
         <div className="px-4 sm:px-8 py-6 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center sm:gap-4">
           <button
-            onClick={step === 1 ? () => navigate('/haulier/shifts') : back}
+            onClick={step === 2 ? () => navigate('/haulier/shifts') : back}
             className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-black text-[#44474C] bg-slate-100 hover:bg-slate-200 transition-colors"
           >
-            {step === 1 ? '← Back to Shifts' : '← Back'}
+            {step === 2 ? '← Back to Shifts' : '← Back'}
           </button>
 
           {step < 3 ? (
@@ -1081,22 +744,6 @@ const ReviewRow: React.FC<{ label: string; value: string }> = ({ label, value })
   <div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
     <p className="text-sm font-bold text-[#44474C] mt-0.5">{value || '—'}</p>
-  </div>
-);
-
-const RoutePoint: React.FC<{ color: string; label: string; value: string; deliveryTime?: string }> = ({ color, label, value, deliveryTime }) => (
-  <div className="flex items-start gap-3">
-    <span className={`w-2.5 h-2.5 rounded-full ring-2 shrink-0 mt-1 ${color}`} />
-    <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className="text-sm font-bold text-[#44474C] leading-snug">{value || '—'}</p>
-      {deliveryTime && (
-        <div className="flex items-center gap-1 mt-0.5">
-          <span className="material-symbols-outlined text-amber-500 text-xs">schedule</span>
-          <span className="text-[11px] font-bold text-amber-600">{deliveryTime}</span>
-        </div>
-      )}
-    </div>
   </div>
 );
 

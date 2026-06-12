@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import haulierService from '../../api/haulierService';
 import SignatureRenderer from '../../components/SignatureRenderer';
 
@@ -35,6 +35,8 @@ type HandoverDetail = {
   photos: string[];
 };
 
+type Point = { x: number; y: number };
+
 const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleString('en-US') : 'N/A';
 
@@ -45,29 +47,157 @@ const CHECKLIST_ITEMS = [
   { key: 'bodyDamage', label: 'Body Damage OK' },
 ] as const;
 
+// ── Signature canvas modal ────────────────────────────────────────────────────
+
+function SignatureCanvas({
+  jobRef,
+  onSave,
+  onCancel,
+  loading,
+  error,
+  savedSignature,
+}: {
+  jobRef: string;
+  onSave: (dataUrl: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+  error: string;
+  savedSignature?: string | null;
+}) {
+  const [mode, setMode]             = useState<'saved' | 'draw'>(savedSignature ? 'saved' : 'draw');
+  const canvasRef                   = useRef<HTMLCanvasElement>(null);
+  const drawing                     = useRef(false);
+  const lastPoint                   = useRef<Point | null>(null);
+  const [hasStrokes, setHasStrokes] = useState(false);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
+    const canvas = canvasRef.current!;
+    const rect   = canvas.getBoundingClientRect();
+    if ('touches' in e) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); drawing.current = true; lastPoint.current = getPos(e); setHasStrokes(true); };
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const pos = getPos(e);
+    ctx.beginPath(); ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    ctx.lineTo(pos.x, pos.y); ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    lastPoint.current = pos;
+  };
+  const endDraw = () => { drawing.current = false; lastPoint.current = null; };
+  const clear   = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); setHasStrokes(false); };
+  const save    = () => {
+    if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
+    if (!canvasRef.current || !hasStrokes) return;
+    onSave(canvasRef.current.toDataURL('image/png'));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+        <div className="bg-[#041627] px-6 py-5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Job Handover</p>
+            <h2 className="text-xl font-black text-white">{jobRef}</h2>
+          </div>
+          <button onClick={onCancel} className="rounded-xl p-2 text-white/60 hover:bg-white/10 transition-colors">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <p className="text-sm font-medium text-slate-500">
+            Sign below to confirm you have reviewed the driver's pre-trip handover and authorise departure.
+          </p>
+
+          {savedSignature && (
+            <div className="flex rounded-xl overflow-hidden border border-slate-200">
+              {(['saved', 'draw'] as const).map((m) => (
+                <button key={m} onClick={() => setMode(m)}
+                  className={`flex-1 py-2.5 text-xs font-black transition-colors ${mode === m ? 'bg-[#1066b1] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  {m === 'saved' ? 'Use Saved Signature' : 'Draw New Signature'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === 'saved' && savedSignature ? (
+            <div className="rounded-2xl border-2 border-[#1066b1]/30 bg-[#EFF6FF] p-3">
+              <SignatureRenderer data={savedSignature} height={96} className="w-full" />
+            </div>
+          ) : (
+            <div className="relative">
+              <canvas ref={canvasRef} width={468} height={180}
+                className="w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 cursor-crosshair touch-none"
+                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+              />
+              {!hasStrokes && (
+                <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                  Sign here
+                </p>
+              )}
+            </div>
+          )}
+
+          {mode === 'draw' && (
+            <button onClick={clear} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">
+              Clear
+            </button>
+          )}
+
+          {error && <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-2 text-sm font-medium text-red-700">{error}</p>}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onCancel} disabled={loading}
+              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={save} disabled={loading || (mode === 'draw' && !hasStrokes)}
+              className="flex-1 rounded-2xl bg-[#1066b1] py-3 text-sm font-black text-white transition hover:bg-[#0e57a0] disabled:opacity-50 shadow-md shadow-[#1066b1]/20">
+              {loading ? 'Signing…' : 'Confirm & Sign'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function HaulierHandoverPage() {
-  const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<HandoverDetail>({ photos: [] });
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [error, setError] = useState('');
-  // Map of jobId → quick handover badge derived from batch-fetch
-  const [badgeMap, setBadgeMap] = useState<Record<string, 'needs-sign' | 'signed' | 'none'>>({});
+  const [jobs, setJobs]                       = useState<JobSummary[]>([]);
+  const [selectedJobId, setSelectedJobId]     = useState<string | null>(null);
+  const [detail, setDetail]                   = useState<HandoverDetail>({ photos: [] });
+  const [loading, setLoading]                 = useState(true);
+  const [detailLoading, setDetailLoading]     = useState(false);
+  const [error, setError]                     = useState('');
+  const [success, setSuccess]                 = useState('');
+  const [signModal, setSignModal]             = useState(false);
+  const [signLoading, setSignLoading]         = useState(false);
+  const [signError, setSignError]             = useState('');
+  const [savedEsignature, setSavedEsignature] = useState<string | null>(null);
+  const [badgeMap, setBadgeMap]               = useState<Record<string, 'needs-sign' | 'signed' | 'none'>>({});
 
   const loadJobs = async () => {
     setLoading(true);
     try {
-      const [active, pending] = await Promise.all([
+      const [active, pending, completed] = await Promise.all([
         haulierService.getActiveJobs({ page: 1, limit: 50 }),
         haulierService.getPendingApprovalJobs({ page: 1, limit: 50 }),
+        haulierService.getCompletedJobs({ page: 1, limit: 50 }),
       ]);
       const all = [
         ...((active as { jobs?: JobSummary[] })?.jobs ?? []),
         ...((pending as { jobs?: JobSummary[] })?.jobs ?? []),
+        ...((completed as { jobs?: JobSummary[] })?.jobs ?? []),
       ] as JobSummary[];
 
-      // Batch-fetch handover status for every job to build the badge map
       const statuses = await Promise.allSettled(
         all.map((j) => haulierService.getHandoverStatus(j.jobId)),
       );
@@ -80,14 +210,12 @@ export default function HaulierHandoverPage() {
       });
       setBadgeMap(map);
 
-      // Sort: needs-sign first, then none, then signed
       const sorted = [...all].sort((a, b) => {
         const order = { 'needs-sign': 0, 'none': 1, 'signed': 2 };
         return (order[map[a.jobId] ?? 'none'] ?? 1) - (order[map[b.jobId] ?? 'none'] ?? 1);
       });
 
       setJobs(sorted);
-      // Auto-select the first job that needs a signature, else first job
       const firstPending = sorted.find((j) => map[j.jobId] === 'needs-sign');
       setSelectedJobId((prev) => prev ?? firstPending?.jobId ?? sorted[0]?.jobId ?? null);
       setError('');
@@ -98,16 +226,19 @@ export default function HaulierHandoverPage() {
     }
   };
 
-  useEffect(() => { void loadJobs(); }, []);
+  useEffect(() => {
+    void loadJobs();
+    haulierService.getMe().then((me: { profile?: { esignatureData?: string | null } | null }) => {
+      if (me?.profile?.esignatureData) setSavedEsignature(me.profile.esignatureData);
+    }).catch(() => undefined);
+  }, []);
 
   const selectedJob = useMemo(
     () => jobs.find((j) => j.jobId === selectedJobId) ?? null,
     [jobs, selectedJobId],
   );
 
-  useEffect(() => {
-    const jobId = selectedJob?.jobId;
-    if (!jobId) return;
+  const loadDetail = (jobId: string) => {
     let mounted = true;
     setDetailLoading(true);
     Promise.all([
@@ -130,7 +261,37 @@ export default function HaulierHandoverPage() {
       .catch(() => { if (mounted) setDetail({ photos: [] }); })
       .finally(() => { if (mounted) setDetailLoading(false); });
     return () => { mounted = false; };
+  };
+
+  useEffect(() => {
+    const jobId = selectedJob?.jobId;
+    if (!jobId) return;
+    setDetail({ photos: [] });
+    return loadDetail(jobId);
   }, [selectedJob?.jobId]);
+
+  const handleSign = async (signatureData: string) => {
+    if (!selectedJob) return;
+    setSignLoading(true);
+    setSignError('');
+    try {
+      await haulierService.submitDigitalSignature({
+        jobId: selectedJob.jobId,
+        signatureData,
+      });
+      setSignModal(false);
+      setSuccess('Handover signed successfully.');
+      setTimeout(() => setSuccess(''), 4000);
+      // Refresh badge + detail
+      setBadgeMap((prev) => ({ ...prev, [selectedJob.jobId]: 'signed' }));
+      loadDetail(selectedJob.jobId);
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      setSignError(err?.response?.data?.message ?? err?.message ?? 'Failed to sign handover.');
+    } finally {
+      setSignLoading(false);
+    }
+  };
 
   const photos = detail.handover?.conditionPhotos?.length
     ? detail.handover.conditionPhotos
@@ -142,8 +303,23 @@ export default function HaulierHandoverPage() {
     (detail.handover?.conditionPhotos?.length ?? 0) > 0 ||
     photos.length > 0;
 
+  const needsHaulierSign =
+    detail.handover?.checklistSubmitted && !detail.handover?.haulierSigned;
+
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      {/* Signature modal */}
+      {signModal && selectedJob && (
+        <SignatureCanvas
+          jobRef={selectedJob.jobReference}
+          onSave={handleSign}
+          onCancel={() => { setSignModal(false); setSignError(''); }}
+          loading={signLoading}
+          error={signError}
+          savedSignature={savedEsignature}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -163,6 +339,11 @@ export default function HaulierHandoverPage() {
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          {success}
         </div>
       )}
 
@@ -193,13 +374,13 @@ export default function HaulierHandoverPage() {
               ))}
             </div>
           ) : jobs.length === 0 ? (
-            <p className="text-center text-sm text-slate-400 py-8">No active jobs found.</p>
+            <p className="text-center text-sm text-slate-400 py-8">No jobs found.</p>
           ) : (
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
               {jobs.map((job) => {
-                const badge = badgeMap[job.jobId];
+                const badge     = badgeMap[job.jobId];
                 const isSelected = selectedJobId === job.jobId;
-                const needsSign = badge === 'needs-sign';
+                const needsSign  = badge === 'needs-sign';
                 return (
                   <button
                     key={job.jobId}
@@ -287,6 +468,26 @@ export default function HaulierHandoverPage() {
                   </span>
                 </div>
               </div>
+
+              {/* ── Sign button — shown when driver submitted but haulier hasn't signed yet ── */}
+              {needsHaulierSign && (
+                <div className="rounded-3xl border-2 border-indigo-300 bg-indigo-50 p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-indigo-600 text-2xl">draw</span>
+                    <div>
+                      <p className="text-sm font-black text-indigo-900">Signature Required</p>
+                      <p className="text-xs text-indigo-600">Driver has submitted the handover checklist. Sign to authorise departure.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSignError(''); setSignModal(true); }}
+                    className="shrink-0 inline-flex items-center gap-2 rounded-2xl bg-[#1066b1] px-5 py-3 text-sm font-black text-white shadow-md shadow-[#1066b1]/20 transition hover:bg-[#0e57a0]"
+                  >
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    Sign Handover
+                  </button>
+                </div>
+              )}
 
               {/* Handover details */}
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">

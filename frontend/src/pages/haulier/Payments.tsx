@@ -91,6 +91,7 @@ interface BookedJob {
   agreedAmount?: number | null;
   currency?: string;
   paymentStatus?: string | null;
+  isShift?: boolean;   // true when this payable item is a single-day shift, not a job
 }
 
 interface PaymentOrder {
@@ -220,7 +221,11 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
       }
       const status = result.paymentIntent?.status;
       if (status === 'requires_capture' || status === 'succeeded') {
-        await haulierService.verifyPayment({ paymentIntentId: result.paymentIntent!.id });
+        if (job.isShift) {
+          await haulierService.verifyShiftPayment(job.bookingId, result.paymentIntent!.id);
+        } else {
+          await haulierService.verifyPayment({ paymentIntentId: result.paymentIntent!.id });
+        }
         onSuccess();
       } else {
         setCardError(`Unexpected payment status: ${status ?? 'unknown'}`);
@@ -317,6 +322,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
 const CreatePaymentTab: React.FC = () => {
   const [searchParams] = useSearchParams();
   const preselectedJobId = searchParams.get('jobId');
+  const preselectedShiftId = searchParams.get('shiftId');
 
   const [jobs, setJobs] = useState<BookedJob[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -378,6 +384,33 @@ const CreatePaymentTab: React.FC = () => {
         pending.unshift(openJob);
       }
 
+      // Single-day shift payment (job-style): if redirected here with ?shiftId=,
+      // load that shift and show it as a payable item alongside jobs.
+      if (preselectedShiftId) {
+        try {
+          const shift = await haulierService.getShiftDetails(preselectedShiftId);
+          const payStatus = shift?.paymentStatus as string | null | undefined;
+          if (shift && payStatus !== 'ESCROWED' && payStatus !== 'RELEASED') {
+            pending.unshift({
+              bookingId: shift.shiftId,
+              jobRef: shift.shiftRef,
+              status: shift.status,
+              pickupAddress: shift.reportingLocation || shift.pickupAddress,
+              dropAddress: shift.dropAddress,
+              goodsType: shift.goodsType,
+              jobDate: shift.startDate,
+              timeSlot: shift.jobTime,
+              agreedAmount: shift.dailyRate ?? null,
+              currency: shift.currency,
+              paymentStatus: payStatus ?? null,
+              isShift: true,
+            });
+          }
+        } catch (e) {
+          console.error('Failed to fetch shift for payment', e);
+        }
+      }
+
       setJobs(pending);
       setTotalJobs(pending.length);
       setFetchError('');
@@ -386,21 +419,38 @@ const CreatePaymentTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [preselectedJobId]);
+  }, [preselectedJobId, preselectedShiftId]);
 
   useEffect(() => { void fetchJobs(); }, [fetchJobs]);
 
   useEffect(() => {
-    if (preselectedJobId && !loading && highlightRef.current) {
+    if ((preselectedJobId || preselectedShiftId) && !loading && highlightRef.current) {
       highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [preselectedJobId, loading]);
+  }, [preselectedJobId, preselectedShiftId, loading]);
 
   const handleSecurePayment = async (job: BookedJob) => {
     setPayingJobId(job.bookingId);
     setPayError('');
     try {
-      const order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
+      let order: PaymentOrder;
+      if (job.isShift) {
+        const s = await haulierService.initiateShiftPayment(job.bookingId);
+        // Map the shift order into the shared PaymentOrder shape used by the modal.
+        order = {
+          paymentId: s.paymentId,
+          paymentIntentId: s.gatewayOrderId,
+          clientSecret: s.clientSecret,
+          amount: s.amount,
+          driverAmount: s.driverAmount,
+          platformFee: s.platformFee,
+          totalAmount: s.amount,
+          currency: s.currency,
+          publishableKey: s.publishableKey,
+        };
+      } else {
+        order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
+      }
       setActiveOrder({ job, order });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; detail?: string } }; message?: string };
@@ -526,7 +576,7 @@ const CreatePaymentTab: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {pendingJobs.map((job) => {
-              const isHighlighted = job.bookingId === preselectedJobId;
+              const isHighlighted = job.bookingId === preselectedJobId || job.bookingId === preselectedShiftId;
               const isPaying = payingJobId === job.bookingId;
               const isOpen = job.status === 'OPEN';
               
@@ -724,7 +774,7 @@ const EscrowTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status', 'Actions'].map((header) => (
+                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status' /* , 'Actions' — refund column hidden, not removed */].map((header) => (
                     <th key={header} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                       {header}
                     </th>
@@ -747,6 +797,7 @@ const EscrowTab: React.FC = () => {
                         {item.status}
                       </span>
                     </td>
+                    {/* Refund column hidden (kept for future use, not removed)
                     <td className="px-5 py-4">
                       {item.status?.toUpperCase() === 'ESCROWED' && (
                         <button
@@ -761,6 +812,7 @@ const EscrowTab: React.FC = () => {
                         </button>
                       )}
                     </td>
+                    */}
                   </tr>
                 ))}
               </tbody>

@@ -21,6 +21,8 @@ interface PendingDoc {
   documentId: string;
   docType: string;
   customName?: string;
+  vehicleId?: string;
+  vehicleRegistration?: string;
   fileUrl: string;
   status: string;
   rejectionReason?: string;
@@ -341,6 +343,14 @@ const DocumentsPage: React.FC = () => {
                         <h4 className="font-bold text-primary text-sm">
                           {doc.customName ?? DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
                         </h4>
+                        {doc.vehicleRegistration && (doc.docType === 'VEHICLE_REG' || doc.docType === 'VEHICLE_INSURANCE') && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '12px' }}>directions_car</span>
+                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">
+                              {doc.vehicleRegistration}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[10px] font-black uppercase text-amber-600">
                             {doc.isReapproval ? 'REAPPROVAL' : doc.status}
