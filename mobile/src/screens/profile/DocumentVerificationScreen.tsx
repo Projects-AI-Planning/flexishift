@@ -274,7 +274,7 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                 </View>
 
                 <View style={styles.docMeta}>
-                  <Text style={styles.docName}>{def.label}</Text>
+                  <Text style={styles.docName}>{def.label} <Text style={styles.requiredStar}>*</Text></Text>
                   <Text style={styles.docSubtitle}>
                     {doc?.description ?? def.subtitle}
                   </Text>
@@ -422,8 +422,8 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                   <Text style={styles.docIconText}>{def.icon}</Text>
                 </View>
                 <View style={styles.docMeta}>
-                  <Text style={styles.docName}>{def.label}</Text>
-                  <Text style={styles.docSubtitle}>Additional document · Optional</Text>
+                  <Text style={styles.docName}>{def.label} <Text style={styles.requiredStar}>*</Text></Text>
+                  <Text style={styles.docSubtitle}>Additional document</Text>
                 </View>
                 {isVerified && (
                   <View style={styles.badgeVerified}>
@@ -705,6 +705,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 2,
   },
+  requiredStar: {color: '#EF4444', fontWeight: '900'},
   docSubtitle: {
     color: '#64748B',
     fontSize: 12,

@@ -1730,7 +1730,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         <Icon name={doc.icon} size={16} color={c.text} strokeWidth={2.2} />
                       </View>
                       <View style={{flex: 1, gap: 3}}>
-                        <Text style={styles.docLabel}>{doc.label}</Text>
+                        <Text style={styles.docLabel}>{doc.label} <Text style={styles.docRequiredStar}>*</Text></Text>
                         {formattedExpiry && (
                           <View style={styles.docExpiryRow}>
                             <Icon name="calendar" size={11} color={formattedExpiry.isExpired ? '#B91C1C' : '#6B7280'} strokeWidth={2} />
@@ -2282,6 +2282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   docLabel: {fontSize: 14, fontWeight: '700', color: '#111827'},
+  docRequiredStar: {color: '#EF4444', fontWeight: '900'},
   docSubNumber: {fontSize: 11, color: '#6B7280', marginTop: 1},
   docExpiryRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
   docExpiryText: {fontSize: 11, color: '#6B7280', fontWeight: '600'},
