@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
 import { AuthContext } from './AuthContextValue';
+import { setDisplayCurrency } from '../utils/currency';
 
 const normalizeUser = (user: User): User => ({
   ...user,
@@ -13,7 +14,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedUser = localStorage.getItem('user');
       const token = localStorage.getItem('token');
       if (savedUser && token) {
-        return normalizeUser(JSON.parse(savedUser) as User);
+        const u = normalizeUser(JSON.parse(savedUser) as User);
+        setDisplayCurrency(u.currency);   // app-wide display currency = user's country currency
+        return u;
       }
     } catch (e) {
       console.error('Failed to parse user from localStorage', e);
@@ -31,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('refreshToken', refreshToken);
     }
     localStorage.setItem('user', JSON.stringify(normalizedUser));
+    setDisplayCurrency(normalizedUser.currency);
     setUser(normalizedUser);
   };
 
@@ -38,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    setDisplayCurrency(null);
     setUser(null);
   };
 
@@ -46,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!prev) return prev;
       const updated = normalizeUser({ ...prev, ...patch });
       localStorage.setItem('user', JSON.stringify(updated));
+      setDisplayCurrency(updated.currency);
       return updated;
     });
   };

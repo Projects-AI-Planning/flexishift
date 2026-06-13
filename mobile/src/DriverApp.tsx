@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Geolocation from '@react-native-community/geolocation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {setDisplayCurrency} from './utils/currency';
 import {
   ActivityIndicator,
   Alert,
@@ -475,6 +476,9 @@ function DriverApp(): React.JSX.Element {
   const [initializing, setInitializing] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<DriverSession | null>(null);
+
+  // App-wide display currency = the driver's registered-country currency.
+  useEffect(() => { setDisplayCurrency(session?.currency); }, [session?.currency]);
 
   const [locationStatus, setLocationStatus] = useState<'checking' | 'granted' | 'denied' | 'disabled'>('checking');
 

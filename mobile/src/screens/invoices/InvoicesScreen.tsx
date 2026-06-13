@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Card from '../../components/common/Card';
 import {colors, radius, spacing} from '../../theme';
+import {fmtMoney} from '../../utils/currency';
 
 interface InvoicesScreenProps {
   invoices: any[];
@@ -45,7 +46,7 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
               rightLabel={String(invoice.status || 'ISSUED').toUpperCase()}>
               <View style={styles.row}>
                 <Text style={styles.label}>Amount</Text>
-                <Text style={styles.value}>$ {invoice.amount ?? '0'}</Text>
+                <Text style={styles.value}>{fmtMoney(Number(invoice.amount ?? 0), (invoice as {currency?: string}).currency)}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Trip</Text>

@@ -21,7 +21,10 @@ from app.utils.phone_country import _COUNTRY_CURRENCY
 router = APIRouter(prefix="/profile", tags=["Profile"])
 LOCAL_UPLOAD_DIR = Path(__file__).resolve().parents[1] / "static" / "uploads"
 
-_USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id", "country", "currency"}
+# NOTE: "country" and "currency" are intentionally NOT updatable — they are locked
+# at registration. Changing them later would break currency consistency with the
+# user's existing transactions.
+_USER_FIELDS = {"full_name", "phone", "push_token", "bank_account_id"}
 _PROFILE_FIELDS = {
     "photo_url", "licence_number", "vehicle_type",
     "vehicle_registration", "truck_capacity", "company_name", "company_address",
@@ -37,21 +40,11 @@ _PROFILE_FIELDS = {
 def _apply_updates(current_user: User, updates: dict, db: Session) -> None:
     from app.models.user import UserProfile
     profile_updates = {k: v for k, v in updates.items() if k in _PROFILE_FIELDS}
+    # country/currency are deliberately excluded from _USER_FIELDS — locked at registration.
     user_updates = {k: v for k, v in updates.items() if k in _USER_FIELDS}
-
-    # Never overwrite country/currency with empty strings — skip those
-    user_updates = {k: v for k, v in user_updates.items() if v != "" or k not in ("country", "currency")}
 
     for k, v in user_updates.items():
         setattr(current_user, k, v)
-
-    # When country changes, always re-derive currency so they stay in sync.
-    # An explicit non-empty currency in the same request overrides this.
-    new_country = user_updates.get("country")
-    if new_country:
-        derived = _COUNTRY_CURRENCY.get(new_country.upper())
-        if derived:
-            current_user.currency = derived
 
     if profile_updates:
         if not current_user.profile:

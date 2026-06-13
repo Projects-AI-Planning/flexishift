@@ -594,7 +594,7 @@ function BookedShiftCard({
 
       {shift.dailyRate ? (
         <Text style={styles.amountText}>
-          ${shift.dailyRate.toLocaleString()}
+          {sym}{shift.dailyRate.toLocaleString()}
         </Text>
       ) : null}
 

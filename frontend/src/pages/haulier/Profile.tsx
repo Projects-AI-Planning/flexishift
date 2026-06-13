@@ -95,23 +95,6 @@ type HaulierProfile = {
   } | null;
 };
 
-const COUNTRY_CURRENCY: Record<string, string> = {
-  GB: 'GBP', US: 'USD', CA: 'CAD', AU: 'AUD', NZ: 'NZD',
-  IE: 'EUR', DE: 'EUR', FR: 'EUR', ES: 'EUR', IT: 'EUR',
-  NL: 'EUR', BE: 'EUR', AT: 'EUR', FI: 'EUR', PT: 'EUR',
-  GR: 'EUR', LU: 'EUR', SK: 'EUR', SI: 'EUR', EE: 'EUR',
-  LV: 'EUR', LT: 'EUR', CY: 'EUR', MT: 'EUR', HR: 'EUR',
-  SG: 'SGD', HK: 'HKD', JP: 'JPY', IN: 'INR', PK: 'PKR',
-  BD: 'BDT', LK: 'LKR', NG: 'NGN', GH: 'GHS', KE: 'KES',
-  ZA: 'ZAR', AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD',
-  BH: 'BHD', OM: 'OMR', EG: 'EGP', MA: 'MAD', TZ: 'TZS',
-  UG: 'UGX', ET: 'ETB', MX: 'MXN', BR: 'BRL', AR: 'ARS',
-  CL: 'CLP', CO: 'COP', PE: 'PEN', TR: 'TRY', IL: 'ILS',
-  TH: 'THB', MY: 'MYR', ID: 'IDR', PH: 'PHP', VN: 'VND',
-  CN: 'CNY', KR: 'KRW', TW: 'TWD', CH: 'CHF', SE: 'SEK',
-  NO: 'NOK', DK: 'DKK', PL: 'PLN', CZ: 'CZK', HU: 'HUF',
-  RO: 'RON', RU: 'RUB', UA: 'UAH',
-};
 
 const COUNTRY_NAMES: Record<string, string> = {
   GB: 'United Kingdom', US: 'United States', CA: 'Canada', AU: 'Australia',
@@ -192,15 +175,6 @@ export default function HaulierProfilePage() {
     });
   };
 
-  const handleCountryChange = (countryCode: string) => {
-    const derivedCurrency = COUNTRY_CURRENCY[countryCode] ?? '';
-    const derivedDial = COUNTRY_DIAL[countryCode] ?? phoneDialCode;
-    setPhoneDialCode(derivedDial);
-    setProfile((current) => {
-      if (!current) return current;
-      return { ...current, country: countryCode, currency: derivedCurrency };
-    });
-  };
 
   const saveProfile = async () => {
     if (!profile) return;
@@ -480,19 +454,16 @@ export default function HaulierProfilePage() {
             <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#1066b1]">Regional Settings</p>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <label className="space-y-2">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">Country</span>
-                <select
-                  value={profile?.country ?? ''}
-                  onChange={(e) => handleCountryChange(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">— Select country —</option>
-                  {Object.entries(COUNTRY_NAMES)
-                    .sort(([, a], [, b]) => a.localeCompare(b))
-                    .map(([code, name]) => (
-                      <option key={code} value={code}>{name} ({code})</option>
-                    ))}
-                </select>
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Country
+                  <span className="ml-1 text-[9px] normal-case font-medium text-slate-400">(set at registration — cannot be changed)</span>
+                </span>
+                <div className="flex items-center gap-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-primary">
+                  <span className="material-symbols-outlined text-[16px] text-slate-400">lock</span>
+                  {profile?.country
+                    ? `${COUNTRY_NAMES[profile.country] ?? profile.country} (${profile.country})`
+                    : <span className="text-slate-400 font-normal">Not set</span>}
+                </div>
               </label>
               <label className="space-y-2">
                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500">

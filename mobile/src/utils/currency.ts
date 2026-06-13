@@ -6,9 +6,18 @@ const SYMBOLS: Record<string, string> = {
   EUR_LV: '€', EUR_EE: '€',
 };
 
+// The logged-in driver's currency (from their registered country). Set once on login
+// so every amount displays in that currency without passing it at each call site.
+let _displayCurrency: string | null = null;
+
+export const setDisplayCurrency = (code?: string | null): void => {
+  _displayCurrency = code ? code.toUpperCase() : null;
+};
+
 export const currencySymbol = (code?: string | null): string => {
-  if (!code) return '';
-  return SYMBOLS[code.toUpperCase()] ?? code;
+  const c = (code || _displayCurrency || '').toUpperCase();
+  if (!c) return '';
+  return SYMBOLS[c] ?? c;
 };
 
 export const fmtMoney = (amount: number, code?: string | null): string =>

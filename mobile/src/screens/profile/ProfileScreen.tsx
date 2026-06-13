@@ -866,18 +866,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* Country selector */}
+        {/* Country — set at registration, cannot be changed */}
         <View style={phoneStyles.wrap}>
-          <Text style={phoneStyles.label}>COUNTRY</Text>
-          <Pressable
-            style={countryStyles.selector}
-            onPress={() => { setCountrySearch(''); setCountryPickerOpen(true); }}>
+          <Text style={phoneStyles.label}>COUNTRY  (locked)</Text>
+          <View style={[countryStyles.selector, {backgroundColor: '#F1F5F9'}]}>
             <Text style={countryStyles.flag}>{selectedCountry?.flag ?? '🌍'}</Text>
             <Text style={selectedCountry ? countryStyles.selectedName : countryStyles.placeholder}>
-              {selectedCountry ? selectedCountry.name : 'Select your country'}
+              {selectedCountry ? selectedCountry.name : 'Not set'}
             </Text>
-            <Text style={countryStyles.chevron}>▾</Text>
-          </Pressable>
+            <Text style={[countryStyles.chevron, {color: '#94A3B8'}]}>🔒</Text>
+          </View>
         </View>
 
         {/* Country picker modal */}
