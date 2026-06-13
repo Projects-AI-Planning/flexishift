@@ -49,9 +49,9 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
   onEndDay,
   onBack,
 }) => {
+  // A backup periodic GPS push (in case the map's onUserLocationChange doesn't fire,
+  // e.g. driver stationary). The map below also pushes via onLocationUpdate.
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Start periodic GPS push as soon as screen mounts
   useEffect(() => {
     const pushLocation = () => {
       Geolocation.getCurrentPosition(
@@ -61,14 +61,11 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
             .catch(() => {/* silent */});
         },
         () => {/* permission denied / unavailable — ignore */},
-        {enableHighAccuracy: true, timeout: 8000, maximumAge: 2000},  // fresh fix each 3s push
+        {enableHighAccuracy: true, timeout: 8000, maximumAge: 2000},
       );
     };
-
-    // Push immediately, then on interval
     pushLocation();
     intervalRef.current = setInterval(pushLocation, LOCATION_PUSH_INTERVAL_MS);
-
     return () => {
       if (intervalRef.current) {clearInterval(intervalRef.current);}
     };
@@ -117,7 +114,7 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
       <View style={styles.liveBanner}>
         <View style={styles.liveDot} />
         <Text style={styles.liveText}>
-          Sharing your location with the haulier · every 10 s
+          Sharing your live location with the haulier
         </Text>
       </View>
 

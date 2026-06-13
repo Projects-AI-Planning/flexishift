@@ -310,7 +310,10 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
   }, [directionsOrigin?.latitude, directionsOrigin?.longitude, directionsDestination?.latitude, directionsDestination?.longitude, stopCoords, onRouteInfoUpdate]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  if (noCoords && !loading) {
+  // In live mode (driver tracking) we ALWAYS show the map — even if pickup/drop
+  // coordinates couldn't be resolved (shifts often have only a reporting location and
+  // no drop). The map then just follows the driver's live GPS position.
+  if (noCoords && !loading && !liveMode) {
     return (
       <View style={[styles.wrapper, liveMode && styles.wrapperLive, style]}>
         <View style={styles.placeholder}>
@@ -361,7 +364,13 @@ const ActiveJobMap: React.FC<ActiveJobMapProps> = ({
                     latitudeDelta: 0.5,
                     longitudeDelta: 0.5,
                   }
-                : undefined
+                : {
+                    // Fallback region (driver's GPS will recenter via showsUserLocation)
+                    latitude: 20.5937,
+                    longitude: 78.9629,
+                    latitudeDelta: 30,
+                    longitudeDelta: 30,
+                  }
             }>
 
             {/* OSRM Polyline */}
