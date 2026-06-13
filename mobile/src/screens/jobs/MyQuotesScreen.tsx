@@ -120,6 +120,7 @@ function JobQuoteCard({
   onResubmitQuote,
   onProceedToCompliance,
   onViewQuoteStatus,
+  onRefresh,
 }: {
   item: any;
   highlightedJobId?: string | null;
@@ -128,6 +129,7 @@ function JobQuoteCard({
   onResubmitQuote?: (jobId: string, newAmount: number, notes: string, deliverBy: string) => Promise<void>;
   onProceedToCompliance: (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => void;
   onViewQuoteStatus?: (quote: Record<string, unknown>) => void;
+  onRefresh?: () => void;
 }) {
   const [editAmount, setEditAmount] = useState('');
   const [editNotes, setEditNotes] = useState('');
@@ -139,6 +141,7 @@ function JobQuoteCard({
   const [resubmitMode, setResubmitMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [handover, setHandover] = useState<{driverSigned?: boolean; haulierSigned?: boolean} | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>('');
 
   const statusUpper = (item.status ?? '').toUpperCase();
   const isAccepted   = statusUpper === 'ACCEPTED' || statusUpper === 'BOOKED' || statusUpper === 'SELECTED';
@@ -148,8 +151,8 @@ function JobQuoteCard({
   const jobId        = String(item.jobId ?? '');
   const isHighlighted = !!highlightedJobId && jobId === highlightedJobId;
 
-  // For accepted jobs, fetch handover status so we can show "waiting for haulier
-  // approval" once the driver has submitted the handover but the haulier hasn't signed.
+  // For accepted jobs, poll handover status + job status so we can show the right
+  // waiting state (handover approval, or payment release once delivery is submitted).
   useEffect(() => {
     if (!isAccepted || !jobId) { return; }
     let cancelled = false;
@@ -157,13 +160,29 @@ function JobQuoteCard({
       driverApi.compliance.getHandoverStatus(jobId)
         .then((s: any) => { if (!cancelled) { setHandover({driverSigned: !!s?.driverSigned, haulierSigned: !!s?.haulierSigned}); } })
         .catch(() => undefined);
+      driverApi.jobs.getDetails(jobId)
+        .then((j: any) => { if (!cancelled) { setJobStatus(String(j?.status ?? '').toUpperCase()); } })
+        .catch(() => undefined);
     };
     load();
-    const timer = setInterval(load, 5000);  // poll so it clears once the haulier signs
+    const timer = setInterval(load, 5000);  // poll so states clear as the haulier acts
     return () => { cancelled = true; clearInterval(timer); };
   }, [isAccepted, jobId]);
 
   const awaitingHaulierHandover = !!(handover?.driverSigned && !handover?.haulierSigned);
+  // Driver finished the job (delivery submitted) but the haulier hasn't released payment yet.
+  const awaitingPaymentRelease = jobStatus === 'DELIVERY_SUBMITTED';
+
+  // Once the haulier releases payment (job COMPLETED/RELEASED/PAID), this quote belongs
+  // in history — refresh the list so it drops out of "My Quotes".
+  const refreshedOnDone = useRef(false);
+  useEffect(() => {
+    const done = ['COMPLETED', 'PAYMENT_RELEASED', 'RELEASED', 'PAID', 'DONE'].includes(jobStatus);
+    if (done && !refreshedOnDone.current) {
+      refreshedOnDone.current = true;
+      onRefresh?.();
+    }
+  }, [jobStatus, onRefresh]);
 
   const jobDatePassed = (() => {
     const jd: string | null = item.job?.jobDate ?? item.jobDate ?? null;
@@ -279,7 +298,13 @@ function JobQuoteCard({
                 </Text>}
               </View>
             </View>
-            {awaitingHaulierHandover ? (
+            {awaitingPaymentRelease ? (
+              <View style={styles.awaitingHandoverBanner}>
+                <Text style={styles.awaitingHandoverText}>
+                  ⏳  Waiting for payment release from haulier
+                </Text>
+              </View>
+            ) : awaitingHaulierHandover ? (
               <View style={styles.awaitingHandoverBanner}>
                 <Text style={styles.awaitingHandoverText}>
                   ⏳  Waiting for haulier approval on handover
@@ -475,6 +500,7 @@ const MyQuotesScreen: React.FC<MyQuotesScreenProps> = ({
           onResubmitQuote={onResubmitQuote}
           onProceedToCompliance={onProceedToCompliance}
           onViewQuoteStatus={onViewQuoteStatus}
+          onRefresh={onRefresh}
         />
       )}
       keyExtractor={item => item.quoteId ?? String(Math.random())}

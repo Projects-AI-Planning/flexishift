@@ -396,10 +396,13 @@ function AvailableShiftCard({
             </>
           ) : null}
 
-          {/* Submit Quote repeated at bottom */}
-          <View style={[styles.cardActions, {marginTop: 6}]}>
-            <QuoteAction />
-          </View>
+          {/* Submit Quote repeated at bottom — only when not yet quoted, so Edit/Withdraw
+              (shown in the top actions row) are not duplicated here. */}
+          {canQuote && (
+            <View style={[styles.cardActions, {marginTop: 6}]}>
+              <QuoteAction />
+            </View>
+          )}
         </View>
       )}
     </View>

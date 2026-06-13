@@ -203,7 +203,9 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
   }, [jobId]);
 
   // If the driver has already submitted this handover (e.g. re-entering from "My Jobs"
-  // → Start Trip), show the waiting/proceed state instead of asking to sign again.
+  // → Start Trip), show the waiting/proceed state AND pre-fill the previously submitted
+  // data (checklist ticks, photos, signature) so they can see what they filled.
+  const [prefilledSig, setPrefilledSig] = useState<string | null>(null);
   useEffect(() => {
     if (!jobId) {return;}
     driverApi.compliance.getHandoverStatus(jobId)
@@ -211,6 +213,25 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
         if (s?.driverSigned) {
           setDriverSigned(true);
           setSubmitted(true);
+          // Checklist ticks
+          const cd = s.checklistData;
+          if (cd && typeof cd === 'object') {
+            setChecklist({
+              lightsSignals: !!cd.lightsSignals,
+              tirePressure:  !!cd.tirePressure,
+              fluidLevels:   !!cd.fluidLevels,
+              bodyDamage:    !!cd.bodyDamage,
+            });
+          }
+          // Photos (server URLs)
+          const urls: string[] = Array.isArray(s.conditionPhotos) ? s.conditionPhotos : [];
+          if (urls.length > 0) {
+            setPhotos(urls.map(u => ({uri: u} as Asset)));
+          }
+          // Submitted signature
+          if (s.driverSignatureUrl) {
+            setPrefilledSig(String(s.driverSignatureUrl));
+          }
         }
       })
       .catch(() => undefined);
@@ -489,10 +510,57 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
               </Text>
             </View>
           ) : (
-            /* ── Case C: Signed ── */
-            <View style={[styles.sigBox, styles.sigBoxSigned]}>
-              <Text style={styles.sigDoneText}>~ Signed ~</Text>
-            </View>
+            /* ── Case C: Signed — show the submitted signature ── */
+            (() => {
+              // Try to render the previously submitted signature (segments JSON or image)
+              let segs: {x1:number;y1:number;x2:number;y2:number}[] = [];
+              let storedW = 300; let storedH = 160;
+              const src = prefilledSig ?? '';
+              const isImage = src.startsWith('data:image') || src.startsWith('http');
+              if (!isImage && src) {
+                try {
+                  const p = JSON.parse(src);
+                  segs    = p.segments ?? [];
+                  storedW = p.width    ?? 300;
+                  storedH = p.height   ?? 160;
+                } catch { /* ignore */ }
+              }
+              if (isImage) {
+                return (
+                  <View style={[styles.sigBox, styles.sigBoxSigned, {height: 110, overflow: 'hidden'}]}>
+                    <Image source={{uri: src}} style={{width: '100%', height: '100%'}} resizeMode="contain" />
+                  </View>
+                );
+              }
+              if (segs.length > 0) {
+                return (
+                  <View
+                    onLayout={e => setSigBoxWidth(e.nativeEvent.layout.width)}
+                    style={[styles.sigBox, styles.sigBoxSigned, {height: 110, overflow: 'hidden'}]}>
+                    {sigBoxWidth > 0 && segs.map((seg, i) => {
+                      const sx = sigBoxWidth / storedW; const sy = 110 / storedH;
+                      const x1 = seg.x1 * sx, y1 = seg.y1 * sy, x2 = seg.x2 * sx, y2 = seg.y2 * sy;
+                      const dx = x2 - x1, dy = y2 - y1; const len = Math.sqrt(dx*dx + dy*dy);
+                      if (len < 1) {return null;}
+                      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+                      return (
+                        <View key={i} pointerEvents="none" style={{
+                          position: 'absolute', left: cx - len/2, top: cy - 1.5,
+                          width: len, height: 3, backgroundColor: '#1C2E45', borderRadius: 1.5,
+                          transform: [{rotate: `${angle}deg`}],
+                        }} />
+                      );
+                    })}
+                  </View>
+                );
+              }
+              return (
+                <View style={[styles.sigBox, styles.sigBoxSigned]}>
+                  <Text style={styles.sigDoneText}>~ Signed ~</Text>
+                </View>
+              );
+            })()
           )}
 
           <Text style={styles.sigConfirmText}>

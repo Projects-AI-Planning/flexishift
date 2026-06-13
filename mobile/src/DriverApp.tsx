@@ -1432,6 +1432,31 @@ function DriverApp(): React.JSX.Element {
     return () => clearInterval(interval);
   }, [activeRoute, refreshActiveView, session]);
 
+  // Push the driver's live GPS every 3s during active job tracking so the haulier can
+  // track it. Stops when the driver leaves the tracking screen (delivery submitted / done).
+  useEffect(() => {
+    if (!session || activeRoute !== 'tracking.active') { return; }
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) { return; }
+    const push = () => {
+      Geolocation.getCurrentPosition(
+        pos => {
+          driverApi.tracking.updateLocation({
+            jobId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            recordedAt: new Date().toISOString(),
+          }).catch(() => undefined);
+        },
+        () => undefined,
+        {enableHighAccuracy: true, timeout: 8000, maximumAge: 2000},
+      );
+    };
+    push();
+    const timer = setInterval(push, 3000);
+    return () => clearInterval(timer);
+  }, [activeRoute, session, complianceJobId, dashboard?.activeJob?.jobId]);
+
   useEffect(() => {
     if (selectedJob?.jobId) {
       driverApi.jobs

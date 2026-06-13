@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import type {Asset} from 'react-native-image-picker';
-import ActiveJobMap from '../../components/map/ActiveJobMap';
 import {colors, radius, spacing} from '../../theme';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -162,10 +161,6 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
   totalDays,
   pickupAddress,
   dropAddress,
-  pickupLat,
-  pickupLng,
-  dropLat,
-  dropLng,
   onSubmit,
   onProceed,
   loading,
@@ -232,16 +227,6 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
   // Submission is unlocked once the driver has signed
   const isComplete = driverSigned;
 
-  const pickupCoords =
-    pickupLat != null && pickupLng != null
-      ? {latitude: pickupLat, longitude: pickupLng}
-      : null;
-
-  const dropCoords =
-    dropLat != null && dropLng != null
-      ? {latitude: dropLat, longitude: dropLng}
-      : null;
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -283,14 +268,6 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
             <Text style={styles.stepLabelIdle}>Departure</Text>
           </View>
         </View>
-
-        {/* ── Route Map ────────────────────────────────────────────────────── */}
-        <ActiveJobMap
-          pickupLocation={pickupAddress}
-          dropLocation={dropAddress}
-          pickupCoords={pickupCoords}
-          dropCoords={dropCoords}
-        />
 
         {/* ── Vehicle Checklist ────────────────────────────────────────────── */}
         <View style={styles.card}>

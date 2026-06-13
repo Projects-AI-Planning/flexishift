@@ -30,7 +30,7 @@ interface ShiftTrackingScreenProps {
 }
 
 // Push driver GPS to backend every N ms
-const LOCATION_PUSH_INTERVAL_MS = 10_000;
+const LOCATION_PUSH_INTERVAL_MS = 3_000;  // live location every 3s while on the tracking screen
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ const ShiftTrackingScreen: React.FC<ShiftTrackingScreenProps> = ({
             .catch(() => {/* silent */});
         },
         () => {/* permission denied / unavailable — ignore */},
-        {enableHighAccuracy: true, timeout: 8000, maximumAge: 5000},
+        {enableHighAccuracy: true, timeout: 8000, maximumAge: 2000},  // fresh fix each 3s push
       );
     };
 

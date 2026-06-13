@@ -87,7 +87,14 @@ const statusTone = (value?: string) => {
   return 'bg-[#1066b1]/15 text-[#0a4a8f]';
 };
 
-const formatTime = (value?: string | null) => (value ? new Date(value).toLocaleString('en-US') : 'N/A');
+const formatTime = (value?: string | null) => {
+  if (!value) return 'N/A';
+  // Backend timestamps may be timezone-less (naive UTC). Treat them as UTC so they
+  // display in the viewer's correct local time, not shifted by the timezone offset.
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(value);
+  const d = new Date(hasTz ? value : `${value}Z`);
+  return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString('en-US');
+};
 
 function haversineM(a: {latitude: number; longitude: number}, b: {latitude: number; longitude: number}) {
   const R = 6_371_000;
@@ -445,7 +452,8 @@ export default function HaulierTrackingPage() {
   useEffect(() => { if (selectedJobId) void loadTracking(selectedJobId); }, [loadTracking, selectedJobId]);
   useEffect(() => {
     if (!selectedJobId) return;
-    const t = window.setInterval(() => void loadTracking(selectedJobId), 30000);
+    // Poll the driver's live location every 3s (matches the driver's 3s push), plus WS.
+    const t = window.setInterval(() => void loadTracking(selectedJobId), 3000);
     return () => window.clearInterval(t);
   }, [loadTracking, selectedJobId]);
 
@@ -489,7 +497,9 @@ export default function HaulierTrackingPage() {
   useEffect(() => {
     if (tab !== 'shifts' || !selectedShiftId) return;
     void loadShiftLocation(selectedShiftId);
-    const t = window.setInterval(() => void loadShiftLocation(selectedShiftId), 10000);
+    // Poll the driver's live location every 3s (matches the driver's 3s push), in addition
+    // to the real-time WebSocket updates.
+    const t = window.setInterval(() => void loadShiftLocation(selectedShiftId), 3000);
     return () => window.clearInterval(t);
   }, [tab, selectedShiftId, loadShiftLocation]);
 
