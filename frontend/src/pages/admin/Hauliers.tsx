@@ -33,6 +33,12 @@ interface PendingHaulier {
   country?: string;
   joinedAt?: string;
   photoUrl?: string | null;
+  organisationDocument?: {
+    docId: string;
+    status: string;
+    fileUrl: string;
+    customName?: string | null;
+  } | null;
 }
 
 const HauliersPage: React.FC = () => {
@@ -84,6 +90,32 @@ const HauliersPage: React.FC = () => {
       alert('Failed to approve haulier');
     } finally {
       setApproving(null);
+    }
+  };
+
+  // Approve / reject the haulier's organisation registration document (from the pending view)
+  const [docReviewing, setDocReviewing] = useState(false);
+  const handleDocReview = async (action: 'approve' | 'reject') => {
+    const doc = selectedPending?.organisationDocument;
+    if (!doc) return;
+    let reason = '';
+    if (action === 'reject') {
+      reason = window.prompt('Reason for rejecting this document?') ?? '';
+      if (!reason.trim()) return;
+    }
+    setDocReviewing(true);
+    try {
+      if (action === 'approve') await adminService.approveDocument(doc.docId);
+      else await adminService.rejectDocument(doc.docId, reason.trim());
+      // Reflect the new status locally + refresh the pending list
+      setSelectedPending(prev => prev?.organisationDocument
+        ? { ...prev, organisationDocument: { ...prev.organisationDocument, status: action === 'approve' ? 'APPROVED' : 'REJECTED' } }
+        : prev);
+      await fetchPending();
+    } catch {
+      alert(`Failed to ${action} document`);
+    } finally {
+      setDocReviewing(false);
     }
   };
 
@@ -539,6 +571,56 @@ const HauliersPage: React.FC = () => {
                     <p className="text-sm font-bold text-primary">{selectedPending.companyAddress || <span className="text-slate-400 font-normal">Not provided</span>}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Organisation registration document (optional, for verification) */}
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">description</span>Organisation Document
+                </p>
+                {selectedPending.organisationDocument ? (
+                  <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                        selectedPending.organisationDocument.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                        selectedPending.organisationDocument.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>{selectedPending.organisationDocument.status}</span>
+                      <a
+                        href={selectedPending.organisationDocument.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-black text-white hover:opacity-90 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">visibility</span>
+                        View Document
+                      </a>
+                    </div>
+                    {/* Approve / Reject the document (only while still pending) */}
+                    {selectedPending.organisationDocument.status === 'PENDING' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => void handleDocReview('approve')}
+                          disabled={docReviewing}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-black text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                          Approve Document
+                        </button>
+                        <button
+                          onClick={() => void handleDocReview('reject')}
+                          disabled={docReviewing}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">cancel</span>
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 bg-slate-50 rounded-xl p-4">No organisation document provided.</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

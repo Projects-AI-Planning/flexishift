@@ -241,7 +241,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onOpenMobileSidebar
           </button>
         </div>
 
-        <div className={`relative hidden sm:block w-full max-w-md ${!isAdmin ? 'invisible pointer-events-none' : ''}`} ref={searchRef}>
+        {/* Search hidden (kept for future use, not removed) — invisible spacer keeps header layout intact */}
+        <div className="relative hidden sm:block w-full max-w-md invisible pointer-events-none" ref={searchRef}>
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
             {searchLoading ? 'progress_activity' : 'search'}
           </span>

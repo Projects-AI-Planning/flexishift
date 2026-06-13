@@ -731,6 +731,9 @@ const EscrowTab: React.FC = () => {
     }
   };
 
+  // Refund action is intentionally retained but its column is currently hidden.
+  void refundingId; void handleRefund;
+
   const escrowTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   return (

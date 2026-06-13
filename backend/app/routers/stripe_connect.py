@@ -106,9 +106,9 @@ def _deep_link_html(custom_url: str, android_package: str = "com.mobile") -> HTM
 
 @router.get("/return")
 def stripe_return_redirect(redirect_to: Optional[str] = Query(default=None)):
-    """Stripe redirects here after onboarding; we forward to the real destination."""
-    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
-    target = redirect_to or f"{frontend}/stripe-connect/return"
+    """Stripe redirects here after onboarding; bounce straight back into the app.
+    Default destination is the app deep link (Connect onboarding is driver/mobile-only)."""
+    target = redirect_to or "freightflex://stripe-connect/return"
     if target.startswith("freightflex://"):
         return _deep_link_html(target)
     return RedirectResponse(url=target, status_code=302)
@@ -116,9 +116,8 @@ def stripe_return_redirect(redirect_to: Optional[str] = Query(default=None)):
 
 @router.get("/refresh")
 def stripe_refresh_redirect(redirect_to: Optional[str] = Query(default=None)):
-    """Stripe redirects here when the onboarding link expires; forward to real destination."""
-    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
-    target = redirect_to or f"{frontend}/stripe-connect/refresh"
+    """Stripe redirects here when the onboarding link expires; bounce back into the app."""
+    target = redirect_to or "freightflex://stripe-connect/refresh"
     if target.startswith("freightflex://"):
         return _deep_link_html(target)
     return RedirectResponse(url=target, status_code=302)

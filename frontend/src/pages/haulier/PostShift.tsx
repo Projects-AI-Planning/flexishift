@@ -22,7 +22,6 @@ const REQUIREMENT_OPTIONS = [
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 
-interface StopEntry { id: string; address: string; lat?: number; lng?: number; goodsType?: string; litres?: string; }
 
 interface FormState {
   goodsType:           string;
@@ -81,7 +80,7 @@ const AddressAutocompleteInput: React.FC<AddressAutocompleteInputProps> = ({ val
   const [suggestions, setSuggestions] = useState<AddrSuggestion[]>([]);
   const [open, setOpen]               = useState(false);
   const [loading, setLoading]         = useState(false);
-  const debounceRef                   = React.useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef                   = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const containerRef                  = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => { setInputVal(value); }, [value]);

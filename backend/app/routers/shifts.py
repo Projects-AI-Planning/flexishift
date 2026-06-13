@@ -86,6 +86,7 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
     # and expose a job-style `paymentStatus` so the shared payment page can treat
     # a shift exactly like a job.
     d["paymentStatus"] = None
+    d["driverAmount"] = None
     if db is not None:
         payment = (
             db.query(ShiftPayment)
@@ -95,6 +96,9 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         if payment is not None:
             d["paymentStatus"] = payment.status.value if hasattr(payment.status, "value") else payment.status
             d["currentDayEscrowed"] = payment.status == ShiftPaymentStatus.ESCROWED
+            # The exact amount transferred to the driver (their quoted rate) — for the
+            # "payment released" screen, like jobs.
+            d["driverAmount"] = float(payment.driver_amount) if payment.driver_amount else float(payment.amount)
 
     if quotes is not None:
         include_vehicle = shift.requirement_type != RequirementType.DRIVER_ONLY

@@ -202,6 +202,20 @@ const HandoverScreen: React.FC<HandoverScreenProps> = ({
       .catch(() => setJob(null));
   }, [jobId]);
 
+  // If the driver has already submitted this handover (e.g. re-entering from "My Jobs"
+  // → Start Trip), show the waiting/proceed state instead of asking to sign again.
+  useEffect(() => {
+    if (!jobId) {return;}
+    driverApi.compliance.getHandoverStatus(jobId)
+      .then((s: any) => {
+        if (s?.driverSigned) {
+          setDriverSigned(true);
+          setSubmitted(true);
+        }
+      })
+      .catch(() => undefined);
+  }, [jobId]);
+
   // Reset submitted state if an error occurs so the driver can retry
   useEffect(() => {
     if (error) {setSubmitted(false);}

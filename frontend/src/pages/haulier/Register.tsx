@@ -137,6 +137,10 @@ const Register: React.FC = () => {
       setError('Enter a valid local phone number (6–12 digits after the country code).');
       return;
     }
+    if (!form.companyName.trim()) {
+      setError('Company Name is required.');
+      return;
+    }
     if (!form.organisationNumber.trim()) {
       setError('Organisation Number is required.');
       return;
@@ -214,8 +218,8 @@ const Register: React.FC = () => {
               <input type="text" value={form.name} onChange={set('name')} className={inputCls} placeholder="John Smith" required />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-navy mb-2">Company Name</label>
-              <input type="text" value={form.companyName} onChange={set('companyName')} className={inputCls} placeholder="Smith Haulage Ltd" />
+              <label className="block text-sm font-semibold text-navy mb-2">Company Name <span className="text-red-500">*</span></label>
+              <input type="text" value={form.companyName} onChange={set('companyName')} className={inputCls} placeholder="Smith Haulage Ltd" required />
             </div>
           </div>
 

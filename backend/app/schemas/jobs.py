@@ -20,6 +20,8 @@ class JobCreateRequest(BaseModel):
     vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")
+    job_time: Optional[str] = Field(None, alias="jobTime")            # exact "Deliver By" time e.g. "15:00"
+    deliver_by_dt: Optional[str] = Field(None, alias="deliverByDt")   # full deliver-by datetime (UTC ISO)
     driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
     stops: Optional[List[dict]] = Field(None, alias="stops")
     access_code: str = Field(..., alias="accessCode")

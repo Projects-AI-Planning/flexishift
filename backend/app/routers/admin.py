@@ -10,7 +10,7 @@ from app.dependencies import require_role
 from app.models.user import User, UserStatus, Role
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
-from app.models.document import Document, DocStatus
+from app.models.document import Document, DocStatus, DocType
 from app.models.vehicle import Vehicle
 from app.schemas.documents import DocumentReviewRequest
 from app.schemas.admin import AdminCreateUserRequest, AdminUpdateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
@@ -291,6 +291,23 @@ def list_pending_hauliers(
     )
     total = q.count()
     items = q.order_by(User.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+    def _org_document(user_id: str):
+        doc = (
+            db.query(Document)
+            .filter(Document.user_id == user_id, Document.doc_type == DocType.COMPANY_REG)
+            .order_by(Document.updated_at.desc())
+            .first()
+        )
+        if not doc:
+            return None
+        return {
+            "docId": doc.id,
+            "status": doc.status.value,
+            "fileUrl": doc.file_url,
+            "customName": doc.custom_name,
+        }
+
     return ok(
         data={
             "items": [
@@ -306,6 +323,7 @@ def list_pending_hauliers(
                     "organisationNumber": u.profile.organisation_number if u.profile else None,
                     "country": u.country,
                     "joinedAt": u.created_at.isoformat() if u.created_at else None,
+                    "organisationDocument": _org_document(u.id),
                 }
                 for u in items
             ],

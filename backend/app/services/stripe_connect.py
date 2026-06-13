@@ -94,9 +94,11 @@ def get_onboarding_link(
         create_connect_account(db, user)
 
     from urllib.parse import quote
-    frontend = (settings.STRIPE_FRONTEND_URL or settings.FRONTEND_URL).rstrip("/")
-    dest_return = client_return_url or f"{frontend}/stripe-connect/return"
-    dest_refresh = client_refresh_url or f"{frontend}/stripe-connect/refresh"
+    # Stripe Connect onboarding is driver-only (mobile app). Default the destination
+    # to the APP deep link so the user is always bounced back into the app after
+    # onboarding — never left sitting on a web page (e.g. flexishift.io).
+    dest_return = client_return_url or "freightflex://stripe-connect/return"
+    dest_refresh = client_refresh_url or "freightflex://stripe-connect/refresh"
 
     stripe_base = (settings.STRIPE_BACKEND_URL or settings.BACKEND_URL).rstrip("/")
     return_url = f"{stripe_base}/stripe-connect/return?redirect_to={quote(dest_return, safe='')}"

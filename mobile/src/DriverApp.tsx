@@ -2073,7 +2073,8 @@ function DriverApp(): React.JSX.Element {
         const payStatus = String(s?.paymentStatus ?? '').toUpperCase();
         if (status === 'COMPLETED' || payStatus === 'RELEASED') {
           setShiftPaymentReleased({
-            amount: Number(s?.dailyRate ?? 0),
+            // The actual amount transferred to the driver (their quoted rate), like jobs.
+            amount: Number(s?.driverAmount ?? s?.dailyRate ?? 0),
             currency: String(s?.currency ?? session?.currency ?? ''),
             isLastDay: true,
           });

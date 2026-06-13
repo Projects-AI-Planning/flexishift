@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
 import { fmtMoney } from '../../utils/currency';
@@ -655,8 +655,6 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, actionLoading, onAccept, r
 };
 
 /* ── Signature Canvas (haulier counter-sign for shift handover) ─────────────── */
-
-type Point = { x: number; y: number };
 
 function ShiftSignatureCanvas({
   shiftRef,
@@ -1433,8 +1431,8 @@ const HaulierShiftsPage: React.FC = () => {
                                 Handover Signed
                               </span>
                             )}
-                            {/* View Handover details — only in the Handover tab */}
-                            {activeStatus === 'HANDOVER' && shift.handoverSubmitted && (
+                            {/* View Handover details — when the driver has submitted a handover */}
+                            {shift.handoverSubmitted && (
                               <button
                                 onClick={() => setHandoverShift({ shiftId: shift.shiftId, shiftRef: shift.shiftRef })}
                                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-[#44474C] transition hover:border-[#1066b1]/40 hover:bg-[#1066b1]/8 hover:text-[#1066b1]"
