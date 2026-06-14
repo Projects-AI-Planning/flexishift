@@ -50,7 +50,7 @@ interface JobDiscoveryScreenProps {
 }
 
 const PICKUP_DATE_OPTIONS = ['All', 'Today', 'Tomorrow', 'This Week'];
-const RADIUS_OPTIONS = ['All', '10 km', '25 km', '50 km', '100 km', '200 km'];
+const RADIUS_OPTIONS = ['All', '10 km', '25 km', '50 km', '100 km', '150 km', '200 km'];
 
 function addr(val: unknown): string {
   if (!val) {return '';}
@@ -132,7 +132,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       Geolocation.getCurrentPosition(
         pos => {
           setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
-          if (!radiusFilter) {setRadiusFilter('25 km');}
+          if (!radiusFilter) {setRadiusFilter('50 km');}
           setLocationLoading(false);
         },
         err => {
@@ -164,7 +164,9 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   }, [availableJobs]);
 
   const filtered = useMemo(() => {
-    const radiusKm = radiusFilter ? parseInt(radiusFilter, 10) : null;
+    // "All" (or no selection) means no distance limit. Any "N km" means filter by N.
+    const isAllRadius = !radiusFilter || radiusFilter === 'All';
+    const radiusKm = isAllRadius ? null : parseInt(radiusFilter, 10);
     // Today's date string "YYYY-MM-DD" for comparison
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -175,13 +177,14 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       if (cargoFilter && String(j.goodsType ?? '').trim() !== cargoFilter) {return false;}
       if (dateFilter && !matchesDateFilter(j.jobDate, dateFilter)) {return false;}
 
+      // Distance filter: only when a specific km is chosen AND we have the driver's location
       if (driverLocation && radiusKm) {
         const jobLat = Number(j.pickupLat ?? j.latitude ?? NaN);
         const jobLng = Number(j.pickupLng ?? j.longitude ?? NaN);
-        if (!isNaN(jobLat) && !isNaN(jobLng)) {
-          const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, jobLat, jobLng);
-          if (dist > radiusKm) {return false;}
-        }
+        // No usable pickup coords → can't confirm it's within range → hide it
+        if (isNaN(jobLat) || isNaN(jobLng)) {return false;}
+        const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, jobLat, jobLng);
+        if (dist > radiusKm) {return false;}
       }
 
       if (search.trim()) {

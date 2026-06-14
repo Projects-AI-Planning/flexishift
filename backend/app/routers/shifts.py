@@ -53,6 +53,8 @@ def _shift_dict(shift, quotes=None, db=None) -> dict:
         "location": shift.location,
         "goodsType": shift.goods_type,
         "reportingLocation": shift.reporting_location,
+        "reportingLat": float(shift.reporting_lat) if shift.reporting_lat else None,
+        "reportingLng": float(shift.reporting_lng) if shift.reporting_lng else None,
         "totalCapacity": float(shift.total_capacity) if shift.total_capacity else None,
         "compartments": shift.compartments,
         "compartmentDetails": shift.compartment_details or [],

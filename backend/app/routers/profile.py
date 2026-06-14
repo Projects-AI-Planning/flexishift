@@ -511,7 +511,13 @@ def deactivate_account(
         from app.core.security import verify_password
         if not verify_password(body.password, current_user.password_hash):
             raise HTTPException(status_code=400, detail="Incorrect password")
-    current_user.deleted_at = datetime.utcnow()
+    now = datetime.utcnow()
+    # Soft delete — keep the row for history, but free up the email so the user can
+    # register a fresh account with the same address later. (email has a UNIQUE
+    # constraint, so the deactivated row must give up the original address.)
+    if current_user.email and ".deactivated." not in current_user.email:
+        current_user.email = f"{current_user.email}.deactivated.{int(now.timestamp())}"
+    current_user.deleted_at = now
     current_user.status = UserStatus.SUSPENDED
     db.commit()
     return ok(data=None, message="Account deactivated")

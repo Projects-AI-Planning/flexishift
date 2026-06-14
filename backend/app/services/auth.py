@@ -122,7 +122,9 @@ def _delete_pending(r, email: str) -> None:
 
 async def register(db: Session, full_name: str, email: str, phone: str | None, password: str, role: str, r=None, currency: str | None = None, country: str | None = None, organisation_number: str | None = None, vat_number: str | None = None, company_name: str | None = None, address: str | None = None, esignature_data: str | None = None, organisation_doc_url: str | None = None) -> dict:
     email = email.strip().lower()
-    if db.query(User).filter(User.email == email).first():
+    # Only block if an ACTIVE (non-deleted) account uses this email. Deactivated
+    # (soft-deleted) accounts release their email so it can be reused.
+    if db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first():
         raise HTTPException(status_code=409, detail="Email already registered")
 
     detected_country, detected_currency = phone_to_country_currency(phone)

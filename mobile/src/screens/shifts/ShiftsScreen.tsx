@@ -57,6 +57,8 @@ interface ShiftItem {
   selectedDriverId?: string;
   pickupLat?: number;
   pickupLng?: number;
+  reportingLat?: number;
+  reportingLng?: number;
   currentDayEscrowed?: boolean;
   handoverSubmitted?: boolean;
   handoverHaulierSigned?: boolean;
@@ -117,7 +119,15 @@ const QUOTE_STATUS: Record<string, {label: string; bg: string; text: string; bor
   WITHDRAWN: {label: 'Withdrawn',       bg: '#F1F5F9', text: '#64748B', border: '#E2E8F0'},
 };
 
-const RADIUS_OPTIONS   = ['All', '10 km', '25 km', '50 km', '100 km', '200 km'];
+const RADIUS_OPTIONS   = ['All', '10 km', '25 km', '50 km', '100 km', '150 km', '200 km'];
+
+// A shift's location for distance = its reporting location (where the driver reports),
+// falling back to pickup coords if reporting coords aren't set.
+function shiftCoords(s: {reportingLat?: number | null; reportingLng?: number | null; pickupLat?: number | null; pickupLng?: number | null}) {
+  const lat = s.reportingLat ?? s.pickupLat;
+  const lng = s.reportingLng ?? s.pickupLng;
+  return (lat != null && lng != null) ? {lat: Number(lat), lng: Number(lng)} : null;
+}
 const DATE_OPTIONS     = ['All', 'This Week', 'Next Week', 'This Month'];
 const REQ_FILTER_OPTS  = ['All', 'Driver Only', 'Truck + Driver', 'Truck Only'];
 
@@ -185,9 +195,10 @@ function AvailableShiftCard({
   const isPending = qStatus === 'PENDING';
   const isWithdrawn = qStatus === 'WITHDRAWN';
 
+  const _sc = shiftCoords(shift);
   const distFromDriver =
-    driverLocation && shift.pickupLat != null && shift.pickupLng != null
-      ? haversineKm(driverLocation.latitude, driverLocation.longitude, shift.pickupLat, shift.pickupLng)
+    driverLocation && _sc
+      ? haversineKm(driverLocation.latitude, driverLocation.longitude, _sc.lat, _sc.lng)
       : null;
 
   const QuoteAction = () => (
@@ -1110,7 +1121,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
       Geolocation.getCurrentPosition(
         pos => {
           setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
-          if (!radiusFilter) {setRadiusFilter('25 km');}
+          if (!radiusFilter) {setRadiusFilter('50 km');}
           setLocationLoading(false);
         },
         err => {
@@ -1140,7 +1151,9 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
 
   // ── Filtered & sorted available shifts ───────────────────────────────────
   const filteredShifts = useMemo(() => {
-    const radiusKm = radiusFilter ? parseInt(radiusFilter, 10) : null;
+    // "All" (or no selection) = no distance limit; "N km" = filter by N.
+    const isAllRadius = !radiusFilter || radiusFilter === 'All';
+    const radiusKm = isAllRadius ? null : parseInt(radiusFilter, 10);
 
     const reqKey = reqFilter
       ? Object.keys(REQ_LABELS).find(k => REQ_LABELS[k] === reqFilter) ?? reqFilter
@@ -1150,8 +1163,12 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
       if (reqKey && s.requirementType !== reqKey) {return false;}
       if (dateFilter && !matchesStartDateFilter(s.startDate, dateFilter)) {return false;}
 
-      if (driverLocation && radiusKm && s.pickupLat != null && s.pickupLng != null) {
-        const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, s.pickupLat, s.pickupLng);
+      // Distance filter by reporting location (fallback pickup)
+      if (driverLocation && radiusKm) {
+        const c = shiftCoords(s);
+        // No usable coords → can't confirm within range → hide it
+        if (!c) {return false;}
+        const dist = haversineKm(driverLocation.latitude, driverLocation.longitude, c.lat, c.lng);
         if (dist > radiusKm) {return false;}
       }
 
@@ -1169,12 +1186,10 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
 
     if (driverLocation) {
       items.sort((a, b) => {
-        const distA = a.pickupLat != null && a.pickupLng != null
-          ? haversineKm(driverLocation.latitude, driverLocation.longitude, a.pickupLat, a.pickupLng)
-          : Infinity;
-        const distB = b.pickupLat != null && b.pickupLng != null
-          ? haversineKm(driverLocation.latitude, driverLocation.longitude, b.pickupLat, b.pickupLng)
-          : Infinity;
+        const ca = shiftCoords(a);
+        const cb = shiftCoords(b);
+        const distA = ca ? haversineKm(driverLocation.latitude, driverLocation.longitude, ca.lat, ca.lng) : Infinity;
+        const distB = cb ? haversineKm(driverLocation.latitude, driverLocation.longitude, cb.lat, cb.lng) : Infinity;
         return distA - distB;
       });
     }

@@ -286,6 +286,11 @@ export const driverApi = {
         method: 'PUT',
         body: jsonBody(payload),
       }),
+    deactivate: () =>
+      request<Record<string, unknown>>('/profile/deactivate', {
+        method: 'PUT',
+        body: jsonBody({}),
+      }),
     uploadPhoto: (formData: FormData) =>
       request<Record<string, unknown>>('/profile/photo/upload', {
         method: 'POST',

@@ -4309,7 +4309,7 @@ function DriverApp(): React.JSX.Element {
             onDeactivate={() => {
               Alert.alert(
                 'Deactivate Account',
-                'Are you sure you want to deactivate your account? You can reactivate by logging in again.',
+                'Are you sure you want to deactivate your account? This will close your account. You can sign up again later with the same email.',
                 [
                   {text: 'Cancel', style: 'cancel'},
                   {
@@ -4317,7 +4317,7 @@ function DriverApp(): React.JSX.Element {
                     style: 'destructive',
                     onPress: async () => {
                       try {
-                        await driverApi.profile.update({isActive: false} as any);
+                        await driverApi.profile.deactivate();
                         handleLogout();
                       } catch {
                         setErrorBanner('Failed to deactivate account. Please try again.');

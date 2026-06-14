@@ -78,8 +78,8 @@ android {
         applicationId "io.flexishift"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 5
+        versionName "1.0.4"
         // Ship only English resources — excludes bogus locales (cb, fb) pulled in by
         // third-party libraries that Play rejects as unrecognised languages.
         resConfigs "en"
