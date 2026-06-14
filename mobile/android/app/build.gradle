@@ -75,11 +75,14 @@ android {
 
     namespace "com.mobile"
     defaultConfig {
-        applicationId "com.mobile"
+        applicationId "io.flexishift"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
+        // Ship only English resources — excludes bogus locales (cb, fb) pulled in by
+        // third-party libraries that Play rejects as unrecognised languages.
+        resConfigs "en"
     }
     signingConfigs {
         debug {
@@ -103,6 +106,11 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            // Bundle native debug symbols (.so symbol tables) into the AAB so Play can
+            // symbolicate native crashes/ANRs. Addresses the "no debug symbols" warning.
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
     }
 }

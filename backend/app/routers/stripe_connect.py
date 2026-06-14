@@ -58,7 +58,7 @@ def refresh_onboarding_link(
     return ok(data={"onboardingUrl": url}, message="Onboarding link refreshed")
 
 
-def _deep_link_html(custom_url: str, android_package: str = "com.mobile") -> HTMLResponse:
+def _deep_link_html(custom_url: str, android_package: str = "io.flexishift") -> HTMLResponse:
     """Return an HTML page that re-opens the mobile app after Stripe onboarding.
 
     Stripe only accepts http(s) return URLs, so we land here briefly and then bounce
