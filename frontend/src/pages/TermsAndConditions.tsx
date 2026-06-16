@@ -453,7 +453,7 @@ const TermsAndConditions: React.FC = () => {
           </P>
 
           {/* ── Section 9 ── */}
-          <H2 id="9">9. Disputes and Escrow Release</H2>
+          <H2 id="9">9. Disputes and Payment Release</H2>
           <P>
             FlexiShift has no obligation to investigate, mediate, arbitrate, adjudicate or resolve disputes between Users. Any assistance provided by FlexiShift is voluntary, discretionary and provided solely as a customer service convenience. FlexiShift does not bear responsibility for handling disputes. This must be addressed through appropriate legal channels. A corresponding rating of the experience must be given via the platform.
           </P>
