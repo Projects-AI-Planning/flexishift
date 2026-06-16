@@ -68,6 +68,7 @@ function SignatureCanvas({
   const canvasRef                   = useRef<HTMLCanvasElement>(null);
   const drawing                     = useRef(false);
   const lastPoint                   = useRef<Point | null>(null);
+  const pathLen                     = useRef(0);
   const [hasStrokes, setHasStrokes] = useState(false);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
@@ -77,19 +78,22 @@ function SignatureCanvas({
     return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
   };
 
-  const startDraw = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); drawing.current = true; lastPoint.current = getPos(e); setHasStrokes(true); };
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); drawing.current = true; lastPoint.current = getPos(e); };
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (!drawing.current || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d')!;
     const pos = getPos(e);
-    ctx.beginPath(); ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    const last = lastPoint.current!;
+    ctx.beginPath(); ctx.moveTo(last.x, last.y);
     ctx.lineTo(pos.x, pos.y); ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.5;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    pathLen.current += Math.hypot(pos.x - last.x, pos.y - last.y);
+    if (pathLen.current >= 40) setHasStrokes(true);  // require real pen travel, not a click
     lastPoint.current = pos;
   };
   const endDraw = () => { drawing.current = false; lastPoint.current = null; };
-  const clear   = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); setHasStrokes(false); };
+  const clear   = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); pathLen.current = 0; setHasStrokes(false); };
   const save    = () => {
     if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
     if (!canvasRef.current || !hasStrokes) return;

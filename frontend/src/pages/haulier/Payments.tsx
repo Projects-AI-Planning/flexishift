@@ -172,6 +172,24 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
   const [cardError, setCardError] = useState('');
   const isTest = order.publishableKey.startsWith('pk_test');
 
+  // Saved cards (added in Payment Setup). 'new' = enter a fresh card.
+  type SavedCard = { paymentMethodId: string; brand: string; last4: string; expMonth?: number; expYear?: number };
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState<string>('new');
+
+  useEffect(() => {
+    let active = true;
+    haulierService.listSavedCards()
+      .then((data) => {
+        if (!active) return;
+        const cards: SavedCard[] = (data as { cards?: SavedCard[] })?.cards ?? [];
+        setSavedCards(cards);
+        if (cards.length > 0) setSelectedCard(cards[0].paymentMethodId);  // default to first saved card
+      })
+      .catch(() => { /* no saved cards / not reachable — fall back to new card */ });
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     let active = true;
     const init = async () => {
@@ -206,13 +224,17 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
   }, []);
 
   const handleConfirm = async () => {
-    if (!stripeInstance || !cardElement) return;
+    if (!stripeInstance) return;
+    const useNewCard = selectedCard === 'new';
+    if (useNewCard && !cardElement) return;
     setConfirming(true);
     setCardError('');
     try {
       const result = await stripeInstance.confirmCardPayment(
         order.clientSecret,
-        { payment_method: { card: cardElement } },
+        useNewCard
+          ? { payment_method: { card: cardElement! } }
+          : { payment_method: selectedCard },
       );
       if (result.error) {
         setCardError(result.error.message);
@@ -288,11 +310,58 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
           </div>
         )}
 
-        <div className="space-y-1.5">
+        {/* Saved cards (added in Payment Setup) — selectable at payment time */}
+        {savedCards.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pay With</label>
+            <div className="space-y-2">
+              {savedCards.map((c) => (
+                <button
+                  key={c.paymentMethodId}
+                  type="button"
+                  onClick={() => { setSelectedCard(c.paymentMethodId); setCardError(''); }}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                    selectedCard === c.paymentMethodId ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base text-slate-500">credit_card</span>
+                  <span className="flex-1 text-sm font-bold text-[#041627]">
+                    {c.brand} •••• {c.last4}
+                  </span>
+                  {c.expMonth && c.expYear && (
+                    <span className="text-xs font-medium text-slate-400">
+                      {String(c.expMonth).padStart(2, '0')}/{String(c.expYear).slice(-2)}
+                    </span>
+                  )}
+                  {selectedCard === c.paymentMethodId && (
+                    <span className="material-symbols-outlined text-base text-indigo-600">check_circle</span>
+                  )}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => { setSelectedCard('new'); setCardError(''); }}
+                className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                  selectedCard === 'new' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base text-slate-500">add</span>
+                <span className="flex-1 text-sm font-bold text-[#041627]">Use a new card</span>
+                {selectedCard === 'new' && (
+                  <span className="material-symbols-outlined text-base text-indigo-600">check_circle</span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Card entry — kept mounted (Stripe element) but hidden unless adding a new card */}
+        <div className={`space-y-1.5 ${selectedCard !== 'new' ? 'hidden' : ''}`}>
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
           <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
           {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
         </div>
+        {selectedCard !== 'new' && cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
 
         <div className="flex items-start gap-2 text-xs text-slate-500">
           <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
@@ -305,7 +374,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
           </button>
           <button
             onClick={() => void handleConfirm()}
-            disabled={confirming || !stripeInstance || !cardElement}
+            disabled={confirming || !stripeInstance || (selectedCard === 'new' && !cardElement)}
             className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>

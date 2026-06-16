@@ -15,6 +15,8 @@ import {
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import AppInput from '../../components/common/AppInput';
 import {colors, radius, spacing} from '../../theme';
+import {isMeaningfulStrokes, strokesToSmoothPath} from '../../utils/signature';
+import Svg, {Path} from 'react-native-svg';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -162,10 +164,10 @@ const ShiftEndOfDayScreen: React.FC<ShiftEndOfDayScreenProps> = ({
     stroke.slice(1).map((pt, idx) => lineStyle(stroke[idx], pt)),
   );
 
-  const isComplete = recipientName.trim().length > 1 && photos.length > 0 && signatureSegments.length > 0;
+  const isComplete = recipientName.trim().length > 1 && photos.length > 0 && isMeaningfulStrokes(signaturePoints);
 
   const handleSubmit = () => {
-    const sigData = signatureSegments.length > 0
+    const sigData = isMeaningfulStrokes(signaturePoints)
       ? JSON.stringify(signaturePoints)
       : undefined;
     onSubmit({
@@ -266,12 +268,17 @@ const ShiftEndOfDayScreen: React.FC<ShiftEndOfDayScreenProps> = ({
             </Pressable>
           </View>
           <View style={styles.sigBox} {...panResponder.panHandlers}>
-            {signatureSegments.length ? (
-              <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                {signatureSegments.map((seg, i) => (
-                  <View key={`seg-${i}`} style={seg} />
-                ))}
-              </View>
+            {signaturePoints.some(st => st.length > 1) ? (
+              <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Path
+                  d={strokesToSmoothPath(signaturePoints)}
+                  stroke="#1C2E45"
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
             ) : (
               <Text style={styles.sigHint}>Sign here</Text>
             )}

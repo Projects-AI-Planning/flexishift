@@ -41,6 +41,7 @@ class Shift(Base):
 
     id:                  Mapped[str]            = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     haulier_id:          Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    country:             Mapped[str]            = mapped_column(String(2), nullable=True, default="GB")
     shift_ref:           Mapped[str]            = mapped_column(String(20), nullable=False, unique=True, default=_gen_shift_ref)
     requirement_type:    Mapped[RequirementType] = mapped_column(Enum(RequirementType), nullable=False)
     start_date:          Mapped[date]           = mapped_column(Date, nullable=False)

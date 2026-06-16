@@ -22,6 +22,9 @@ import AppInput from '../../components/common/AppInput';
 import Icon from '../../components/common/Icon';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {driverApi} from '../../api/driverApi';
+import {isMeaningfulSignature, segmentsToSmoothPath} from '../../utils/signature';
+import Svg, {Path} from 'react-native-svg';
+import SignaturePad, {SignaturePadHandle} from '../../components/common/SignaturePad';
 import {colors, radius, spacing} from '../../theme';
 import TruckCompartmentVisual, {
   TruckCompartment,
@@ -312,9 +315,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [esigError,         setEsigError]         = useState('');
   const [esigSuccess,       setEsigSuccess]       = useState(false);
   const [esigRequired,      setEsigRequired]      = useState(false);
-  const [esigSegments,      setEsigSegments]      = useState<{x1:number;y1:number;x2:number;y2:number}[]>([]);
-  const esigDrawing         = useRef(false);
-  const esigLastPoint       = useRef<{x:number;y:number}|null>(null);
+  const sigPadRef           = useRef<SignaturePadHandle>(null);
+  const [esigValid,         setEsigValid]         = useState(false);
   const [esigCanvasSize,    setEsigCanvasSize]    = useState({width: 0, height: 0});
   // Local override so a just-saved (or just-removed) signature reflects immediately,
   // even before the parent profile prop refreshes. undefined = use profile prop;
@@ -325,42 +327,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       ? localEsig
       : ((profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null);
 
-  const esigPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder:  () => true,
-        onPanResponderGrant: (e: any) => {
-          const {locationX, locationY} = e.nativeEvent;
-          esigLastPoint.current = {x: locationX, y: locationY};
-        },
-        onPanResponderMove: (e: any) => {
-          if (!esigLastPoint.current) {return;}
-          const {locationX, locationY} = e.nativeEvent;
-          const seg = {
-            x1: esigLastPoint.current.x, y1: esigLastPoint.current.y,
-            x2: locationX,               y2: locationY,
-          };
-          setEsigSegments(prev => [...prev, seg]);
-          esigLastPoint.current = {x: locationX, y: locationY};
-        },
-        onPanResponderRelease: () => { esigLastPoint.current = null; },
-      }),
-    [],
-  );
+  const openEsigModal = () => {
+    sigPadRef.current?.clear();
+    setEsigValid(false);
+    setEsigError('');
+    setEsigModalVisible(true);
+  };
 
   const handleEsigSave = async () => {
-    if (esigSegments.length === 0) {return;}
+    const segs = sigPadRef.current?.getSegments() ?? [];
+    if (!isMeaningfulSignature(segs)) {
+      setEsigError('Please draw your signature — a single tap is not enough.');
+      return;
+    }
     // Build a data-URI-like string from segments (we store it as JSON for mobile)
     // then call the backend
-    const sigData = JSON.stringify({segments: esigSegments, width: esigCanvasSize.width, height: esigCanvasSize.height});
+    const sigData = JSON.stringify({segments: segs, width: esigCanvasSize.width, height: esigCanvasSize.height});
     setEsigSaving(true);
     setEsigError('');
     try {
       await driverApi.profile.saveEsignature(sigData);
       setLocalEsig(sigData);          // reflect immediately so "save profile" no longer asks for it
       setEsigModalVisible(false);
-      setEsigSegments([]);
+      sigPadRef.current?.clear();
+      setEsigValid(false);
       setEsigSuccess(true);
       setEsigRequired(false);
       setTimeout(() => setEsigSuccess(false), 3000);
@@ -1414,7 +1404,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
                 <Text style={{fontSize: 11, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5}}>Saved Signature</Text>
                 <View style={{flexDirection: 'row', gap: 12}}>
-                  <Pressable onPress={() => { setEsigSegments([]); setEsigModalVisible(true); }}>
+                  <Pressable onPress={openEsigModal}>
                     <Text style={{fontSize: 12, fontWeight: '700', color: '#1066B1'}}>Update</Text>
                   </Pressable>
                   <Pressable onPress={handleEsigDelete}>
@@ -1426,25 +1416,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 height: 100, backgroundColor: '#F8FAFB', borderRadius: 10,
                 borderWidth: 1.5, borderColor: '#D1D5DB', overflow: 'hidden',
               }}>
-                {segments.map((seg, i) => {
-                  const dx = seg.x2 - seg.x1;
-                  const dy = seg.y2 - seg.y1;
-                  const len = Math.sqrt(dx*dx + dy*dy);
-                  if (len < 1) {return null;}
-                  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                  const cx = (seg.x1 + seg.x2) / 2;
-                  const cy = (seg.y1 + seg.y2) / 2;
-                  return (
-                    <View key={i} pointerEvents="none" style={{
-                      position: 'absolute',
-                      left: cx - len/2, top: cy - 1.5,
-                      width: len, height: 3,
-                      backgroundColor: '#1C2E45', borderRadius: 1.5,
-                      transform: [{rotate: `${angle}deg`}],
-                    }} />
-                  );
-                })}
-                {segments.length === 0 && (
+                {segments.length > 0 ? (
+                  <Svg width="100%" height="100%" pointerEvents="none" style={{position: 'absolute', top: 0, left: 0}}>
+                    <Path
+                      d={segmentsToSmoothPath(segments)}
+                      stroke="#1C2E45"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </Svg>
+                ) : (
                   <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
                     <Text style={{fontSize: 12, color: '#9CA3AF'}}>Signature stored</Text>
                   </View>
@@ -1461,7 +1444,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               backgroundColor: '#1066B1', borderRadius: 10,
               paddingVertical: 12, alignItems: 'center', marginTop: 4,
             }}
-            onPress={() => { setEsigSegments([]); setEsigModalVisible(true); }}>
+            onPress={openEsigModal}>
             <Text style={{color: '#fff', fontSize: 13, fontWeight: '700'}}>＋  Add E-Signature</Text>
           </Pressable>
         )}
@@ -1492,39 +1475,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               Draw your signature in the box below. It will be saved and used to auto-fill handover forms.
             </Text>
 
-            {/* Drawing canvas */}
-            <View
+            {/* Drawing canvas — isolated component so drawing only re-renders the
+                pad, not this whole screen (keeps the pen responsive). */}
+            <SignaturePad
+              ref={sigPadRef}
+              onValidityChange={setEsigValid}
               onLayout={e => setEsigCanvasSize({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
+              placeholder="Sign here with your finger"
               style={{
                 height: 160, backgroundColor: '#F8FAFB',
                 borderRadius: 12, borderWidth: 1.5, borderColor: '#D1D5DB',
                 borderStyle: 'dashed', overflow: 'hidden', marginBottom: 12,
               }}
-              {...esigPanResponder.panHandlers}>
-              {esigSegments.map((seg, i) => {
-                const dx = seg.x2 - seg.x1;
-                const dy = seg.y2 - seg.y1;
-                const len = Math.sqrt(dx*dx + dy*dy);
-                if (len < 1) {return null;}
-                const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                const cx = (seg.x1 + seg.x2) / 2;
-                const cy = (seg.y1 + seg.y2) / 2;
-                return (
-                  <View key={i} pointerEvents="none" style={{
-                    position: 'absolute',
-                    left: cx - len/2, top: cy - 1.5,
-                    width: len, height: 3,
-                    backgroundColor: '#1C2E45', borderRadius: 1.5,
-                    transform: [{rotate: `${angle}deg`}],
-                  }} />
-                );
-              })}
-              {esigSegments.length === 0 && (
-                <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: 13, color: '#9CA3AF'}}>Sign here with your finger</Text>
-                </View>
-              )}
-            </View>
+            />
 
             {esigError ? (
               <View style={{backgroundColor: '#FEF2F2', borderRadius: 8, padding: 10, marginBottom: 10}}>
@@ -1535,16 +1498,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <View style={{flexDirection: 'row', gap: 10}}>
               <Pressable
                 style={{flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, paddingVertical: 12, alignItems: 'center'}}
-                onPress={() => setEsigSegments([])}>
+                onPress={() => { sigPadRef.current?.clear(); setEsigValid(false); setEsigError(''); }}>
                 <Text style={{fontSize: 13, fontWeight: '700', color: '#374151'}}>Clear</Text>
               </Pressable>
               <Pressable
                 style={[{
                   flex: 2, backgroundColor: '#1066B1', borderRadius: 10,
                   paddingVertical: 12, alignItems: 'center',
-                }, (esigSaving || esigSegments.length === 0) && {opacity: 0.4}]}
+                }, (esigSaving || !esigValid) && {opacity: 0.4}]}
                 onPress={handleEsigSave}
-                disabled={esigSaving || esigSegments.length === 0}>
+                disabled={esigSaving || !esigValid}>
                 {esigSaving
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <Text style={{fontSize: 13, fontWeight: '700', color: '#fff'}}>Save E-Signature</Text>}

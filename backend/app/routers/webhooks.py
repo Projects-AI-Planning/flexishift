@@ -2,7 +2,7 @@ import json
 import stripe
 import structlog
 from datetime import datetime
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 @router.post("/stripe", status_code=200)
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+async def stripe_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     body = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
@@ -60,6 +60,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 job = db.query(Job).filter(Job.id == payment.job_id).first()
                 if job:
                     job.status = JobStatus.PAYMENT_SECURED
+                    # Generate the haulier invoice now that payment is secured.
+                    from app.routers.payments import _generate_invoice_for_secured
+                    background_tasks.add_task(_generate_invoice_for_secured, payment.job_id)
 
         elif event_type == "payment_intent.succeeded" and intent_id:
             # Funds captured and transferred

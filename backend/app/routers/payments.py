@@ -83,14 +83,42 @@ def create_payment_order(
     )
 
 
+def _generate_invoice_for_secured(job_id: str) -> None:
+    """Build the haulier's invoice once payment is secured, so it appears in the
+    haulier's Invoices immediately (not only after release). Runs as a sync
+    background task (FastAPI threadpool) — blocking PDF/upload work must stay off
+    the event loop. Idempotent: skips if an invoice already exists."""
+    import structlog
+    from app.database import SessionLocal
+    from app.services.invoice import generate_and_upload_invoice_sync
+
+    log = structlog.get_logger()
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        p = db.query(Payment).filter(Payment.job_id == job_id).first()
+        if not job or not p or job.invoice_url:
+            return
+        try:
+            job.invoice_url = generate_and_upload_invoice_sync(job, p)
+            db.commit()
+        except Exception as exc:
+            log.error("secured_invoice_failed", job_id=job_id, error=str(exc))
+    finally:
+        db.close()
+
+
 @router.post("/{job_id}/payment/verify")
 async def verify_payment(
     job_id: str,
     body: PaymentVerifyRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     p = pay_svc.verify_payment(db, job_id, body.payment_intent_id)
+    # Generate the haulier invoice now that payment is secured.
+    background_tasks.add_task(_generate_invoice_for_secured, job_id)
 
     # Notify the selected driver that payment is in escrow
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -203,6 +231,7 @@ def initiate_payment(
 @flat.post("/verify")
 async def verify_payment_flat(
     body: PaymentVerifyRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
@@ -212,6 +241,8 @@ async def verify_payment_flat(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     p = pay_svc.verify_payment(db, payment.job_id, body.payment_intent_id)
+    # Generate the haulier invoice now that payment is secured.
+    background_tasks.add_task(_generate_invoice_for_secured, payment.job_id)
 
     job = db.query(Job).filter(Job.id == payment.job_id).first()
     if job and job.selected_supplier_id:

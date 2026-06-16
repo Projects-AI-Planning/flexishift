@@ -134,6 +134,7 @@ export default function HaulierProfilePage() {
   const esigCanvasRef = useRef<HTMLCanvasElement>(null);
   const esigDrawing = useRef(false);
   const esigLastPoint = useRef<{ x: number; y: number } | null>(null);
+  const esigPathLen = useRef(0);
   const [esigHasStrokes, setEsigHasStrokes] = useState(false);
 
   const fetchProfile = useCallback(async () => {
@@ -226,7 +227,6 @@ export default function HaulierProfilePage() {
     e.preventDefault();
     esigDrawing.current = true;
     esigLastPoint.current = esigGetPos(e);
-    setEsigHasStrokes(true);
   };
 
   const esigDraw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -234,14 +234,17 @@ export default function HaulierProfilePage() {
     if (!esigDrawing.current || !esigCanvasRef.current) return;
     const ctx = esigCanvasRef.current.getContext('2d')!;
     const pos = esigGetPos(e);
+    const last = esigLastPoint.current!;
     ctx.beginPath();
-    ctx.moveTo(esigLastPoint.current!.x, esigLastPoint.current!.y);
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.strokeStyle = '#1e3a5f';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
+    esigPathLen.current += Math.hypot(pos.x - last.x, pos.y - last.y);
+    if (esigPathLen.current >= 40) setEsigHasStrokes(true);  // require real pen travel, not a click
     esigLastPoint.current = pos;
   };
 
@@ -254,6 +257,7 @@ export default function HaulierProfilePage() {
     const canvas = esigCanvasRef.current;
     if (!canvas) return;
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    esigPathLen.current = 0;
     setEsigHasStrokes(false);
   };
 

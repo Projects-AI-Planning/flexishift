@@ -290,7 +290,7 @@ const QuotesPanel: React.FC<QuotesPanelProps> = ({
             {shift.jobTime && (
               <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                 <span className="material-symbols-outlined text-[#1066b1] text-base">schedule</span>
-                <span className="font-bold text-[#041627]">Start time:</span>
+                <span className="font-bold text-[#041627]">Reporting time:</span>
                 <span className="font-mono font-black text-[#1066b1]">{shift.jobTime}</span>
               </div>
             )}

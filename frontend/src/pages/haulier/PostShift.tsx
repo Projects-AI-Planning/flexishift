@@ -247,7 +247,7 @@ const PostShiftPage: React.FC = () => {
       if (form.startDate < today)             return 'Start date cannot be in the past.';
       if (!form.hoursPerDay || Number(form.hoursPerDay) < 1 || Number(form.hoursPerDay) > 12)
         return 'Shift hours must be between 1 and 12.';
-      if (!form.timeSlot)                     return 'Please select a delivery time.';
+      if (!form.timeSlot)                     return 'Please select a reporting time.';
       if (form.startDate === today && isTimePassed(form.timeSlot))
         return 'The selected start time has already passed for today. Please choose a later time.';
     }
@@ -579,9 +579,9 @@ const PostShiftPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Deliver By — daily delivery deadline */}
+              {/* Reporting Time — when the driver must report for the shift */}
               <div>
-                <Label text="Deliver By" required hint="daily delivery deadline" />
+                <Label text="Reporting Time" required hint="when the driver should report" />
                 <div className="relative max-w-xs">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">schedule</span>
                   <input
@@ -605,7 +605,7 @@ const PostShiftPage: React.FC = () => {
                 )}
                 {form.timeSlot && !(form.startDate === today && isTimePassed(form.timeSlot)) && (
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    Delivery window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
+                    Reporting window: <span className="font-bold text-slate-600">{timeToSlot(form.timeSlot).charAt(0) + timeToSlot(form.timeSlot).slice(1).toLowerCase()}</span>
                   </p>
                 )}
               </div>
@@ -659,7 +659,7 @@ const PostShiftPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
                     <ReviewRow label="Shift Date"  value={form.startDate ? new Date(form.startDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
                     <ReviewRow label="Shift Hours" value={form.hoursPerDay ? `${form.hoursPerDay}h` : '—'} />
-                    <ReviewRow label="Deliver By"  value={form.timeSlot || '—'} />
+                    <ReviewRow label="Reporting Time"  value={form.timeSlot || '—'} />
                   </div>
                   {form.specialInstructions && (
                     <div className="pt-3 border-t border-slate-100 mb-3">

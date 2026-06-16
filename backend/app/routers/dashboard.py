@@ -181,6 +181,41 @@ def driver_overview(
         Job.deleted_at.is_(None),
     ).scalar() or 0
 
+    # ── Weekly Loads — jobs + shifts completed in the last 7 days ──────────────
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    weekly_jobs = db.query(func.count(Job.id)).filter(
+        Job.selected_supplier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.updated_at >= week_ago,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    weekly_shifts = db.query(func.count(Shift.id)).filter(
+        Shift.selected_driver_id == current_user.id,
+        Shift.status == ShiftStatus.COMPLETED,
+        Shift.updated_at >= week_ago,
+    ).scalar() or 0
+    weekly_loads = weekly_jobs + weekly_shifts
+
+    # ── On-Time Rate — % of completed jobs delivered on/before their deadline ──
+    # Deadline = explicit "deliver by" datetime, else the computed original ETA.
+    # Completion time is proxied by the job's last-updated timestamp. Only jobs
+    # that actually have a deadline are counted in the denominator.
+    completed_jobs = db.query(Job).filter(
+        Job.selected_supplier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    ).all()
+    assessable = 0
+    on_time = 0
+    for j in completed_jobs:
+        deadline = j.deliver_by_dt or j.original_eta
+        if not deadline:
+            continue
+        assessable += 1
+        if j.updated_at and j.updated_at <= deadline:
+            on_time += 1
+    on_time_rate = round(on_time / assessable * 100) if assessable else 0
+
     active_job_data = None
     if active_job:
         last_point = (
@@ -233,6 +268,8 @@ def driver_overview(
                 "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "upcomingJobs": upcoming,
+            "weeklyLoads": weekly_loads,
+            "performance": {"onTimeRate": on_time_rate},
             "rating": float(current_user.avg_rating) if current_user.avg_rating else 0.0,
             "completedJobs": current_user.completed_jobs,
             "lastUpdatedAt": datetime.utcnow().isoformat(),

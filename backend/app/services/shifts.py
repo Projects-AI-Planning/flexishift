@@ -25,6 +25,7 @@ def create_shift(db: Session, haulier: User, data: dict) -> Shift:
     haulier_currency = (haulier.currency or "").upper() or None
     shift = Shift(
         haulier_id=haulier.id,
+        country=(haulier.country or "GB").upper(),
         requirement_type=req_enum,
         start_date=start,
         end_date=end,
@@ -77,6 +78,8 @@ def list_available_shifts(db: Session, current_user: User | None = None) -> list
 
     driver_avail = None
     if current_user:
+        user_country = (current_user.country or "GB").upper()
+        q = q.filter(Shift.country == user_country)   # only show shifts posted in the driver's country
         profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
         driver_avail = profile.driver_availability if profile else None
 
@@ -469,12 +472,21 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
         except stripe.StripeError:
             pass
 
+    # Attach the haulier's Stripe Customer so saved cards can be selected at payment time.
+    shift_customer_id = None
+    try:
+        from app.services.stripe_customer import get_or_create_customer
+        shift_customer_id = get_or_create_customer(db, haulier)
+    except Exception:
+        shift_customer_id = None
+
     try:
         intent = stripe.PaymentIntent.create(
             amount=amount_minor,
             currency=currency.lower(),
             capture_method="manual",
             payment_method_types=["card"],
+            **({"customer": shift_customer_id} if shift_customer_id else {}),
             metadata={
                 "shift_id":   shift_id,
                 "shift_ref":  shift.shift_ref,

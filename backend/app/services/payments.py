@@ -94,6 +94,16 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
 
     client = _stripe_client()
 
+    # Attach the haulier's Stripe Customer so saved cards (added via the payment-setup
+    # SetupIntent flow) can be selected and confirmed against this PaymentIntent.
+    haulier_customer_id: str | None = None
+    if haulier:
+        try:
+            from app.services.stripe_customer import get_or_create_customer
+            haulier_customer_id = get_or_create_customer(db, haulier)
+        except Exception as exc:
+            log.warning("haulier_customer_resolve_failed", haulier_id=haulier_id, error=str(exc))
+
     # If there's an existing PENDING payment with a Stripe intent, check if we can reuse it.
     # If the intent is already confirmed (requires_capture), calling confirmCardPayment again
     # would produce a "processing error" — cancel it and create a fresh intent instead.
@@ -128,6 +138,7 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "currency": currency.lower(),
         "capture_method": "manual",
         "payment_method_types": ["card"],
+        **({"customer": haulier_customer_id} if haulier_customer_id else {}),
         "metadata": {
             "job_id": job_id,
             "job_ref": job.job_ref,

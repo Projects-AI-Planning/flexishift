@@ -1,11 +1,9 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {currencySymbol} from '../../utils/currency';
 import {
   ActivityIndicator,
   FlatList,
   Modal,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
+import {getCurrentLocation, describeLocationError} from '../../utils/location';
 import {colors, radius, spacing} from '../../theme';
 import Icon, {IconName} from '../../components/common/Icon';
 
@@ -43,6 +41,8 @@ interface JobDiscoveryScreenProps {
   appliedJobIds?: string[];
   docStatus: 'approved' | 'pending' | 'none';
   currency?: string;
+  appDriverLocation?: {latitude: number; longitude: number} | null;
+  onRefreshLocation?: () => void | Promise<void>;
   onSelectJob: (job: any) => void;
   onGoToDocuments: () => void;
   onRefresh: () => void;
@@ -88,6 +88,8 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
   appliedJobIds = [],
   docStatus,
   currency = '',
+  appDriverLocation = null,
+  onRefreshLocation,
   onSelectJob,
   onGoToDocuments,
   onRefresh,
@@ -101,9 +103,20 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
 
   const [activeModal, setActiveModal] = useState<'cargo' | 'date' | 'radius' | null>(null);
 
-  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(appDriverLocation);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Adopt the app-level location captured on app open (so the distance filter is
+  // ready without tapping "near me"). Seeds only when a NEW app location arrives,
+  // so the user's manual clear/refresh is not immediately overwritten.
+  const seededAppLocation = useRef(appDriverLocation);
+  useEffect(() => {
+    if (appDriverLocation && appDriverLocation !== seededAppLocation.current) {
+      seededAppLocation.current = appDriverLocation;
+      setDriverLocation(appDriverLocation);
+    }
+  }, [appDriverLocation]);
 
   const canApply = docStatus === 'approved';
   const appliedSet = new Set(appliedJobIds.filter(Boolean));
@@ -112,37 +125,12 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     setLocationLoading(true);
     setLocationError(null);
     try {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'FlexiShift needs your location to find nearby jobs.',
-            buttonPositive: 'Allow',
-            buttonNegative: 'Deny',
-            buttonNeutral: 'Ask Me Later',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          setLocationError('Location permission denied');
-          setLocationLoading(false);
-          return;
-        }
-      }
-      Geolocation.getCurrentPosition(
-        pos => {
-          setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
-          if (!radiusFilter) {setRadiusFilter('50 km');}
-          setLocationLoading(false);
-        },
-        err => {
-          setLocationError(err.code === 1 ? 'Permission denied' : 'Unable to get location');
-          setLocationLoading(false);
-        },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000},
-      );
-    } catch {
-      setLocationError('Location unavailable');
+      const coords = await getCurrentLocation();
+      setDriverLocation(coords);
+      if (!radiusFilter) {setRadiusFilter('50 km');}
+    } catch (err) {
+      setLocationError(describeLocationError(err));
+    } finally {
       setLocationLoading(false);
     }
   };
@@ -151,6 +139,15 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
     setDriverLocation(null);
     setRadiusFilter(null);
     setLocationError(null);
+  };
+
+  // Selecting a specific km radius is meaningless without the driver's location,
+  // so acquire it automatically when a radius is chosen and we don't have it yet.
+  const handleRadiusSelect = (v: string | null) => {
+    setRadiusFilter(v);
+    if (v && !driverLocation && !locationLoading) {
+      requestLocation();
+    }
   };
 
   // Derive unique cargo types from loaded jobs
@@ -521,7 +518,7 @@ const JobDiscoveryScreen: React.FC<JobDiscoveryScreenProps> = ({
       {activeModal === 'date' &&
         renderModal('Pickup Date', PICKUP_DATE_OPTIONS, dateFilter, setDateFilter)}
       {activeModal === 'radius' &&
-        renderModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, setRadiusFilter)}
+        renderModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, handleRadiusSelect)}
 
     </View>
   );

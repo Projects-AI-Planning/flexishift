@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Geolocation from '@react-native-community/geolocation';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {setDisplayCurrency} from './utils/currency';
+import {getCurrentLocation} from './utils/location';
 import {
   ActivityIndicator,
   Alert,
@@ -482,6 +483,19 @@ function DriverApp(): React.JSX.Element {
 
   const [locationStatus, setLocationStatus] = useState<'checking' | 'granted' | 'denied' | 'disabled'>('checking');
 
+  // Driver's captured coordinates — acquired once permission is granted on app open
+  // and shared with the Jobs/Shifts screens so their distance filter works without
+  // the driver having to tap the "near me" button first.
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+
+  const refreshDriverLocation = useCallback(async () => {
+    try {
+      setDriverLocation(await getCurrentLocation());
+    } catch {
+      // permission denied / unavailable — leave location unset; screens fall back to "All"
+    }
+  }, []);
+
   const checkLocation = useCallback(async () => {
     if (Platform.OS === 'android') {
       try {
@@ -557,6 +571,14 @@ function DriverApp(): React.JSX.Element {
     });
     return () => sub.remove();
   }, [checkLocation]);
+
+  // Once location permission is granted, capture the actual coordinates so the
+  // Jobs/Shifts distance filter is powered automatically from app open.
+  useEffect(() => {
+    if (locationStatus === 'granted' && !driverLocation) {
+      refreshDriverLocation();
+    }
+  }, [locationStatus, driverLocation, refreshDriverLocation]);
 
   // Navigation
   const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
@@ -3520,6 +3542,8 @@ function DriverApp(): React.JSX.Element {
           error={errorBanner}
           refreshing={refreshing}
           currency={session?.currency}
+          appDriverLocation={driverLocation}
+          onRefreshLocation={refreshDriverLocation}
           onRefresh={async () => {
             setRefreshing(true);
             await loadShifts();
@@ -4007,6 +4031,8 @@ function DriverApp(): React.JSX.Element {
           appliedJobIds={myQuotes.map(q => String(q.jobId ?? ''))}
           docStatus={docStatus}
           currency={session?.currency}
+          appDriverLocation={driverLocation}
+          onRefreshLocation={refreshDriverLocation}
           onSelectJob={(job: any) => {
             setSelectedJob(job);
             setSelectedJobDetails(job);

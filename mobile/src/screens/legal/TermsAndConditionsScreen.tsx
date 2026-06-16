@@ -240,7 +240,7 @@ const TermsAndConditionsScreen: React.FC<TermsAndConditionsScreenProps> = ({onBa
       </Section>
 
       {/* 9. Disputes */}
-      <Section title="9. Disputes and Escrow Release">
+      <Section title="9. Disputes and Payment Release">
         <Body>
           FlexiShift does not bear responsibility for handling disputes. This must be addressed through appropriate legal channels. A corresponding rating of the experience must be given via the platform.
         </Body>
@@ -248,7 +248,7 @@ const TermsAndConditionsScreen: React.FC<TermsAndConditionsScreenProps> = ({onBa
           {'\n'}FlexiShift may deduct outstanding platform fees, commission, or cancellation charges from escrow before release where applicable.
         </Body>
         <Body>
-          {'\n'}FlexiShift accepts no financial liability in connection with any dispute between Users. FlexiShift's involvement is an administrative convenience only and does not constitute a legal or arbitral award.
+          {'\n'}FlexiShift accepts no financial liability in connection with any dispute or errors between Users. FlexiShift's involvement is an administrative convenience only and does not constitute a legal or arbitral award.
         </Body>
         <Body>
           {'\n'}Unresolved disputes may be referred to court, independent arbitration, the relevant insurer, or the Third-Party Payment Processor's own procedure. FlexiShift will provide access to Platform evidence records on receipt of a valid legal request.

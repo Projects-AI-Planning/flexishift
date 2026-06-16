@@ -16,6 +16,8 @@ import {
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import type {Asset} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
+import {isMeaningfulSignature, segmentsToSmoothPath} from '../../utils/signature';
+import Svg, {Path} from 'react-native-svg';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -107,7 +109,9 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
           lastPoint.current = {x: locationX, y: locationY};
           segmentsRef.current = [...segmentsRef.current, seg];
           setSegments(s => [...s, seg]);
-          onSignRef.current(true);
+          if (isMeaningfulSignature(segmentsRef.current)) {
+            onSignRef.current(true);
+          }
         },
         onPanResponderRelease: () => { lastPoint.current = null; },
       }),
@@ -115,30 +119,19 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
 
     return (
       <View style={sigPadStyles.canvas} {...panResponder.panHandlers}>
-        {segments.map((seg, i) => {
-          const dx  = seg.x2 - seg.x1;
-          const dy  = seg.y2 - seg.y1;
-          const len = Math.sqrt(dx * dx + dy * dy);
-          if (len < 1) {return null;}
-          const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-          const cx = (seg.x1 + seg.x2) / 2;
-          const cy = (seg.y1 + seg.y2) / 2;
-          return (
-            <View
-              key={i}
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                left: cx - len / 2,
-                top:  cy - 1.5,
-                width: len, height: 3,
-                backgroundColor: '#1C2E45',
-                borderRadius: 1.5,
-                transform: [{rotate: `${angle}deg`}],
-              }}
+        {/* One SVG path instead of hundreds of rotated <View>s — keeps drawing smooth. */}
+        <Svg width="100%" height="100%" pointerEvents="none" style={{position: 'absolute', top: 0, left: 0}}>
+          {segments.length > 0 && (
+            <Path
+              d={segmentsToSmoothPath(segments)}
+              stroke="#1C2E45"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
             />
-          );
-        })}
+          )}
+        </Svg>
       </View>
     );
   },
@@ -369,26 +362,19 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
                     borderRadius: 12, borderWidth: 1.5, borderColor: '#93C5FD',
                     overflow: 'hidden', marginBottom: 10,
                   }}>
-                  {hasSegs && sigBoxWidth > 0 && segs.map((seg, i) => {
+                  {hasSegs && sigBoxWidth > 0 && (() => {
                     const scaleX = sigBoxWidth / storedW;
                     const scaleY = 110 / storedH;
-                    const x1 = seg.x1 * scaleX; const y1 = seg.y1 * scaleY;
-                    const x2 = seg.x2 * scaleX; const y2 = seg.y2 * scaleY;
-                    const dx = x2 - x1; const dy = y2 - y1;
-                    const len = Math.sqrt(dx * dx + dy * dy);
-                    if (len < 1) {return null;}
-                    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                    const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+                    const scaled = segs.map(s => ({
+                      x1: s.x1 * scaleX, y1: s.y1 * scaleY,
+                      x2: s.x2 * scaleX, y2: s.y2 * scaleY,
+                    }));
                     return (
-                      <View key={i} pointerEvents="none" style={{
-                        position: 'absolute',
-                        left: cx - len / 2, top: cy - 1.5,
-                        width: len, height: 3,
-                        backgroundColor: '#1C2E45', borderRadius: 1.5,
-                        transform: [{rotate: `${angle}deg`}],
-                      }} />
+                      <Svg width="100%" height="100%" pointerEvents="none" style={{position: 'absolute', top: 0, left: 0}}>
+                        <Path d={segmentsToSmoothPath(scaled)} stroke="#1C2E45" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                      </Svg>
                     );
-                  })}
+                  })()}
                   {(!hasSegs || sigBoxWidth === 0) && (
                     <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
                       <Text style={{fontSize: 24, marginBottom: 4}}>✍️</Text>
@@ -451,7 +437,7 @@ const ShiftHandoverScreen: React.FC<ShiftHandoverScreenProps> = ({
             onPress={() => {
               setSubmitted(true);
               const segs = driverSigRef.current?.getSegments() ?? [];
-              const sigData = segs.length > 0
+              const sigData = isMeaningfulSignature(segs)
                 ? JSON.stringify(segs)
                 : (savedSignature ?? 'driver_signed');
               void onSubmit(

@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {fmtMoney, currencySymbol} from '../../utils/currency';
 import {
   ActivityIndicator,
@@ -6,7 +6,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Modal,
-  PermissionsAndroid,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
+import {getCurrentLocation, describeLocationError} from '../../utils/location';
 
 import {colors, spacing, radius, shadow} from '../../theme';
 import Icon from '../../components/common/Icon';
@@ -92,6 +91,8 @@ interface ShiftsScreenProps {
   refreshing: boolean;
   onRefresh: () => void;
   currency?: string;
+  appDriverLocation?: {latitude: number; longitude: number} | null;
+  onRefreshLocation?: () => void | Promise<void>;
   onSubmitQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
   onEditShiftQuote: (shiftId: string, amountPerDay: number, notes: string) => Promise<void>;
   onWithdrawQuote: (shiftId: string) => Promise<void>;
@@ -293,7 +294,7 @@ function AvailableShiftCard({
           <View style={styles.metaItem}>
             <Icon name="alarm" size={20} color="#000000" strokeWidth={2} />
             <View>
-              <Text style={styles.metaTag}>DELIVER BY</Text>
+              <Text style={styles.metaTag}>REPORTING TIME</Text>
               <Text style={styles.metaVal}>{shift.jobTime}</Text>
             </View>
           </View>
@@ -361,7 +362,7 @@ function AvailableShiftCard({
           </View>
           {shift.jobTime ? (
             <View style={styles.expandedInfoRow}>
-              <Text style={styles.expandedInfoLabel}>Deliver By</Text>
+              <Text style={styles.expandedInfoLabel}>Reporting Time</Text>
               <Text style={styles.expandedInfoValue}>{shift.jobTime}</Text>
             </View>
           ) : null}
@@ -710,7 +711,7 @@ function BookedShiftCard({
           </View>
           {shift.jobTime ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Deliver By</Text>
+              <Text style={styles.detailKey}>Reporting Time</Text>
               <Text style={styles.detailValue}>{shift.jobTime}</Text>
             </View>
           ) : null}
@@ -1075,6 +1076,8 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   onGoToProfile,
   onGoToAvailability,
   currency = '',
+  appDriverLocation = null,
+  onRefreshLocation,
   paymentSetupComplete = true,
   onGoToPaymentSetup,
   onEditShiftQuote,
@@ -1093,45 +1096,31 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
   const [activeModal, setActiveModal] = useState<'req' | 'date' | 'radius' | null>(null);
 
   // ── Geo location state ────────────────────────────────────────────────────
-  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(appDriverLocation);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Adopt the app-level location captured on app open (so the distance filter is
+  // ready without tapping "near me"). Seeds only when a NEW app location arrives,
+  // so the user's manual clear/refresh is not immediately overwritten.
+  const seededAppLocation = useRef(appDriverLocation);
+  useEffect(() => {
+    if (appDriverLocation && appDriverLocation !== seededAppLocation.current) {
+      seededAppLocation.current = appDriverLocation;
+      setDriverLocation(appDriverLocation);
+    }
+  }, [appDriverLocation]);
 
   const requestLocation = async () => {
     setLocationLoading(true);
     setLocationError(null);
     try {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'FlexiShift needs your location to find nearby shifts.',
-            buttonPositive: 'Allow',
-            buttonNegative: 'Deny',
-            buttonNeutral: 'Ask Me Later',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          setLocationError('Location permission denied');
-          setLocationLoading(false);
-          return;
-        }
-      }
-      Geolocation.getCurrentPosition(
-        pos => {
-          setDriverLocation({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
-          if (!radiusFilter) {setRadiusFilter('50 km');}
-          setLocationLoading(false);
-        },
-        err => {
-          setLocationError(err.code === 1 ? 'Permission denied' : 'Unable to get location');
-          setLocationLoading(false);
-        },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000},
-      );
-    } catch {
-      setLocationError('Location unavailable');
+      const coords = await getCurrentLocation();
+      setDriverLocation(coords);
+      if (!radiusFilter) {setRadiusFilter('50 km');}
+    } catch (err) {
+      setLocationError(describeLocationError(err));
+    } finally {
       setLocationLoading(false);
     }
   };
@@ -1140,6 +1129,15 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
     setDriverLocation(null);
     setRadiusFilter(null);
     setLocationError(null);
+  };
+
+  // Selecting a specific km radius is meaningless without the driver's location,
+  // so acquire it automatically when a radius is chosen and we don't have it yet.
+  const handleRadiusSelect = (v: string | null) => {
+    setRadiusFilter(v);
+    if (v && !driverLocation && !locationLoading) {
+      requestLocation();
+    }
   };
 
   // ── Quote map ─────────────────────────────────────────────────────────────
@@ -1582,7 +1580,7 @@ const ShiftsScreen: React.FC<ShiftsScreenProps> = ({
       {activeModal === 'date' &&
         renderFilterModal('Start Date', DATE_OPTIONS, dateFilter, setDateFilter)}
       {activeModal === 'radius' &&
-        renderFilterModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, setRadiusFilter)}
+        renderFilterModal('Distance / Radius', RADIUS_OPTIONS, radiusFilter, handleRadiusSelect)}
 
       {/* ── Quote modal (new / edit / resubmit) ─────────────────────────── */}
       {(quotingShift || editingQuote || resubmittingQuote) && (() => {

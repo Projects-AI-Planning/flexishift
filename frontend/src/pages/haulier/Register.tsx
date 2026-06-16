@@ -5,36 +5,204 @@ import { Eye, EyeOff, Truck } from 'lucide-react';
 import haulierService from '../../api/haulierService';
 
 const COUNTRIES = [
-  { flag: '🇬🇧', name: 'United Kingdom',  iso: 'GB', code: '+44',  currency: 'GBP' },
-  { flag: '🇺🇸', name: 'United States',   iso: 'US', code: '+1',   currency: 'USD' },
-  { flag: '🇨🇦', name: 'Canada',          iso: 'CA', code: '+1',   currency: 'CAD' },
-  { flag: '🇮🇳', name: 'India',           iso: 'IN', code: '+91',  currency: 'INR' },
-  { flag: '🇵🇰', name: 'Pakistan',        iso: 'PK', code: '+92',  currency: 'PKR' },
-  { flag: '🇧🇩', name: 'Bangladesh',      iso: 'BD', code: '+880', currency: 'BDT' },
-  { flag: '🇳🇬', name: 'Nigeria',         iso: 'NG', code: '+234', currency: 'NGN' },
-  { flag: '🇬🇭', name: 'Ghana',           iso: 'GH', code: '+233', currency: 'GHS' },
-  { flag: '🇿🇦', name: 'South Africa',    iso: 'ZA', code: '+27',  currency: 'ZAR' },
-  { flag: '🇵🇱', name: 'Poland',          iso: 'PL', code: '+48',  currency: 'PLN' },
-  { flag: '🇷🇴', name: 'Romania',         iso: 'RO', code: '+40',  currency: 'RON' },
-  { flag: '🇧🇬', name: 'Bulgaria',        iso: 'BG', code: '+359', currency: 'BGN' },
-  { flag: '🇱🇹', name: 'Lithuania',       iso: 'LT', code: '+370', currency: 'EUR' },
-  { flag: '🇱🇻', name: 'Latvia',          iso: 'LV', code: '+371', currency: 'EUR' },
-  { flag: '🇩🇪', name: 'Germany',         iso: 'DE', code: '+49',  currency: 'EUR' },
-  { flag: '🇫🇷', name: 'France',          iso: 'FR', code: '+33',  currency: 'EUR' },
-  { flag: '🇮🇪', name: 'Ireland',         iso: 'IE', code: '+353', currency: 'EUR' },
-  { flag: '🇳🇱', name: 'Netherlands',     iso: 'NL', code: '+31',  currency: 'EUR' },
-  { flag: '🇧🇪', name: 'Belgium',         iso: 'BE', code: '+32',  currency: 'EUR' },
-  { flag: '🇪🇸', name: 'Spain',           iso: 'ES', code: '+34',  currency: 'EUR' },
-  { flag: '🇮🇹', name: 'Italy',           iso: 'IT', code: '+39',  currency: 'EUR' },
-  { flag: '🇵🇹', name: 'Portugal',        iso: 'PT', code: '+351', currency: 'EUR' },
-  { flag: '🇺🇦', name: 'Ukraine',         iso: 'UA', code: '+380', currency: 'UAH' },
-  { flag: '🇵🇭', name: 'Philippines',     iso: 'PH', code: '+63',  currency: 'PHP' },
-  { flag: '🇦🇺', name: 'Australia',       iso: 'AU', code: '+61',  currency: 'AUD' },
-  { flag: '🇸🇬', name: 'Singapore',       iso: 'SG', code: '+65',  currency: 'SGD' },
-  { flag: '🇦🇪', name: 'UAE',             iso: 'AE', code: '+971', currency: 'AED' },
-  { flag: '🇸🇦', name: 'Saudi Arabia',    iso: 'SA', code: '+966', currency: 'SAR' },
-  { flag: '🇳🇴', name: 'Norway',          iso: 'NO', code: '+47',  currency: 'NOK' },
-  { flag: '🇸🇪', name: 'Sweden',          iso: 'SE', code: '+46',  currency: 'SEK' },
+  { flag: '🇦🇫', name: 'Afghanistan', iso: 'AF', code: '+93', currency: 'AFN' },
+  { flag: '🇦🇱', name: 'Albania', iso: 'AL', code: '+355', currency: 'ALL' },
+  { flag: '🇩🇿', name: 'Algeria', iso: 'DZ', code: '+213', currency: 'DZD' },
+  { flag: '🇦🇩', name: 'Andorra', iso: 'AD', code: '+376', currency: 'EUR' },
+  { flag: '🇦🇴', name: 'Angola', iso: 'AO', code: '+244', currency: 'AOA' },
+  { flag: '🇦🇬', name: 'Antigua and Barbuda', iso: 'AG', code: '+1268', currency: 'XCD' },
+  { flag: '🇦🇷', name: 'Argentina', iso: 'AR', code: '+54', currency: 'ARS' },
+  { flag: '🇦🇲', name: 'Armenia', iso: 'AM', code: '+374', currency: 'AMD' },
+  { flag: '🇦🇺', name: 'Australia', iso: 'AU', code: '+61', currency: 'AUD' },
+  { flag: '🇦🇹', name: 'Austria', iso: 'AT', code: '+43', currency: 'EUR' },
+  { flag: '🇦🇿', name: 'Azerbaijan', iso: 'AZ', code: '+994', currency: 'AZN' },
+  { flag: '🇧🇸', name: 'Bahamas', iso: 'BS', code: '+1242', currency: 'BSD' },
+  { flag: '🇧🇭', name: 'Bahrain', iso: 'BH', code: '+973', currency: 'BHD' },
+  { flag: '🇧🇩', name: 'Bangladesh', iso: 'BD', code: '+880', currency: 'BDT' },
+  { flag: '🇧🇧', name: 'Barbados', iso: 'BB', code: '+1246', currency: 'BBD' },
+  { flag: '🇧🇾', name: 'Belarus', iso: 'BY', code: '+375', currency: 'BYN' },
+  { flag: '🇧🇪', name: 'Belgium', iso: 'BE', code: '+32', currency: 'EUR' },
+  { flag: '🇧🇿', name: 'Belize', iso: 'BZ', code: '+501', currency: 'BZD' },
+  { flag: '🇧🇯', name: 'Benin', iso: 'BJ', code: '+229', currency: 'XOF' },
+  { flag: '🇧🇹', name: 'Bhutan', iso: 'BT', code: '+975', currency: 'BTN' },
+  { flag: '🇧🇴', name: 'Bolivia', iso: 'BO', code: '+591', currency: 'BOB' },
+  { flag: '🇧🇦', name: 'Bosnia and Herzegovina', iso: 'BA', code: '+387', currency: 'BAM' },
+  { flag: '🇧🇼', name: 'Botswana', iso: 'BW', code: '+267', currency: 'BWP' },
+  { flag: '🇧🇷', name: 'Brazil', iso: 'BR', code: '+55', currency: 'BRL' },
+  { flag: '🇧🇳', name: 'Brunei', iso: 'BN', code: '+673', currency: 'BND' },
+  { flag: '🇧🇬', name: 'Bulgaria', iso: 'BG', code: '+359', currency: 'BGN' },
+  { flag: '🇧🇫', name: 'Burkina Faso', iso: 'BF', code: '+226', currency: 'XOF' },
+  { flag: '🇧🇮', name: 'Burundi', iso: 'BI', code: '+257', currency: 'BIF' },
+  { flag: '🇰🇭', name: 'Cambodia', iso: 'KH', code: '+855', currency: 'KHR' },
+  { flag: '🇨🇲', name: 'Cameroon', iso: 'CM', code: '+237', currency: 'XAF' },
+  { flag: '🇨🇦', name: 'Canada', iso: 'CA', code: '+1', currency: 'CAD' },
+  { flag: '🇨🇻', name: 'Cape Verde', iso: 'CV', code: '+238', currency: 'CVE' },
+  { flag: '🇨🇫', name: 'Central African Republic', iso: 'CF', code: '+236', currency: 'XAF' },
+  { flag: '🇹🇩', name: 'Chad', iso: 'TD', code: '+235', currency: 'XAF' },
+  { flag: '🇨🇱', name: 'Chile', iso: 'CL', code: '+56', currency: 'CLP' },
+  { flag: '🇨🇳', name: 'China', iso: 'CN', code: '+86', currency: 'CNY' },
+  { flag: '🇨🇴', name: 'Colombia', iso: 'CO', code: '+57', currency: 'COP' },
+  { flag: '🇰🇲', name: 'Comoros', iso: 'KM', code: '+269', currency: 'KMF' },
+  { flag: '🇨🇬', name: 'Congo', iso: 'CG', code: '+242', currency: 'XAF' },
+  { flag: '🇨🇩', name: 'Congo (DRC)', iso: 'CD', code: '+243', currency: 'CDF' },
+  { flag: '🇨🇷', name: 'Costa Rica', iso: 'CR', code: '+506', currency: 'CRC' },
+  { flag: '🇨🇮', name: "Cote d'Ivoire", iso: 'CI', code: '+225', currency: 'XOF' },
+  { flag: '🇭🇷', name: 'Croatia', iso: 'HR', code: '+385', currency: 'EUR' },
+  { flag: '🇨🇺', name: 'Cuba', iso: 'CU', code: '+53', currency: 'CUP' },
+  { flag: '🇨🇾', name: 'Cyprus', iso: 'CY', code: '+357', currency: 'EUR' },
+  { flag: '🇨🇿', name: 'Czech Republic', iso: 'CZ', code: '+420', currency: 'CZK' },
+  { flag: '🇩🇰', name: 'Denmark', iso: 'DK', code: '+45', currency: 'DKK' },
+  { flag: '🇩🇯', name: 'Djibouti', iso: 'DJ', code: '+253', currency: 'DJF' },
+  { flag: '🇩🇲', name: 'Dominica', iso: 'DM', code: '+1767', currency: 'XCD' },
+  { flag: '🇩🇴', name: 'Dominican Republic', iso: 'DO', code: '+1809', currency: 'DOP' },
+  { flag: '🇪🇨', name: 'Ecuador', iso: 'EC', code: '+593', currency: 'USD' },
+  { flag: '🇪🇬', name: 'Egypt', iso: 'EG', code: '+20', currency: 'EGP' },
+  { flag: '🇸🇻', name: 'El Salvador', iso: 'SV', code: '+503', currency: 'USD' },
+  { flag: '🇬🇶', name: 'Equatorial Guinea', iso: 'GQ', code: '+240', currency: 'XAF' },
+  { flag: '🇪🇷', name: 'Eritrea', iso: 'ER', code: '+291', currency: 'ERN' },
+  { flag: '🇪🇪', name: 'Estonia', iso: 'EE', code: '+372', currency: 'EUR' },
+  { flag: '🇸🇿', name: 'Eswatini', iso: 'SZ', code: '+268', currency: 'SZL' },
+  { flag: '🇪🇹', name: 'Ethiopia', iso: 'ET', code: '+251', currency: 'ETB' },
+  { flag: '🇫🇯', name: 'Fiji', iso: 'FJ', code: '+679', currency: 'FJD' },
+  { flag: '🇫🇮', name: 'Finland', iso: 'FI', code: '+358', currency: 'EUR' },
+  { flag: '🇫🇷', name: 'France', iso: 'FR', code: '+33', currency: 'EUR' },
+  { flag: '🇬🇦', name: 'Gabon', iso: 'GA', code: '+241', currency: 'XAF' },
+  { flag: '🇬🇲', name: 'Gambia', iso: 'GM', code: '+220', currency: 'GMD' },
+  { flag: '🇬🇪', name: 'Georgia', iso: 'GE', code: '+995', currency: 'GEL' },
+  { flag: '🇩🇪', name: 'Germany', iso: 'DE', code: '+49', currency: 'EUR' },
+  { flag: '🇬🇭', name: 'Ghana', iso: 'GH', code: '+233', currency: 'GHS' },
+  { flag: '🇬🇷', name: 'Greece', iso: 'GR', code: '+30', currency: 'EUR' },
+  { flag: '🇬🇩', name: 'Grenada', iso: 'GD', code: '+1473', currency: 'XCD' },
+  { flag: '🇬🇹', name: 'Guatemala', iso: 'GT', code: '+502', currency: 'GTQ' },
+  { flag: '🇬🇳', name: 'Guinea', iso: 'GN', code: '+224', currency: 'GNF' },
+  { flag: '🇬🇼', name: 'Guinea-Bissau', iso: 'GW', code: '+245', currency: 'XOF' },
+  { flag: '🇬🇾', name: 'Guyana', iso: 'GY', code: '+592', currency: 'GYD' },
+  { flag: '🇭🇹', name: 'Haiti', iso: 'HT', code: '+509', currency: 'HTG' },
+  { flag: '🇭🇳', name: 'Honduras', iso: 'HN', code: '+504', currency: 'HNL' },
+  { flag: '🇭🇰', name: 'Hong Kong', iso: 'HK', code: '+852', currency: 'HKD' },
+  { flag: '🇭🇺', name: 'Hungary', iso: 'HU', code: '+36', currency: 'HUF' },
+  { flag: '🇮🇸', name: 'Iceland', iso: 'IS', code: '+354', currency: 'ISK' },
+  { flag: '🇮🇳', name: 'India', iso: 'IN', code: '+91', currency: 'INR' },
+  { flag: '🇮🇩', name: 'Indonesia', iso: 'ID', code: '+62', currency: 'IDR' },
+  { flag: '🇮🇷', name: 'Iran', iso: 'IR', code: '+98', currency: 'IRR' },
+  { flag: '🇮🇶', name: 'Iraq', iso: 'IQ', code: '+964', currency: 'IQD' },
+  { flag: '🇮🇪', name: 'Ireland', iso: 'IE', code: '+353', currency: 'EUR' },
+  { flag: '🇮🇱', name: 'Israel', iso: 'IL', code: '+972', currency: 'ILS' },
+  { flag: '🇮🇹', name: 'Italy', iso: 'IT', code: '+39', currency: 'EUR' },
+  { flag: '🇯🇲', name: 'Jamaica', iso: 'JM', code: '+1876', currency: 'JMD' },
+  { flag: '🇯🇵', name: 'Japan', iso: 'JP', code: '+81', currency: 'JPY' },
+  { flag: '🇯🇴', name: 'Jordan', iso: 'JO', code: '+962', currency: 'JOD' },
+  { flag: '🇰🇿', name: 'Kazakhstan', iso: 'KZ', code: '+7', currency: 'KZT' },
+  { flag: '🇰🇪', name: 'Kenya', iso: 'KE', code: '+254', currency: 'KES' },
+  { flag: '🇰🇮', name: 'Kiribati', iso: 'KI', code: '+686', currency: 'AUD' },
+  { flag: '🇰🇼', name: 'Kuwait', iso: 'KW', code: '+965', currency: 'KWD' },
+  { flag: '🇰🇬', name: 'Kyrgyzstan', iso: 'KG', code: '+996', currency: 'KGS' },
+  { flag: '🇱🇦', name: 'Laos', iso: 'LA', code: '+856', currency: 'LAK' },
+  { flag: '🇱🇻', name: 'Latvia', iso: 'LV', code: '+371', currency: 'EUR' },
+  { flag: '🇱🇧', name: 'Lebanon', iso: 'LB', code: '+961', currency: 'LBP' },
+  { flag: '🇱🇸', name: 'Lesotho', iso: 'LS', code: '+266', currency: 'LSL' },
+  { flag: '🇱🇷', name: 'Liberia', iso: 'LR', code: '+231', currency: 'LRD' },
+  { flag: '🇱🇾', name: 'Libya', iso: 'LY', code: '+218', currency: 'LYD' },
+  { flag: '🇱🇮', name: 'Liechtenstein', iso: 'LI', code: '+423', currency: 'CHF' },
+  { flag: '🇱🇹', name: 'Lithuania', iso: 'LT', code: '+370', currency: 'EUR' },
+  { flag: '🇱🇺', name: 'Luxembourg', iso: 'LU', code: '+352', currency: 'EUR' },
+  { flag: '🇲🇴', name: 'Macau', iso: 'MO', code: '+853', currency: 'MOP' },
+  { flag: '🇲🇬', name: 'Madagascar', iso: 'MG', code: '+261', currency: 'MGA' },
+  { flag: '🇲🇼', name: 'Malawi', iso: 'MW', code: '+265', currency: 'MWK' },
+  { flag: '🇲🇾', name: 'Malaysia', iso: 'MY', code: '+60', currency: 'MYR' },
+  { flag: '🇲🇻', name: 'Maldives', iso: 'MV', code: '+960', currency: 'MVR' },
+  { flag: '🇲🇱', name: 'Mali', iso: 'ML', code: '+223', currency: 'XOF' },
+  { flag: '🇲🇹', name: 'Malta', iso: 'MT', code: '+356', currency: 'EUR' },
+  { flag: '🇲🇭', name: 'Marshall Islands', iso: 'MH', code: '+692', currency: 'USD' },
+  { flag: '🇲🇷', name: 'Mauritania', iso: 'MR', code: '+222', currency: 'MRU' },
+  { flag: '🇲🇺', name: 'Mauritius', iso: 'MU', code: '+230', currency: 'MUR' },
+  { flag: '🇲🇽', name: 'Mexico', iso: 'MX', code: '+52', currency: 'MXN' },
+  { flag: '🇫🇲', name: 'Micronesia', iso: 'FM', code: '+691', currency: 'USD' },
+  { flag: '🇲🇩', name: 'Moldova', iso: 'MD', code: '+373', currency: 'MDL' },
+  { flag: '🇲🇨', name: 'Monaco', iso: 'MC', code: '+377', currency: 'EUR' },
+  { flag: '🇲🇳', name: 'Mongolia', iso: 'MN', code: '+976', currency: 'MNT' },
+  { flag: '🇲🇪', name: 'Montenegro', iso: 'ME', code: '+382', currency: 'EUR' },
+  { flag: '🇲🇦', name: 'Morocco', iso: 'MA', code: '+212', currency: 'MAD' },
+  { flag: '🇲🇿', name: 'Mozambique', iso: 'MZ', code: '+258', currency: 'MZN' },
+  { flag: '🇲🇲', name: 'Myanmar', iso: 'MM', code: '+95', currency: 'MMK' },
+  { flag: '🇳🇦', name: 'Namibia', iso: 'NA', code: '+264', currency: 'NAD' },
+  { flag: '🇳🇷', name: 'Nauru', iso: 'NR', code: '+674', currency: 'AUD' },
+  { flag: '🇳🇵', name: 'Nepal', iso: 'NP', code: '+977', currency: 'NPR' },
+  { flag: '🇳🇱', name: 'Netherlands', iso: 'NL', code: '+31', currency: 'EUR' },
+  { flag: '🇳🇿', name: 'New Zealand', iso: 'NZ', code: '+64', currency: 'NZD' },
+  { flag: '🇳🇮', name: 'Nicaragua', iso: 'NI', code: '+505', currency: 'NIO' },
+  { flag: '🇳🇪', name: 'Niger', iso: 'NE', code: '+227', currency: 'XOF' },
+  { flag: '🇳🇬', name: 'Nigeria', iso: 'NG', code: '+234', currency: 'NGN' },
+  { flag: '🇰🇵', name: 'North Korea', iso: 'KP', code: '+850', currency: 'KPW' },
+  { flag: '🇲🇰', name: 'North Macedonia', iso: 'MK', code: '+389', currency: 'MKD' },
+  { flag: '🇳🇴', name: 'Norway', iso: 'NO', code: '+47', currency: 'NOK' },
+  { flag: '🇴🇲', name: 'Oman', iso: 'OM', code: '+968', currency: 'OMR' },
+  { flag: '🇵🇰', name: 'Pakistan', iso: 'PK', code: '+92', currency: 'PKR' },
+  { flag: '🇵🇼', name: 'Palau', iso: 'PW', code: '+680', currency: 'USD' },
+  { flag: '🇵🇸', name: 'Palestine', iso: 'PS', code: '+970', currency: 'ILS' },
+  { flag: '🇵🇦', name: 'Panama', iso: 'PA', code: '+507', currency: 'PAB' },
+  { flag: '🇵🇬', name: 'Papua New Guinea', iso: 'PG', code: '+675', currency: 'PGK' },
+  { flag: '🇵🇾', name: 'Paraguay', iso: 'PY', code: '+595', currency: 'PYG' },
+  { flag: '🇵🇪', name: 'Peru', iso: 'PE', code: '+51', currency: 'PEN' },
+  { flag: '🇵🇭', name: 'Philippines', iso: 'PH', code: '+63', currency: 'PHP' },
+  { flag: '🇵🇱', name: 'Poland', iso: 'PL', code: '+48', currency: 'PLN' },
+  { flag: '🇵🇹', name: 'Portugal', iso: 'PT', code: '+351', currency: 'EUR' },
+  { flag: '🇶🇦', name: 'Qatar', iso: 'QA', code: '+974', currency: 'QAR' },
+  { flag: '🇷🇴', name: 'Romania', iso: 'RO', code: '+40', currency: 'RON' },
+  { flag: '🇷🇺', name: 'Russia', iso: 'RU', code: '+7', currency: 'RUB' },
+  { flag: '🇷🇼', name: 'Rwanda', iso: 'RW', code: '+250', currency: 'RWF' },
+  { flag: '🇰🇳', name: 'Saint Kitts and Nevis', iso: 'KN', code: '+1869', currency: 'XCD' },
+  { flag: '🇱🇨', name: 'Saint Lucia', iso: 'LC', code: '+1758', currency: 'XCD' },
+  { flag: '🇻🇨', name: 'Saint Vincent and the Grenadines', iso: 'VC', code: '+1784', currency: 'XCD' },
+  { flag: '🇼🇸', name: 'Samoa', iso: 'WS', code: '+685', currency: 'WST' },
+  { flag: '🇸🇲', name: 'San Marino', iso: 'SM', code: '+378', currency: 'EUR' },
+  { flag: '🇸🇹', name: 'Sao Tome and Principe', iso: 'ST', code: '+239', currency: 'STN' },
+  { flag: '🇸🇦', name: 'Saudi Arabia', iso: 'SA', code: '+966', currency: 'SAR' },
+  { flag: '🇸🇳', name: 'Senegal', iso: 'SN', code: '+221', currency: 'XOF' },
+  { flag: '🇷🇸', name: 'Serbia', iso: 'RS', code: '+381', currency: 'RSD' },
+  { flag: '🇸🇨', name: 'Seychelles', iso: 'SC', code: '+248', currency: 'SCR' },
+  { flag: '🇸🇱', name: 'Sierra Leone', iso: 'SL', code: '+232', currency: 'SLL' },
+  { flag: '🇸🇬', name: 'Singapore', iso: 'SG', code: '+65', currency: 'SGD' },
+  { flag: '🇸🇰', name: 'Slovakia', iso: 'SK', code: '+421', currency: 'EUR' },
+  { flag: '🇸🇮', name: 'Slovenia', iso: 'SI', code: '+386', currency: 'EUR' },
+  { flag: '🇸🇧', name: 'Solomon Islands', iso: 'SB', code: '+677', currency: 'SBD' },
+  { flag: '🇸🇴', name: 'Somalia', iso: 'SO', code: '+252', currency: 'SOS' },
+  { flag: '🇿🇦', name: 'South Africa', iso: 'ZA', code: '+27', currency: 'ZAR' },
+  { flag: '🇰🇷', name: 'South Korea', iso: 'KR', code: '+82', currency: 'KRW' },
+  { flag: '🇸🇸', name: 'South Sudan', iso: 'SS', code: '+211', currency: 'SSP' },
+  { flag: '🇪🇸', name: 'Spain', iso: 'ES', code: '+34', currency: 'EUR' },
+  { flag: '🇱🇰', name: 'Sri Lanka', iso: 'LK', code: '+94', currency: 'LKR' },
+  { flag: '🇸🇩', name: 'Sudan', iso: 'SD', code: '+249', currency: 'SDG' },
+  { flag: '🇸🇷', name: 'Suriname', iso: 'SR', code: '+597', currency: 'SRD' },
+  { flag: '🇸🇪', name: 'Sweden', iso: 'SE', code: '+46', currency: 'SEK' },
+  { flag: '🇨🇭', name: 'Switzerland', iso: 'CH', code: '+41', currency: 'CHF' },
+  { flag: '🇸🇾', name: 'Syria', iso: 'SY', code: '+963', currency: 'SYP' },
+  { flag: '🇹🇼', name: 'Taiwan', iso: 'TW', code: '+886', currency: 'TWD' },
+  { flag: '🇹🇯', name: 'Tajikistan', iso: 'TJ', code: '+992', currency: 'TJS' },
+  { flag: '🇹🇿', name: 'Tanzania', iso: 'TZ', code: '+255', currency: 'TZS' },
+  { flag: '🇹🇭', name: 'Thailand', iso: 'TH', code: '+66', currency: 'THB' },
+  { flag: '🇹🇱', name: 'Timor-Leste', iso: 'TL', code: '+670', currency: 'USD' },
+  { flag: '🇹🇬', name: 'Togo', iso: 'TG', code: '+228', currency: 'XOF' },
+  { flag: '🇹🇴', name: 'Tonga', iso: 'TO', code: '+676', currency: 'TOP' },
+  { flag: '🇹🇹', name: 'Trinidad and Tobago', iso: 'TT', code: '+1868', currency: 'TTD' },
+  { flag: '🇹🇳', name: 'Tunisia', iso: 'TN', code: '+216', currency: 'TND' },
+  { flag: '🇹🇷', name: 'Turkey', iso: 'TR', code: '+90', currency: 'TRY' },
+  { flag: '🇹🇲', name: 'Turkmenistan', iso: 'TM', code: '+993', currency: 'TMT' },
+  { flag: '🇹🇻', name: 'Tuvalu', iso: 'TV', code: '+688', currency: 'AUD' },
+  { flag: '🇺🇬', name: 'Uganda', iso: 'UG', code: '+256', currency: 'UGX' },
+  { flag: '🇺🇦', name: 'Ukraine', iso: 'UA', code: '+380', currency: 'UAH' },
+  { flag: '🇦🇪', name: 'United Arab Emirates', iso: 'AE', code: '+971', currency: 'AED' },
+  { flag: '🇬🇧', name: 'United Kingdom', iso: 'GB', code: '+44', currency: 'GBP' },
+  { flag: '🇺🇸', name: 'United States', iso: 'US', code: '+1', currency: 'USD' },
+  { flag: '🇺🇾', name: 'Uruguay', iso: 'UY', code: '+598', currency: 'UYU' },
+  { flag: '🇺🇿', name: 'Uzbekistan', iso: 'UZ', code: '+998', currency: 'UZS' },
+  { flag: '🇻🇺', name: 'Vanuatu', iso: 'VU', code: '+678', currency: 'VUV' },
+  { flag: '🇻🇦', name: 'Vatican City', iso: 'VA', code: '+379', currency: 'EUR' },
+  { flag: '🇻🇪', name: 'Venezuela', iso: 'VE', code: '+58', currency: 'VES' },
+  { flag: '🇻🇳', name: 'Vietnam', iso: 'VN', code: '+84', currency: 'VND' },
+  { flag: '🇾🇪', name: 'Yemen', iso: 'YE', code: '+967', currency: 'YER' },
+  { flag: '🇿🇲', name: 'Zambia', iso: 'ZM', code: '+260', currency: 'ZMW' },
+  { flag: '🇿🇼', name: 'Zimbabwe', iso: 'ZW', code: '+263', currency: 'ZWL' },
 ];
 
 const Register: React.FC = () => {
@@ -55,6 +223,7 @@ const Register: React.FC = () => {
   const esigCanvasRef = useRef<HTMLCanvasElement>(null);
   const esigDrawing = useRef(false);
   const esigLastPoint = useRef<{ x: number; y: number } | null>(null);
+  const esigPathLen = useRef(0);
   const [esigHasStrokes, setEsigHasStrokes] = useState(false);
   const [orgDocFile, setOrgDocFile] = useState<File | null>(null);
 
@@ -84,11 +253,15 @@ const Register: React.FC = () => {
     };
   };
 
+  // A real signature must have some actual pen travel — a plain click/tap (no
+  // movement) must NOT count. We accumulate the drawn path length and only mark
+  // the signature valid once it exceeds this threshold.
+  const ESIG_MIN_PATH = 40; // px of total stroke travel
+
   const esigStartDraw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     esigDrawing.current = true;
     esigLastPoint.current = esigGetPos(e);
-    setEsigHasStrokes(true);
   };
 
   const esigDraw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -96,14 +269,19 @@ const Register: React.FC = () => {
     if (!esigDrawing.current || !esigCanvasRef.current) return;
     const ctx = esigCanvasRef.current.getContext('2d')!;
     const pos = esigGetPos(e);
+    const last = esigLastPoint.current!;
     ctx.beginPath();
-    ctx.moveTo(esigLastPoint.current!.x, esigLastPoint.current!.y);
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.strokeStyle = '#1e3a5f';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
+    esigPathLen.current += Math.hypot(pos.x - last.x, pos.y - last.y);
+    if (!esigHasStrokes && esigPathLen.current >= ESIG_MIN_PATH) {
+      setEsigHasStrokes(true);
+    }
     esigLastPoint.current = pos;
   };
 
@@ -116,6 +294,7 @@ const Register: React.FC = () => {
     const canvas = esigCanvasRef.current;
     if (!canvas) return;
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    esigPathLen.current = 0;
     setEsigHasStrokes(false);
   };
 

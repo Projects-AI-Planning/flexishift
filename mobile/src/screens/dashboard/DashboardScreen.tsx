@@ -89,7 +89,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const sym = currencySymbol(currency);
   const activeJob = dashboard?.activeJob;
   const todayEarnings = Number(dashboard?.todaySummary?.todayEarnings ?? 0);
-  const totalJobs = earnings?.summary?.totalJobs ?? 0;
+  const weeklyLoads = dashboard?.weeklyLoads ?? 0;
   const onTimeRate = dashboard?.performance?.onTimeRate ?? '0';
   const firstName = (driverName ?? 'Driver').split(' ')[0];
   const progressPct = Math.min((todayEarnings / DAILY_TARGET) * 100, 100);
@@ -163,7 +163,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <View style={styles.metricGrid}>
         <View style={styles.metricItem}>
           <Card title="Weekly Loads" subtitle="Last 7 days">
-            <Text style={styles.metricValue}>{String(totalJobs ?? 0)}</Text>
+            <Text style={styles.metricValue}>{String(weeklyLoads ?? 0)}</Text>
           </Card>
         </View>
         <View style={styles.metricItem}>

@@ -34,6 +34,7 @@ class Job(Base):
 
     id:                   Mapped[str]       = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     haulier_id:           Mapped[str]       = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    country:              Mapped[str]       = mapped_column(String(2), nullable=True, default="GB")
     job_ref:              Mapped[str]       = mapped_column(String(20), nullable=False, unique=True)
     load_code:            Mapped[str]       = mapped_column(String(10), nullable=False)
     access_code:          Mapped[str]       = mapped_column(String(50), nullable=True)

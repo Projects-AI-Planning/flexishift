@@ -130,7 +130,11 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
     detected_country, detected_currency = phone_to_country_currency(phone)
     # Prefer client-provided values; fall back to phone-detected ones
     final_country  = (country or detected_country or "").upper()[:2] or None
-    final_currency = (currency or detected_currency or "").upper() or None
+    # Currency is country-wise: client sends the selected country's currency, but if
+    # it's missing, derive it from the chosen country before falling back to phone.
+    from app.utils.phone_country import _COUNTRY_CURRENCY
+    country_currency = _COUNTRY_CURRENCY.get(final_country) if final_country else None
+    final_currency = (currency or country_currency or detected_currency or "").upper() or None
 
     otp = _generate_otp()
     pending = {

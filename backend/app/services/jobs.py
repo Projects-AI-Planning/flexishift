@@ -143,6 +143,7 @@ async def create_job(db: Session, haulier: User, data: dict) -> Job:
 
     job = Job(
         haulier_id=haulier.id,
+        country=(haulier.country or "GB").upper(),
         job_ref=job_ref,
         load_code=data.get("load_code", "").strip().upper(),
         access_code=(data.get("access_code") or "").strip().upper() or None,
@@ -296,10 +297,12 @@ def list_available_jobs(
         return {"items": [], "total": 0, "page": page, "per_page": per_page}
     from datetime import date as _date
     today = _date.today()
+    user_country = (current_user.country or "GB").upper()
     q = db.query(Job).filter(
         Job.status == JobStatus.OPEN,
         Job.deleted_at.is_(None),
         Job.job_date >= today,          # hide jobs whose pickup date has passed
+        Job.country == user_country,    # only show jobs posted in the driver's country
     )
     if vehicle_type:
         q = q.filter(Job.vehicle_type == vehicle_type)

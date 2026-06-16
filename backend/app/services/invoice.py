@@ -244,11 +244,16 @@ async def send_shift_invoice_to_driver(shift, payment, driver, day_number: int, 
         return None
 
 
-async def generate_and_upload_invoice(job, payment) -> str:
+def generate_and_upload_invoice_sync(job, payment) -> str:
+    """Blocking PDF build + upload. Call from a worker thread / sync background
+    task — never inline on the event loop (it freezes all requests)."""
     pdf_bytes = generate_invoice_pdf(job, payment)
     key = f"invoices/{job.job_ref}.pdf"
-    url = s3.upload_bytes(settings.AZURE_CONTAINER_INVOICES, key, pdf_bytes, "application/pdf")
-    return url
+    return s3.upload_bytes(settings.AZURE_CONTAINER_INVOICES, key, pdf_bytes, "application/pdf")
+
+
+async def generate_and_upload_invoice(job, payment) -> str:
+    return generate_and_upload_invoice_sync(job, payment)
 
 
 async def send_invoice_to_driver(job, payment, driver, db=None) -> str | None:

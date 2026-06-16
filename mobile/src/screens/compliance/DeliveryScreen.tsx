@@ -16,6 +16,8 @@ import {
 import AppInput from '../../components/common/AppInput';
 import {launchCamera, launchImageLibrary, Asset} from 'react-native-image-picker';
 import {colors, radius, spacing} from '../../theme';
+import {isMeaningfulStrokes, strokesToSmoothPath} from '../../utils/signature';
+import Svg, {Path} from 'react-native-svg';
 
 interface DeliveryScreenProps {
   jobId: string;
@@ -144,7 +146,7 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
   const isComplete =
     receiverName.length > 2 &&
     deliveryPhotos.length > 0 &&
-    signatureSegments.length > 0;
+    isMeaningfulStrokes(signaturePoints);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -239,12 +241,17 @@ const DeliveryScreen: React.FC<DeliveryScreenProps> = ({
             </Pressable>
           </View>
           <View style={styles.sigBox} {...panResponder.panHandlers}>
-            {signatureSegments.length ? (
-              <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                {signatureSegments.map((segment, idx) => (
-                  <View key={`${idx}`} style={segment} />
-                ))}
-              </View>
+            {signaturePoints.some(st => st.length > 1) ? (
+              <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Path
+                  d={strokesToSmoothPath(signaturePoints)}
+                  stroke="#1C2E45"
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </Svg>
             ) : (
               <Text style={styles.sigHint}>Sign here</Text>
             )}
