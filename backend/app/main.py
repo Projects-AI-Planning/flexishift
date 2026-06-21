@@ -125,6 +125,7 @@ from app.routers import (
     fleet,
     invoices,
     jobs,
+    legal,
     local_storage,
     maps,
     notifications,
@@ -271,6 +272,8 @@ app.include_router(fleet.router, prefix=PREFIX)
 app.include_router(system.router, prefix=PREFIX)
 app.include_router(webhooks.router, prefix=PREFIX)
 app.include_router(ws.router)
+# Public legal pages (account deletion, etc.) — no prefix, no auth, must return 200
+app.include_router(legal.router)
 
 
 @app.get("/api/v1/health")

@@ -1,18 +1,20 @@
 buildscript {
     ext {
         buildToolsVersion = "35.0.0"
-        minSdkVersion = 21
+        minSdkVersion = 24
         compileSdkVersion = 35
         targetSdkVersion = 35
-        kotlinVersion = "1.9.0"
+        // NDK r28+ links native libraries with 16 KB-aligned LOAD segments by default,
+        // satisfying Google Play's 16 KB memory page size requirement.
+        ndkVersion = "28.2.13676358"
+        kotlinVersion = "2.1.20"
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // AGP 8.3.1 fixes the jlink --disable-plugin system-modules incompatibility with JDK 21
-        classpath("com.android.tools.build:gradle:8.3.1")
+        classpath("com.android.tools.build:gradle:8.11.0")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
     }
