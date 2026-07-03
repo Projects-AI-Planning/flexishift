@@ -142,9 +142,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       label: 'Job Management',
       children: [
         { to: '/admin/jobs/all', label: 'All Jobs' },
-        { to: '/admin/jobs/active', label: 'Active' },
-        { to: '/admin/jobs/completed', label: 'Completed' },
-        { to: '/admin/jobs/cancelled', label: 'Cancelled' },
       ],
     },
     {

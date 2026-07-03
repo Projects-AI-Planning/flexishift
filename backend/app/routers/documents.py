@@ -117,11 +117,12 @@ def get_my_document(
 
 
 async def _notify_admins_new_doc(db: Session, submitter: User, doc: Document) -> None:
+    from app.core.enums import NotificationType
     admins = db.query(User).filter(User.role == Role.ADMIN).all()
     doc_label = doc.doc_type.value.replace("_", " ").title()
     for admin in admins:
         await create_notification(
-            db, admin.id, "DOCUMENT_SUBMITTED",
+            db, admin.id, NotificationType.DRIVER_DOCUMENT_SUBMITTED.value,
             "New Document for Review",
             f"{submitter.full_name} submitted a {doc_label} for verification.",
             {"doc_id": doc.id, "doc_type": doc.doc_type.value, "user_id": submitter.id},

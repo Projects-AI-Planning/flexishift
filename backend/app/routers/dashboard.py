@@ -1780,6 +1780,18 @@ def admin_overview(
     )
 
 
+def _get_effective_status(u: User) -> str:
+    if u.role == Role.DRIVER:
+        if not u.documents:
+            return "pending_documents"
+        if any(doc.status != DocStatus.APPROVED for doc in u.documents):
+            return "pending_documents"
+    elif u.role == Role.HAULIER:
+        if not u.admin_approved:
+            return "pending_approval"
+    return u.status.value.lower()
+
+
 @router.get("/admin/users/list")
 def admin_list_users(
     role: str = Query(None),
@@ -1818,7 +1830,7 @@ def admin_list_users(
             "role": u.role.value.lower(),
             "isVerified": u.verified,
             "isProfileComplete": u.profile_complete,
-            "accountStatus": u.status.value.lower(),
+            "accountStatus": _get_effective_status(u),
             "totalJobs": u.completed_jobs,
             "rating": float(u.avg_rating) if u.avg_rating else 0.0,
             "joinedAt": u.created_at.isoformat() if u.created_at else None,

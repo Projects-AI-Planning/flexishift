@@ -196,7 +196,28 @@ const adminService = {
   changePassword: (data: Record<string, unknown>) => client.put('/auth/change-password', data).then((res) => res.data),
   getMe: () => client.get('/profile/me').then((res) => res.data.data),
   updateProfile: (data: Record<string, unknown>) => client.put('/profile/update', data).then((res) => res.data.data),
-  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then((res) => res.data.data),
+  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then((res) => {
+    const user = res.data.data;
+    if (user) {
+      const roleLower = user.role?.toLowerCase();
+      if (roleLower === 'haulier' || roleLower === 'firm') {
+        user.haulierProfile = {
+          companyName: user.profile?.companyName || '',
+          gstNumber: user.profile?.vatNumber || '',
+          companyAddress: user.profile?.companyAddress || '',
+          organisationNumber: user.profile?.organisationNumber || '',
+        };
+      } else if (roleLower === 'driver') {
+        user.driverProfile = {
+          vehicleType: user.profile?.vehicleType || '',
+          licenseVerified: !!user.isVerified,
+          licenceNumber: user.profile?.licenceNumber || '',
+          vehicleRegistration: user.profile?.vehicleRegistration || '',
+        };
+      }
+    }
+    return user;
+  }),
 
   // EPIC 2: Supplier Document Verification
   listPendingDocuments: (params?: { page?: number; limit?: number; documentType?: string }) =>

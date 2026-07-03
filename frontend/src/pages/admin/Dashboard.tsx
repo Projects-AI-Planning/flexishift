@@ -104,10 +104,7 @@ const AdminDashboard = () => {
               <span className="material-symbols-outlined text-sm">refresh</span>
               Refresh
             </button>
-            <button className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black text-white transition hover:bg-white/10">
-              <span className="material-symbols-outlined text-sm">file_download</span>
-              Export
-            </button>
+            
           </div>
         </div>
       </section>

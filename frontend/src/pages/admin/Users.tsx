@@ -7,10 +7,14 @@ interface ExtendedUser extends User {
   haulierProfile?: {
     companyName: string;
     gstNumber: string;
+    companyAddress?: string;
+    organisationNumber?: string;
   };
   driverProfile?: {
     vehicleType: string;
     licenseVerified: boolean;
+    licenceNumber?: string;
+    vehicleRegistration?: string;
   };
 }
 
@@ -481,21 +485,25 @@ const UsersPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>
-                    <p className="text-sm font-bold text-primary">{selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleDateString() : 'N/A'}</p>
-                  </div>
                 </div>
                 <div className="space-y-4">
-                  {selectedRole === 'haulier' && (
+                  {(selectedRole === 'haulier' || selectedRole === 'firm') && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Name</p>
                         <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.companyName || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">GST Number</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">GST / VAT Number</p>
                         <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.gstNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Organisation Number</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.organisationNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Address</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.companyAddress || 'N/A'}</p>
                       </div>
                     </>
                   )}
@@ -506,8 +514,20 @@ const UsersPage: React.FC = () => {
                         <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.vehicleType || 'N/A'}</p>
                       </div>
                       <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Registration</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.vehicleRegistration || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Licence Number</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.licenceNumber || 'N/A'}</p>
+                      </div>
+                      <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">License Verified</p>
-                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.licenseVerified ? 'Yes' : 'No'}</p>
+                        <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-lg mt-1 ${
+                          selectedUser.driverProfile?.licenseVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {selectedUser.driverProfile?.licenseVerified ? 'Verified' : 'Pending Verification'}
+                        </span>
                       </div>
                     </>
                   )}

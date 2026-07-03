@@ -197,13 +197,26 @@ async def verify_email(db: Session, token: str, email: str | None = None, r=None
             org_doc_url = pending.get("organisation_doc_url")
             if org_doc_url and _role == Role.HAULIER:
                 from app.models.document import Document, DocType, DocStatus
-                db.add(Document(
+                from app.services.notifications import create_notification
+                from app.core.enums import NotificationType
+                doc = Document(
                     user_id=user.id,
                     doc_type=DocType.COMPANY_REG,
                     custom_name="Organisation Registration",
                     file_url=org_doc_url,
                     status=DocStatus.PENDING,
-                ))
+                )
+                db.add(doc)
+                db.flush()
+                # Notify Admins
+                admins = db.query(User).filter(User.role == Role.ADMIN).all()
+                for admin in admins:
+                    await create_notification(
+                        db, admin.id, NotificationType.HAULIER_REGISTRATION_PENDING.value,
+                        "New Haulier Registration",
+                        f"New haulier {user.full_name} registered and pending approval.",
+                        {"user_id": user.id, "doc_id": doc.id}
+                    )
             db.commit()
             db.refresh(user)
             _delete_pending(r, email)
