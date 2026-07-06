@@ -47,11 +47,13 @@ class RegisterRequest(BaseModel):
         if not self.phone:
             return self
 
-        country_code = (self.country or "GB").upper()
+        import phonenumbers
+        from phonenumbers import geocoder
+
+        default_region = (self.country or "GB").upper()
 
         try:
-            import phonenumbers
-            parsed = phonenumbers.parse(self.phone, country_code)
+            parsed = phonenumbers.parse(self.phone, default_region)
             if not phonenumbers.is_valid_number(parsed):
                 raise ValidationError.from_exception_data(
                     self.__class__.__name__,
@@ -59,31 +61,40 @@ class RegisterRequest(BaseModel):
                         "type": "value_error",
                         "loc": ("body", "phone"),
                         "input": self.phone,
-                        "ctx": {"error": ValueError(f"Please enter a valid phone number for country {country_code}.")}
+                        "ctx": {"error": ValueError("Please enter a valid phone number.")}
                     }]
                 )
-            if parsed.country_code != phonenumbers.country_code_for_region(country_code):
-                raise ValidationError.from_exception_data(
-                    self.__class__.__name__,
-                    [{
-                        "type": "value_error",
-                        "loc": ("body", "phone"),
-                        "input": self.phone,
-                        "ctx": {"error": ValueError(f"Phone number does not match the selected country {country_code}.")}
-                    }]
-                )
+
+            detected_region = geocoder.region_code_for_number(parsed)
+
+            if self.country:
+                expected_calling_code = phonenumbers.country_code_for_region(self.country.upper())
+                if parsed.country_code != expected_calling_code:
+                    raise ValidationError.from_exception_data(
+                        self.__class__.__name__,
+                        [{
+                            "type": "value_error",
+                            "loc": ("body", "phone"),
+                            "input": self.phone,
+                            "ctx": {"error": ValueError(f"Phone number does not match the selected country {self.country.upper()}.")}
+                        }]
+                    )
+            else:
+                if detected_region:
+                    self.country = detected_region.upper()
+
             # Normalize to E.164
             self.phone = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
         except ValidationError:
             raise
-        except Exception:
+        except Exception as e:
             raise ValidationError.from_exception_data(
                 self.__class__.__name__,
                 [{
                     "type": "value_error",
                     "loc": ("body", "phone"),
                     "input": self.phone,
-                    "ctx": {"error": ValueError(f"Invalid phone number format for country {country_code}.")}
+                    "ctx": {"error": ValueError(str(e) or "Invalid phone number format.")}
                 }]
             )
 

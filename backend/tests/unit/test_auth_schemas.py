@@ -69,4 +69,4 @@ def test_register_phone_invalid_format():
             role="DRIVER",
             country="GB",
         )
-    assert "Please enter a valid phone number for country GB" in str(exc_info.value)
+    assert "Please enter a valid phone number" in str(exc_info.value)
