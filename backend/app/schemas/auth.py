@@ -54,7 +54,7 @@ class RegisterRequest(BaseModel):
 
         try:
             parsed = phonenumbers.parse(self.phone, default_region)
-            if not phonenumbers.is_valid_number(parsed):
+            if phonenumbers.is_possible_number_with_reason(parsed) != phonenumbers.ValidationResult.IS_POSSIBLE:
                 raise ValidationError.from_exception_data(
                     self.__class__.__name__,
                     [{
