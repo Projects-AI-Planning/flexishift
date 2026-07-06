@@ -159,6 +159,15 @@ async def register(db: Session, full_name: str, email: str, phone: str | None, p
     if r is not None:
         r.setex(f"{EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
 
+    try:
+        import os
+        log_dir = "/home/neosoftmailcom/Desktop/FreightFlex/Freightflex/backend/logs"
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "otp.log"), "a") as f:
+            f.write(f"Email: {email}, OTP: {otp}\n")
+    except Exception:
+        pass
+
     email_sent = await send_verification_email(email, full_name, otp)
     return {"email": email, "role": role, "email_sent": email_sent}
 

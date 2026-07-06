@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import get_redis, get_current_user
 from app.models.user import User
 from app.core.security import verify_password, hash_password
+from app.services import s3
 
 _PHONE_PREFIX_CURRENCY: dict = {
     '+44': 'GBP', '+1': 'USD', '+91': 'INR', '+92': 'PKR', '+880': 'BDT',
@@ -200,7 +201,7 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), r
             "currency": _user_currency(user) if user else settings.PAYMENT_CURRENCY,
             "isVerified": user.verified if user else None,
             "isProfileComplete": user.profile_complete if user else None,
-            "profilePhoto": profile.photo_url if profile else None,
+            "profilePhoto": s3.presign_url(profile.photo_url) if profile else None,
             "isAdminApproved": user.admin_approved if user else None,
         },
         message="Login successful",

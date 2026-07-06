@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
 from typing import Optional
 import re
 
@@ -41,6 +41,53 @@ class RegisterRequest(BaseModel):
         if v not in ("DRIVER", "HAULIER", "FIRM"):
             raise ValueError("Role must be DRIVER, HAULIER, or FIRM")
         return v
+
+    @model_validator(mode="after")
+    def validate_phone_number_by_country(self) -> "RegisterRequest":
+        if not self.phone:
+            return self
+
+        country_code = (self.country or "GB").upper()
+
+        try:
+            import phonenumbers
+            parsed = phonenumbers.parse(self.phone, country_code)
+            if not phonenumbers.is_valid_number(parsed):
+                raise ValidationError.from_exception_data(
+                    self.__class__.__name__,
+                    [{
+                        "type": "value_error",
+                        "loc": ("body", "phone"),
+                        "input": self.phone,
+                        "ctx": {"error": ValueError(f"Please enter a valid phone number for country {country_code}.")}
+                    }]
+                )
+            if parsed.country_code != phonenumbers.country_code_for_region(country_code):
+                raise ValidationError.from_exception_data(
+                    self.__class__.__name__,
+                    [{
+                        "type": "value_error",
+                        "loc": ("body", "phone"),
+                        "input": self.phone,
+                        "ctx": {"error": ValueError(f"Phone number does not match the selected country {country_code}.")}
+                    }]
+                )
+            # Normalize to E.164
+            self.phone = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+        except ValidationError:
+            raise
+        except Exception:
+            raise ValidationError.from_exception_data(
+                self.__class__.__name__,
+                [{
+                    "type": "value_error",
+                    "loc": ("body", "phone"),
+                    "input": self.phone,
+                    "ctx": {"error": ValueError(f"Invalid phone number format for country {country_code}.")}
+                }]
+            )
+
+        return self
 
 
 class VerifyEmailRequest(BaseModel):

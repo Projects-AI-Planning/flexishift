@@ -18,10 +18,23 @@ def _stripe():
 
 def get_or_create_customer(db: Session, user: User) -> str:
     """Return existing Stripe Customer ID or create a new one."""
-    if user.stripe_customer_id:
-        return user.stripe_customer_id
-
     client = _stripe()
+    if user.stripe_customer_id:
+        try:
+            client.Customer.retrieve(user.stripe_customer_id)
+            return user.stripe_customer_id
+        except stripe.InvalidRequestError as e:
+            if "no such customer" in str(e).lower():
+                log.warning("stripe_customer_not_found_on_gateway", user_id=user.id, customer_id=user.stripe_customer_id)
+                user.stripe_customer_id = None
+                db.commit()
+            else:
+                log.error("stripe_customer_retrieve_failed", user_id=user.id, error=str(e))
+                raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message or str(e)}")
+        except stripe.StripeError as e:
+            log.error("stripe_customer_retrieve_failed", user_id=user.id, error=str(e))
+            raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message or str(e)}")
+
     try:
         customer = client.Customer.create(
             email=user.email,

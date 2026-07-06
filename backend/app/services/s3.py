@@ -75,3 +75,24 @@ def delete_object(container: str, blob_name: str) -> None:
 def _content_settings(content_type: str):
     from azure.storage.blob import ContentSettings
     return ContentSettings(content_type=content_type)
+
+
+def presign_url(raw_url: str | None, expires: int = 86400) -> str | None:
+    if not raw_url:
+        return None
+    if "/static/uploads/" in raw_url or "/uploads/" in raw_url:
+        return raw_url
+
+    try:
+        if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
+            base_blob_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/"
+            if raw_url.startswith(base_blob_url):
+                path_part = raw_url[len(base_blob_url):]
+                parts = path_part.split("/", 1)
+                if len(parts) == 2:
+                    container, key = parts
+                    return generate_presigned_download(container, key, expires=expires)
+        return raw_url
+    except Exception:
+        return raw_url
+

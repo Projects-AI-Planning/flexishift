@@ -13,6 +13,7 @@ from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 from app.services import quotes as quotes_svc
 from app.services.jobs import cancel_job
+from app.services import s3
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
@@ -91,7 +92,7 @@ def _booking_dict(job: Job) -> dict:
             "userId": supplier.id,
             "name": supplier.full_name,
             "phone": supplier.phone,
-            "photoUrl": supplier_profile.photo_url if supplier_profile else None,
+            "photoUrl": s3.presign_url(supplier_profile.photo_url) if supplier_profile else None,
             "vehicleType": supplier_profile.vehicle_type if supplier_profile else None,
             "vehicleNumber": supplier_profile.vehicle_registration if supplier_profile else None,
             "avgRating": float(supplier.avg_rating) if supplier.avg_rating is not None else None,

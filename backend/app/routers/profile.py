@@ -122,26 +122,7 @@ def _check_profile_complete(user: User, db=None) -> None:
 
 
 def _presigned_photo_url(raw_url: str | None) -> str | None:
-    if not raw_url:
-        return None
-    # For local uploads, return as is if already a full URL
-    if "/static/uploads/" in raw_url or "/uploads/" in raw_url:
-        return raw_url
-
-    try:
-        if settings.AZURE_STORAGE_ACCOUNT_NAME and settings.AZURE_STORAGE_ACCOUNT_KEY:
-            prefix = (
-                f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}"
-                f".blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/"
-            )
-            if raw_url.startswith(prefix):
-                key = raw_url[len(prefix):]
-                return s3.generate_presigned_download(
-                    settings.AZURE_CONTAINER_DOCS, key, expires=86400
-                )
-        return raw_url
-    except Exception:
-        return raw_url
+    return s3.presign_url(raw_url)
 
 
 def _local_photo_url(request: Request, key: str) -> str:

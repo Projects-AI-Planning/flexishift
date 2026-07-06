@@ -9,6 +9,7 @@ from app.models.user import User, UserStatus
 from app.models.notification import Notification
 from app.schemas.users import UpdateProfileRequest, UpdateLocationRequest, ChangePasswordRequest
 from app.core.security import verify_password, hash_password
+from app.services import s3
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -28,7 +29,7 @@ def _user_data(user: User) -> dict:
         "completedJobs": user.completed_jobs,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "profile": {
-            "photoUrl": profile.photo_url if profile else None,
+            "photoUrl": s3.presign_url(profile.photo_url) if profile else None,
             "licenceNumber": profile.licence_number if profile else None,
             "vehicleType": profile.vehicle_type if profile else None,
             "vehicleRegistration": profile.vehicle_registration if profile else None,

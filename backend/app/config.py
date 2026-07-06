@@ -44,6 +44,7 @@ class Settings(BaseSettings):
 
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_RESTRICTED_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_BACKEND_URL: str = ""
     STRIPE_FRONTEND_URL: str = ""

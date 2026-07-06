@@ -10,6 +10,7 @@ from app.dependencies import get_current_user, require_role
 from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 from app.services import quotes as quotes_svc
+from app.services import s3
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
@@ -48,7 +49,7 @@ def _supplier_snippet(quote: Quote) -> Optional[dict]:
     return {
         "supplierId": supplier.id,
         "name": supplier.full_name,
-        "photoUrl": profile.photo_url if profile else None,
+        "photoUrl": s3.presign_url(profile.photo_url) if profile else None,
         "vehicleType": profile.vehicle_type if profile else None,
         "vehicleNumber": profile.vehicle_registration if profile else None,
         "avgRating": float(supplier.avg_rating) if supplier.avg_rating is not None else None,
