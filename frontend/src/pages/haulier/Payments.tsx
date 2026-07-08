@@ -168,6 +168,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
   const mountedCardRef = useRef<StripeCardElement | null>(null);
   const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
   const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
+  const [elementsInstance, setElementsInstance] = useState<any>(null);
   const [confirming, setConfirming] = useState(false);
   const [cardError, setCardError] = useState('');
   const isTest = order.publishableKey.startsWith('pk_test');
@@ -199,16 +200,26 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
         const stripe = window.Stripe!(order.publishableKey);
         setStripeInstance(stripe);
         if (cardRef.current) {
-          const elements = stripe.elements();
-          const card = elements.create('card', {
-            style: {
-              base: { fontSize: '15px', color: '#041627', '::placeholder': { color: '#94a3b8' } },
+          const elements = stripe.elements({
+            clientSecret: order.clientSecret,
+            appearance: {
+              theme: 'stripe',
+              variables: {
+                colorPrimary: '#6366f1',
+                colorBackground: '#ffffff',
+                colorText: '#041627',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              },
             },
           });
-          card.mount(cardRef.current);
-          card.on('change', (e) => setCardError(e.error?.message ?? ''));
-          setCardElement(card);
-          mountedCardRef.current = card;
+          setElementsInstance(elements);
+          const paymentEl = elements.create('payment', {
+            layout: 'tabs',
+          });
+          paymentEl.mount(cardRef.current);
+          paymentEl.on('change', (e: any) => setCardError(e.error?.message ?? ''));
+          setCardElement(paymentEl);
+          mountedCardRef.current = paymentEl;
         }
       } catch {
         onError('Failed to load payment SDK. Please refresh and try again.');
@@ -230,12 +241,20 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
     setConfirming(true);
     setCardError('');
     try {
-      const result = await stripeInstance.confirmCardPayment(
-        order.clientSecret,
-        useNewCard
-          ? { payment_method: { card: cardElement! } }
-          : { payment_method: selectedCard },
+      const result = await (useNewCard
+        ? (stripeInstance as any).confirmPayment({
+            elements: elementsInstance,
+            confirmParams: {
+              return_url: window.location.origin + `/haulier/payments?jobId=${job.bookingId}&isShift=${job.isShift ? 'true' : 'false'}&redirect_status=succeeded`,
+            },
+            redirect: 'if_required',
+          })
+        : stripeInstance.confirmCardPayment(
+            order.clientSecret,
+            { payment_method: selectedCard }
+          )
       );
+
       if (result.error) {
         setCardError(result.error.message);
         setConfirming(false);
@@ -497,6 +516,36 @@ const CreatePaymentTab: React.FC = () => {
       highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [preselectedJobId, preselectedShiftId, loading]);
+
+  // Handle Stripe payment redirect callback
+  useEffect(() => {
+    const redirectStatus = searchParams.get('redirect_status');
+    const paymentIntentId = searchParams.get('payment_intent');
+    const jobId = searchParams.get('jobId');
+    const isShiftVal = searchParams.get('isShift') === 'true';
+
+    if ((redirectStatus === 'succeeded' || redirectStatus === 'requires_capture') && paymentIntentId && jobId) {
+      setLoading(true);
+      const verify = async () => {
+        try {
+          if (isShiftVal) {
+            await haulierService.verifyShiftPayment(jobId, paymentIntentId);
+          } else {
+            await haulierService.verifyPayment({ paymentIntentId });
+          }
+          setSuccessJobIds((prev) => new Set(prev).add(jobId));
+          setJobs((prev) => prev.filter((j) => j.bookingId !== jobId));
+        } catch (e: any) {
+          setPayError(e?.response?.data?.message ?? e?.message ?? 'Payment verification failed after redirect.');
+        } finally {
+          setLoading(false);
+          // Clear search params to avoid re-triggering verify on page refreshes
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      };
+      void verify();
+    }
+  }, [searchParams]);
 
   const handleSecurePayment = async (job: BookedJob) => {
     setPayingJobId(job.bookingId);

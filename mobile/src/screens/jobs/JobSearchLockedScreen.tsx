@@ -19,7 +19,7 @@ export interface AvailabilityGateInfo {
   profileChecks: ProfileCheck[];
   docChecks: DocCheck[];
   esignatureCheck?: {done: boolean};
-  nextAction: 'set_availability' | 'complete_profile' | 'upload_docs' | 'wait_approval' | 'doc_expired' | 'add_esignature';
+  nextAction: 'set_availability' | 'complete_profile' | 'upload_docs' | 'wait_approval' | 'wait_reupload_approval' | 'doc_expired' | 'add_esignature';
   expiredDocName?: string;
 }
 
@@ -65,6 +65,15 @@ const CONFIG = {
     iconBorder: '#BFDBFE',
     title: 'Documents Under Verification',
     subtitle: 'Your documents have been submitted and are being reviewed by the admin. You will be notified once approved.',
+    btnLabel: null,
+    btnColor: null,
+  },
+  wait_reupload_approval: {
+    icon: 'clock' as const,
+    iconBg: '#EAF3FD',
+    iconBorder: '#BFDBFE',
+    title: 'Reuploaded Doc Under Verification',
+    subtitle: 'Your re-uploaded documents have been submitted and are being reviewed by the admin. You will be notified once approved.',
     btnLabel: null,
     btnColor: null,
   },

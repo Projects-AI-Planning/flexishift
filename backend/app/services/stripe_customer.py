@@ -60,7 +60,7 @@ def create_setup_intent(db: Session, user: User) -> dict:
     try:
         intent = client.SetupIntent.create(
             customer=customer_id,
-            payment_method_types=["card"],
+            automatic_payment_methods={"enabled": True},
             usage="off_session",
             metadata={"user_id": user.id},
         )

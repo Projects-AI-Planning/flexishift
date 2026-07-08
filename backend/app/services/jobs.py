@@ -230,7 +230,12 @@ def list_jobs(
         if not _has_required_docs_for_availability(db, current_user.id, driver_avail):
             return {"items": [], "total": 0, "page": page, "per_page": per_page}
         from datetime import date as _date
-        q = q.filter(Job.status == JobStatus.OPEN, Job.job_date >= _date.today())
+        user_country = (current_user.country or "GB").upper()
+        q = q.filter(
+            Job.status == JobStatus.OPEN,
+            Job.job_date >= _date.today(),
+            Job.country == user_country,
+        )
         if driver_avail == 'DRIVER_ONLY':
             q = q.filter(Job.driver_requirement.in_(['DRIVER_ONLY', None]))
         elif driver_avail == 'TRUCK_ONLY':

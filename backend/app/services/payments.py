@@ -137,7 +137,9 @@ def create_payment_order(db: Session, job_id: str, haulier_id: str) -> dict:
         "amount": amount_minor,
         "currency": currency.lower(),
         "capture_method": "manual",
-        "payment_method_types": ["card"],
+        "automatic_payment_methods": {
+            "enabled": True,
+        },
         **({"customer": haulier_customer_id} if haulier_customer_id else {}),
         "metadata": {
             "job_id": job_id,

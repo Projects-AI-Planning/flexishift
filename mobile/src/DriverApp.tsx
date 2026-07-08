@@ -204,11 +204,12 @@ const FIELD_LABELS: Record<string, string> = {
   vehicleRegistration: 'Vehicle Registration Number',
 };
 
-function getAvailabilityGate(
+export function getAvailabilityGate(
   driverAvailability: string,
   profileForm: {licenceNumber: string; vehicleType: string; vehicleRegistration: string},
   documents: DocumentSummary[],
   esignatureData?: string | null,
+  isAdminApproved?: boolean,
 ): AvailabilityGateInfo & {canAccess: boolean} {
   const mode = (driverAvailability ?? '').trim().toUpperCase();
   const modeLabel = AVAILABILITY_MODE_LABELS[mode] ?? '';
@@ -279,7 +280,7 @@ function getAvailabilityGate(
   } else if (!hasEsignature) {
     nextAction = 'add_esignature';
   } else if (!allDocsApproved) {
-    nextAction = 'wait_approval';
+    nextAction = isAdminApproved ? 'wait_reupload_approval' : 'wait_approval';
   }
 
   const expiredDocName = expiredDoc
@@ -3384,6 +3385,7 @@ function DriverApp(): React.JSX.Element {
         profileForm,
         documents,
         (profile?.profile as {esignatureData?: string | null})?.esignatureData,
+        profile?.isAdminApproved,
       );
 
       const goToShiftDocuments = () => {
@@ -3717,6 +3719,7 @@ function DriverApp(): React.JSX.Element {
         profileForm,
         documents,
         (profile?.profile as {esignatureData?: string | null})?.esignatureData,
+        profile?.isAdminApproved,
       );
 
       const goToDocuments = () => {

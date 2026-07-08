@@ -485,7 +485,9 @@ def create_day_payment_order(db: Session, shift_id: str, haulier: User) -> dict:
             amount=amount_minor,
             currency=currency.lower(),
             capture_method="manual",
-            payment_method_types=["card"],
+            automatic_payment_methods={
+                "enabled": True,
+            },
             **({"customer": shift_customer_id} if shift_customer_id else {}),
             metadata={
                 "shift_id":   shift_id,
