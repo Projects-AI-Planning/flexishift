@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import flexishiftAppIcon from '../assets/flexi_icon.png';
 
 interface SidebarChildLink {
   to: string;
@@ -280,9 +281,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
         <div className={`pt-6 pb-4 ${isCollapsed ? 'lg:px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className={`flex items-center ${isCollapsed ? 'lg:justify-center lg:w-full' : 'gap-3 min-w-0'}`}>
-              <div className="w-10 h-10 bg-[#1066b1] rounded flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-white font-bold">local_shipping</span>
-              </div>
+              <img src={flexishiftAppIcon} alt="FlexiShift Logo" className="w-10 h-10 object-contain shrink-0" />
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0">
                   <h1 className="text-xl font-black tracking-tight text-white uppercase truncate">FlexiShift</h1>
