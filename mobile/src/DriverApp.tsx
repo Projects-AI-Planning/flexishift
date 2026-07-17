@@ -1,0 +1,5556 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Geolocation from '@react-native-community/geolocation';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {setDisplayCurrency} from './utils/currency';
+import {getCurrentLocation} from './utils/location';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  BackHandler,
+  Image,
+  Linking,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {setApiAccessToken, setApiSessionRefresher} from './api/client';
+import {driverApi} from './api/driverApi';
+import {BellIcon} from './components/common/FieldIcon';
+import Icon from './components/common/Icon';
+import SplashScreen from './screens/SplashScreen';
+import LoginScreen from './screens/auth/LoginScreen';
+import RegisterScreen from './screens/auth/RegisterScreen';
+import VerifyScreen from './screens/auth/VerifyScreen';
+import ForgotPasswordScreen from './screens/auth/ForgotPasswordScreen';
+import ProfileSetupScreen from './screens/auth/ProfileSetupScreen';
+import ResetPasswordScreen from './screens/auth/ResetPasswordScreen';
+import DashboardScreen from './screens/dashboard/DashboardScreen';
+import JobDiscoveryScreen from './screens/jobs/JobDiscoveryScreen';
+import JobSearchLockedScreen from './screens/jobs/JobSearchLockedScreen';
+import type {AvailabilityGateInfo} from './screens/jobs/JobSearchLockedScreen';
+import JobDetailScreen from './screens/jobs/JobDetailScreen';
+import MyQuotesScreen from './screens/jobs/MyQuotesScreen';
+import QuoteStatusScreen from './screens/jobs/QuoteStatusScreen';
+import PaymentReleasedScreen from './screens/payments/PaymentReleasedScreen';
+import PaymentEscrowScreen from './screens/payments/PaymentEscrowScreen';
+import DeliveryAwaitingScreen from './screens/payments/DeliveryAwaitingScreen';
+import ProfileScreen from './screens/profile/ProfileScreen';
+import LoadCodeScreen from './screens/compliance/LoadCodeScreen';
+import ScannerInterfaceScreen from './screens/compliance/ScannerInterfaceScreen';
+import HandoverScreen from './screens/compliance/HandoverScreen';
+import DeliveryScreen from './screens/compliance/DeliveryScreen';
+import DocumentVerificationScreen from './screens/profile/DocumentVerificationScreen';
+import AvailabilityScreen from './screens/profile/AvailabilityScreen';
+import EarningsHistoryScreen from './screens/earnings/EarningsHistoryScreen';
+import InvoiceDetailScreen from './screens/invoices/InvoiceDetailScreen';
+import RatingsListScreen from './screens/ratings/RatingsListScreen';
+import RatingSubmissionScreen from './screens/ratings/RatingSubmissionScreen';
+import LiveTrackingScreen from './screens/tracking/LiveTrackingScreen';
+import IncidentReportScreen from './screens/tracking/IncidentReportScreen';
+import NotificationsScreen from './screens/notifications/NotificationsScreen';
+import TermsAndConditionsScreen from './screens/legal/TermsAndConditionsScreen';
+import PrivacyPolicyScreen from './screens/legal/PrivacyPolicyScreen';
+import InvoicesScreen from './screens/invoices/InvoicesScreen';
+import PasswordScreen from './screens/profile/PasswordScreen';
+import NotificationPreferencesScreen from './screens/profile/NotificationPreferencesScreen';
+import SettingsScreen from './screens/profile/SettingsScreen';
+import DriverPaymentsScreen from './screens/profile/DriverPaymentsScreen';
+import SupportScreen from './screens/support/SupportScreen';
+import BookingAcceptanceScreen from './screens/bookings/BookingAcceptanceScreen';
+import ShiftsScreen from './screens/shifts/ShiftsScreen';
+import ShiftHandoverScreen from './screens/shifts/ShiftHandoverScreen';
+import ShiftTrackingScreen from './screens/shifts/ShiftTrackingScreen';
+import ShiftAccessCodeScreen from './screens/shifts/ShiftAccessCodeScreen';
+import ShiftEndOfDayScreen from './screens/shifts/ShiftEndOfDayScreen';
+import ShiftDayCompleteScreen from './screens/shifts/ShiftDayCompleteScreen';
+import {bottomTabs} from './navigation/driverNavigation';
+import {COUNTRIES} from './data/countries';
+import type {
+  AvailabilityResponse,
+  BookingDetail,
+  DashboardOverview,
+  DocumentSummary,
+  DrawerRouteKey,
+  DriverSession,
+  DriverTabKey,
+  NotificationSummary,
+  ProfileResponse,
+  RatingSummary,
+} from './types';
+
+interface EarningsResponse {
+  allTimeEarnings?: number;
+  allTimeJobs?: number;
+  breakdown?: Array<Record<string, unknown>>;
+  currency?: string;
+  summary?: {
+    averagePerJob?: number;
+    totalEarnings?: number;
+    totalJobs?: number;
+  };
+}
+
+interface QuoteFormState {
+  currency: string;
+  jobId: string;
+  notes: string;
+  quoteAmount: string;
+}
+
+type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset' | 'terms' | 'privacy';
+type SetupStep = 'profile' | 'documents' | null;
+
+const palette = {
+  accent: '#1066b1',
+  accentSoft: '#FFF3D5',
+  bg: '#F8F9FA',
+  border: '#E4DED0',
+  card: '#FFFFFF',
+  danger: '#A53A32',
+  ink: '#041627',
+  inkSoft: '#44474C',
+  nav: '#102235',
+  navy: '#102235',
+  success: '#18794E',
+};
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GBP: '£', USD: '$', EUR: '€', INR: '₹', PKR: '₨', BDT: '৳',
+  NGN: '₦', GHS: '₵', ZAR: 'R', PLN: 'zł', RON: 'lei', BGN: 'лв',
+  CZK: 'Kč', HUF: 'Ft', UAH: '₴', PHP: '₱', AUD: 'A$', NZD: 'NZ$',
+  SGD: 'S$', CAD: 'C$', AED: 'AED', SAR: 'SAR',
+};
+
+const currencySymbol = (code?: string | null) => (code ? (CURRENCY_SYMBOLS[code.toUpperCase()] ?? code) : '');
+
+const mapDocumentItems = (payload: Record<string, unknown> | null | undefined): DocumentSummary[] => {
+  return (((payload?.items as DocumentSummary[] | undefined) ?? []) || []) as DocumentSummary[];
+};
+
+const areDriverDocumentsApproved = (
+  verification: Record<string, unknown> | null | undefined,
+  docs: DocumentSummary[],
+): boolean => {
+  if (verification?.allDocumentsApproved === true) {
+    return true;
+  }
+  return (
+    docs.length > 0 &&
+    docs.every(d => ['APPROVED', 'VERIFIED'].includes(String(d.status).toUpperCase()))
+  );
+};
+
+const hasDriverUploadedDocuments = (
+  verification: Record<string, unknown> | null | undefined,
+  docs: DocumentSummary[],
+): boolean => {
+  const statuses = verification?.documentStatuses;
+  return (
+    docs.length > 0 ||
+    (statuses != null &&
+      typeof statuses === 'object' &&
+      Object.keys(statuses as Record<string, unknown>).length > 0)
+  );
+};
+
+const hasRejectedDriverDocuments = (docs: DocumentSummary[]): boolean => {
+  return docs.some(d => String(d.status).toUpperCase() === 'REJECTED');
+};
+
+const isDriverProfileComplete = (profile: ProfileResponse | null): boolean => {
+  return (
+    profile?.profileComplete === true ||
+    (profile as any)?.isProfileComplete === true ||
+    Boolean(profile?.profile?.licenceNumber)
+  );
+};
+
+// ── Availability-aware gate ───────────────────────────────────────────────────
+
+const REQUIRED_DOCS_BY_MODE: Record<string, string[]> = {
+  DRIVER_ONLY:       ['DRIVING_LICENCE'],
+  TRUCK_ONLY:        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+  DRIVER_WITH_TRUCK: ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+};
+
+const REQUIRED_FIELDS_BY_MODE: Record<string, string[]> = {
+  DRIVER_ONLY:       ['licenceNumber'],
+  TRUCK_ONLY:        ['vehicleType', 'vehicleRegistration'],
+  DRIVER_WITH_TRUCK: ['licenceNumber', 'vehicleType', 'vehicleRegistration'],
+};
+
+const AVAILABILITY_MODE_LABELS: Record<string, string> = {
+  DRIVER_ONLY:       'Driver Only',
+  TRUCK_ONLY:        'Truck Only',
+  DRIVER_WITH_TRUCK: 'Driver with Truck',
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  DRIVING_LICENCE:   'Driving Licence',
+  VEHICLE_REG:       'Vehicle Registration',
+  VEHICLE_INSURANCE: 'Vehicle Insurance',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  licenceNumber:       'Driving Licence Number',
+  vehicleType:         'Vehicle Type',
+  vehicleRegistration: 'Vehicle Registration Number',
+};
+
+function getAvailabilityGate(
+  driverAvailability: string,
+  profileForm: {licenceNumber: string; vehicleType: string; vehicleRegistration: string},
+  documents: DocumentSummary[],
+  esignatureData?: string | null,
+): AvailabilityGateInfo & {canAccess: boolean} {
+  const mode = (driverAvailability ?? '').trim().toUpperCase();
+  const modeLabel = AVAILABILITY_MODE_LABELS[mode] ?? '';
+
+  if (!mode) {
+    return {
+      availabilityMode: '',
+      modeLabel: '',
+      profileChecks: [],
+      docChecks: [],
+      esignatureCheck: {done: Boolean(esignatureData)},
+      nextAction: 'set_availability',
+      canAccess: false,
+    };
+  }
+
+  const requiredFields = REQUIRED_FIELDS_BY_MODE[mode] ?? REQUIRED_FIELDS_BY_MODE.DRIVER_WITH_TRUCK;
+  const requiredDocs   = REQUIRED_DOCS_BY_MODE[mode]   ?? REQUIRED_DOCS_BY_MODE.DRIVER_WITH_TRUCK;
+
+  const profileChecks = requiredFields.map(field => ({
+    label: FIELD_LABELS[field] ?? field,
+    done:  Boolean((profileForm as any)[field]?.trim()),
+  }));
+
+  const getDocStatus = (type: string): 'approved' | 'pending' | 'rejected' | 'missing' => {
+    const doc = documents.find(
+      d => String((d as any).docType ?? d.documentType ?? '').toUpperCase() === type,
+    );
+    if (!doc) {return 'missing';}
+    const s = String(doc.status).toUpperCase();
+    if (s === 'APPROVED' || s === 'VERIFIED') {return 'approved';}
+    if (s === 'REJECTED') {return 'rejected';}
+    return 'pending';
+  };
+
+  const docChecks = requiredDocs.map(type => ({
+    label:  DOC_TYPE_LABELS[type] ?? type,
+    status: getDocStatus(type),
+  }));
+
+  const allProfileDone  = profileChecks.every(c => c.done);
+  const allDocsApproved = docChecks.every(c => c.status === 'approved');
+  const anyDocRejected  = docChecks.some(c => c.status === 'rejected');
+  const anyDocMissing   = docChecks.some(c => c.status === 'missing');
+  const hasEsignature   = Boolean(esignatureData);
+  const esignatureCheck = {done: hasEsignature};
+
+  // Check for any approved doc with a passed expiry date.
+  // If admin reviewed the doc after its expiry date, they explicitly accepted it — don't block.
+  const now = new Date();
+  const expiredDoc = documents.find(d => {
+    const s = String(d.status).toUpperCase();
+    if (s !== 'APPROVED' && s !== 'VERIFIED') {return false;}
+    if (!d.expiryDate) {return false;}
+    if (new Date(d.expiryDate) >= now) {return false;}
+    const reviewedAt = (d as any).reviewedAt;
+    if (reviewedAt && new Date(reviewedAt) > new Date(d.expiryDate)) {return false;}
+    return true;
+  });
+
+  let nextAction: AvailabilityGateInfo['nextAction'] = 'wait_approval';
+  if (!allProfileDone) {
+    nextAction = 'complete_profile';
+  } else if (anyDocMissing || anyDocRejected) {
+    nextAction = 'upload_docs';
+  } else if (expiredDoc) {
+    nextAction = 'doc_expired';
+  } else if (!hasEsignature) {
+    nextAction = 'add_esignature';
+  } else if (!allDocsApproved) {
+    nextAction = 'wait_approval';
+  }
+
+  const expiredDocName = expiredDoc
+    ? (expiredDoc.customName || (DOC_TYPE_LABELS as any)[String((expiredDoc as any).docType ?? expiredDoc.documentType ?? '').toUpperCase()] || String((expiredDoc as any).docType ?? expiredDoc.documentType ?? '').replace(/_/g, ' '))
+    : undefined;
+
+  return {
+    availabilityMode: mode,
+    modeLabel,
+    profileChecks,
+    docChecks,
+    esignatureCheck,
+    nextAction,
+    expiredDocName,
+    canAccess: allProfileDone && allDocsApproved && !expiredDoc && hasEsignature,
+  };
+}
+
+const defaultLogin = {email: '', password: ''};
+const defaultRegister = {email: '', name: '', password: '', phone: '', currency: '', fSkatNumber: ''};
+const defaultVerify = {email: '', otp: ''};
+const defaultReset = {confirmPassword: '', newPassword: '', resetToken: ''};
+const defaultQuoteForm = {
+  currency: '',
+  jobId: '',
+  notes: '',
+  quoteAmount: '',
+};
+const defaultPasswordForm = {
+  confirmPassword: '',
+  currentPassword: '',
+  newPassword: '',
+};
+const defaultNotificationPrefs = {
+  pushNotifications: {
+    compliance_alerts: true,
+    enabled: true,
+    job_updates: true,
+    new_job_matches: true,
+    payment_updates: true,
+    system_alerts: false,
+  },
+  smsNotifications: {enabled: true, job_updates: true, payment_updates: true},
+};
+
+const SESSION_KEY = '@ff_driver_session';
+
+function decodeJwtExp(token: string): number {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(
+      atob(b64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+    return (JSON.parse(json) as {exp?: number}).exp ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function isSessionValid(sess: DriverSession | null): boolean {
+  if (!sess?.accessToken) {return false;}
+  const exp = decodeJwtExp(sess.accessToken);
+  return exp > 0 && exp * 1000 > Date.now() + 60_000;
+}
+
+const cast = <T,>(value: unknown) => value as T;
+
+function normalizeNotificationItem(item: Record<string, unknown>): NotificationSummary {
+  return {
+    notificationId: String(item.notificationId ?? item.id ?? ''),
+    createdAt: item.createdAt ? String(item.createdAt) : undefined,
+    data: (item.data as Record<string, unknown> | undefined) ?? undefined,
+    isRead: Boolean(item.isRead ?? item.readAt ?? item.read ?? false),
+    readAt: item.readAt ? String(item.readAt) : undefined,
+    message: String(item.message ?? item.body ?? item.description ?? ''),
+    title: String(item.title ?? 'Notification'),
+    type: String(item.type ?? 'system'),
+  };
+}
+
+function toAddress(value: unknown): string {
+  if (!value) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object' && value !== null && 'address' in value) {
+    return String((value as {address?: string}).address ?? '');
+  }
+  return '';
+}
+
+function formatLabel(value: string) {
+  return value.replace(/[_.]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function normalizeComplianceStep(
+  compliance: Record<string, unknown> | null | undefined,
+  activeJob: DashboardOverview['activeJob'] | null | undefined,
+): 'tracking.active' | 'compliance.handover' | 'compliance.loadCode' {
+  const currentStep = String(
+    compliance?.currentStep ?? activeJob?.currentComplianceStep ?? '',
+  ).toLowerCase();
+  if (currentStep === 'tracking.active') {
+    return 'tracking.active';
+  }
+  if (currentStep === 'compliance.handover') {
+    return 'compliance.handover';
+  }
+  if (currentStep === 'compliance.loadcode' || currentStep === 'compliance.loadcode') {
+    return 'compliance.handover';
+  }
+
+  const complianceJobStatus = String(
+    compliance?.job_status ?? compliance?.jobStatus ?? activeJob?.status ?? '',
+  ).toLowerCase();
+
+  // Job is actually in transit or beyond — go to tracking
+  if (
+    complianceJobStatus === 'in_transit' ||
+    complianceJobStatus === 'delivery_submitted' ||
+    complianceJobStatus === 'completed'
+  ) {
+    return 'tracking.active';
+  }
+
+  // Driver submitted handover (waiting for haulier) OR load code verified — stay on handover
+  if (
+    compliance?.step1_handover_completed === true ||
+    compliance?.load_code_verified === true
+  ) {
+    return 'compliance.handover';
+  }
+
+  return 'compliance.handover';
+}
+
+function normalizeTrackingEta(payload: Record<string, unknown> | null | undefined) {
+  if (!payload) {
+    return null;
+  }
+  return {
+    ...payload,
+    estimatedArrival:
+      payload.estimatedArrival ??
+      payload.eta ??
+      payload.original_eta ??
+      payload.originalEta ??
+      null,
+    distanceRemaining:
+      payload.distanceRemaining ??
+      payload.remaining_distance_km ??
+      payload.remainingDistanceKm ??
+      null,
+    estimatedDuration:
+      payload.estimatedDuration ??
+      payload.remaining_duration_min ??
+      payload.remainingDurationMin ??
+      null,
+    currentLocation:
+      payload.currentLocation ??
+      (payload.current_lat != null && payload.current_lng != null
+        ? {
+            latitude: payload.current_lat,
+            longitude: payload.current_lng,
+          }
+        : null),
+  };
+}
+
+function EmptyState({title}: {title: string}) {
+  return <Text style={styles.emptyText}>{title}</Text>;
+}
+
+function SectionCard({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionCard}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function DriverApp(): React.JSX.Element {
+  const [initializing, setInitializing] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const [session, setSession] = useState<DriverSession | null>(null);
+
+  // App-wide display currency = the driver's registered-country currency.
+  useEffect(() => { setDisplayCurrency(session?.currency); }, [session?.currency]);
+
+  const [locationStatus, setLocationStatus] = useState<'checking' | 'granted' | 'denied' | 'disabled'>('checking');
+
+  // Driver's captured coordinates — acquired once permission is granted on app open
+  // and shared with the Jobs/Shifts screens so their distance filter works without
+  // the driver having to tap the "near me" button first.
+  const [driverLocation, setDriverLocation] = useState<{latitude: number; longitude: number} | null>(null);
+
+  const refreshDriverLocation = useCallback(async () => {
+    try {
+      setDriverLocation(await getCurrentLocation());
+    } catch {
+      // permission denied / unavailable — leave location unset; screens fall back to "All"
+    }
+  }, []);
+
+  const checkLocation = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        if (!hasPermission) {
+          const result = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'Location Permission Required',
+              message:
+                'FlexiShift requires mandatory location access for trip tracking and safety.',
+              buttonPositive: 'Grant Permission',
+            },
+          );
+          if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+            setLocationStatus('denied');
+            return;
+          }
+        }
+        // Permission confirmed — verify the location toggle is actually on by
+        // requesting a quick network-accuracy position (faster than GPS, no
+        // cold-start delay). A timeout here means GPS is still warming up,
+        // not that location is off, so we treat it as granted.
+        Geolocation.getCurrentPosition(
+          () => setLocationStatus('granted'),
+          error => {
+            if (error.code === 1) {
+              // PERMISSION_DENIED (shouldn't reach here, but handle it)
+              setLocationStatus('denied');
+            } else if (error.code === 2) {
+              // POSITION_UNAVAILABLE — location toggle is genuinely off
+              setLocationStatus('disabled');
+            } else {
+              // TIMEOUT (code 3) — GPS warming up, permission already confirmed
+              setLocationStatus('granted');
+            }
+          },
+          {enableHighAccuracy: false, timeout: 10000, maximumAge: 60000},
+        );
+        return;
+      } catch {
+        setLocationStatus('denied');
+        return;
+      }
+    }
+
+    // iOS: getCurrentPosition handles the permission prompt implicitly
+    Geolocation.getCurrentPosition(
+      () => setLocationStatus('granted'),
+      error => {
+        if (error.code === 1) {
+          setLocationStatus('denied');
+        } else if (error.code === 2) {
+          setLocationStatus('disabled');
+        } else {
+          // Timeout — assume granted, GPS still acquiring
+          setLocationStatus('granted');
+        }
+      },
+      {enableHighAccuracy: false, timeout: 15000, maximumAge: 60000},
+    );
+  }, []);
+
+  useEffect(() => {
+    checkLocation();
+
+    const sub = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        checkLocation();
+      }
+    });
+    return () => sub.remove();
+  }, [checkLocation]);
+
+  // Once location permission is granted, capture the actual coordinates so the
+  // Jobs/Shifts distance filter is powered automatically from app open.
+  useEffect(() => {
+    if (locationStatus === 'granted' && !driverLocation) {
+      refreshDriverLocation();
+    }
+  }, [locationStatus, driverLocation, refreshDriverLocation]);
+
+  // Navigation
+  const [activeTab, setActiveTab] = useState<DriverTabKey>('home');
+  const [activeRoute, setActiveRoute] = useState<DrawerRouteKey>('home');
+  const navHistoryRef = useRef<Array<{tab: DriverTabKey; route: DrawerRouteKey}>>([]);
+
+  // Auth
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [loginForm, setLoginForm] = useState(defaultLogin);
+  const [registerForm, setRegisterForm] = useState(defaultRegister);
+  const [verifyForm, setVerifyForm] = useState(defaultVerify);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetForm, setResetForm] = useState(defaultReset);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authInfo, setAuthInfo] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Loading states
+  const [contentLoading, setContentLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
+  const stripeOnboardingPendingRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Data
+  const [dashboard, setDashboard] = useState<DashboardOverview | null>(null);
+  const [availableJobs, setAvailableJobs] = useState<
+    Array<Record<string, unknown>>
+  >([]);
+  const [upcomingJobs, setUpcomingJobs] = useState<
+    Array<Record<string, unknown>>
+  >([]);
+  const [expandedUpcomingJobId, setExpandedUpcomingJobId] = useState<string | null>(null);
+  const [jobHistory, setJobHistory] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedHistoryJob, setSelectedHistoryJob] = useState<Record<string, unknown> | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [selectedJobDetails, setSelectedJobDetails] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [quoteForm, setQuoteForm] = useState<QuoteFormState>(defaultQuoteForm);
+  const [myQuotes, setMyQuotes] = useState<Array<Record<string, unknown>>>([]);
+  const [highlightedQuoteJobId, setHighlightedQuoteJobId] = useState<string | null>(null);
+
+  // Booking
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(
+    null,
+  );
+  const [complianceJobId, setComplianceJobId] = useState<string | null>(null);
+  const [complianceJobRef, setComplianceJobRef] = useState<string | null>(null);
+  const [handoverStatus, setHandoverStatus] = useState<{haulierSigned?: boolean; haulierSignedAt?: string | null} | null>(null);
+
+  // Shift handover / tracking context — set when driver starts a day
+  const [shiftHandoverInfo, setShiftHandoverInfo] = useState<{
+    shiftId: string; shiftRef: string; dayNumber: number;
+    totalDays: number; daysCompleted: number;
+    pickupAddress: string; dropAddress: string;
+    pickupLat?: number | null; pickupLng?: number | null;
+    dropLat?: number | null;   dropLng?: number | null;
+    haulierId: string;
+    accessCode?: string | null;
+  } | null>(null);
+
+  // Live handover status — polled while driver is on the shifts.handover screen
+  const [shiftHandoverStatus, setShiftHandoverStatus] = useState<{
+    haulierSigned: boolean;
+    haulierSignedAt: string | null;
+  } | null>(null);
+
+  // Shift rating pending after last day
+  const [pendingShiftRating, setPendingShiftRating] = useState<{
+    shiftId: string; shiftRef: string; haulierId: string;
+  } | null>(null);
+
+  // Shift daily payment waiting for haulier release
+  const [shiftPaymentReleased, setShiftPaymentReleased] = useState<{
+    amount: number; currency: string; isLastDay: boolean;
+  } | null>(null);
+
+  // Profile
+  const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    phone: '',
+    country: '',
+    currency: '',
+    licenceNumber: '',
+    vehicleType: '',
+    vehicleRegistration: '',
+    truckCapacity: '',
+    driverAvailability: '',
+    companyName: '',
+    companyAddress: '',
+    coverageArea: '',
+    equipmentDetails: [] as any[],
+  });
+  const [passwordForm, setPasswordForm] = useState(defaultPasswordForm);
+  const [notificationPrefs, setNotificationPrefs] = useState(
+    defaultNotificationPrefs,
+  );
+
+  // Documents
+  const [documents, setDocuments] = useState<DocumentSummary[]>([]);
+  const [verificationStatus, setVerificationStatus] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [docsChecked, setDocsChecked] = useState(false);
+  // Refs so callbacks can read latest values without being in their dep arrays
+  const documentsRef = useRef<DocumentSummary[]>([]);
+  const verificationStatusRef = useRef<Record<string, unknown> | null>(null);
+  const dashboardRef = useRef<DashboardOverview | null>(null);
+  const profileRef = useRef<ProfileResponse | null>(null);
+  documentsRef.current = documents;
+  verificationStatusRef.current = verificationStatus;
+  dashboardRef.current = dashboard;
+  profileRef.current = profile;
+
+  // Availability
+  const [availability, setAvailability] = useState<AvailabilityResponse | null>(
+    null,
+  );
+  const [availabilityForm, setAvailabilityForm] = useState({
+    availableDays: ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
+    endTime: '18:00',
+    isAvailable: true,
+    reason: '',
+    startTime: '08:00',
+    timezone: 'Asia/Kolkata',
+  });
+
+  // Notifications & other
+  const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [earnings, setEarnings] = useState<EarningsResponse | null>(null);
+  const [payments, setPayments] = useState<Array<Record<string, unknown>>>([]);
+  const [invoices, setInvoices] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [ratings, setRatings] = useState<RatingSummary | null>(null);
+  // Shifts
+  const [availableShifts, setAvailableShifts] = useState<Array<Record<string, unknown>>>([]);
+  const [myShifts, setMyShifts] = useState<Array<Record<string, unknown>>>([]);
+  const [myShiftQuotes, setMyShiftQuotes] = useState<Array<Record<string, unknown>>>([]);
+
+  const [trackingEta, setTrackingEta] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [trackingLiveLocation, setTrackingLiveLocation] = useState<{
+    lastUpdatedAt?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null>(null);
+  const [complianceStatus, setComplianceStatus] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const TRACKING_AUTO_REFRESH_INTERVAL_MS = 45000;
+
+  // Banners
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Post-login setup flow
+  const [setupStep, setSetupStep] = useState<SetupStep>(null);
+  const [setupAvailability, setSetupAvailability] = useState<string>('');
+  const [setupExtraDocs, setSetupExtraDocs] = useState<{name: string; docNumber: string; docType: string}[]>([]);
+  const [setupLegal, setSetupLegal] = useState<null | 'terms' | 'privacy'>(null);
+
+  // Quote accepted/rejected notification
+  const [quoteStatusData, setQuoteStatusData] = useState<{
+    type: 'accepted' | 'rejected';
+    quote: Record<string, unknown>;
+  } | null>(null);
+
+  // Payment released data
+  const [paymentReleasedData, setPaymentReleasedData] = useState<{
+    jobId: string;
+    jobReference: string;
+    haulierId?: string;
+    amount: number;
+    currency: string;
+    completionDate?: string;
+    invoiceUrl?: string;
+    alreadyRated?: boolean;
+  } | null>(null);
+
+  // Track job IDs that have already been rated this session
+  const [ratedJobIds, setRatedJobIds] = useState<Set<string>>(new Set());
+
+  // Job held for haulier rating after payment is released
+  const [pendingRatingJob, setPendingRatingJob] = useState<{jobId: string; jobReference: string; haulierId?: string} | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+  // Payment escrow data (driver notification)
+  const [escrowJobId, setEscrowJobId] = useState<string | null>(null);
+  const [escrowDetails, setEscrowDetails] = useState<Record<string, unknown> | null>(null);
+  const [escrowLoading, setEscrowLoading] = useState(false);
+  const [escrowRefreshing, setEscrowRefreshing] = useState(false);
+  // Bumped when a PAYMENT_RELEASED push arrives — forces an immediate escrow re-check
+  // so the driver leaves the "awaiting approval" screen instantly (no poll wait).
+  const [paymentReleasedHint, setPaymentReleasedHint] = useState(0);
+
+  // ─── Data loaders ────────────────────────────────────────────────────────────
+
+  const refreshSession = useCallback(async (): Promise<DriverSession | null> => {
+    if (!session?.refreshToken) {
+      return null;
+    }
+    try {
+      setApiAccessToken(null);
+      const refreshed = await driverApi.auth.refreshToken(session.refreshToken);
+      const nextSession: DriverSession = {
+        ...session,
+        accessToken: refreshed.accessToken,
+        ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+      };
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      setSession(nextSession);
+      return nextSession;
+    } catch {
+      return null;
+    }
+  }, [session]);
+
+  const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
+    if (!session?.accessToken) {
+      return false;
+    }
+    if (isSessionValid(session)) {
+      return true;
+    }
+    return (await refreshSession()) !== null;
+  }, [refreshSession, session]);
+
+  const loadNotifications = useCallback(async () => {
+    const [listResult, unreadResult] = await Promise.allSettled([
+      driverApi.notifications.list({limit: 30, page: 1}),
+      driverApi.notifications.getUnreadCount(),
+    ]);
+    if (listResult.status === 'fulfilled') {
+      const items = ((listResult.value.notifications ?? []) as Array<Record<string, unknown>>) || [];
+      setNotifications(items.map(normalizeNotificationItem));
+    }
+    if (unreadResult.status === 'fulfilled') {
+      const unread = unreadResult.value as Record<string, unknown>;
+      setNotificationUnreadCount(Number(unread.unreadCount ?? 0));
+    } else if (listResult.status === 'fulfilled') {
+      const unread = ((listResult.value.notifications ?? []) as Array<Record<string, unknown>>)
+        .filter(item => !Boolean(item.isRead ?? item.readAt ?? item.read ?? false)).length;
+      setNotificationUnreadCount(unread);
+    }
+  }, []);
+
+  const loadHome = useCallback(async () => {
+    let overviewFailed = false;
+    await Promise.allSettled([
+      driverApi.dashboard.getOverview()
+        .then(d => setDashboard(cast<DashboardOverview>(d)))
+        .catch(() => { overviewFailed = true; }),
+      driverApi.dashboard.getEarnings({period: 'monthly'})
+        .then(d => setEarnings(cast<EarningsResponse>(d)))
+        .catch(() => {}),
+      loadNotifications().catch(() => {}),
+      driverApi.dashboard.getUpcomingJobs({limit: 10, page: 1})
+        .then(d => setUpcomingJobs((d.jobs as Array<Record<string, unknown>>) ?? []))
+        .catch(() => {}),
+      session?.userId
+        ? driverApi.ratings.getSummary(session.userId)
+            .then(d => setRatings(cast<RatingSummary>(d)))
+            .catch(() => {})
+        : Promise.resolve(),
+    ]);
+    if (overviewFailed && !dashboardRef.current) {
+      throw new Error('Failed to load dashboard. Pull down to retry.');
+    }
+  }, [session?.userId]);
+
+  const loadJobs = useCallback(async () => {
+    const [docsData, docStatusData, profileData] = await Promise.all([
+      driverApi.documents.list().catch(() => null),
+      driverApi.documents.getStatus().catch(() => null),
+      profileRef.current === null
+        ? driverApi.profile.getMe().catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    const nextDocuments = docsData
+      ? mapDocumentItems(docsData as Record<string, unknown>)
+      : documentsRef.current;
+    const nextVerificationStatus = docStatusData
+      ? cast<Record<string, unknown>>(docStatusData)
+      : verificationStatusRef.current;
+    if (docsData) {
+      setDocuments(nextDocuments);
+    }
+    if (docStatusData) {
+      setVerificationStatus(nextVerificationStatus);
+    }
+    if (profileData) {
+      const p = cast<ProfileResponse>(profileData);
+      setProfile(p);
+      const pd = p.profile ?? null;
+      setProfileForm({
+        name: String(p.name ?? ''),
+        phone: String(p.phone ?? ''),
+        licenceNumber: String(pd?.licenceNumber ?? ''),
+        vehicleType: String(pd?.vehicleType ?? ''),
+        vehicleRegistration: String(pd?.vehicleRegistration ?? ''),
+        truckCapacity: String(pd?.truckCapacity ?? ''),
+        driverAvailability: String(pd?.driverAvailability ?? ''),
+        companyName: String(pd?.companyName ?? ''),
+        companyAddress: String(pd?.companyAddress ?? ''),
+        coverageArea: String(pd?.coverageArea ?? ''),
+        equipmentDetails: (pd?.equipmentDetails ?? []) as any[],
+      });
+    }
+
+    setDocsChecked(true);
+    const [availableData, upcomingData, historyData, quotesData] = await Promise.all([
+      driverApi.jobs.listAvailable({page: 1, per_page: 20}),
+      driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
+      driverApi.dashboard.getJobHistory({limit: 20, page: 1}),
+      driverApi.quotes.listMine().catch(() => null),
+    ]);
+    const jobs = (availableData.items as Array<Record<string, unknown>>) ?? [];
+    setAvailableJobs(jobs);
+    setUpcomingJobs(
+      (upcomingData.jobs as Array<Record<string, unknown>>) ?? [],
+    );
+    setJobHistory((historyData.jobs as Array<Record<string, unknown>>) ?? []);
+    if (quotesData) {
+      setMyQuotes((quotesData.items as Array<Record<string, unknown>>) ?? []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadTracking = useCallback(async () => {
+    const overview = cast<DashboardOverview>(await driverApi.dashboard.getOverview());
+    setDashboard(overview);
+    if (overview.activeJob?.jobId) {
+      const jobStatus = String(overview.activeJob.status ?? '').toLowerCase();
+      const isInTransit = jobStatus === 'in_transit';
+
+      const [complianceResult, etaResult, liveResult] = await Promise.allSettled([
+        driverApi.compliance.getFullStatus(overview.activeJob.jobId),
+        isInTransit ? driverApi.tracking.getEta(overview.activeJob.jobId) : Promise.resolve(null),
+        isInTransit ? driverApi.tracking.getLive(overview.activeJob.jobId) : Promise.resolve(null),
+      ]);
+
+      const eta =
+        etaResult.status === 'fulfilled' && etaResult.value
+          ? normalizeTrackingEta(cast<Record<string, unknown>>(etaResult.value))
+          : null;
+      const compliance =
+        complianceResult.status === 'fulfilled'
+          ? cast<Record<string, unknown>>(complianceResult.value)
+          : null;
+      const live =
+        liveResult.status === 'fulfilled' && liveResult.value
+          ? cast<Record<string, unknown>>(liveResult.value)
+          : null;
+
+      setTrackingEta(
+        eta ?? {
+          estimatedArrival: overview.activeJob.originalEta ?? overview.activeJob.eta ?? null,
+          distanceRemaining:
+            (overview.activeJob as any)?.distanceRemaining ??
+            overview.activeJob.distanceKm ??
+            (overview.activeJob as any)?.distance ??
+            null,
+          estimatedDuration:
+            (overview.activeJob as any)?.estimatedDuration ??
+            overview.activeJob.durationMin ??
+            (overview.activeJob as any)?.timeLeft ??
+            null,
+        },
+      );
+      setTrackingLiveLocation(
+        live?.currentLocation
+          ? {
+              latitude: Number((live.currentLocation as any).latitude),
+              longitude: Number((live.currentLocation as any).longitude),
+              lastUpdatedAt: String((live.currentLocation as any).lastUpdatedAt ?? live.lastUpdatedAt ?? ''),
+            }
+          : overview.activeJob.currentLocation
+          ? {
+              latitude: Number(overview.activeJob.currentLocation.latitude ?? 0),
+              longitude: Number(overview.activeJob.currentLocation.longitude ?? 0),
+              lastUpdatedAt: String(overview.activeJob.currentLocation.lastUpdatedAt ?? ''),
+            }
+          : null,
+      );
+      setComplianceStatus(
+        compliance
+          ? {
+              ...compliance,
+              currentStep: normalizeComplianceStep(compliance, overview.activeJob),
+            }
+          : {
+              currentStep: normalizeComplianceStep(null, overview.activeJob),
+            },
+      );
+    } else {
+      setTrackingEta(null);
+      setTrackingLiveLocation(null);
+      setComplianceStatus(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    const [profileResult, ratingResult] = await Promise.allSettled([
+      driverApi.profile.getMe(),
+      session?.userId
+        ? driverApi.ratings.getSummary(session.userId)
+        : Promise.resolve(null),
+    ]);
+    if (profileResult.status !== 'fulfilled') {
+      throw profileResult.reason instanceof Error
+        ? profileResult.reason
+        : new Error('Failed to load profile.');
+    }
+    const nextProfile = cast<ProfileResponse>(profileResult.value);
+    const nextProfileData = nextProfile.profile ?? null;
+    setProfile(nextProfile);
+    setProfileForm({
+      name: String(nextProfile.name ?? ''),
+      phone: String(nextProfile.phone ?? ''),
+      country: String((nextProfile as any).country ?? ''),
+      currency: String((nextProfile as any).currency ?? ''),
+      licenceNumber: String(nextProfileData?.licenceNumber ?? ''),
+      vehicleType: String(nextProfileData?.vehicleType ?? ''),
+      vehicleRegistration: String(nextProfileData?.vehicleRegistration ?? ''),
+      truckCapacity: String(nextProfileData?.truckCapacity ?? ''),
+      driverAvailability: String(nextProfileData?.driverAvailability ?? ''),
+      companyName: String(nextProfileData?.companyName ?? ''),
+      companyAddress: String(nextProfileData?.companyAddress ?? ''),
+      coverageArea: String(nextProfileData?.coverageArea ?? ''),
+      equipmentDetails: (nextProfileData?.equipmentDetails ?? []) as any[],
+    });
+    setRatings(ratingResult.status === 'fulfilled' && ratingResult.value ? cast<RatingSummary>(ratingResult.value) : null);
+    return nextProfile;
+  }, [session?.userId]);
+
+  const loadMyQuotes = useCallback(async () => {
+    const quotesData = await driverApi.quotes.listMine();
+    const all = (quotesData.items as Array<Record<string, unknown>>) ?? [];
+    const DONE_STATUSES = new Set(['completed', 'done', 'payment_released', 'released', 'paid']);
+    const active = all.filter(q => {
+      const jobStatus = String((q.job as any)?.status ?? q.jobStatus ?? '').toLowerCase();
+      const quoteStatus = String(q.status ?? '').toLowerCase();
+      return !DONE_STATUSES.has(jobStatus) && !DONE_STATUSES.has(quoteStatus);
+    });
+    setMyQuotes(active);
+  }, []);
+
+  const loadShifts = useCallback(async () => {
+    const [available, mine, myQuotesRes] = await Promise.allSettled([
+      driverApi.shifts.listAvailable(),
+      driverApi.shifts.listMine(),
+      driverApi.shifts.listMyQuotes(),
+    ]);
+    if (available.status === 'fulfilled') {
+      setAvailableShifts((available.value.items as Array<Record<string, unknown>>) ?? []);
+    }
+    if (mine.status === 'fulfilled') {
+      setMyShifts((mine.value.items as Array<Record<string, unknown>>) ?? []);
+    }
+    if (myQuotesRes.status === 'fulfilled') {
+      setMyShiftQuotes((myQuotesRes.value.items as Array<Record<string, unknown>>) ?? []);
+    }
+  }, []);
+
+  const loadDrawerRoute = useCallback(
+    async (route: DrawerRouteKey) => {
+      switch (route) {
+        case 'documents.upload':
+        case 'documents.status': {
+          const [docs, status] = await Promise.all([
+            driverApi.documents.list(),
+            driverApi.documents.getStatus(),
+          ]);
+          setDocuments(mapDocumentItems(docs as Record<string, unknown>));
+          setVerificationStatus(cast<Record<string, unknown>>(status));
+          break;
+        }
+        case 'availability.set':
+        case 'availability.toggle': {
+          const avail = cast<AvailabilityResponse>(
+            await driverApi.availability.getMine(),
+          );
+          const dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+          const slots = Array.isArray(avail.slots) ? avail.slots : [];
+          const blocks = Array.isArray(avail.blocks) ? avail.blocks : [];
+          const firstSlot = slots[0] ?? avail.timeSlots?.[0] ?? {};
+          const derivedDays = slots
+            .map(slot => {
+              const rawDay = Number(
+                (slot as {day_of_week?: unknown; dayOfWeek?: unknown}).day_of_week ??
+                  (slot as {day_of_week?: unknown; dayOfWeek?: unknown}).dayOfWeek,
+              );
+              return dayKeys[rawDay];
+            })
+            .filter((day): day is string => Boolean(day));
+          setAvailability(avail);
+          setAvailabilityForm({
+            availableDays: avail.availableDays?.length
+              ? avail.availableDays
+              : derivedDays.length
+                ? derivedDays
+                : ['monday', 'tuesday', 'wednesday', 'friday', 'saturday'],
+            endTime: String(
+              (firstSlot as {end_time?: unknown; endTime?: unknown}).end_time ??
+                (firstSlot as {end_time?: unknown; endTime?: unknown}).endTime ??
+                '18:00',
+            ),
+            isAvailable: avail.isAvailable ?? blocks.length === 0,
+            reason: String(
+              avail.reason ??
+                (blocks[0] as {reason?: unknown})?.reason ??
+                '',
+            ),
+            startTime: String(
+              (firstSlot as {start_time?: unknown; startTime?: unknown}).start_time ??
+                (firstSlot as {start_time?: unknown; startTime?: unknown}).startTime ??
+                '08:00',
+            ),
+            timezone: avail.timezone ?? 'Asia/Kolkata',
+          });
+          break;
+        }
+        case 'earnings.total':
+        case 'earnings.monthly': {
+          const ed = await driverApi.dashboard.getEarnings({period: 'monthly'});
+          setEarnings(cast<EarningsResponse>(ed));
+          break;
+        }
+        case 'earnings.history': {
+          const hist = await driverApi.payments.getHistory({
+            limit: 20,
+            page: 1,
+          });
+          setPayments((hist.payments as Array<Record<string, unknown>>) ?? []);
+          break;
+        }
+        case 'profile.payments': {
+          const [hist, earningsData] = await Promise.all([
+            driverApi.payments.getHistory({limit: 50, page: 1}),
+            driverApi.dashboard.getEarnings().catch(() => null),
+            loadProfile().catch(() => undefined),
+          ]);
+          setPayments(((hist as any).payments ?? (hist as any).items ?? []) as Array<Record<string, unknown>>);
+          if (earningsData) {setEarnings(cast<EarningsResponse>(earningsData));}
+          break;
+        }
+        case 'invoices.list': {
+          const inv = await driverApi.invoices.list({limit: 20, page: 1});
+          setInvoices((inv.invoices as Array<Record<string, unknown>>) ?? []);
+          break;
+        }
+        case 'invoices.detail':
+          break;
+        case 'notifications.all': {
+          await loadNotifications();
+          break;
+        }
+        case 'ratings.received':
+        case 'ratings.given': {
+          if (session?.userId) {
+            const summary = await driverApi.ratings.getSummary(session.userId);
+            setRatings(cast<RatingSummary>(summary));
+          }
+          break;
+        }
+        case 'shifts.available':
+        case 'shifts.myShifts': {
+          await loadShifts();
+          break;
+        }
+        case 'jobs.myQuotes': {
+          await loadMyQuotes();
+          break;
+        }
+        case 'jobs.upcoming': {
+          const [upcomingData, quotesData] = await Promise.all([
+            driverApi.dashboard.getUpcomingJobs({limit: 20, page: 1}),
+            driverApi.quotes.listMine().catch(() => null),
+          ]);
+          setUpcomingJobs((upcomingData.jobs as Array<Record<string, unknown>>) ?? []);
+          if (quotesData) {
+            setMyQuotes((quotesData.items as Array<Record<string, unknown>>) ?? []);
+          }
+          break;
+        }
+        case 'jobs.history': {
+          const historyData = await driverApi.dashboard.getJobHistory({
+            limit: 20,
+            page: 1,
+          });
+          setJobHistory(
+            (historyData.jobs as Array<Record<string, unknown>>) ?? [],
+          );
+          break;
+        }
+        case 'compliance.loadCode':
+        case 'compliance.scanner':
+        case 'compliance.handover':
+        case 'compliance.delivery': {
+          const jobId = complianceJobId ?? dashboardRef.current?.activeJob?.jobId;
+          if (jobId) {
+            setComplianceStatus(
+              await driverApi.compliance.getFullStatus(jobId),
+            );
+          } else {
+            setComplianceStatus(null);
+          }
+          break;
+        }
+        case 'profile.edit':
+          await loadProfile();
+          break;
+        case 'profile.password':
+          setPasswordForm(defaultPasswordForm);
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      complianceJobId,
+      loadMyQuotes,
+      loadProfile,
+      loadNotifications,
+      loadShifts,
+      session?.userId,
+    ],
+  );
+
+  const refreshActiveView = useCallback(async (options?: {silent?: boolean}) => {
+    if (!session) {
+      return;
+    }
+    if (!options?.silent) {
+      setContentLoading(true);
+    }
+    setErrorBanner(null);
+    try {
+      if (activeTab === 'home' && activeRoute === 'home') {
+        await loadHome();
+      } else if (activeTab === 'shifts' || activeRoute.startsWith('shifts.')) {
+        await loadShifts();
+      } else if (activeTab === 'jobs' || activeRoute.startsWith('jobs.')) {
+        if (activeRoute === 'jobs.myQuotes') {
+          await loadMyQuotes();
+        } else if (activeRoute === 'jobs.upcoming') {
+          await loadDrawerRoute('jobs.upcoming');
+        } else if (activeRoute === 'jobs.history') {
+          await loadDrawerRoute('jobs.history');
+        } else {
+          await loadJobs();
+        }
+      } else if (
+        activeRoute.startsWith('compliance.') ||
+        activeTab === 'tracking' ||
+        activeRoute.startsWith('tracking.')
+      ) {
+        await loadTracking();
+        if (activeRoute.startsWith('compliance.')) {
+          await loadDrawerRoute(activeRoute);
+        }
+      } else if (activeTab === 'profile') {
+        await loadProfile();
+        if (activeRoute !== 'profile.edit') {
+          await loadDrawerRoute(activeRoute);
+        }
+      } else {
+        await loadDrawerRoute(activeRoute);
+      }
+    } catch (error) {
+      setErrorBanner(
+        error instanceof Error ? error.message : 'Failed to load data.',
+      );
+    } finally {
+      if (!options?.silent) {
+        setContentLoading(false);
+      }
+    }
+  }, [
+    activeRoute,
+    activeTab,
+    loadDrawerRoute,
+    loadHome,
+    loadJobs,
+    loadMyQuotes,
+    loadProfile,
+    loadShifts,
+    loadTracking,
+    session,
+  ]);
+
+  useEffect(() => {
+    setApiAccessToken(session?.accessToken ?? null);
+    setApiSessionRefresher(async () => {
+      if (!session?.refreshToken) {
+        return null;
+      }
+      try {
+        setApiAccessToken(null);
+        const refreshed = await driverApi.auth.refreshToken(session.refreshToken);
+        const nextSession: DriverSession = {
+          ...session,
+          accessToken: refreshed.accessToken,
+          ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+        };
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+        setSession(nextSession);
+        return {
+          accessToken: nextSession.accessToken,
+          refreshToken: nextSession.refreshToken,
+        };
+      } catch {
+        return null;
+      }
+    });
+    return () => {
+      setApiSessionRefresher(null);
+    };
+  }, [session]);
+
+  // Restore persisted session on first mount
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+
+        const saved = JSON.parse(raw) as DriverSession;
+        if (!saved?.accessToken || !saved?.refreshToken) return;
+
+        if (isSessionValid(saved)) {
+          // Access token still valid — resume immediately
+          setSession(saved);
+          setShowSplash(false);
+          return;
+        }
+
+        // Access token expired — silently refresh using the stored refresh token
+        setApiAccessToken(null); // clear expired token so it isn't sent in the request
+        const refreshed = await driverApi.auth.refreshToken(saved.refreshToken);
+        const newSession: DriverSession = {
+          ...saved,
+          accessToken: refreshed.accessToken,
+          ...(refreshed.refreshToken ? {refreshToken: refreshed.refreshToken} : {}),
+        };
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+        setSession(newSession);
+        setShowSplash(false);
+      } catch {
+        // Refresh token also expired or network error — clear storage and show login
+        await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+      }
+    };
+
+    restoreSession().finally(() => setInitializing(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      refreshActiveView().catch(() => undefined);
+    }
+  }, [refreshActiveView, session]);
+
+  useEffect(() => {
+    if (!session || activeRoute !== 'notifications.all') {
+      return;
+    }
+    loadNotifications().catch(() => undefined);
+  }, [activeRoute, loadNotifications, session]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (cancelled) {
+        return;
+      }
+      socket = new WebSocket(driverApi.notifications.websocketUrl(session.accessToken));
+      socket.onopen = () => {
+        socket?.send('ping');
+      };
+      socket.onmessage = event => {
+        try {
+          const payload = JSON.parse(String(event.data ?? '{}')) as Record<string, unknown>;
+          if (payload.event !== 'notification') {
+            return;
+          }
+          const nextItem = normalizeNotificationItem({
+            notificationId: payload.id ?? '',
+            type: payload.type,
+            title: payload.title,
+            message: payload.body,
+            data: payload.data,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          if (!nextItem.notificationId) {
+            return;
+          }
+          setNotifications(current => {
+            if (current.some(item => item.notificationId === nextItem.notificationId)) {
+              return current;
+            }
+            return [nextItem, ...current];
+          });
+          setNotificationUnreadCount(count => count + 1);
+          // Payment released by the haulier — trigger an immediate escrow re-check so the
+          // driver transitions off the "awaiting approval" screen without waiting for the poll.
+          if (String(payload.type ?? '').toUpperCase() === 'PAYMENT_RELEASED') {
+            setPaymentReleasedHint(Date.now());
+          }
+          if (activeRoute === 'notifications.all') {
+            loadNotifications().catch(() => undefined);
+          }
+        } catch {
+          /* ignore malformed events */
+        }
+      };
+      socket.onerror = () => {
+        socket?.close();
+      };
+      socket.onclose = () => {
+        if (cancelled) {
+          return;
+        }
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      socket?.close();
+    };
+  }, [activeRoute, loadNotifications, session?.accessToken]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      activeRoute !== 'tracking.active'
+    ) {
+      return;
+    }
+    const interval = setInterval(() => {
+      refreshActiveView({silent: true}).catch(() => undefined);
+    }, TRACKING_AUTO_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [activeRoute, refreshActiveView, session]);
+
+  // Push the driver's live GPS every 3s during active job tracking so the haulier can
+  // track it. Stops when the driver leaves the tracking screen (delivery submitted / done).
+  useEffect(() => {
+    if (!session || activeRoute !== 'tracking.active') { return; }
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) { return; }
+    const push = () => {
+      Geolocation.getCurrentPosition(
+        pos => {
+          driverApi.tracking.updateLocation({
+            jobId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            recordedAt: new Date().toISOString(),
+          }).catch(() => undefined);
+        },
+        () => undefined,
+        {enableHighAccuracy: true, timeout: 8000, maximumAge: 2000},
+      );
+    };
+    push();
+    const timer = setInterval(push, 3000);
+    return () => clearInterval(timer);
+  }, [activeRoute, session, complianceJobId, dashboard?.activeJob?.jobId]);
+
+  useEffect(() => {
+    if (selectedJob?.jobId) {
+      driverApi.jobs
+        .getDetails(String(selectedJob.jobId))
+        .then(data => {
+          setSelectedJobDetails(data);
+          setQuoteForm(c => ({...c, jobId: String(selectedJob.jobId)}));
+        })
+        .catch(() => undefined);
+    } else {
+      setSelectedJobDetails(null);
+    }
+  }, [selectedJob]);
+
+  const goBackOneStep = useCallback(() => {
+    if (quoteStatusData) {
+      setQuoteStatusData(null);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      return true;
+    }
+
+    if (selectedJob) {
+      const previous = navHistoryRef.current.pop();
+      setSelectedJob(null);
+      setSelectedJobDetails(null);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      if (previous) {
+        setActiveTab(previous.tab);
+        setActiveRoute(previous.route);
+      }
+      return true;
+    }
+
+    const previous = navHistoryRef.current.pop();
+    if (previous) {
+      setActiveTab(previous.tab);
+      setActiveRoute(previous.route);
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      return true;
+    }
+
+    if (activeRoute === 'home' && activeTab === 'home') {
+      Alert.alert('Exit App', 'Are you sure you want to exit FlexiShift?', [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp()},
+      ]);
+    } else {
+      setActiveRoute('home');
+      setActiveTab('home');
+      setSuccessBanner(null);
+      setErrorBanner(null);
+    }
+
+    return true;
+  }, [activeRoute, activeTab, quoteStatusData, selectedJob]);
+
+  useEffect(() => {
+    if (!session) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBackOneStep);
+    return () => sub.remove();
+  }, [session, goBackOneStep]);
+
+  // Handle Stripe Connect deep link return (freightflex://stripe-connect/return|refresh)
+  useEffect(() => {
+    if (!session) return;
+
+    const handleStripeDeepLink = async (url: string) => {
+      if (!url.startsWith('freightflex://stripe-connect/')) return;
+
+      if (url.startsWith('freightflex://stripe-connect/refresh')) {
+        // Onboarding link expired — silently generate a fresh one and reopen.
+        setStripeConnectLoading(true);
+        try {
+          const result = await driverApi.stripeConnect.refreshOnboardingLink();
+          const freshUrl = (result as any)?.onboardingUrl as string | undefined;
+          if (freshUrl) {
+            await Linking.openURL(freshUrl);
+          } else {
+            setActiveTab('profile');
+            setActiveRoute('profile.payments' as any);
+            setErrorBanner('Session expired. Please tap "Connect Stripe" to try again.');
+          }
+        } catch {
+          setActiveTab('profile');
+          setActiveRoute('profile.payments' as any);
+          setErrorBanner('Session expired. Please tap "Connect Stripe" to try again.');
+        } finally {
+          setStripeConnectLoading(false);
+        }
+        return;
+      }
+
+      if (url.startsWith('freightflex://stripe-connect/return')) {
+        stripeOnboardingPendingRef.current = false; // AppState fallback no longer needed
+        try {
+          const p = await loadProfile().catch(() => null);
+          setActiveTab('profile');
+          setActiveRoute('profile.payments');
+          const complete = Boolean((p as any)?.stripeConnect?.onboardingComplete || (p as any)?.bankAccountId);
+          if (complete) {
+            setSuccessBanner('Bank account connected! Your earnings will be transferred after each completed job.');
+          } else {
+            setErrorBanner('Bank setup is not complete yet. Please finish connecting your bank to receive payments.');
+          }
+        } catch {
+          /* user can pull to refresh */
+        }
+      }
+    };
+
+    Linking.getInitialURL()
+      .then(url => { if (url) handleStripeDeepLink(url); })
+      .catch(() => undefined);
+
+    const sub = Linking.addEventListener('url', ({url}) => { void handleStripeDeepLink(url); });
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  // When the app comes back to the foreground after the driver opened the Stripe
+  // onboarding browser, automatically refresh the profile and return to the
+  // payments screen. This covers cases where the custom-scheme deep link
+  // (freightflex://) is silently dropped by some Android browsers.
+  useEffect(() => {
+    if (!session) return;
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState !== 'active' || !stripeOnboardingPendingRef.current) return;
+      stripeOnboardingPendingRef.current = false;
+      try {
+        const p = await loadProfile().catch(() => null);
+        setActiveTab('profile');
+        setActiveRoute('profile.payments');
+        const complete = Boolean((p as any)?.stripeConnect?.onboardingComplete || (p as any)?.bankAccountId);
+        if (complete) {
+          setSuccessBanner('Bank account setup complete. Your earnings will be transferred after each completed job.');
+        } else {
+          setErrorBanner('Bank setup is not complete yet. Please finish connecting your bank to receive payments.');
+        }
+      } catch {
+        // silent — user can pull-to-refresh
+      }
+    });
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, loadProfile]);
+
+  // ─── Action helpers ───────────────────────────────────────────────────────────
+
+  const runAction = async (task: () => Promise<void>) => {
+    setActionLoading(true);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await task();
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Action failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const navigate = (tab: DriverTabKey, route: DrawerRouteKey) => {
+    if (activeTab !== tab || activeRoute !== route) {
+      navHistoryRef.current.push({tab: activeTab, route: activeRoute});
+    }
+    setActiveTab(tab);
+    setActiveRoute(route);
+    setSuccessBanner(null);
+    setErrorBanner(null);
+    if (route !== 'jobs.myQuotes') {
+      setHighlightedQuoteJobId(null);
+    }
+    if (tab !== 'jobs' || route !== 'jobs.available') {
+      setSelectedJob(null);
+      setSelectedJobDetails(null);
+    }
+  };
+
+  // ─── Auth handlers ────────────────────────────────────────────────────────────
+
+  const handleLogin = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthInfo(null);
+    try {
+      const payload = await driverApi.auth.login(loginForm);
+      const newSession = cast<DriverSession>(payload);
+      if (newSession.role === 'haulier') {
+        setAuthError('This app is for drivers only. Please use the web portal to access your haulier account.');
+        return;
+      }
+      setSession(newSession);
+      AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession)).catch(() => {});
+      setSetupStep(null);
+      navHistoryRef.current = [];
+      setActiveTab('home');
+      setActiveRoute('home');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Login failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleProfileSetup = async (data: {
+    name: string;
+    driverAvailability: string;
+    licenceNumber: string;
+    vehicleType: string;
+    vehicleRegistration: string;
+    truckCapacity?: string;
+    compartments?: Array<{id: number; capacityLitres: string; fuelType: string}>;
+    photoFile?: {uri: string; fileName: string; type: string};
+    extraDocs: {name: string; docNumber: string; docType: string}[];
+  }) => {
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      if (data.photoFile?.uri) {
+        const formData = new FormData();
+        const uploadUri = Platform.OS === 'android' ? data.photoFile.uri : data.photoFile.uri.replace('file://', '');
+        formData.append('file', {
+          uri: uploadUri,
+          name: data.photoFile.fileName,
+          type: data.photoFile.type,
+        } as any);
+        await driverApi.profile.uploadPhotoDirect(formData);
+      }
+      await driverApi.profile.update({
+        name: data.name,
+        driverAvailability: data.driverAvailability,
+        licenceNumber: data.licenceNumber,
+        vehicleType: data.vehicleType,
+        vehicleRegistration: data.vehicleRegistration,
+        ...(data.truckCapacity ? {truckCapacity: data.truckCapacity} : {}),
+        ...(data.compartments && data.compartments.length > 0
+          ? {equipmentDetails: data.compartments}
+          : {}),
+      });
+      setSetupAvailability(data.driverAvailability);
+      setSetupExtraDocs(data.extraDocs ?? []);
+      // Load existing documents and skip the documents step if already all approved
+      try {
+        const docs = await driverApi.documents.list();
+        const docItems = mapDocumentItems(docs as Record<string, unknown>);
+        setDocuments(docItems);
+
+        const mode = (data.driverAvailability ?? '').toUpperCase();
+        const requiredTypes =
+          mode === 'DRIVER_ONLY'
+            ? ['DRIVING_LICENCE']
+            : mode === 'TRUCK_ONLY'
+            ? ['VEHICLE_REG', 'VEHICLE_INSURANCE']
+            : ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'];
+
+        const allApproved = requiredTypes.every(reqType =>
+          docItems.some(
+            d =>
+              String((d as any).docType ?? d.documentType ?? '').toUpperCase() === reqType &&
+              String(d.status).toUpperCase() === 'APPROVED',
+          ),
+        );
+
+        if (allApproved) {
+          setSetupStep(null);
+          navHistoryRef.current = [];
+          setActiveTab('home');
+          setActiveRoute('home');
+          return;
+        }
+      } catch {
+        /* non-blocking */
+      }
+      setSetupStep('documents');
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : 'Profile setup failed.',
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthInfo(null);
+    try {
+      await driverApi.auth.register(registerForm);
+      const normalizedEmail = registerForm.email.trim().toLowerCase();
+      setVerifyForm({email: normalizedEmail, otp: ''});
+      setLoginForm(c => ({
+        ...c,
+        email: normalizedEmail,
+        password: registerForm.password,
+      }));
+      setAuthInfo('Registration succeeded. Enter the OTP to verify email.');
+      setAuthMode('verify');
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Registration failed.',
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthInfo(null);
+    try {
+      const payload = await driverApi.auth.verifyEmail(verifyForm);
+      const newSession = cast<DriverSession>(payload);
+      setSession(newSession);
+      AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newSession)).catch(() => {});
+      setSetupStep('profile');
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Verification failed.',
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await driverApi.auth.resendVerification(verifyForm.email);
+      setAuthInfo('Verification OTP sent again.');
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'OTP resend failed.',
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    setForgotEmail(email.trim().toLowerCase());
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const result = await driverApi.auth.forgotPassword(email);
+      setAuthMode('reset');
+      if (result && !result.emailSent && result.devOtp) {
+        Alert.alert(
+          'Dev Mode — OTP',
+          `No email provider is configured.\n\nYour reset code is:\n\n${result.devOtp}\n\nEnter this code on the next screen.`,
+          [{text: 'Got it'}],
+        );
+      }
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Forgot password failed.',
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (otp: string, newPassword: string) => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await driverApi.auth.resetPassword({
+        email: forgotEmail,
+        otp,
+        newPassword,
+      });
+      setAuthInfo(
+        'Password reset successfully. Sign in with your new password.',
+      );
+      setLoginForm(c => ({...c, email: forgotEmail || c.email}));
+      setAuthMode('login');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Reset failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (session?.refreshToken) {
+        await driverApi.auth.logout(session.refreshToken);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+      navHistoryRef.current = [];
+      setSession(null);
+      setApiAccessToken(null);
+      setSetupStep(null);
+      setNotifications([]);
+      setNotificationUnreadCount(0);
+      setAuthMode('login');
+      setSuccessBanner(null);
+      setErrorBanner(null);
+      setDocsChecked(false);
+    }
+  };
+
+  // ─── Job & Quote handlers ────────────────────────────────────────────────────
+
+  const handleQuoteSubmit = async (amount: string, notes: string, deliverBy?: string, stopEtas?: Array<{order: number; eta: string}>) => {
+    const jobForQuote = selectedJobDetails ?? selectedJob;
+    const jobId = String(jobForQuote?.jobId ?? '');
+    await runAction(async () => {
+      try {
+        await driverApi.quotes.submit({
+          currency: session?.currency ,
+          jobId,
+          notes,
+          quoteAmount: Number(amount),
+          ...(deliverBy ? {deliverBy, stopEtas} : {}),
+        });
+      } catch (err) {
+        // Treat "already active quote" as success — the goal (applying) was achieved
+        if (err instanceof Error && err.message.toLowerCase().includes('already have an active quote')) {
+          navigate('jobs', 'jobs.myQuotes');
+          setSuccessBanner('You have already applied for this job. Track your quote in My Quotes.');
+          loadMyQuotes().catch(() => undefined);
+          return;
+        }
+        // Job was booked by another driver while this list was stale — remove it and refresh
+        if (err instanceof Error && (
+          err.message.toLowerCase().includes('not open') ||
+          err.message.toLowerCase().includes('already booked') ||
+          err.message.toLowerCase().includes('not available')
+        )) {
+          setAvailableJobs(prev => prev.filter(j => String(j.jobId) !== jobId));
+          navigate('jobs', 'jobs.available');
+          setErrorBanner('This job has already been filled. Your list has been refreshed.');
+          loadJobs().catch(() => undefined);
+          return;
+        }
+        throw err;
+      }
+      // Optimistically prepend so My Bids shows the new quote instantly
+      const optimisticQuote: Record<string, unknown> = {
+        quoteId: `pending-${Date.now()}`,
+        jobId,
+        jobReference: jobForQuote?.jobReference ?? jobForQuote?.jobRef ?? `Job #${jobId.slice(-6)}`,
+        quoteAmount: Number(amount),
+        currency: session?.currency,
+        notes,
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        job: {
+          jobId,
+          pickupLocation: jobForQuote?.pickupLocation ?? '',
+          dropLocation: jobForQuote?.dropLocation ?? '',
+        },
+      };
+      setMyQuotes(prev => [optimisticQuote, ...prev.filter(q => String(q.jobId) !== jobId)]);
+      // navigate first (it calls setSuccessBanner(null)), then set the banner so the
+      // last setter wins in the React batch and the message is actually visible.
+      navigate('jobs', 'jobs.myQuotes');
+      setSuccessBanner('Quote submitted! We will notify you when it is reviewed.');
+      // Sync real data from server in background
+      loadMyQuotes().catch(() => undefined);
+    });
+  };
+
+  const handleWithdrawQuote = async (quoteId: string) => {
+    await runAction(async () => {
+      await driverApi.quotes.withdraw(quoteId);
+      setSuccessBanner('Quote withdrawn.');
+      await loadMyQuotes();
+    });
+  };
+
+  const handleEditJobQuote = async (quoteId: string, newAmount: number, notes: string, deliverBy: string) => {
+    await runAction(async () => {
+      await driverApi.quotes.edit(quoteId, {
+        quoteAmount: newAmount,
+        notes: notes || undefined,
+        deliverBy: deliverBy || undefined,
+      });
+      setSuccessBanner('Quote updated successfully.');
+      await loadMyQuotes();
+    });
+  };
+
+  const handleResubmitJobQuote = async (jobId: string, newAmount: number, notes: string, deliverBy: string) => {
+    await runAction(async () => {
+      await driverApi.quotes.submit({
+        jobId,
+        quoteAmount: newAmount,
+        notes: notes || undefined,
+        deliverBy: deliverBy || undefined,
+        currency: session?.currency,
+      });
+      setSuccessBanner('Quote re-submitted!');
+      await loadMyQuotes();
+    });
+  };
+
+  // ─── Booking acceptance ──────────────────────────────────────────────────────
+
+  const resolveComplianceRoute = async (jobId: string): Promise<'compliance.loadCode' | 'compliance.handover' | 'tracking.active'> => {
+    try {
+      const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
+      const route = normalizeComplianceStep(compliance, {
+        jobId,
+        jobReference: String(compliance?.job_ref ?? compliance?.jobReference ?? ''),
+      } as DashboardOverview['activeJob']);
+      if (route === 'tracking.active' || route === 'compliance.handover' || route === 'compliance.loadCode') {
+        return route === 'compliance.loadCode' ? 'compliance.handover' : route;
+      }
+    } catch {
+      /* fall through */
+    }
+    return 'compliance.handover';
+  };
+
+  const handleProceedToBooking = async (jobId: string, jobReference?: string, quoteAmount?: number, currency?: string) => {
+    setComplianceJobId(jobId);
+    setComplianceStatus(null);
+    if (jobReference) {
+      setComplianceJobRef(jobReference);
+    }
+    try {
+      // bookingId === jobId in the backend — use getDetails for the exact job
+      const bookingData = await driverApi.bookings.getDetails(jobId) as Record<string, unknown>;
+      if (bookingData && bookingData.bookingId) {
+        // Payment row may not exist yet — inject the quote's bid amount so the screen can display it
+        if (!bookingData.agreedAmount && quoteAmount) {
+          bookingData.agreedAmount = quoteAmount;
+        }
+        if (!bookingData.currency && currency) {
+          bookingData.currency = currency;
+        }
+        setSelectedBooking(cast<BookingDetail>(bookingData));
+        navigate('jobs', 'jobs.booking');
+      } else {
+        const route = await resolveComplianceRoute(jobId);
+        navigate('tracking', route);
+      }
+    } catch {
+      // 404 means no booking yet — go straight to compliance
+      navigate('tracking', 'compliance.handover');
+    }
+  };
+
+  const handleAcceptBooking = async (bookingId: string) => {
+    await runAction(async () => {
+      await driverApi.bookings.accept(bookingId);
+      setSuccessBanner('Booking accepted! Proceed to pickup location.');
+      await loadTracking();
+    });
+  };
+
+  // ─── Push location while waiting for payment (job escrow + shift dayComplete) ─
+  // Allows haulier to track driver until payment is released
+
+  useEffect(() => {
+    const isJobWaiting   = activeRoute === 'payment.escrow' && !!escrowJobId;
+    const isShiftWaiting = activeRoute === 'shifts.dayComplete' && !!shiftHandoverInfo && shiftPaymentReleased === null;
+    if (!isJobWaiting && !isShiftWaiting) {return;}
+
+    const push = () => {
+      Geolocation.getCurrentPosition(
+        pos => {
+          const {latitude, longitude} = pos.coords;
+          if (isJobWaiting && escrowJobId) {
+            driverApi.tracking.updateLocation({
+              latitude, longitude, timestamp: new Date().toISOString(),
+            }).catch(() => undefined);
+          }
+          if (isShiftWaiting && shiftHandoverInfo) {
+            driverApi.shifts.updateLocation(shiftHandoverInfo.shiftId, latitude, longitude)
+              .catch(() => undefined);
+          }
+        },
+        () => undefined,
+        {enableHighAccuracy: false, timeout: 10000},
+      );
+    };
+
+    push();
+    const timer = setInterval(push, 30_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, escrowJobId, shiftHandoverInfo, shiftPaymentReleased]);
+
+  // ─── Poll payment status while driver is on the delivery-awaiting screen ────
+  // Fallback for when the PAYMENT_RELEASED WebSocket notification is missed.
+
+  useEffect(() => {
+    if (activeRoute !== 'payment.awaiting' || !escrowJobId) { return; }
+
+    const poll = async () => {
+      try {
+        const res = await driverApi.payments.getEscrowDetails(escrowJobId);
+        const payStatus = String((res as any)?.status ?? '').toUpperCase();
+        if (payStatus === 'RELEASED' || payStatus === 'COMPLETED') {
+          driverApi.payments.getHistory({limit: 50, page: 1})
+            .then(h => setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>))
+            .catch(() => undefined);
+          driverApi.dashboard.getEarnings().then(d => setEarnings(cast<EarningsResponse>(d))).catch(() => undefined);
+          const job = await driverApi.jobs.getDetails(escrowJobId).catch(() => null);
+          setPaymentReleasedData({
+            jobId: String(escrowJobId),
+            jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? escrowJobId),
+            haulierId: job?.haulierId ? String(job.haulierId) : undefined,
+            amount: Number((res as any)?.driverAmount ?? (job as any)?.driverAmount ?? (res as any)?.amount ?? 0),
+            currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency),
+            completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
+            invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
+          });
+          setEscrowJobId(null);
+          navigate('jobs', 'payments.released' as any);
+        }
+      } catch { /* silent */ }
+    };
+
+    poll();
+    // Poll frequently so the driver leaves the "awaiting approval" screen
+    // promptly once the haulier approves & releases payment. `paymentReleasedHint`
+    // re-runs this effect (immediate poll) the moment a PAYMENT_RELEASED push lands.
+    const timer = setInterval(poll, 3_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, escrowJobId, paymentReleasedHint]);
+
+  // ─── Poll shift status while driver waits on the shift day-complete screen ───
+  // Parity with jobs: auto-transition to the "payment released" state without
+  // needing the driver to tap the notification (fallback if the WS push is missed).
+  useEffect(() => {
+    if (activeRoute !== 'shifts.dayComplete' || !shiftHandoverInfo || shiftPaymentReleased !== null) { return; }
+    const shiftId = shiftHandoverInfo.shiftId;
+    const poll = async () => {
+      try {
+        const s = await driverApi.shifts.getDetails(shiftId) as any;
+        const status = String(s?.status ?? '').toUpperCase();
+        const payStatus = String(s?.paymentStatus ?? '').toUpperCase();
+        if (status === 'COMPLETED' || payStatus === 'RELEASED') {
+          setShiftPaymentReleased({
+            // The actual amount transferred to the driver (their quoted rate), like jobs.
+            amount: Number(s?.driverAmount ?? s?.dailyRate ?? 0),
+            currency: String(s?.currency ?? session?.currency ?? ''),
+            isLastDay: true,
+          });
+          loadShifts().catch(() => undefined);
+          driverApi.dashboard.getEarnings().then(d => setEarnings(cast<EarningsResponse>(d))).catch(() => undefined);
+        }
+      } catch { /* silent */ }
+    };
+    poll();
+    const timer = setInterval(poll, 3_000);
+    return () => clearInterval(timer);
+  }, [activeRoute, shiftHandoverInfo, shiftPaymentReleased]);
+
+  // ─── Poll haulier signature when driver is on handover screen ───────────────
+
+  useEffect(() => {
+    if (activeRoute !== 'compliance.handover') {
+      return;
+    }
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await driverApi.compliance.getHandoverStatus(jobId) as {haulierSigned?: boolean; haulierSignedAt?: string | null};
+        if (!cancelled) {
+          setHandoverStatus({
+            haulierSigned: status?.haulierSigned,
+            haulierSignedAt: status?.haulierSignedAt,
+          });
+        }
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeRoute, complianceJobId, dashboard?.activeJob?.jobId]);
+
+  // ─── Poll haulier signature when driver is on SHIFT handover screen ──────────
+
+  useEffect(() => {
+    if (activeRoute !== 'shifts.handover') {return;}
+    const shiftId = shiftHandoverInfo?.shiftId;
+    if (!shiftId) {return;}
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await driverApi.shifts.getHandoverStatus(shiftId);
+        if (!cancelled) {
+          setShiftHandoverStatus({
+            haulierSigned:   status.handoverHaulierSigned ?? false,
+            haulierSignedAt: status.handoverHaulierSignedAt ?? null,
+          });
+        }
+      } catch {/* ignore */}
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeRoute, shiftHandoverInfo?.shiftId]);
+
+  // ─── Compliance handlers ─────────────────────────────────────────────────────
+
+  const handleVerifyLoadCode = async (code: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.compliance.verifyLoadCode({jobId, accessCode: code});
+      setSuccessBanner('Access code verified! Proceed to vehicle handover.');
+      navigate('tracking', 'compliance.handover');
+      // Remove the load code screen from back history so the driver can't accidentally
+      // return to it after a successful verification
+      const last = navHistoryRef.current[navHistoryRef.current.length - 1];
+      if (last?.route === 'compliance.loadCode') {
+        navHistoryRef.current.pop();
+      }
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Invalid access code.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleVerifyLoadCodeAtHandover = async (code: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    await driverApi.compliance.verifyLoadCodeAtHandover({jobId, loadCode: code});
+  };
+
+  const handleSubmitHandover = async (checklist: any, photos: any[]) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      // Upload handover photos if available
+      let conditionPhotoUrls: string[] = [];
+      const photoAssets = Array.isArray(photos) ? photos.filter((p: any) => p?.uri) : [];
+      if (photoAssets.length > 0) {
+        try {
+          const formData = new FormData();
+          photoAssets.forEach((asset: any, idx: number) => {
+            formData.append('photos', {
+              uri: asset.uri,
+              name: asset.fileName ?? `handover_${idx}.jpg`,
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+          });
+          const uploadResult = await driverApi.compliance.submitHandoverPhotos(formData, jobId) as any;
+          const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+          conditionPhotoUrls = Array.isArray(uploaded)
+            ? uploaded.map((u: any) => String(u.fileUrl ?? u.url ?? u.uri ?? '')).filter(Boolean)
+            : [];
+        } catch {
+          conditionPhotoUrls = photoAssets.map((a: any) => String(a.uri));
+        }
+      }
+
+      const driverSignature = String(checklist.__driverSignature ?? 'driver_signed');
+      const cleanChecklist = {...checklist};
+      delete cleanChecklist.__driverSignature;
+
+      await driverApi.compliance.submitVehicleChecklist({jobId, checklistData: cleanChecklist});
+      await driverApi.compliance.signDriverHandover({
+        jobId,
+        signatureData: driverSignature,
+      });
+      // Stay on the handover screen and wait for the haulier to sign from their dashboard
+      setSuccessBanner('Handover submitted — waiting for haulier to confirm.');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Handover failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleProceedAfterHandover = async () => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {return;}
+    setActionLoading(true);
+    try {
+      await driverApi.tracking.start(jobId, {startedAt: new Date().toISOString()});
+    } catch {
+      /* tracking start may fail if already started */
+    }
+    setSuccessBanner('Trip started — live tracking is active!');
+    navigate('tracking', 'tracking.active');
+    await loadTracking();
+    setActionLoading(false);
+  };
+
+  const handleSubmitDelivery = async (proofData: any, photos: any[]) => {
+    const jobId = complianceJobId ?? dashboardRef.current?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      const photoItems = Array.isArray(photos) ? photos.filter((p: any) => p?.uri) : [];
+      let deliveryPhotoUrl: string | undefined;
+      if (photoItems.length > 0) {
+        try {
+          // Upload each photo individually to avoid React Native FormData multi-append issues
+          const collectedUrls: string[] = [];
+          for (const asset of photoItems) {
+            const formData = new FormData();
+            formData.append('photos', {
+              uri: asset.uri,
+              name: asset.fileName ?? 'delivery_photo.jpg',
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+            const uploadResult = await driverApi.compliance.submitDeliveryPhotos(formData, jobId) as any;
+            const uploaded: {fileUrl?: string; url?: string}[] = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+            if (Array.isArray(uploaded) && uploaded.length > 0) {
+              const url = String(uploaded[0].fileUrl ?? uploaded[0].url ?? '');
+              if (url) collectedUrls.push(url);
+            }
+          }
+          if (collectedUrls.length > 0) {
+            deliveryPhotoUrl = collectedUrls.length === 1 ? collectedUrls[0] : JSON.stringify(collectedUrls);
+          }
+          // If all uploads failed, leave deliveryPhotoUrl undefined — don't store device-local paths
+        } catch {
+          // upload failed — deliveryPhotoUrl stays undefined
+        }
+      }
+      const recipientSignatureUrl = (() => {
+        if (typeof proofData?.recipientSignature === 'string') return proofData.recipientSignature;
+        // Convert array-of-strokes [[{x,y},...]] to [{x1,y1,x2,y2},...] for SignatureRenderer
+        const strokes: {x: number; y: number}[][] = proofData?.recipientSignature ?? [];
+        const segments = strokes.flatMap((stroke: {x: number; y: number}[]) =>
+          stroke.slice(1).map((pt: {x: number; y: number}, idx: number) => ({
+            x1: stroke[idx].x, y1: stroke[idx].y, x2: pt.x, y2: pt.y,
+          }))
+        );
+        return JSON.stringify(segments);
+      })();
+      const payload = {
+        jobId,
+        deliveryPhotoUrl,
+        recipientSignatureUrl,
+        recipientName: proofData?.receiverName ?? proofData?.recipientName ?? '',
+        deliveryNotes: proofData?.notes ?? proofData?.deliveryNotes ?? '',
+      };
+
+      try {
+        await driverApi.compliance.submitDeliveryProof(payload);
+      } catch (err) {
+        const message = err instanceof Error ? err.message.toLowerCase() : '';
+        if (message.includes('not authenticated') || message.includes('unauthorized')) {
+          const refreshed = await ensureAuthenticated();
+          if (!refreshed) {
+            throw err;
+          }
+          await driverApi.compliance.submitDeliveryProof(payload);
+        } else {
+          throw err;
+        }
+      }
+
+      setSuccessBanner('Delivery submitted! Awaiting haulier approval.');
+      setEscrowJobId(jobId);
+      setEscrowDetails(null);
+      navigate('jobs', 'payment.awaiting');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : 'Delivery submission failed.',
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ─── Tracking handlers ────────────────────────────────────────────────────────
+
+  const handleUpdateLocation = async (location: any) => {
+    const jobId = dashboard?.activeJob?.jobId;
+    if (!jobId) { return; }
+    try {
+      await driverApi.tracking.updateLocation({
+        jobId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        recordedAt: new Date().toISOString(),
+      });
+    } catch {
+      /* silent */
+    }
+  };
+
+  const handleStopTracking = async () => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await driverApi.tracking.stop(jobId, {reason: 'arrived_at_destination'});
+      setSuccessBanner(
+        'Arrived at destination. Submit delivery proof to complete the job.',
+      );
+      navigate('tracking', 'compliance.delivery');
+      await refreshActiveView();
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : 'Failed to stop tracking.',
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleIncidentReport = async (type: string, description: string, photos: any[] = []) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    await runAction(async () => {
+      const formData = new FormData();
+      formData.append('jobId', jobId);
+      formData.append('incidentType', type);
+      formData.append('description', description);
+      photos
+        .filter((photo: any) => photo?.uri)
+        .slice(0, 10)
+        .forEach((photo: any, index: number) => {
+          formData.append('photos', {
+            uri: photo.uri,
+            name: photo.fileName ?? `issue_${index}.jpg`,
+            type: photo.type ?? 'image/jpeg',
+          } as any);
+        });
+      await driverApi.incidents.report(formData);
+      setSuccessBanner('Haulier notified of the incident.');
+      navigate('tracking', 'tracking.active');
+    });
+  };
+
+  // ─── Document handlers ────────────────────────────────────────────────────────
+
+  const handleDocumentUpload = async (
+    documentType: string,
+    expiryDate: string,
+    file: any,
+    customName?: string,
+  ) => {
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      const formData = new FormData();
+      formData.append('documentType', documentType);
+      if (customName) {formData.append('customName', customName);}
+      formData.append('expiryDate', expiryDate);
+      if (file?.uri) {
+        formData.append('file', {
+          uri: file.uri,
+          name: file.fileName ?? 'doc.jpg',
+          type: file.type ?? 'image/jpeg',
+        } as any);
+      }
+      await driverApi.documents.upload(formData);
+      setSuccessBanner('Document submitted for verification.');
+      await loadDrawerRoute('documents.status');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ─── Profile handlers ─────────────────────────────────────────────────────────
+
+  const handleProfileSave = async () => {
+    await runAction(async () => {
+      await driverApi.profile.update(profileForm);
+      setSuccessBanner('Profile updated.');
+      await loadProfile();
+    });
+  };
+
+  const handleStripeSetup = async () => {
+    setStripeConnectLoading(true);
+    try {
+      const result = await driverApi.stripeConnect.startOnboarding();
+      const url = (result as any)?.onboardingUrl as string | undefined;
+      if (url) {
+        stripeOnboardingPendingRef.current = true;
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Could not get onboarding link. Please try again.');
+      }
+    } catch (e: any) {
+      stripeOnboardingPendingRef.current = false;
+      Alert.alert('Error', e?.message ?? 'Failed to start Stripe onboarding.');
+    } finally {
+      setStripeConnectLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    await runAction(async () => {
+      await driverApi.auth.changePassword(passwordForm);
+      setPasswordForm(defaultPasswordForm);
+      setSuccessBanner('Password changed.');
+    });
+  };
+
+  const handleNotificationPreferencesSave = async () => {
+    await runAction(async () => {
+      await driverApi.notifications.updatePreferences(notificationPrefs);
+      setSuccessBanner('Notification preferences updated.');
+    });
+  };
+
+  // ─── Availability handlers ─────────────────────────────────────────────────────
+
+  const handleAvailabilitySave = async () => {
+    const dayIndex: Record<string, number> = {
+      monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
+      friday: 4, saturday: 5, sunday: 6,
+    };
+    const startTime = availabilityForm.startTime || '08:00';
+    const endTime   = availabilityForm.endTime   || '18:00';
+    await runAction(async () => {
+      const existingSlots = Array.isArray(availability?.slots) ? availability!.slots : [];
+      await Promise.all(
+        availabilityForm.availableDays.map(day => {
+          const dayNum = dayIndex[day] ?? 0;
+          const existing = existingSlots.find(
+            (s: any) => Number(s.day_of_week ?? s.dayOfWeek) === dayNum,
+          );
+          const slotId = existing ? String(existing.slotId ?? existing.id ?? '') : '';
+          if (slotId) {
+            return driverApi.availability.update(slotId, {
+              day_of_week: dayNum,
+              start_time: startTime,
+              end_time: endTime,
+            });
+          }
+          return driverApi.availability.set({
+            day_of_week: dayNum,
+            start_time: startTime,
+            end_time: endTime,
+          });
+        }),
+      );
+      setSuccessBanner('Availability saved.');
+      await loadDrawerRoute('availability.set');
+    });
+  };
+
+  const handleAvailabilityToggle = () => {
+    const nextIsAvailable = !availabilityForm.isAvailable;
+    setAvailabilityForm(c => ({
+      ...c,
+      isAvailable: nextIsAvailable,
+      reason: nextIsAvailable ? '' : c.reason,
+    }));
+  };
+
+  // ─── Ratings ──────────────────────────────────────────────────────────────────
+
+  const handleRatingSubmit = async (rating: number, comment: string) => {
+    const jobId = complianceJobId ?? dashboard?.activeJob?.jobId ?? pendingRatingJob?.jobId;
+    if (!jobId) {
+      return;
+    }
+    const ratedUserId = pendingRatingJob?.haulierId
+      ?? (await driverApi.jobs.getDetails(jobId).catch(() => null))?.haulierId as string | undefined;
+    if (!ratedUserId) {
+      setErrorBanner('Unable to identify haulier for this job. Please try again.');
+      return;
+    }
+    await runAction(async () => {
+      await driverApi.ratings.submit({
+        jobId,
+        ratedUserId,
+        starRating: rating,
+        review: comment || undefined,
+      });
+      setPendingRatingJob(null);
+      setRatingSubmitted(true);
+    });
+  };
+
+  // ─── Shift handlers ──────────────────────────────────────────────────────────
+
+  const handleShiftQuoteSubmit = async (shiftId: string, amountPerDay: number, notes: string) => {
+    await runAction(async () => {
+      await driverApi.shifts.submitQuote(shiftId, {amountPerDay, notes: notes || undefined});
+      setSuccessBanner('Quote submitted! You will be notified if accepted.');
+      await loadShifts();
+    });
+  };
+
+  const handleShiftQuoteWithdraw = async (shiftId: string) => {
+    await runAction(async () => {
+      await driverApi.shifts.withdrawQuote(shiftId);
+      setSuccessBanner('Quote withdrawn.');
+      await loadShifts();
+    });
+  };
+
+  const handleShiftQuoteEdit = async (shiftId: string, amountPerDay: number, notes: string) => {
+    await runAction(async () => {
+      await driverApi.shifts.editQuote(shiftId, {amountPerDay, notes: notes || undefined});
+      setSuccessBanner('Quote updated successfully.');
+      await loadShifts();
+    });
+  };
+
+  const handleShiftCancel = async (shiftId: string) => {
+    await runAction(async () => {
+      await driverApi.shifts.cancel(shiftId);
+      setSuccessBanner('Shift booking cancelled.');
+      await loadShifts();
+    });
+  };
+
+  const handleShiftStartDay = async (shiftId: string) => {
+    const shift = (myShifts as Array<Record<string, unknown>>).find(
+      s => s.shiftId === shiftId,
+    );
+    const dayNum        = shift ? (Number(shift.daysCompleted ?? 0) + 1) : 1;
+    const ref           = String(shift?.shiftRef ?? shiftId);
+    const totalDays     = Number(shift?.totalDays ?? 1);
+    const daysCompleted = Number(shift?.daysCompleted ?? 0);
+    const haulierId     = String(shift?.haulierId ?? '');
+    const accessCode    = shift?.accessCode ? String(shift.accessCode) : null;
+
+    const info = {
+      shiftId,
+      shiftRef:      ref,
+      dayNumber:     dayNum,
+      totalDays,
+      daysCompleted,
+      pickupAddress: String((shift as any)?.reportingLocation ?? shift?.location ?? ''),
+      dropAddress:   String(shift?.dropAddress ?? ''),
+      pickupLat:     shift?.pickupLat != null ? Number(shift.pickupLat) : null,
+      pickupLng:     shift?.pickupLng != null ? Number(shift.pickupLng) : null,
+      dropLat:       shift?.dropLat   != null ? Number(shift.dropLat)  : null,
+      dropLng:       shift?.dropLng   != null ? Number(shift.dropLng)  : null,
+      haulierId,
+      accessCode,
+    };
+
+    // Handover already completed — skip straight to tracking
+    if (shift?.handoverSubmitted && shift?.handoverHaulierSigned) {
+      setShiftHandoverInfo(info);
+      navigate('shifts', 'shifts.tracking');
+      return;
+    }
+
+    await runAction(async () => {
+      await driverApi.shifts.startDay(shiftId);
+      await loadShifts();
+      setShiftHandoverInfo(info);
+      navigate('shifts', 'shifts.handover');
+    });
+  };
+
+  const handleShiftVerifyAccessCode = async (code: string) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      await driverApi.shifts.verifyAccessCode(shiftHandoverInfo.shiftId, code);
+      setSuccessBanner('Access code verified! Proceed to vehicle checklist.');
+      navigate('shifts', 'shifts.handover');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Invalid access code.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftSubmitHandover = async (
+    checklist: Record<string, boolean>,
+    photos: any[],
+  ) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      // Upload handover photos to the shift-specific endpoint
+      const photoUrls: string[] = [];
+      if (photos.length > 0) {
+        const formData = new FormData();
+        photos.forEach(asset => {
+          formData.append('photos', {
+            uri:  asset.uri,
+            name: asset.fileName ?? 'handover_photo.jpg',
+            type: asset.type ?? 'image/jpeg',
+          } as any);
+        });
+        const uploadResult = await driverApi.shifts.uploadHandoverPhotos(shiftHandoverInfo.shiftId, formData) as any;
+        const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+        uploaded.forEach((u: any) => {
+          const url = String(u.fileUrl ?? u.url ?? '');
+          if (url) {photoUrls.push(url);}
+        });
+      }
+
+      // Extract the driver signature from the augmented checklist
+      const {__driverSignature, ...cleanChecklist} = checklist as any;
+
+      await driverApi.shifts.submitHandover(shiftHandoverInfo.shiftId, {
+        checklist:     cleanChecklist,
+        photoUrls,
+        signatureData: typeof __driverSignature === 'string' ? __driverSignature : undefined,
+      });
+
+      // Reset any stale handover status so polling can pick it up fresh
+      setShiftHandoverStatus(null);
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'Handover submission failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftProceedAfterHandover = () => {
+    setShiftHandoverStatus(null);
+    navigate('shifts', 'shifts.tracking');
+  };
+
+  const handleShiftEndOfDay = async (data: {
+    notes: string; recipientName: string;
+    proofPhotoUrl?: string; signatureData?: string;
+    photoAssets?: any[];
+  }) => {
+    if (!shiftHandoverInfo) {return;}
+    setActionLoading(true);
+    setErrorBanner(null);
+    try {
+      // Upload each proof photo to the shift proof endpoint (returns server URLs).
+      // Store as a JSON array (like jobs) so the haulier's delivery report shows them.
+      let proofPhotoUrl: string | undefined;
+      const photoAssets: any[] = data.photoAssets ?? [];
+      if (photoAssets.length > 0) {
+        const collected: string[] = [];
+        for (const asset of photoAssets) {
+          try {
+            const formData = new FormData();
+            formData.append('photos', {
+              uri:  asset.uri,
+              name: asset.fileName ?? 'eod_photo.jpg',
+              type: asset.type ?? 'image/jpeg',
+            } as any);
+            const uploadResult = await driverApi.shifts.uploadProofPhotos(shiftHandoverInfo.shiftId, formData) as any;
+            const uploaded = uploadResult?.uploads ?? uploadResult?.photos ?? [];
+            const url = Array.isArray(uploaded) && uploaded[0] ? String(uploaded[0].fileUrl ?? uploaded[0].url ?? '') : '';
+            if (url) {collected.push(url);}
+          } catch {
+            // upload failed — skip this photo (never store a device-local file:// URI)
+          }
+        }
+        if (collected.length > 0) {
+          proofPhotoUrl = collected.length === 1 ? collected[0] : JSON.stringify(collected);
+        }
+      }
+
+      await driverApi.shifts.endDay(
+        shiftHandoverInfo.shiftId,
+        shiftHandoverInfo.dayNumber,
+        {
+          notes:          data.notes || undefined,
+          recipientName:  data.recipientName || undefined,
+          proofPhotoUrl,
+          signatureData:  data.signatureData,
+        },
+      );
+      // Show waiting screen — payment releases when haulier approves (SHIFT_PAYMENT_RELEASED notification)
+      setShiftPaymentReleased(null);
+      navigate('shifts', 'shifts.dayComplete');
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : 'End-of-day submission failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShiftRatingSubmit = async (rating: number, comment: string) => {
+    if (!pendingShiftRating) {return;}
+    await runAction(async () => {
+      await driverApi.shifts.submitRating(pendingShiftRating.shiftId, {
+        ratedUserId: pendingShiftRating.haulierId,
+        stars:       rating,
+        review:      comment || undefined,
+      });
+      setPendingShiftRating(null);
+      setRatingSubmitted(true);
+      navigate('profile', 'ratings.given');
+    });
+  };
+
+  // ─── Notifications ────────────────────────────────────────────────────────────
+
+  const handleMarkAllNotificationsRead = async () => {
+    await runAction(async () => {
+      await driverApi.notifications.markAllRead();
+      setSuccessBanner('All marked as read.');
+      setNotifications(current =>
+        current.map(item => ({...item, isRead: true, readAt: item.readAt ?? new Date().toISOString()})),
+      );
+      setNotificationUnreadCount(0);
+      await loadNotifications();
+    });
+  };
+
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    if (!notificationId) {
+      return;
+    }
+    await runAction(async () => {
+      await driverApi.notifications.markRead(notificationId);
+      setNotifications(current =>
+        current.map(item =>
+          item.notificationId === notificationId
+            ? {...item, isRead: true, readAt: item.readAt ?? new Date().toISOString()}
+            : item,
+        ),
+      );
+      setNotificationUnreadCount(count => Math.max(0, count - 1));
+      await loadNotifications();
+    });
+  };
+
+  const loadEscrowPayment = async (jobId: string) => {
+    setEscrowLoading(true);
+    try {
+      const res = await driverApi.payments.getEscrowDetails(jobId);
+      const payStatus = String((res as any)?.status ?? '').toUpperCase();
+
+      if (payStatus === 'RELEASED' || payStatus === 'COMPLETED') {
+        // Haulier approved — payment captured. Refresh lists then transition to released screen.
+        driverApi.payments.getHistory({limit: 50, page: 1}).then(h => {
+          setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>);
+        }).catch(() => undefined);
+        driverApi.dashboard.getEarnings().then(d => {
+          setEarnings(cast<EarningsResponse>(d));
+        }).catch(() => undefined);
+        const job = await driverApi.jobs.getDetails(jobId).catch(() => null);
+        setPaymentReleasedData({
+          jobId: String(jobId),
+          jobReference: String((res as any)?.jobRef ?? job?.jobReference ?? jobId),
+          haulierId: job?.haulierId ? String(job.haulierId) : undefined,
+          // Show only the driver's quoted amount, not the total (which includes platform fee)
+          amount: Number((res as any)?.driverAmount ?? (job as any)?.driverAmount ?? (res as any)?.amount ?? 0),
+          currency: String((res as any)?.currency ?? (job as any)?.currency ?? session?.currency ),
+          completionDate: String((res as any)?.releasedAt ?? new Date().toISOString()),
+          invoiceUrl: (job as any)?.invoiceUrl ? String((job as any).invoiceUrl) : undefined,
+        });
+        setEscrowJobId(null);
+        navigate('jobs', 'payments.released' as any);
+      } else {
+        setEscrowDetails(res as Record<string, unknown>);
+      }
+    } catch {
+      setEscrowDetails(null);
+    } finally {
+      setEscrowLoading(false);
+    }
+  };
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+  const openNotificationDestination = async (notification: NotificationSummary) => {
+    const type = String(notification.type ?? '').toUpperCase();
+    const data = notification.data ?? {};
+    const hasJobId = Boolean(data.job_id ?? data.jobId);
+
+    const COMPLETED_STATUSES = new Set([
+      'completed', 'done', 'delivery_submitted', 'payment_released', 'released',
+    ]);
+
+    const isJobDone = async (jobId: string): Promise<boolean> => {
+      try {
+        const job = await driverApi.jobs.getDetails(jobId);
+        return COMPLETED_STATUSES.has(String(job?.status ?? '').toLowerCase());
+      } catch {
+        return false;
+      }
+    };
+
+    const isShiftDone = async (shiftId: string): Promise<boolean> => {
+      try {
+        const shift = await driverApi.shifts.getDetails(shiftId);
+        return COMPLETED_STATUSES.has(String((shift as any)?.status ?? '').toLowerCase());
+      } catch {
+        return false;
+      }
+    };
+
+    const ALREADY_DONE_ALERT = () => Alert.alert(
+      'Already Completed',
+      'This shift has already been completed. You can view your earnings in Payment History.',
+      [{text: 'OK'}],
+    );
+
+    if (type.includes('DOCUMENT_APPROVED') || type.includes('DOCUMENT_REJECTED')) {
+      return;
+    }
+
+    if (type.includes('QUOTE') || type.includes('JOB_BOOKED')) {
+      const jobId   = String(data.job_id   ?? data.jobId   ?? '');
+      const shiftId = String(data.shift_id ?? data.shiftId ?? '');
+      if (shiftId && await isShiftDone(shiftId)) {
+        ALREADY_DONE_ALERT();
+        return;
+      }
+      if (jobId && await isJobDone(jobId)) {
+        Alert.alert(
+          'Job Already Completed',
+          'This job has already been completed. You can view your payment in Earnings History.',
+          [{text: 'OK'}],
+        );
+        return;
+      }
+      navigate('jobs', 'jobs.myQuotes');
+      return;
+    }
+
+    if (type.includes('PAYMENT_ESCROWED')) {
+      const jobId = String(data.job_id ?? data.jobId ?? '');
+      if (jobId && await isJobDone(jobId)) {
+        Alert.alert(
+          'Job Already Completed',
+          'This job has already been completed. You can view your payment in Earnings History.',
+          [{text: 'OK'}],
+        );
+        return;
+      }
+      if (jobId) {
+        setEscrowJobId(jobId);
+        setEscrowDetails(null);
+        navigate('jobs', 'payment.escrow');
+        loadEscrowPayment(jobId);
+      }
+      return;
+    }
+
+    if (type.includes('PAYMENT_RELEASED')) {
+      // Refresh payments list and earnings so profile.payments shows RELEASED status immediately
+      driverApi.payments.getHistory({limit: 50, page: 1}).then(h => {
+        setPayments(((h as any).payments ?? (h as any).items ?? []) as Array<Record<string, unknown>>);
+      }).catch(() => undefined);
+      driverApi.dashboard.getEarnings().then(d => {
+        setEarnings(cast<EarningsResponse>(d));
+      }).catch(() => undefined);
+
+      const jobId = String(data.job_id ?? data.jobId ?? '');
+      if (jobId) {
+        driverApi.jobs.getDetails(jobId).then(job => {
+          setPaymentReleasedData({
+            jobId: String(jobId),
+            jobReference: String(job?.jobReference ?? jobId),
+            haulierId: job?.haulierId ? String(job.haulierId) : undefined,
+            amount: Number((job as any)?.driverAmount ?? job?.agreedAmount ?? 0),
+            currency: String(job?.currency ?? session?.currency ),
+            alreadyRated: ratedJobIds.has(jobId),
+            completionDate: String(job?.updatedAt ?? new Date().toISOString()),
+            invoiceUrl: job?.invoiceUrl ? String(job.invoiceUrl) : undefined,
+          });
+          navigate('jobs', 'payments.released' as any);
+        }).catch(() => {
+          navigate('profile', 'earnings.history');
+        });
+      } else {
+        navigate('profile', 'earnings.history');
+      }
+      return;
+    }
+
+    if (type.includes('SHIFT_PAYMENT_RELEASED')) {
+      const shiftId  = String(data.shift_id ?? data.shiftId ?? '');
+      const isFinal  = Boolean(data.is_final_day);
+      // If this was the final day and the shift is already done, show completed popup
+      if (isFinal && shiftId && await isShiftDone(shiftId) && shiftPaymentReleased !== null) {
+        ALREADY_DONE_ALERT();
+        return;
+      }
+      const amount   = Number(data.amount   ?? 0);
+      const currency = String(data.currency ?? '');
+      setShiftPaymentReleased({ amount, currency, isLastDay: isFinal });
+      navigate('shifts', 'shifts.dayComplete');
+      return;
+    }
+
+    if (type.includes('COMPLIANCE') || type.includes('TRACKING') || hasJobId) {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+
+    navigate('profile', 'notifications.all');
+  };
+
+  const handleOpenNotification = async (notification: NotificationSummary) => {
+    const id = String(notification.notificationId ?? '');
+    if (id) {
+      await handleMarkNotificationRead(id);
+    }
+    await openNotificationDestination(notification);
+  };
+
+  const toggleAvailabilityDay = (day: string) => {
+    setAvailabilityForm(c => {
+      const exists = c.availableDays.includes(day);
+      return {
+        ...c,
+        availableDays: exists
+          ? c.availableDays.filter(d => d !== day)
+          : [...c.availableDays, day],
+      };
+    });
+  };
+
+  const updateNotificationPreference = (
+    channel: 'pushNotifications' | 'smsNotifications',
+    key: string,
+    value: boolean,
+  ) => {
+    setNotificationPrefs(c => ({
+      ...c,
+      [channel]: {...c[channel], [key]: value},
+    }));
+  };
+
+  const goBackFromLoadCode = () => {
+    if (dashboard?.activeJob?.jobId) {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+    if (selectedBooking) {
+      navigate('jobs', 'jobs.booking');
+      return;
+    }
+    navigate('jobs', 'jobs.myQuotes');
+  };
+
+  const goBackFromHandover = () => {
+    navigate('tracking', 'tracking.active');
+  };
+
+  const goBackFromDelivery = () => {
+    navigate('tracking', 'tracking.active');
+  };
+
+  const onSelectDrawerRoute = (route: DrawerRouteKey) => {
+    setSuccessBanner(null);
+    setErrorBanner(null);
+    if (route === 'home') {
+      navigate('home', 'home');
+    } else if (route.startsWith('shifts.')) {
+      navigate('shifts', route);
+    } else if (route.startsWith('jobs.')) {
+      navigate('jobs', route);
+    } else if (route.startsWith('tracking.') || route.startsWith('compliance.')) {
+      navigate('tracking', route);
+    } else if (route.startsWith('profile.')) {
+      navigate('profile', route);
+    } else if (
+      route.startsWith('earnings.') ||
+      route.startsWith('documents.') ||
+      route.startsWith('availability.') ||
+      route.startsWith('notifications.') ||
+      route.startsWith('invoices.') ||
+      route.startsWith('ratings.') ||
+      route.startsWith('support.') ||
+      route.startsWith('legal.')
+    ) {
+      navigate('profile', route);
+    }
+  };
+
+  // ─── Render helpers ───────────────────────────────────────────────────────────
+
+  const getItemId = (item: Record<string, unknown>) =>
+    String(
+      item.jobId ??
+        item.bookingId ??
+        item.quoteId ??
+        item.id ??
+        item.jobReference ??
+        Math.random(),
+    );
+
+  const goToUpcomingTrip = async (item: Record<string, unknown>) => {
+    const jobId = String(item.jobId ?? '');
+    if (!jobId) {
+      setErrorBanner('This job is missing a job ID.');
+      return;
+    }
+
+    setComplianceJobId(jobId);
+    setComplianceStatus(null);
+    setSelectedBooking(null);
+    setSelectedJob(null);
+    setSelectedJobDetails(null);
+
+    const status = String(item.status ?? '').toLowerCase();
+
+    // Delivery already submitted — show the awaiting payment screen, not tracking
+    if (status === 'delivery_submitted') {
+      setEscrowJobId(jobId);
+      setEscrowDetails(null);
+      navigate('jobs', 'payment.awaiting');
+      return;
+    }
+
+    // Already in transit — go straight to tracking
+    if (status === 'in_transit') {
+      navigate('tracking', 'tracking.active');
+      return;
+    }
+
+    // Check compliance progress so the driver resumes from the correct step
+    try {
+      const compliance = await driverApi.compliance.getFullStatus(jobId) as Record<string, unknown>;
+      const route = normalizeComplianceStep(
+        compliance,
+        {jobId, jobReference: String(compliance?.job_ref ?? compliance?.jobReference ?? '')} as DashboardOverview['activeJob'],
+      );
+      navigate('tracking', route);
+    } catch {
+      navigate('tracking', 'compliance.handover');
+    }
+  };
+
+  const renderUpcomingJobCard = (item: Record<string, unknown>) => {
+    const id = getItemId(item);
+    const pickup = toAddress(item.pickupLocation);
+    const drop = toAddress(item.dropLocation);
+    const expanded = expandedUpcomingJobId === id;
+    const status = String(item.status ?? 'booked').toLowerCase();
+    const paymentSecured = item.paymentSecured === true || status === 'payment_secured' || status === 'in_transit' || status === 'delivery_submitted' || status === 'completed';
+    const canStart = !['completed', 'cancelled'].includes(status) && paymentSecured;
+    const currency = String(item.currency ?? session?.currency );
+    const symbol = currencySymbol(currency);
+    const matchedQuote = myQuotes.find(q => String(q.jobId) === String(item.jobId));
+    const rawAmount = item.agreedAmount ?? item.amount ?? item.totalAmount
+      ?? (matchedQuote as any)?.quoteAmount ?? (matchedQuote as any)?.amount;
+    const distanceKm = item.distanceKm ?? item.distance;
+
+    const badgeLabel = status === 'payment_secured' || paymentSecured
+      ? 'PAYMENT SECURED'
+      : status === 'in_transit'
+      ? 'IN TRANSIT'
+      : 'BOOKED';
+
+    const actionLabel = status === 'in_transit'
+      ? 'Open Tracking'
+      : paymentSecured
+      ? 'Start Trip'
+      : 'Awaiting Payment';
+
+    return (
+      <View key={id} style={[styles.listCard, styles.upcomingCard]}>
+        <View style={styles.cardTopRow}>
+          <View style={{flex: 1}}>
+            <Text style={styles.listTitle}>
+              {String(item.jobReference ?? item.jobRef ?? 'Upcoming Job')}
+            </Text>
+            <Text style={styles.listMeta}>
+              {pickup && drop ? `${pickup} → ${drop}` : String(item.jobDate ?? 'Scheduled')}
+            </Text>
+            {distanceKm ? (
+              <Text style={styles.listMetaSub}>{Number(distanceKm).toFixed(1)} km</Text>
+            ) : null}
+          </View>
+          <Text style={[styles.upcomingBadge, paymentSecured && styles.upcomingBadgePaid]}>
+            {badgeLabel}
+          </Text>
+        </View>
+
+        {rawAmount ? (
+          <Text style={styles.amountText}>
+            {symbol} {String(rawAmount)}
+          </Text>
+        ) : null}
+
+        {!paymentSecured && (
+          <View style={styles.awaitingPaymentBanner}>
+            <Text style={styles.awaitingPaymentIcon}>🔒</Text>
+            <View style={{flex: 1}}>
+              <Text style={styles.awaitingPaymentTitle}>Waiting for payment</Text>
+              <Text style={styles.awaitingPaymentBody}>
+                The haulier must secure escrow payment before you can begin this trip. You will be notified once it's confirmed.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.listActionRow}>
+          <Pressable
+            onPress={() => setExpandedUpcomingJobId(prev => (prev === id ? null : id))}
+            style={styles.listActionSecondary}>
+            <Text style={styles.listActionSecondaryText}>
+              {expanded ? 'Hide Details' : 'View Details'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => canStart ? goToUpcomingTrip(item) : undefined}
+            disabled={!canStart}
+            style={[styles.listActionPrimary, !canStart && styles.listActionDisabled]}>
+            <Text style={styles.listActionPrimaryText}>
+              {actionLabel}
+            </Text>
+          </Pressable>
+        </View>
+
+        {expanded && (
+          <View style={styles.upcomingDetails}>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Pickup</Text>
+              <Text style={styles.detailValueCompact}>{pickup || 'N/A'}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Drop-off</Text>
+              <Text style={styles.detailValueCompact}>{drop || 'N/A'}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Job Date</Text>
+              <Text style={styles.detailValueCompact}>{String(item.jobDate ?? 'TBD')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Deliver By</Text>
+              <Text style={[styles.detailValueCompact, {color: '#1066B1', fontWeight: '900'}]}>
+                {item.deliverBy ? String(item.deliverBy) : String(item.timeSlot ?? 'TBD').replace(/_/g, ' ')}
+              </Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Distance</Text>
+              <Text style={styles.detailValueCompact}>
+                {distanceKm ? `${Number(distanceKm).toFixed(2)} km` : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Goods</Text>
+              <Text style={styles.detailValueCompact}>{String(item.goodsType ?? 'N/A')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Weight</Text>
+              <Text style={styles.detailValueCompact}>{String(item.weight ?? 'N/A')}</Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Agreed Amount</Text>
+              <Text style={styles.detailValueCompact}>
+                {rawAmount ? Number(rawAmount).toLocaleString('en-US') : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.detailRowCompact}>
+              <Text style={styles.detailKey}>Haulier</Text>
+              <Text style={styles.detailValueCompact}>{String((item.haulier as {name?: string} | undefined)?.name ?? 'Assigned haulier')}</Text>
+            </View>
+            {paymentSecured ? (
+              <>
+                <View style={styles.detailRowCompact}>
+                  <Text style={styles.detailKey}>Next Step</Text>
+                  <Text style={[styles.detailValueCompact, styles.detailValueSuccess]}>
+                    ✓ Payment secured — tap Start Trip
+                  </Text>
+                </View>
+                {false && item.accessCode ? (
+                  <View style={styles.codeRevealRow}>
+                    <Text style={styles.codeRevealLabel}>Access Code</Text>
+                    <Text style={styles.codeRevealValue}>{String(item.accessCode)}</Text>
+                  </View>
+                ) : null}
+                {false && item.loadCode ? (
+                  <View style={styles.codeRevealRow}>
+                    <Text style={styles.codeRevealLabel}>Load Code</Text>
+                    <Text style={styles.codeRevealValue}>{String(item.loadCode)}</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderJobCard = (item: Record<string, unknown>) => {
+    const pickup = toAddress(item.pickupLocation);
+    const drop = toAddress(item.dropLocation);
+    const id = String(
+      item.jobId ??
+        item.quoteId ??
+        item.paymentId ??
+        item.invoiceId ??
+        Math.random(),
+    );
+    const isHistoryView = activeRoute === 'jobs.history';
+    const cardContent = (
+      <>
+        <Text style={[styles.cardEyebrow, isHistoryView && styles.historyCardEyebrow]}>
+          {String(item.status ?? item.jobReference ?? 'Job')}
+        </Text>
+        <Text style={styles.listTitle}>
+          {String(item.jobReference ?? item.invoiceNumber ?? item.paymentId ?? 'Untitled')}
+        </Text>
+        <Text style={styles.listMeta}>
+          {pickup && drop ? `${pickup} → ${drop}` : String(item.createdAt ?? item.jobDate ?? '')}
+        </Text>
+        {item.agreedAmount || item.amount || item.driverAmount || item.totalAmount ? (
+          <Text style={[styles.amountText, isHistoryView && styles.historyAmountText]}>
+            $ {String(item.driverAmount ?? item.agreedAmount ?? item.amount ?? item.totalAmount)}
+          </Text>
+        ) : null}
+        {isHistoryView && <Text style={styles.historyTapHint}>Tap to view details →</Text>}
+      </>
+    );
+    if (isHistoryView) {
+      return (
+        <Pressable key={id} style={styles.listCard} onPress={() => setSelectedHistoryJob(item)}>
+          {cardContent}
+        </Pressable>
+      );
+    }
+    return <View key={id} style={styles.listCard}>{cardContent}</View>;
+  };
+
+  // ─── Main view router ─────────────────────────────────────────────────────────
+
+  const renderCurrentView = () => {
+    // Home tab renders immediately; other screens block until data is ready
+    const isHomeDashboard = activeTab === 'home' && activeRoute === 'home';
+    if (contentLoading && (!isHomeDashboard || !dashboard)) {
+      return (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={palette.accent} size="large" />
+          <Text style={styles.loaderText}>Loading...</Text>
+        </View>
+      );
+    }
+
+    // Home
+    if (activeTab === 'home' && activeRoute === 'home') {
+      return (
+        <DashboardScreen
+          dashboard={dashboard}
+          driverName={profile?.name ?? session?.name}
+          earnings={earnings}
+          averageRating={Number(ratings?.averageRating ?? dashboard?.rating ?? 0)}
+          upcomingJobs={upcomingJobs}
+          currency={session?.currency}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await refreshActiveView();
+            setRefreshing(false);
+          }}
+          onViewJob={(job: any) => {
+            const jobId = String(job?.jobId ?? job?.id ?? '');
+            setHighlightedQuoteJobId(jobId);
+            navigate('jobs', 'jobs.myQuotes');
+            loadMyQuotes().catch(() => undefined);
+          }}
+          onQuickAction={(action: string) => {
+            if (action === 'find_jobs') {
+              navigate('jobs', 'jobs.available');
+            } else if (action === 'tracking') {
+              navigate('tracking', 'tracking.active');
+            } else if (action === 'payouts') {
+              navigate('profile', 'earnings.history');
+            }
+          }}
+        />
+      );
+    }
+
+    // ── SHIFTS TAB ─────────────────────────────────────────────────────────────
+    if (activeTab === 'shifts' || activeRoute.startsWith('shifts.')) {
+      const shiftGate = getAvailabilityGate(
+        profileForm.driverAvailability,
+        profileForm,
+        documents,
+        (profile?.profile as {esignatureData?: string | null})?.esignatureData,
+      );
+
+      const goToShiftDocuments = () => {
+        navigate('profile', 'documents.upload');
+        loadProfile().catch(() => undefined);
+        driverApi.documents.getStatus().then(s => setVerificationStatus(cast<Record<string, unknown>>(s))).catch(() => undefined);
+        driverApi.documents.list().then(d => setDocuments(mapDocumentItems(d as Record<string, unknown>))).catch(() => undefined);
+      };
+
+      // ── Shift handover screen (after driver starts a day) ──────────────
+      if (activeRoute === 'shifts.handover' && shiftHandoverInfo) {
+        return (
+          <ShiftHandoverScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            pickupAddress={shiftHandoverInfo.pickupAddress}
+            dropAddress={shiftHandoverInfo.dropAddress}
+            pickupLat={shiftHandoverInfo.pickupLat}
+            pickupLng={shiftHandoverInfo.pickupLng}
+            dropLat={shiftHandoverInfo.dropLat}
+            dropLng={shiftHandoverInfo.dropLng}
+            onSubmit={handleShiftSubmitHandover}
+            onProceed={handleShiftProceedAfterHandover}
+            loading={actionLoading}
+            error={errorBanner}
+            haulierSigned={shiftHandoverStatus?.haulierSigned ?? false}
+            haulierSignedAt={shiftHandoverStatus?.haulierSignedAt ?? null}
+            savedSignature={(profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              setShiftHandoverStatus(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      if (activeRoute === 'shifts.tracking' && shiftHandoverInfo) {
+        return (
+          <ShiftTrackingScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            daysCompleted={shiftHandoverInfo.daysCompleted}
+            pickupAddress={shiftHandoverInfo.pickupAddress}
+            dropAddress={shiftHandoverInfo.dropAddress}
+            pickupLat={shiftHandoverInfo.pickupLat}
+            pickupLng={shiftHandoverInfo.pickupLng}
+            dropLat={shiftHandoverInfo.dropLat}
+            dropLng={shiftHandoverInfo.dropLng}
+            onEndDay={() => navigate('shifts', 'shifts.endOfDay')}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              setSuccessBanner(`Day ${shiftHandoverInfo.dayNumber} underway — drive safe! 🚛`);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── Access Code screen (Day 1, if shift has an access code) ───────────
+      if (false && activeRoute === 'shifts.accessCode' && shiftHandoverInfo) {
+        return (
+          <ShiftAccessCodeScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            onVerify={handleShiftVerifyAccessCode}
+            loading={actionLoading}
+            error={errorBanner}
+            onBack={() => {
+              setShiftHandoverInfo(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── End of Day screen ─────────────────────────────────────────────────
+      if (activeRoute === 'shifts.endOfDay' && shiftHandoverInfo) {
+        return (
+          <ShiftEndOfDayScreen
+            shiftId={shiftHandoverInfo.shiftId}
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            onSubmit={handleShiftEndOfDay}
+            loading={actionLoading}
+            error={errorBanner}
+            onBack={() => navigate('shifts', 'shifts.tracking')}
+          />
+        );
+      }
+
+      // ── Day Complete screen ───────────────────────────────────────────────
+      if (activeRoute === 'shifts.dayComplete' && shiftHandoverInfo) {
+        const isLastDay = shiftHandoverInfo.dayNumber >= shiftHandoverInfo.totalDays;
+        const waiting   = shiftPaymentReleased === null;
+        return (
+          <ShiftDayCompleteScreen
+            shiftRef={shiftHandoverInfo.shiftRef}
+            dayNumber={shiftHandoverInfo.dayNumber}
+            totalDays={shiftHandoverInfo.totalDays}
+            isLastDay={isLastDay}
+            waitingForPayment={waiting}
+            releasedAmount={shiftPaymentReleased?.amount}
+            currency={shiftPaymentReleased?.currency}
+            onRate={() => {
+              setPendingShiftRating({
+                shiftId:   shiftHandoverInfo.shiftId,
+                shiftRef:  shiftHandoverInfo.shiftRef,
+                haulierId: shiftHandoverInfo.haulierId,
+              });
+              setShiftHandoverInfo(null);
+              setShiftPaymentReleased(null);
+              navigate('shifts', 'shifts.rating');
+            }}
+            onDone={() => {
+              setShiftHandoverInfo(null);
+              setShiftPaymentReleased(null);
+              loadShifts().catch(() => undefined);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      // ── Shift Rating screen ───────────────────────────────────────────────
+      if (activeRoute === 'shifts.rating' && pendingShiftRating) {
+        return (
+          <RatingSubmissionScreen
+            jobId={pendingShiftRating.shiftId}
+            jobReference={pendingShiftRating.shiftRef}
+            onSubmit={handleShiftRatingSubmit}
+            loading={actionLoading}
+            error={errorBanner}
+            onCancel={() => {
+              setPendingShiftRating(null);
+              navigate('shifts', 'shifts.myShifts');
+            }}
+          />
+        );
+      }
+
+      return (
+        <ShiftsScreen
+          availableShifts={availableShifts as any}
+          myShifts={myShifts as any}
+          myShiftQuotes={myShiftQuotes as any}
+          loading={contentLoading}
+          actionLoading={actionLoading}
+          error={errorBanner}
+          refreshing={refreshing}
+          currency={session?.currency}
+          appDriverLocation={driverLocation}
+          onRefreshLocation={refreshDriverLocation}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await loadShifts();
+            setRefreshing(false);
+          }}
+          onSubmitQuote={handleShiftQuoteSubmit}
+          onWithdrawQuote={handleShiftQuoteWithdraw}
+          onEditShiftQuote={handleShiftQuoteEdit}
+          onCancelShift={handleShiftCancel}
+          onStartDay={handleShiftStartDay}
+          canBrowse={docsChecked ? shiftGate.canAccess : true}
+          gateInfo={shiftGate}
+          onGoToDocuments={goToShiftDocuments}
+          onGoToProfile={() => navigate('profile', 'profile.edit')}
+          onGoToAvailability={() => navigate('profile', 'profile.edit')}
+          paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete || (profile as any)?.bankAccountId)}
+          onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
+        />
+      );
+    }
+
+    // ── COMPLIANCE SCREENS (must be checked BEFORE tracking tab check) ──────────
+    if (false && activeRoute === 'compliance.loadCode') {
+      const lcJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const lcJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? lcJobId;
+      const lcVerified = complianceStatus?.load_code_verified === true;
+      return (
+        <LoadCodeScreen
+          jobId={lcJobId}
+          jobReference={lcJobRef}
+          onVerify={handleVerifyLoadCode}
+          loading={actionLoading}
+          error={errorBanner}
+          alreadyVerified={lcVerified}
+          onContinue={lcVerified ? () => navigate('tracking', 'compliance.handover') : undefined}
+        />
+      );
+    }
+
+    if (activeRoute === 'compliance.handover') {
+      const hoJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const hoJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? hoJobId;
+      return (
+        <HandoverScreen
+          jobId={hoJobId}
+          jobReference={hoJobRef}
+          onSubmit={handleSubmitHandover}
+          onProceed={() => { void handleProceedAfterHandover(); }}
+          onVerifyLoadCode={handleVerifyLoadCodeAtHandover}
+          loading={actionLoading}
+          error={errorBanner}
+          haulierSigned={handoverStatus?.haulierSigned ?? false}
+          haulierSignedAt={handoverStatus?.haulierSignedAt}
+          savedSignature={(profile?.profile as {esignatureData?: string | null})?.esignatureData ?? null}
+        />
+      );
+    }
+
+    if (activeRoute === 'compliance.delivery') {
+      const dlJobId  = complianceJobId ?? dashboard?.activeJob?.jobId ?? '';
+      const dlJobRef = complianceJobRef ?? dashboard?.activeJob?.jobReference ?? dlJobId;
+      return (
+        <DeliveryScreen
+          jobId={dlJobId}
+          jobReference={dlJobRef}
+          onSubmit={handleSubmitDelivery}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    // ── INCIDENT REPORT ────────────────────────────────────────────────────────
+    if (activeRoute === 'tracking.incident') {
+      return (
+        <IncidentReportScreen
+          jobId={complianceJobId ?? dashboard?.activeJob?.jobId ?? ''}
+          jobReference={complianceJobRef ?? dashboard?.activeJob?.jobReference ?? ''}
+          onSubmit={handleIncidentReport}
+          onBack={() => navigate('tracking', 'tracking.active')}
+          loading={actionLoading}
+          error={errorBanner}
+        />
+      );
+    }
+
+    // ── TRACKING ───────────────────────────────────────────────────────────────
+    if (activeTab === 'tracking' || activeRoute.startsWith('tracking.')) {
+      return (
+        <LiveTrackingScreen
+          activeJob={dashboard?.activeJob}
+          trackingEta={trackingEta}
+          trackingLiveLocation={trackingLiveLocation}
+          complianceStatus={complianceStatus}
+          onUpdateLocation={handleUpdateLocation}
+          onStopTracking={handleStopTracking}
+          onReportIncident={() => navigate('tracking', 'tracking.incident')}
+        />
+      );
+    }
+
+    // ── JOBS TAB ───────────────────────────────────────────────────────────────
+    if (activeTab === 'jobs' || activeRoute.startsWith('jobs.')) {
+      // Booking acceptance
+      if (activeRoute === 'jobs.booking') {
+        return (
+          <BookingAcceptanceScreen
+            booking={selectedBooking}
+            onAccept={handleAcceptBooking}
+            onBack={() => {
+              if (selectedBooking) {
+                setComplianceJobId(selectedBooking.jobId);
+                setComplianceStatus(null);
+                navigate('tracking', 'compliance.handover');
+              } else {
+                navigate('jobs', 'jobs.myQuotes');
+              }
+            }}
+            loading={actionLoading}
+            error={errorBanner}
+          />
+        );
+      }
+
+      // My Quotes — accessible without doc check (driver can always view their bids)
+      if (activeRoute === 'jobs.myQuotes') {
+        return (
+          <MyQuotesScreen
+            quotes={myQuotes}
+            refreshing={refreshing}
+            highlightedJobId={highlightedQuoteJobId}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadMyQuotes();
+              setRefreshing(false);
+            }}
+            onProceedToCompliance={(jobId, jobRef, qAmt, curr) => {
+              setHighlightedQuoteJobId(null);
+              setEscrowJobId(jobId);
+              setEscrowDetails(null);
+              navigate('jobs', 'payment.escrow');
+              loadEscrowPayment(jobId);
+            }}
+            onWithdrawQuote={handleWithdrawQuote}
+            onEditQuote={handleEditJobQuote}
+            onResubmitQuote={handleResubmitJobQuote}
+            onViewQuoteStatus={(quote: Record<string, unknown>) => {
+              setHighlightedQuoteJobId(null);
+              const status = String(quote.status ?? '').toLowerCase();
+              if (status === 'accepted' || status === 'selected') {
+                setQuoteStatusData({type: 'accepted', quote});
+              } else if (status === 'rejected' || status === 'declined') {
+                setQuoteStatusData({type: 'rejected', quote});
+              }
+            }}
+          />
+        );
+      }
+
+      if (!docsChecked) {
+        return (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color={palette.accent} size="large" />
+            <Text style={styles.loaderText}>Loading...</Text>
+          </View>
+        );
+      }
+
+      const jobGate = getAvailabilityGate(
+        profileForm.driverAvailability,
+        profileForm,
+        documents,
+        (profile?.profile as {esignatureData?: string | null})?.esignatureData,
+      );
+
+      const goToDocuments = () => {
+        navigate('profile', 'documents.upload');
+        loadProfile().catch(() => undefined);
+        driverApi.documents.getStatus().then(status => {
+          setVerificationStatus(cast<Record<string, unknown>>(status));
+        }).catch(() => undefined);
+        driverApi.documents.list().then(d => {
+          setDocuments(mapDocumentItems(d as Record<string, unknown>));
+        }).catch(() => undefined);
+      };
+
+      if (!jobGate.canAccess) {
+        return (
+          <JobSearchLockedScreen
+            gateInfo={jobGate}
+            onGoToProfile={() => navigate('profile', 'profile.edit')}
+            onGoToDocuments={goToDocuments}
+            onGoToAvailability={() => navigate('profile', 'profile.edit')}
+            context="jobs"
+          />
+        );
+      }
+
+      // My Jobs (upcoming / booked)
+      if (activeRoute === 'jobs.upcoming') {
+        return (
+          <ScrollView
+            style={styles.listContainer}
+            contentContainerStyle={styles.listContentPad}>
+            <Text style={styles.listScreenTitle}>My Jobs</Text>
+            {upcomingJobs.length ? (
+              upcomingJobs.map(renderUpcomingJobCard)
+            ) : (
+              <EmptyState title="No active jobs yet. Find a job below." />
+            )}
+          </ScrollView>
+        );
+      }
+
+      // Job History
+      if (activeRoute === 'jobs.history') {
+        // Detail view for a selected history job
+        if (selectedHistoryJob) {
+          const hj = selectedHistoryJob;
+          const hjPickup = toAddress(hj.pickupLocation);
+          const hjDrop   = toAddress(hj.dropLocation);
+          const hjAmount = Number(hj.driverAmount ?? hj.agreedAmount ?? hj.amount ?? 0);
+          const hjCurrency = String(hj.currency ?? session?.currency ?? '');
+          const hjDate   = String(hj.jobDate ?? hj.completionDate ?? hj.updatedAt ?? '');
+          const hjRef    = String(hj.jobReference ?? hj.jobId ?? '—');
+          const hjStatus = String(hj.status ?? '—');
+          const hjGoods  = String(hj.goodsType ?? '—');
+          const hjStops  = Array.isArray(hj.stops) ? (hj.stops as any[]).filter(s => !s.isFinalDestination) : [];
+          return (
+            <SafeAreaView style={styles.safeScreen}>
+              <View style={styles.detailTopBar}>
+                <Pressable onPress={() => setSelectedHistoryJob(null)} style={styles.detailBackBtn}>
+                  <Text style={styles.detailBackText}>← Back</Text>
+                </Pressable>
+                <Text style={styles.detailTopTitle}>Job Details</Text>
+                <View style={{width: 60}} />
+              </View>
+              <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+                {/* Status badge */}
+                <View style={styles.detailStatusRow}>
+                  <View style={styles.detailStatusBadge}>
+                    <Text style={styles.detailStatusText}>{hjStatus.replace(/_/g, ' ')}</Text>
+                  </View>
+                </View>
+                {/* Reference */}
+                <Text style={styles.detailRef}>{hjRef}</Text>
+
+                {/* Route card */}
+                <View style={styles.detailCard}>
+                  <Text style={styles.detailCardTitle}>Route</Text>
+                  <View style={styles.detailRow}>
+                    <View style={[styles.detailDot, {backgroundColor: '#16A34A'}]} />
+                    <View style={{flex: 1}}>
+                      <Text style={styles.detailRowLabel}>PICKUP</Text>
+                      <Text style={styles.detailRowValue}>{hjPickup || '—'}</Text>
+                    </View>
+                  </View>
+                  {hjStops.map((s: any, idx: number) => (
+                    <View key={idx} style={styles.detailRow}>
+                      <View style={[styles.detailDot, {backgroundColor: '#D97706'}]} />
+                      <View style={{flex: 1}}>
+                        <Text style={styles.detailRowLabel}>STOP {idx + 1}</Text>
+                        <Text style={styles.detailRowValue}>{s.address ?? '—'}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <View style={styles.detailRow}>
+                    <View style={[styles.detailDot, {backgroundColor: palette.accent}]} />
+                    <View style={{flex: 1}}>
+                      <Text style={styles.detailRowLabel}>DROP-OFF</Text>
+                      <Text style={styles.detailRowValue}>{hjDrop || '—'}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Job info card */}
+                <View style={styles.detailCard}>
+                  <Text style={styles.detailCardTitle}>Job Info</Text>
+                  {[
+                    {label: 'GOODS TYPE',  value: hjGoods},
+                    {label: 'JOB DATE',    value: hjDate ? new Date(hjDate).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}) : '—'},
+                    {label: 'REFERENCE',   value: hjRef},
+                  ].map(r => (
+                    <View key={r.label} style={styles.detailInfoRow}>
+                      <Text style={styles.detailInfoLabel}>{r.label}</Text>
+                      <Text style={styles.detailInfoValue}>{r.value}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Payment card */}
+                <View style={[styles.detailCard, styles.detailPayCard]}>
+                  <View style={styles.detailPayIconWrap}>
+                    <Text style={styles.detailPayIcon}>💰</Text>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.detailPayLabel}>Your Payment</Text>
+                    <Text style={styles.detailPayAmount}>
+                      {hjCurrency ? `${hjCurrency} ` : ''}{hjAmount > 0 ? hjAmount.toLocaleString('en-US', {minimumFractionDigits: 2}) : '—'}
+                    </Text>
+                    <Text style={styles.detailPayNote}>Released upon delivery confirmation</Text>
+                  </View>
+                </View>
+              </ScrollView>
+            </SafeAreaView>
+          );
+        }
+
+        return (
+          <ScrollView
+            style={styles.listContainer}
+            contentContainerStyle={styles.listContentPad}>
+            <Text style={styles.listScreenTitle}>Job History</Text>
+            {jobHistory.length ? (
+              jobHistory.map(renderJobCard)
+            ) : (
+              <EmptyState title="No completed jobs yet." />
+            )}
+          </ScrollView>
+        );
+      }
+
+      // Job Detail
+      if (selectedJob) {
+        return (
+          <JobDetailScreen
+            job={selectedJobDetails ?? selectedJob}
+            onSubmitQuote={handleQuoteSubmit}
+            onBack={() => {
+              setSelectedJob(null);
+              setSelectedJobDetails(null);
+              setActiveRoute('jobs.available');
+            }}
+            loading={actionLoading}
+            error={errorBanner}
+            isApplied={myQuotes.some(q => String(q.jobId) === String(selectedJob?.jobId ?? ''))}
+            paymentSetupComplete={Boolean((profile as any)?.stripeConnect?.onboardingComplete || (profile as any)?.bankAccountId)}
+            onGoToPaymentSetup={() => navigate('profile', 'profile.payments')}
+          />
+        );
+      }
+
+      // Quote status notification
+      if (quoteStatusData) {
+        return (
+          <QuoteStatusScreen
+            type={quoteStatusData.type}
+            quote={quoteStatusData.quote}
+            recommendedJobs={availableJobs.slice(0, 3)}
+            onViewJob={() => {
+              const q = quoteStatusData.quote;
+              setQuoteStatusData(null);
+              if (q.jobId) {
+                handleProceedToBooking(String(q.jobId));
+              } else {
+                navigate('jobs', 'jobs.myQuotes');
+              }
+            }}
+            onFindJobs={() => {
+              setQuoteStatusData(null);
+              navigate('jobs', 'jobs.available');
+            }}
+            onDismiss={() => {
+              setQuoteStatusData(null);
+              navigate('jobs', 'jobs.myQuotes');
+            }}
+          />
+        );
+      }
+
+      // Post-delivery waiting screen — buffer until haulier releases payment
+      if (activeRoute === 'payment.awaiting') {
+        const d = escrowDetails as any;
+        return (
+          <DeliveryAwaitingScreen
+            jobReference={d?.jobRef ? String(d.jobRef) : escrowJobId ?? undefined}
+            amount={d?.driverAmount != null ? Number(d.driverAmount) : d?.amount != null ? Number(d.amount) : undefined}
+            currency={d?.currency ? String(d.currency) : session?.currency ?? undefined}
+          />
+        );
+      }
+
+      // Payment escrow screen (driver sees Stripe handshake after notification)
+      if (activeRoute === 'payment.escrow' && escrowJobId) {
+        const d = escrowDetails;
+        return (
+          <PaymentEscrowScreen
+            details={
+              d
+                ? {
+                    paymentId: String(d.paymentId ?? ''),
+                    jobId: String(d.jobId ?? escrowJobId),
+                    jobRef: String(d.jobRef ?? ''),
+                    accessCode: d.accessCode ? String(d.accessCode) : null,
+                    loadCode: d.loadCode ? String(d.loadCode) : null,
+                    pickupAddress: d.pickupAddress ? String(d.pickupAddress) : undefined,
+                    dropAddress: d.dropAddress ? String(d.dropAddress) : undefined,
+                    stops: Array.isArray(d.stops) ? (d.stops as Array<{order?: number; address?: string; litres?: number; isFinalDestination?: boolean}>).filter(s => !s.isFinalDestination) : [],
+                    goodsType: d.goodsType ? String(d.goodsType) : undefined,
+                    jobDate: d.jobDate ? String(d.jobDate) : undefined,
+                    timeSlot: d.timeSlot ? String(d.timeSlot) : undefined,
+                    compartmentCount: d.compartmentCount != null ? Number(d.compartmentCount) : undefined,
+                    totalLitres: d.totalLitres != null ? Number(d.totalLitres) : undefined,
+                    specialInstructions: d.specialInstructions ? String(d.specialInstructions) : undefined,
+                    distanceKm: d.distanceKm != null ? Number(d.distanceKm) : undefined,
+                    amount: Number(d.amount ?? 0),
+                    driverAmount: d.driverAmount != null ? Number(d.driverAmount) : undefined,
+                    platformFee: d.platformFee != null ? Number(d.platformFee) : undefined,
+                    currency: String(d.currency ?? session?.currency ),
+                    status: String(d.status ?? ''),
+                    stripeIntentId: d.stripeIntentId ? String(d.stripeIntentId) : undefined,
+                    stripeStatus: d.stripeStatus ? String(d.stripeStatus) : undefined,
+                    escrowedAt: d.escrowedAt ? String(d.escrowedAt) : undefined,
+                  }
+                : null
+            }
+            loading={escrowLoading}
+            refreshing={escrowRefreshing}
+            onRefresh={async () => {
+              setEscrowRefreshing(true);
+              if (escrowJobId) {
+                await loadEscrowPayment(escrowJobId);
+              }
+              setEscrowRefreshing(false);
+            }}
+            onViewJob={async () => {
+              if (escrowJobId) {
+                setComplianceJobId(escrowJobId);
+                setComplianceStatus(null);
+                const ref = escrowDetails?.jobRef ? String(escrowDetails.jobRef) : escrowJobId;
+                setComplianceJobRef(ref);
+                const route = await resolveComplianceRoute(escrowJobId);
+                navigate('tracking', route);
+              } else {
+                navigate('tracking', 'compliance.handover');
+              }
+            }}
+            onBack={() => {
+              setEscrowJobId(null);
+              setEscrowDetails(null);
+              navigate('jobs', 'notifications.all');
+            }}
+          />
+        );
+      }
+
+      // Payment released screen
+      if (
+        (activeRoute as string) === 'payments.released' &&
+        paymentReleasedData
+      ) {
+        return (
+          <PaymentReleasedScreen
+            jobReference={paymentReleasedData.jobReference}
+            amount={paymentReleasedData.amount}
+            currency={paymentReleasedData.currency}
+            completionDate={paymentReleasedData.completionDate}
+            alreadyRated={paymentReleasedData.alreadyRated}
+            onRate={() => {
+              if (paymentReleasedData) {
+                setPendingRatingJob({
+                  jobId: paymentReleasedData.jobId,
+                  jobReference: paymentReleasedData.jobReference,
+                  haulierId: paymentReleasedData.haulierId,
+                });
+                setRatedJobIds(prev => new Set(prev).add(paymentReleasedData.jobId));
+              }
+              setPaymentReleasedData(null);
+              navigate('profile', 'ratings.given');
+            }}
+            onDone={() => {
+              setPaymentReleasedData(null);
+              navHistoryRef.current = [];
+              navigate('home', 'home');
+            }}
+          />
+        );
+      }
+
+      // Docs already verified by jobGate above — driver always has approved status here
+      const docStatus: 'approved' | 'pending' | 'none' = 'approved';
+      return (
+        <JobDiscoveryScreen
+          availableJobs={availableJobs}
+          appliedJobIds={myQuotes.map(q => String(q.jobId ?? ''))}
+          docStatus={docStatus}
+          currency={session?.currency}
+          appDriverLocation={driverLocation}
+          onRefreshLocation={refreshDriverLocation}
+          onSelectJob={(job: any) => {
+            setSelectedJob(job);
+            setSelectedJobDetails(job);
+          }}
+          onGoToDocuments={goToDocuments}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await refreshActiveView();
+            setRefreshing(false);
+          }}
+        />
+      );
+    }
+
+    // ── PROFILE TAB ────────────────────────────────────────────────────────────
+    if (activeTab === 'profile' && (activeRoute === 'profile.edit' || activeRoute === 'documents.upload')) {
+      return (
+        <ProfileScreen
+          profile={profile}
+          session={session}
+          profileForm={profileForm}
+          documents={documents}
+          verificationStatus={verificationStatus}
+          focusDocuments={activeRoute === 'documents.upload'}
+          onChange={patch => setProfileForm(c => ({...c, ...patch}))}
+          onSave={handleProfileSave}
+          onLogout={handleLogout}
+          onSettings={() => navigate('profile', 'profile.settings')}
+          onAddVehicle={async (vehicleType, vehicleRegistration) => {
+            setProfileForm(c => ({...c, vehicleType, vehicleRegistration}));
+            await driverApi.profile.update({vehicleType, vehicleRegistration});
+            await loadProfile();
+          }}
+          onStripeSetup={handleStripeSetup}
+          stripeConnectLoading={stripeConnectLoading}
+          loading={actionLoading}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await Promise.all([
+              loadProfile(),
+              driverApi.documents.getStatus().then(status => {
+                setVerificationStatus(cast<Record<string, unknown>>(status));
+              }).catch(() => undefined),
+              driverApi.documents.list().then(d => {
+                setDocuments(mapDocumentItems(d as Record<string, unknown>));
+              }).catch(() => undefined),
+            ]);
+            setRefreshing(false);
+          }}
+        />
+      );
+    }
+
+    // ── DRAWER ROUTES ──────────────────────────────────────────────────────────
+    switch (activeRoute) {
+      case 'documents.status':
+        return (
+          <DocumentVerificationScreen
+            documents={documents}
+            verificationStatus={verificationStatus}
+            driverAvailability={profileForm.driverAvailability}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('documents.status');
+              setRefreshing(false);
+            }}
+            onUpload={handleDocumentUpload}
+            uploadLoading={actionLoading}
+            uploadError={errorBanner}
+          />
+        );
+      case 'documents.upload':
+        return (
+          <ProfileScreen
+            profile={profile}
+            session={session}
+            profileForm={profileForm}
+            documents={documents}
+            verificationStatus={verificationStatus}
+            focusDocuments
+            onChange={patch => setProfileForm(c => ({...c, ...patch}))}
+            onSave={handleProfileSave}
+            onLogout={handleLogout}
+            onSettings={() => navigate('profile', 'profile.settings')}
+            onAddVehicle={async (vehicleType, vehicleRegistration) => {
+              setProfileForm(c => ({...c, vehicleType, vehicleRegistration}));
+              await driverApi.profile.update({vehicleType, vehicleRegistration});
+              await loadProfile();
+            }}
+            onStripeSetup={handleStripeSetup}
+            stripeConnectLoading={stripeConnectLoading}
+            loading={actionLoading}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await Promise.all([
+                loadProfile(),
+                driverApi.documents.getStatus().then(status => {
+                  setVerificationStatus(cast<Record<string, unknown>>(status));
+                }).catch(() => undefined),
+                driverApi.documents.list().then(d => {
+                  setDocuments(mapDocumentItems(d as Record<string, unknown>));
+                }).catch(() => undefined),
+              ]);
+              setRefreshing(false);
+            }}
+          />
+        );
+      case 'earnings.history':
+        return (
+          <EarningsHistoryScreen
+            payments={payments}
+            totalEarnings={earnings?.allTimeEarnings ?? 0}
+            currency={session?.currency}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('earnings.history');
+              setRefreshing(false);
+            }}
+            onViewInvoice={async (jobId: string) => {
+              try {
+                const jobDetails = await driverApi.jobs.getDetails(jobId);
+                if (jobDetails?.invoiceUrl) {
+                  Linking.openURL(String(jobDetails.invoiceUrl));
+                } else {
+                  Alert.alert('Invoice Pending', 'The invoice is being generated. Please check back in a few minutes.');
+                }
+              } catch {
+                setErrorBanner('Failed to get invoice URL.');
+              }
+            }}
+          />
+        );
+      case 'earnings.total':
+      case 'earnings.monthly':
+        return (
+          <SectionCard title="Earnings Summary">
+            <Text style={styles.sectionValue}>
+              Rs{' '}
+              {String(
+                earnings?.summary?.totalEarnings ??
+                  earnings?.allTimeEarnings ??
+                  0,
+              )}
+            </Text>
+            <Text style={styles.sectionText}>
+              Jobs:{' '}
+              {String(
+                earnings?.summary?.totalJobs ?? earnings?.allTimeJobs ?? 0,
+              )}
+            </Text>
+            <Text style={styles.sectionHint}>
+              Avg per job: $ {String(earnings?.summary?.averagePerJob ?? 0)}
+            </Text>
+          </SectionCard>
+        );
+      case 'invoices.list':
+        return (
+          <InvoicesScreen
+            invoices={invoices}
+            onViewInvoice={invoice => {
+              setSelectedInvoice(invoice);
+              navigate('profile', 'invoices.detail');
+            }}
+          />
+        );
+      case 'invoices.detail':
+        return (
+          <InvoiceDetailScreen
+            invoice={selectedInvoice}
+            onBack={() => navigate('profile', 'invoices.list')}
+            onDownload={async () => {
+              const jobId = String(selectedInvoice?.jobId ?? '');
+              if (!jobId) {
+                return;
+              }
+              try {
+                await driverApi.invoices.download(jobId);
+              } catch {
+                setErrorBanner('Failed to download invoice.');
+              }
+            }}
+          />
+        );
+      case 'notifications.all':
+        return (
+          <NotificationsScreen
+            notifications={notifications}
+            unreadCount={notificationUnreadCount}
+            refreshing={refreshing}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+            onMarkRead={handleMarkNotificationRead}
+            onOpenNotification={handleOpenNotification}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadNotifications();
+              setRefreshing(false);
+            }}
+          />
+        );
+      case 'ratings.received':
+        return (
+          <RatingsListScreen
+            ratings={ratings}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('ratings.received');
+              setRefreshing(false);
+            }}
+          />
+        );
+      case 'ratings.given': {
+        // Show confirmation screen after rating is submitted
+        if (ratingSubmitted) {
+          return (
+            <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+              <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20}}>
+                <View style={{width: 96, height: 96, borderRadius: 48, backgroundColor: '#D9F3E8', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#34C776'}}>
+                  <Text style={{fontSize: 44}}>⭐</Text>
+                </View>
+                <Text style={{color: palette.navy, fontSize: 26, fontWeight: '900', textAlign: 'center'}}>Review Submitted!</Text>
+                <Text style={{color: palette.inkSoft, fontSize: 15, lineHeight: 22, textAlign: 'center'}}>
+                  Thank you for your feedback. Your rating helps improve the platform for everyone.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setRatingSubmitted(false);
+                    navHistoryRef.current = [];
+                    navigate('home', 'home');
+                  }}
+                  style={{backgroundColor: palette.accent, borderRadius: 14, minHeight: 56, justifyContent: 'center', alignItems: 'center', width: '100%', marginTop: 8}}>
+                  <Text style={{color: '#fff', fontSize: 17, fontWeight: '900'}}>Go to Home</Text>
+                </Pressable>
+              </View>
+            </SafeAreaView>
+          );
+        }
+
+        const ratingJob = dashboard?.activeJob
+          ? {jobId: dashboard.activeJob.jobId, jobReference: dashboard.activeJob.jobReference}
+          : pendingRatingJob;
+        if (ratingJob) {
+          return (
+            <RatingSubmissionScreen
+              jobId={ratingJob.jobId}
+              jobReference={ratingJob.jobReference}
+              onSubmit={handleRatingSubmit}
+              loading={actionLoading}
+              error={errorBanner}
+              onCancel={() => {
+                setPendingRatingJob(null);
+                navigate('profile', 'ratings.received');
+              }}
+            />
+          );
+        }
+        return (
+          <RatingsListScreen
+            ratings={ratings}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadDrawerRoute('ratings.received');
+              setRefreshing(false);
+            }}
+          />
+        );
+      }
+      case 'profile.password':
+        return (
+          <PasswordScreen
+            passwordForm={passwordForm}
+            onChange={patch => setPasswordForm(c => ({...c, ...patch}))}
+            onSave={handlePasswordChange}
+            loading={actionLoading}
+          />
+        );
+      case 'profile.preferences':
+        return (
+          <NotificationPreferencesScreen
+            notificationPrefs={notificationPrefs}
+            onToggle={updateNotificationPreference}
+            onSave={handleNotificationPreferencesSave}
+            loading={actionLoading}
+          />
+        );
+      case 'profile.settings':
+        return (
+          <SettingsScreen
+            onPayments={() => navigate('profile', 'profile.payments')}
+            onChangePassword={() => navigate('profile', 'profile.password')}
+            onNotificationPreferences={() => navigate('profile', 'profile.preferences')}
+            onTerms={() => navigate('profile', 'legal.terms')}
+            onPrivacy={() => navigate('profile', 'legal.privacy')}
+            onDeactivate={() => {
+              Alert.alert(
+                'Deactivate Account',
+                'Are you sure you want to deactivate your account? This will close your account. You can sign up again later with the same email.',
+                [
+                  {text: 'Cancel', style: 'cancel'},
+                  {
+                    text: 'Deactivate',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await driverApi.profile.deactivate();
+                        handleLogout();
+                      } catch {
+                        setErrorBanner('Failed to deactivate account. Please try again.');
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+          />
+        );
+      case 'profile.payments':
+        return (
+          <DriverPaymentsScreen
+            stripeConnect={(profile as any)?.stripeConnect ?? null}
+            onStripeSetup={handleStripeSetup}
+            stripeConnectLoading={stripeConnectLoading}
+            totalEarnings={earnings?.allTimeEarnings ?? earnings?.summary?.totalEarnings ?? 0}
+            totalJobs={earnings?.allTimeJobs ?? earnings?.summary?.totalJobs ?? 0}
+            payments={payments as any[]}
+            currency={session?.currency}
+            loading={actionLoading}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await Promise.all([
+                loadProfile(),
+                driverApi.payments.getHistory({limit: 50}).then(h => {
+                  setPayments((h as any).payments ?? (h as any).items ?? []);
+                }).catch(() => undefined),
+                driverApi.dashboard.getEarnings().then(d => {
+                  setEarnings(cast<EarningsResponse>(d));
+                }).catch(() => undefined),
+              ]);
+              setRefreshing(false);
+            }}
+            onBack={() => navigate('profile', 'profile.settings')}
+          />
+        );
+      case 'availability.set':
+      case 'availability.toggle':
+        return (
+          <AvailabilityScreen
+            availabilityForm={availabilityForm}
+            onToggleDay={toggleAvailabilityDay}
+            onChangeForm={patch => setAvailabilityForm(c => ({...c, ...patch}))}
+            onSave={handleAvailabilitySave}
+            onToggleAvailability={handleAvailabilityToggle}
+            loading={actionLoading}
+          />
+        );
+      case 'support.faq':
+      case 'support.contact':
+        return (
+          <SupportScreen
+            mode={activeRoute === 'support.contact' ? 'contact' : 'faq'}
+          />
+        );
+      case 'compliance.scanner':
+        return (
+          <ScannerInterfaceScreen
+            onClose={() => navigate('tracking', 'compliance.handover')}
+          />
+        );
+      case 'legal.terms':
+        return <TermsAndConditionsScreen />;
+      case 'legal.privacy':
+        return <PrivacyPolicyScreen />;
+      default:
+        return <EmptyState title="Open the drawer to navigate." />;
+    }
+  };
+
+  // ─── Auth screens ─────────────────────────────────────────────────────────────
+
+  // Show blank nav-colour screen while restoring session from storage
+  if (initializing) {
+    return <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}} />;
+  }
+
+  if (locationStatus === 'denied' || locationStatus === 'disabled') {
+    const isDenied = locationStatus === 'denied';
+    return (
+      <SafeAreaView style={styles.blockingShell}>
+        <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+        <View style={styles.blockingBody}>
+
+          {/* Icon badge */}
+          <View style={[styles.blockingBadge, isDenied ? styles.blockingBadgeDanger : styles.blockingBadgeWarning]}>
+            <Text style={styles.blockingBadgeIcon}>{isDenied ? '🔒' : '📍'}</Text>
+          </View>
+
+          {/* Heading */}
+          <Text style={styles.blockingHeading}>
+            {isDenied ? 'Location Access\nDenied' : 'Location is\nTurned Off'}
+          </Text>
+
+          {/* Description */}
+          <Text style={styles.blockingDesc}>
+            {isDenied
+              ? 'FlexiShift needs location permission to track your trips and ensure safety. Please enable it in your app settings.'
+              : 'FlexiShift needs your GPS to be on for trip tracking, safety, and compliance. Enable location in your phone settings.'}
+          </Text>
+
+          {/* Steps card */}
+          <View style={styles.blockingStepsCard}>
+            {isDenied ? (
+              <>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>1</Text></View>
+                  <Text style={styles.blockingStepText}>Tap <Text style={styles.blockingStepBold}>Open Settings</Text> below</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>2</Text></View>
+                  <Text style={styles.blockingStepText}>Go to <Text style={styles.blockingStepBold}>Permissions → Location</Text></Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>3</Text></View>
+                  <Text style={styles.blockingStepText}>Select <Text style={styles.blockingStepBold}>Allow all the time</Text> or <Text style={styles.blockingStepBold}>While using</Text></Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>1</Text></View>
+                  <Text style={styles.blockingStepText}>Pull down the notification shade</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>2</Text></View>
+                  <Text style={styles.blockingStepText}>Tap the <Text style={styles.blockingStepBold}>Location</Text> tile to turn it on</Text>
+                </View>
+                <View style={styles.blockingStep}>
+                  <View style={styles.blockingStepNum}><Text style={styles.blockingStepNumText}>3</Text></View>
+                  <Text style={styles.blockingStepText}>Return here and tap <Text style={styles.blockingStepBold}>Try Again</Text></Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Primary action button */}
+          <Pressable
+            style={({pressed}) => [styles.blockingPrimaryBtn, pressed && styles.blockingPrimaryBtnPressed]}
+            onPress={() => isDenied ? Linking.openSettings() : checkLocation()}>
+            <Text style={styles.blockingPrimaryBtnText}>
+              {isDenied ? 'Open Settings' : 'Try Again'}
+            </Text>
+          </Pressable>
+
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (showSplash) {
+    return (
+      <SplashScreen
+        onGetStarted={() => {
+          setAuthError(null);
+          setAuthInfo(null);
+          setAuthLoading(false);
+          setAuthMode('register');
+          setShowSplash(false);
+        }}
+        onLogin={() => {
+          setAuthError(null);
+          setAuthInfo(null);
+          setAuthLoading(false);
+          setAuthMode('login');
+          setShowSplash(false);
+        }}
+      />
+    );
+  }
+
+  if (!session) {
+    const modeTitle: Record<string, string> = {
+      forgot: 'Forgot Password',
+      login: 'Sign In',
+      register: 'Create Account',
+      reset: 'Reset Password',
+      verify: 'Verify Email',
+    };
+    return (
+      <SafeAreaView style={styles.authShell}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={palette.bg}
+        />
+        {authInfo ? (
+          <View style={styles.authInfoBanner}>
+            <Text style={styles.authInfoText}>{authInfo}</Text>
+          </View>
+        ) : null}
+        {authMode === 'login' ? (
+          <LoginScreen
+            loginForm={loginForm}
+            setLoginForm={setLoginForm}
+            handleLogin={handleLogin}
+            authLoading={authLoading}
+            authError={authError}
+            setAuthMode={setAuthMode}
+          />
+        ) : authMode === 'register' ? (
+          <RegisterScreen
+            registerForm={registerForm}
+            setRegisterForm={setRegisterForm}
+            handleRegister={handleRegister}
+            authLoading={authLoading}
+            authError={authError}
+            setAuthMode={setAuthMode}
+            onViewTerms={() => setAuthMode('terms')}
+            onViewPrivacy={() => setAuthMode('privacy')}
+          />
+        ) : authMode === 'terms' ? (
+          <TermsAndConditionsScreen onBack={() => setAuthMode('register')} />
+        ) : authMode === 'privacy' ? (
+          <PrivacyPolicyScreen onBack={() => setAuthMode('register')} />
+        ) : authMode === 'verify' ? (
+          <VerifyScreen
+            verifyForm={verifyForm}
+            setVerifyForm={setVerifyForm}
+            handleVerify={handleVerify}
+            handleResendOtp={handleResendOtp}
+            authLoading={authLoading}
+            authError={authError}
+            setAuthMode={setAuthMode}
+          />
+        ) : authMode === 'forgot' ? (
+          <ForgotPasswordScreen
+            authLoading={authLoading}
+            authError={authError}
+            onSendCode={handleForgotPassword}
+            onBack={() => setAuthMode('login')}
+          />
+        ) : (
+          <ResetPasswordScreen
+            email={forgotEmail}
+            authLoading={authLoading}
+            authError={authError}
+            onReset={handleResetPassword}
+            onBack={() => setAuthMode('forgot')}
+            onResend={() => handleForgotPassword(forgotEmail)}
+          />
+        )}
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Post-login setup flow ────────────────────────────────────────────────────
+
+  if (session && setupStep === 'profile') {
+    if (setupLegal === 'terms') {
+      return (
+        <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+          <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+          <TermsAndConditionsScreen onBack={() => setSetupLegal(null)} />
+        </SafeAreaView>
+      );
+    }
+    if (setupLegal === 'privacy') {
+      return (
+        <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+          <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+          <PrivacyPolicyScreen onBack={() => setSetupLegal(null)} />
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+        <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+        <ProfileSetupScreen
+          email={session.email}
+          initialName={session.name}
+          onComplete={handleProfileSetup}
+          onSkip={() => {
+            setSetupStep(null);
+            navHistoryRef.current = [];
+            setActiveTab('home');
+            setActiveRoute('home');
+          }}
+          loading={actionLoading}
+          error={errorBanner}
+          onTermsPress={() => setSetupLegal('terms')}
+          onPrivacyPress={() => setSetupLegal('privacy')}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (session && setupStep === 'documents') {
+    return (
+      <SafeAreaView style={{flex: 1, backgroundColor: palette.bg}}>
+        <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+        <DocumentVerificationScreen
+          documents={documents}
+          verificationStatus={verificationStatus}
+          driverAvailability={setupAvailability}
+          extraDocs={setupExtraDocs}
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await loadDrawerRoute('documents.status').catch(() => undefined);
+            setRefreshing(false);
+          }}
+          onUpload={handleDocumentUpload}
+          uploadLoading={actionLoading}
+          uploadError={errorBanner}
+          onSubmit={() => {
+            setSetupStep(null);
+            navHistoryRef.current = [];
+            setActiveTab('home');
+            setActiveRoute('home');
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Main app shell ───────────────────────────────────────────────────────────
+
+  const showsSubNav =
+    activeTab === 'jobs' && !selectedJob && activeRoute !== 'jobs.booking';
+
+  const isFullScreen =
+    activeRoute === 'jobs.available' ||
+    activeRoute === 'jobs.myQuotes' ||
+    activeRoute === 'jobs.upcoming' ||
+    activeRoute === 'jobs.history' ||
+    activeRoute === 'jobs.booking' ||
+    activeRoute === 'profile.settings' ||
+    activeRoute === 'profile.payments' ||
+    activeRoute === 'profile.password' ||
+    activeRoute === 'profile.preferences' ||
+    activeRoute === 'availability.set' ||
+    activeRoute === 'legal.terms' ||
+    activeRoute === 'legal.privacy' ||
+    activeRoute === 'tracking.active' ||
+    activeRoute === 'tracking.incident' ||
+    activeRoute === 'compliance.loadCode' ||
+    activeRoute === 'compliance.scanner' ||
+    activeRoute === 'compliance.handover' ||
+    activeRoute === 'compliance.delivery' ||
+    (activeRoute as string) === 'payments.released' ||
+    activeRoute === 'payment.escrow' ||
+    activeRoute === 'home' ||
+    !!quoteStatusData ||
+    (activeTab === 'profile' && activeRoute === 'profile.edit') ||
+    (activeTab === 'jobs' && !!selectedJob) ||
+    activeTab === 'shifts' ||
+    activeRoute.startsWith('shifts.');
+
+  const tabIcons: Partial<Record<DriverTabKey, ReturnType<typeof require>>> = {
+    home: require('./assets/icons/home.png'),
+    jobs: require('./assets/icons/jobs.png'),
+    tracking: require('./assets/icons/route.png'),
+    profile: require('./assets/icons/profile.png'),
+  };
+
+  const renderBottomTabIcon = (tabKey: DriverTabKey) => {
+    const isActive = activeTab === tabKey;
+    if (tabKey === 'shifts') {
+      return (
+        <Icon
+          name="calendar"
+          size={22}
+          color={isActive ? '#111827' : '#6B7280'}
+          strokeWidth={isActive ? 2.2 : 1.8}
+        />
+      );
+    }
+    return (
+      <Image
+        source={tabIcons[tabKey]}
+        style={[
+          styles.bottomTabIcon,
+          {tintColor: isActive ? '#111827' : '#6B7280'},
+        ]}
+      />
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor={palette.bg} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        {activeRoute !== 'home' ? (
+          <Pressable
+            onPress={goBackOneStep}
+            style={styles.headerBack}
+            hitSlop={8}>
+            <Text style={styles.headerBackText}>←</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerTruckWrap}>
+            <Icon name="truck" size={22} color="#1066B1" strokeWidth={1.8} />
+          </View>
+        )}
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.headerTitle}>
+            {activeRoute.startsWith('compliance.')
+              ? 'Compliance'
+              : activeRoute === 'notifications.all'
+              ? 'Notifications'
+              : activeRoute === 'tracking.incident'
+              ? 'Incident Report'
+              : activeTab === 'home'
+              ? (
+                  <>
+                    <Text style={{color: '#1A1A1A'}}>Flexi</Text>
+                    <Text style={{color: '#1066B1'}}>Shift</Text>
+                  </>
+                )
+              : bottomTabs.find(t => t.key === activeTab)?.label ?? 'Driver'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {profile?.name ?? session.name} | {session.role}
+          </Text>
+        </View>
+        {activeRoute === 'notifications.all' ? (
+          <View style={styles.headerBellSpacer} />
+        ) : (
+          <Pressable
+            onPress={() => navigate('profile', 'notifications.all')}
+            style={styles.headerBell}>
+            <BellIcon size={24} color="#1A1A1A" />
+            {notificationUnreadCount > 0 ? (
+              <View style={styles.headerBellBadge}>
+                <Text style={styles.headerBellBadgeText}>
+                  {notificationUnreadCount > 99 ? '99+' : String(notificationUnreadCount)}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        )}
+      </View>
+
+      {/* Banners */}
+      {errorBanner ? (
+        <View style={styles.bannerError}>
+          <Text style={styles.bannerText}>{errorBanner}</Text>
+        </View>
+      ) : null}
+      {successBanner ? (
+        <View style={styles.bannerSuccess}>
+          <Text style={styles.bannerText}>{successBanner}</Text>
+        </View>
+      ) : null}
+
+      {/* Jobs sub-nav */}
+      {showsSubNav && (
+        <View style={styles.jobsSubNav}>
+          {(
+            [
+              'jobs.available',
+              'jobs.myQuotes',
+              'jobs.upcoming',
+              'jobs.history',
+            ] as DrawerRouteKey[]
+          ).map(route => {
+            const label =
+              route === 'jobs.available'
+                ? 'Find Jobs'
+                : route === 'jobs.myQuotes'
+                ? 'My Quotes'
+                : route === 'jobs.upcoming'
+                ? 'My Jobs'
+                : 'History';
+            return (
+              <Pressable
+                key={route}
+                onPress={() => {
+                  navigate('jobs', route);
+                  if (route !== 'jobs.available') {
+                    loadDrawerRoute(route).catch(() => undefined);
+                  }
+                }}
+                style={[
+                  styles.jobsSubTab,
+                  activeRoute === route && styles.jobsSubTabActive,
+                ]}>
+                <Text
+                  style={[
+                    styles.jobsSubTabText,
+                    activeRoute === route && styles.jobsSubTabTextActive,
+                  ]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Content */}
+      {isFullScreen ? (
+        <View style={[styles.contentContainer, {flex: 1, paddingBottom: 64}]}>
+          {renderCurrentView()}
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.contentContainer}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          {renderCurrentView()}
+        </ScrollView>
+      )}
+
+      {/* Bottom Tab Bar */}
+      {(() => {
+        const _profileComplete = isDriverProfileComplete(profile);
+        const _docsApproved = areDriverDocumentsApproved(
+          verificationStatus,
+          documents,
+        );
+        const _jobsLocked = !(_profileComplete && _docsApproved);
+        return (
+      <View style={styles.bottomTabBar}>
+        {bottomTabs.map(tab => (
+          <Pressable
+            key={tab.key}
+            onPress={() => {
+              if (tab.key === 'home') {
+                navigate('home', 'home');
+              } else if (tab.key === 'jobs') {
+                navigate('jobs', 'jobs.upcoming');
+                loadJobs().catch(() => undefined);
+              } else if (tab.key === 'shifts') {
+                navigate('shifts', 'shifts.available');
+                loadShifts().catch(() => undefined);
+              } else if (tab.key === 'tracking') {
+                navigate('tracking', 'tracking.active');
+                loadTracking().catch(() => undefined);
+              } else if (tab.key === 'profile') {
+                navigate('profile', 'profile.edit');
+                loadProfile().catch(() => undefined);
+                driverApi.documents.getStatus().then(status => {
+                  setVerificationStatus(cast<Record<string, unknown>>(status));
+                }).catch(() => undefined);
+                driverApi.documents.list().then(d => {
+                  setDocuments(mapDocumentItems(d as Record<string, unknown>));
+                }).catch(() => undefined);
+              }
+            }}
+            style={({pressed}) => [
+              styles.bottomTabButton,
+              activeTab === tab.key ? styles.bottomTabButtonActive : null,
+              pressed ? styles.bottomTabButtonPressed : null,
+            ]}>
+            <View style={{position: 'relative'}}>
+              {renderBottomTabIcon(tab.key)}
+              {tab.key === 'jobs' && _jobsLocked && (
+                <View style={styles.tabLockBadge}>
+                  <Text style={styles.tabLockBadgeText}>🔒</Text>
+                </View>
+              )}
+            </View>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.bottomTabLabel,
+                activeTab === tab.key ? styles.bottomTabLabelActive : null,
+              ]}>
+              {tab.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+        );
+      })()}
+    </SafeAreaView>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  amountText: {
+    color: palette.accent,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  historyAmountText: {
+    color: '#1066B1',
+  },
+  authCard: {
+    backgroundColor: palette.card,
+    borderColor: palette.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginHorizontal: 20,
+    padding: 24,
+  },
+  authShell: {backgroundColor: palette.bg, flex: 1},
+  authInfoBanner: {
+    backgroundColor: '#EBF4FF',
+    borderColor: '#6EE7B7',
+    borderWidth: 1,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  authInfoText: {color: '#065F46', fontSize: 14, fontWeight: '700', textAlign: 'center'},
+  authSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  authSwitchPill: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  authSwitchPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  authSwitchDivider: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 18,
+    fontWeight: '300',
+  },
+  authTitle: {
+    color: palette.ink,
+    fontSize: 26,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  bannerError: {
+    backgroundColor: '#EAC9C6',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  bannerSuccess: {
+    backgroundColor: '#CCE7D8',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  bannerText: {color: palette.ink, fontSize: 13, fontWeight: '700'},
+  bottomTabBar: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    height: 64,
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  bottomTabButton: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    marginHorizontal: 2,
+  },
+  bottomTabButtonActive: {
+    backgroundColor: '#F1F5F9',
+  },
+  bottomTabButtonPressed: {
+    opacity: 0.95,
+    transform: [{scale: 0.96}],
+  },
+  bottomTabIcon: {width: 24, height: 24, resizeMode: 'contain'},
+  bottomTabIconActive: {},
+  bottomTabLabel: {
+    color: '#374151',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  bottomTabLabelActive: {color: '#111827'},
+  tabLockBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabLockBadgeText: {fontSize: 9},
+  brandOverline: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  cardEyebrow: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  historyCardEyebrow: {
+    color: '#1066B1',
+  },
+  historyTapHint: {
+    color: palette.accent, fontSize: 11, fontWeight: '700', marginTop: 6,
+  },
+
+  // History detail view
+  safeScreen: {flex: 1, backgroundColor: palette.bg},
+  detailTopBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: palette.bg, borderBottomWidth: 1, borderBottomColor: palette.border,
+  },
+  detailBackBtn: {width: 60},
+  detailBackText: {color: palette.navy, fontSize: 15, fontWeight: '800'},
+  detailTopTitle: {color: palette.navy, fontSize: 16, fontWeight: '900'},
+  detailContent: {padding: 20, paddingBottom: 60, gap: 14},
+  detailStatusRow: {flexDirection: 'row'},
+  detailStatusBadge: {
+    backgroundColor: '#DBEAFE', borderRadius: 99,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  detailStatusText: {color: '#1066B1', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailRef: {color: palette.navy, fontSize: 22, fontWeight: '900'},
+  detailCard: {
+    backgroundColor: '#fff', borderRadius: 16,
+    borderWidth: 1, borderColor: palette.border, padding: 16, gap: 10,
+  },
+  detailCardTitle: {
+    color: palette.navy, fontSize: 13, fontWeight: '900',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+  },
+  detailRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 12},
+  detailDot: {width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0},
+  detailRowLabel: {color: palette.inkSoft, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailRowValue: {color: palette.ink, fontSize: 14, fontWeight: '700', marginTop: 2},
+  detailInfoRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  detailInfoLabel: {color: palette.inkSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5},
+  detailInfoValue: {color: palette.navy, fontSize: 13, fontWeight: '800'},
+  detailPayCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#F0FDF4', borderColor: '#BBF7D0',
+  },
+  detailPayIconWrap: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#166534', justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  detailPayIcon: {fontSize: 22},
+  detailPayLabel: {color: '#166534', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5},
+  detailPayAmount: {color: '#15803D', fontSize: 26, fontWeight: '900', marginTop: 2},
+  detailPayNote: {color: '#16A34A', fontSize: 11, marginTop: 4, lineHeight: 16},
+  content: {gap: 16, padding: 18, paddingBottom: 64},
+  contentContainer: {flex: 1, paddingBottom: 64},
+  emptyText: {color: palette.inkSoft, fontSize: 14, lineHeight: 20},
+  errorText: {
+    color: palette.danger,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  header: {
+    alignItems: 'center',
+    backgroundColor: palette.card,
+    borderBottomColor: palette.border,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  headerBack: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 4,
+    width: 36,
+  },
+  headerBackSpacer: {
+    width: 16,
+  },
+  headerTruckWrap: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 4,
+  },
+  headerBackText: {
+    color: palette.nav,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+
+  headerBell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    minHeight: 28,
+    minWidth: 28,
+    position: 'relative',
+  },
+  headerBellSpacer: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+  },
+headerBellBadge: {
+    alignItems: 'center',
+    backgroundColor: palette.danger,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    right: -6,
+    top: -6,
+  },
+  headerBellBadgeText: {
+    color: palette.card,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  headerSubtitle: {color: palette.inkSoft, fontSize: 12, marginTop: 2},
+  headerTextWrap: {flex: 1, paddingRight: 8},
+  headerTitle: {color: palette.nav, fontSize: 18, fontWeight: '900'},
+  input: {
+    backgroundColor: '#FAF8F3',
+    borderColor: palette.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    color: palette.ink,
+    fontSize: 15,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  jobsSubNav: {
+    flexDirection: 'row',
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  jobsSubTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  jobsSubTabActive: {backgroundColor: '#1066B1'},
+  jobsSubTabText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.inkSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  jobsSubTabTextActive: {color: '#FFFFFF'},
+  linkRow: {alignItems: 'center', marginTop: 12},
+  linkText: {color: palette.accent, fontSize: 13, fontWeight: '800'},
+  listCard: {
+    backgroundColor: '#FCFBF7',
+    borderColor: palette.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 14,
+  },
+  upcomingCard: {
+    backgroundColor: '#F8FAFF',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  listContainer: {flex: 1, backgroundColor: palette.bg},
+  listContentPad: {padding: 18, paddingBottom: 100},
+  listMeta: {color: palette.inkSoft, fontSize: 13, lineHeight: 18},
+  listMetaSub: {color: palette.inkSoft, fontSize: 12, marginTop: 2},
+  upcomingBadge: {
+    color: '#FFFFFF',
+    backgroundColor: '#1066B1',
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    textTransform: 'uppercase',
+  },
+  upcomingBadgePaid: {
+    backgroundColor: '#1066B1',
+    color: '#FFFFFF',
+  },
+  awaitingPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#EAF3FD',
+    borderColor: '#1066B1',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+  },
+  awaitingPaymentIcon: {
+    fontSize: 18,
+    marginTop: 1,
+    color: '#1066B1',
+  },
+  awaitingPaymentTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1066B1',
+    marginBottom: 3,
+  },
+  awaitingPaymentBody: {
+    fontSize: 12,
+    color: '#1F4B79',
+    lineHeight: 17,
+  },
+  detailValueSuccess: {
+    color: '#18794E',
+  },
+  codeRevealRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#EBF3FB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  codeRevealLabel: {
+    color: '#1066B1',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  codeRevealValue: {
+    color: '#041627',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  detailValueWarning: {
+    color: '#C17B00',
+  },
+  listActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  listActionPrimary: {
+    alignItems: 'center',
+    backgroundColor: '#1066B1',
+    borderRadius: 12,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionSecondary: {
+    alignItems: 'center',
+    backgroundColor: '#1066B1',
+    borderColor: '#1066B1',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  listActionSecondaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  listActionDisabled: {
+    opacity: 0.45,
+  },
+  upcomingDetails: {
+    backgroundColor: '#FFFFFF',
+    borderColor: palette.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+    gap: 8,
+  },
+  detailRowCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  detailKey: {
+    color: palette.inkSoft,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  detailValueCompact: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  listScreenTitle: {
+    color: palette.ink,
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 16,
+  },
+  listTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  loaderText: {color: palette.inkSoft, marginTop: 12},
+  loaderWrap: {alignItems: 'center', justifyContent: 'center', minHeight: 220},
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: palette.accent,
+    borderRadius: 14,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  primaryButtonText: {color: palette.nav, fontSize: 14, fontWeight: '900'},
+  screen: {backgroundColor: palette.bg, flex: 1},
+  sectionCard: {
+    backgroundColor: palette.card,
+    borderColor: palette.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 18,
+  },
+  sectionHint: {color: palette.inkSoft, fontSize: 13, lineHeight: 19},
+  sectionText: {
+    color: palette.ink,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    color: palette.ink,
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 14,
+  },
+  sectionValue: {
+    color: palette.ink,
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  successText: {
+    color: palette.success,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+
+  // ── Location blocking screen ─────────────────────────────────────────────────
+  blockingShell: {
+    flex: 1,
+    backgroundColor: palette.bg,
+  },
+  blockingBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 32,
+  },
+  blockingBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+  },
+  blockingBadgeDanger: {
+    backgroundColor: '#FEE2E2',
+  },
+  blockingBadgeWarning: {
+    backgroundColor: '#DBEAFE',
+  },
+  blockingBadgeIcon: {
+    fontSize: 44,
+  },
+  blockingHeading: {
+    color: palette.navy,
+    fontSize: 28,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 36,
+    marginBottom: 14,
+  },
+  blockingDesc: {
+    color: palette.inkSoft,
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+    marginBottom: 28,
+  },
+  blockingStepsCard: {
+    width: '100%',
+    backgroundColor: palette.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    gap: 14,
+    marginBottom: 28,
+  },
+  blockingStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  blockingStepNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: palette.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  blockingStepNumText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  blockingStepText: {
+    color: palette.ink,
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  blockingStepBold: {
+    fontWeight: '700',
+    color: palette.navy,
+  },
+  blockingPrimaryBtn: {
+    width: '100%',
+    backgroundColor: palette.accent,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockingPrimaryBtnPressed: {
+    opacity: 0.82,
+  },
+  blockingPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+});
+
+export default DriverApp;

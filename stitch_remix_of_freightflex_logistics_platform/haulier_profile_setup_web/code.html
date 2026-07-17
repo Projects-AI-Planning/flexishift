@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Haulier Profile Completion | Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-container": "#713b00",
+                    "primary-container": "#1a2b3c",
+                    "on-tertiary-fixed": "#281802",
+                    "secondary": "#904d00",
+                    "inverse-surface": "#2e3132",
+                    "secondary-container": "#ffa454",
+                    "primary": "#041627",
+                    "on-surface": "#191c1d",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#feddb5",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "tertiary-container": "#38260b",
+                    "primary-fixed": "#d2e4fb",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "on-secondary": "#ffffff",
+                    "surface-variant": "#e1e3e4",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e1e3e4",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-container": "#a88c69",
+                    "on-secondary-fixed": "#2f1500",
+                    "on-primary-fixed": "#0b1d2d",
+                    "primary-fixed-dim": "#b7c8de",
+                    "on-primary-container": "#8192a7",
+                    "surface-container-high": "#e7e8e9",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "on-error-container": "#93000a",
+                    "outline": "#74777d",
+                    "error": "#ba1a1a",
+                    "on-background": "#191c1d",
+                    "surface-container-low": "#f3f4f5",
+                    "on-tertiary": "#ffffff",
+                    "surface-tint": "#4f6073",
+                    "surface-container": "#edeeef",
+                    "tertiary": "#211200",
+                    "outline-variant": "#c4c6cd",
+                    "on-surface-variant": "#44474c",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#f8f9fa",
+                    "surface-dim": "#d9dadb",
+                    "on-primary-fixed-variant": "#38485a",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed": "#ffdcc3",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "background": "#f8f9fa",
+                    "surface": "#f8f9fa",
+                    "inverse-primary": "#b7c8de"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col items-center">
+<!-- TopNavBar Shell Suppression: This is a task-focused sub-page with centered layout, so full nav is suppressed per instructions. -->
+<header class="w-full bg-white dark:bg-zinc-950 shadow-sm border-b border-slate-200 dark:border-zinc-800 sticky top-0 z-50">
+<div class="flex justify-between items-center h-16 px-6 max-w-[1920px] mx-auto">
+<div class="text-xl font-bold text-[#041627] dark:text-white tracking-tighter">
+                Logistics Core
+            </div>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 hover:text-[#041627] transition-colors font-['Inter'] font-medium text-sm">
+                    Cancel
+                </button>
+</div>
+</div>
+</header>
+<main class="flex-grow w-full flex items-center justify-center p-6 md:p-12">
+<div class="w-full max-w-xl flex flex-col gap-8">
+<!-- Progress Stepper -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-end">
+<span class="text-xs uppercase tracking-widest text-slate-500 font-bold">Step 2 of 4</span>
+<span class="text-xs font-bold text-primary">50% Complete</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-1/2 rounded-full"></div>
+</div>
+</div>
+<!-- Header Section -->
+<div class="space-y-2">
+<h1 class="text-[32px] font-bold leading-[40px] tracking-tight text-primary">
+                    Company Information
+                </h1>
+<p class="text-on-surface-variant body-md">
+                    Please provide your legal entity details to enable dispatching and payment features on the platform.
+                </p>
+</div>
+<!-- Form Section -->
+<div class="bg-white border border-outline-variant p-8 rounded-xl shadow-sm space-y-6">
+<!-- Company Name -->
+<div class="space-y-1.5">
+<label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Company Name (Legal Entity)</label>
+<input class="w-full px-4 py-3 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all body-md" placeholder="e.g. SwiftLogistics GmbH" type="text"/>
+</div>
+<!-- Registered Address -->
+<div class="space-y-4">
+<label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant block">Registered Business Address</label>
+<div class="space-y-1.5">
+<input class="w-full px-4 py-3 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all body-md" placeholder="Street and Number" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<input class="w-full px-4 py-3 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all body-md" placeholder="City" type="text"/>
+</div>
+<div class="space-y-1.5">
+<input class="w-full px-4 py-3 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all body-md" placeholder="Postal Code" type="text"/>
+</div>
+</div>
+</div>
+<!-- Tax ID -->
+<div class="space-y-1.5">
+<div class="flex justify-between items-center">
+<label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Tax Identification Number</label>
+<span class="material-symbols-outlined text-slate-400 text-sm cursor-help" title="Your VAT or local business tax ID">info</span>
+</div>
+<input class="w-full px-4 py-3 rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all body-md" placeholder="e.g. DE123456789" type="text"/>
+</div>
+<!-- Trust Tip Card -->
+<div class="bg-primary-fixed/30 border border-primary-fixed-dim p-4 rounded-lg flex gap-4">
+<div class="text-primary-fixed-dim shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<div class="space-y-1">
+<p class="text-sm font-bold text-on-primary-fixed">Trust Tip</p>
+<p class="text-xs text-on-primary-fixed-variant leading-relaxed">
+                            Verified profiles receive up to 40% more load offers from premium shippers. Make sure your tax ID matches your legal documents.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col gap-3">
+<button class="w-full py-4 bg-primary text-on-primary font-bold rounded-lg shadow-sm hover:opacity-90 active:scale-[0.99] transition-all">
+                    Continue
+                </button>
+<button class="w-full py-4 bg-transparent border border-outline text-primary font-bold rounded-lg hover:bg-surface-container-low transition-all">
+                    Save as Draft
+                </button>
+</div>
+</div>
+</main>
+<footer class="w-full bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center py-8 px-10 max-w-7xl mx-auto gap-4">
+<p class="font-['Inter'] text-xs uppercase tracking-widest text-slate-600 dark:text-zinc-400">
+                © 2024 Logistics Core Fleet Operations. All rights reserved.
+            </p>
+<div class="flex gap-6">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Driver Support</a>
+</div>
+</div>
+</footer>
+</body></html>

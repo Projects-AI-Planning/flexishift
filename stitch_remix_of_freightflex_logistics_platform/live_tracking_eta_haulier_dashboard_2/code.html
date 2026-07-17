@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Logistics Core - Live Shipment Tracker</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "background": "#f8f9fa",
+                      "on-secondary-container": "#713b00",
+                      "surface-container": "#edeeef",
+                      "tertiary-container": "#38260b",
+                      "surface": "#f8f9fa",
+                      "on-surface-variant": "#44474c",
+                      "secondary": "#904d00",
+                      "tertiary-fixed": "#feddb5",
+                      "primary-fixed": "#d2e4fb",
+                      "on-tertiary-fixed-variant": "#584326",
+                      "surface-variant": "#e1e3e4",
+                      "on-tertiary-fixed": "#281802",
+                      "on-surface": "#191c1d",
+                      "surface-bright": "#f8f9fa",
+                      "tertiary": "#211200",
+                      "secondary-fixed-dim": "#ffb77d",
+                      "on-secondary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-container": "#1a2b3c",
+                      "on-primary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "on-tertiary-container": "#a88c69",
+                      "on-primary-fixed-variant": "#38485a",
+                      "surface-container-highest": "#e1e3e4",
+                      "tertiary-fixed-dim": "#e1c29b",
+                      "outline-variant": "#c4c6cd",
+                      "inverse-on-surface": "#f0f1f2",
+                      "on-error-container": "#93000a",
+                      "secondary-container": "#ffa454",
+                      "primary": "#041627",
+                      "primary-fixed-dim": "#b7c8de",
+                      "on-primary-container": "#8192a7",
+                      "error-container": "#ffdad6",
+                      "surface-container-high": "#e7e8e9",
+                      "secondary-fixed": "#ffdcc3",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "surface-container-low": "#f3f4f5",
+                      "outline": "#74777d",
+                      "surface-dim": "#d9dadb",
+                      "on-primary-fixed": "#0b1d2d",
+                      "inverse-primary": "#b7c8de",
+                      "error": "#ba1a1a",
+                      "on-tertiary": "#ffffff",
+                      "surface-tint": "#4f6073",
+                      "on-background": "#191c1d",
+                      "on-secondary-fixed": "#2f1500",
+                      "inverse-surface": "#2e3132"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Inter"],
+                      "display": ["Inter"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+      </style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 bg-slate-900 dark:bg-black flex flex-col py-6 shadow-xl z-50">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-bold tracking-tight text-white">Logistics Core</h1>
+<p class="text-xs text-slate-400 font-medium uppercase tracking-widest">Haulier Portal</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 flex items-center px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard">dashboard</span>
+<span class="font-inter text-sm font-medium">Dashboard</span>
+</a>
+<a class="bg-amber-500 text-slate-900 rounded-lg mx-2 flex items-center px-4 py-3 transition-colors duration-200 shadow-lg shadow-amber-500/20" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="local_shipping">local_shipping</span>
+<span class="font-inter text-sm font-medium">Active Shipments</span>
+</a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 flex items-center px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="hub">hub</span>
+<span class="font-inter text-sm font-medium">Fleet Management</span>
+</a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 flex items-center px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="insights">insights</span>
+<span class="font-inter text-sm font-medium">Route Analytics</span>
+</a>
+</nav>
+<div class="mt-auto space-y-1 pt-6 border-t border-slate-800">
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 flex items-center px-4 py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="settings">settings</span>
+<span class="font-inter text-sm font-medium">Settings</span>
+</a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 flex items-center px-4 py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="contact_support">contact_support</span>
+<span class="font-inter text-sm font-medium">Support</span>
+</a>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-64 h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-40 flex items-center justify-between px-8 shadow-sm">
+<div class="flex items-center">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl" data-icon="search">search</span>
+<input class="bg-surface-container border-none rounded-full pl-10 pr-4 py-1.5 text-sm w-80 focus:ring-2 focus:ring-amber-500/50" placeholder="Search shipments, VINs, drivers..." type="text"/>
+</div>
+<span class="ml-6 font-bold text-slate-900 dark:text-white text-lg">Shipment Tracker</span>
+</div>
+<div class="flex items-center space-x-2">
+<button class="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white dark:border-slate-900"></span>
+</button>
+<button class="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="h-8 w-px bg-slate-200 dark:border-slate-800 mx-2"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right">
+<p class="text-xs font-bold text-slate-900 dark:text-white">Alex Kowalski</p>
+<p class="text-[10px] text-slate-500 uppercase font-medium">Fleet Ops</p>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200">
+<img class="w-full h-full object-cover" data-alt="Portrait of a professional logistics manager in a modern office environment with warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB64-WGb07OnniMs1l32uNm_Mu8pwcaEVHwBk1QV_C4ER4DM5vGwhK1vMmAj695HAe7_4rKcLQCDPo9rOAe-83OK_ut_ej9FFsVkuMOhHX84IP0iqXVfgAExQivLxgLciRFRJW71JiAng4SvCF7i-WQSDzAu-zzqoSEWyP7waiKjtAF5hY1mVyn4LKOA3RtyrjcumfSZN7yW_FkI8XgftoQh4fh0cSUFwM-qQM4HcfXPbxpveNhkMf0wbYhUd9QNJXlwjYnPPsidH0"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 pt-16 min-h-screen p-8">
+<!-- Header Status -->
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<div class="bg-amber-100 text-amber-900 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+<span class="w-2 h-2 bg-amber-600 rounded-full animate-pulse"></span>
+                    Live Tracking
+                </div>
+<h2 class="text-2xl font-bold text-primary">Job #FR-99203-BX: <span class="text-amber-600 font-extrabold">In Transit</span></h2>
+</div>
+<div class="flex gap-2">
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-md">
+<span class="material-symbols-outlined text-lg" data-icon="share">share</span>
+                    Share Link
+                </button>
+<button class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-slate-50">
+<span class="material-symbols-outlined text-lg" data-icon="contact_phone">contact_phone</span>
+                    Call Driver
+                </button>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Map & Telematics -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Interactive Map Container -->
+<div class="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden relative aspect-video">
+<img class="w-full h-full object-cover" data-alt="Detailed map view of European highway infrastructure showing a clean GPS route line from Berlin to Warsaw with a truck icon" data-location="Berlin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgGEvYQzO9UJgKfGqU0dFUJxEofdTWaBQCQAwsjpWpXSI7bBwwHbjqtl028yMT0MC4KTZTV2N9GKL-GTozfwOAbJSF7yQirMxyeiKBi6oZtUlEVIQDEyDvHaZeHPYtxIWE3IbCO4RZGyOuyl-wJ-7EbtO9fDRZ7E1ddiKZtT1t2jKBqeFII3rvsArQpOKOjYq1nqtii3S5i-aqyrrQJZ-yyHO5iIJMpj0FB54pq6HPskLwt8TiyzJpdUwLylebYFsaqW_JyY7_jWM"/>
+<!-- Overlay: Route Details & Delay Alert -->
+<div class="absolute top-6 left-6 flex flex-col gap-3">
+<div class="bg-primary/95 backdrop-blur-md p-4 rounded-lg text-white shadow-2xl border border-white/10">
+<div class="flex items-center gap-4">
+<div>
+<p class="text-[10px] text-on-primary-container uppercase font-bold tracking-widest">Current Position</p>
+<p class="text-sm font-semibold">A2 Highway near Poznań, PL</p>
+</div>
+<div class="bg-amber-500 text-slate-900 p-2 rounded-md">
+<span class="material-symbols-outlined text-xl" data-icon="navigation" style="font-variation-settings: 'FILL' 1;">navigation</span>
+</div>
+</div>
+</div>
+<!-- Delay Alert Banner -->
+<div class="bg-error/90 backdrop-blur-md px-4 py-2.5 rounded-lg text-white shadow-xl border border-white/20 flex items-center gap-3">
+<span class="material-symbols-outlined text-xl animate-pulse" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-wider opacity-80 leading-none mb-1">Delay Alert</p>
+<p class="text-sm font-bold">+15 min due to heavy traffic</p>
+</div>
+</div>
+</div>
+<!-- Map Legend / Controls -->
+<div class="absolute bottom-6 right-6 flex flex-col gap-2">
+<button class="bg-white p-3 rounded-lg shadow-lg hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-slate-700" data-icon="add">add</span>
+</button>
+<button class="bg-white p-3 rounded-lg shadow-lg hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-slate-700" data-icon="remove">remove</span>
+</button>
+<button class="bg-white p-3 rounded-lg shadow-lg hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-slate-700" data-icon="layers">layers</span>
+</button>
+</div>
+<!-- Truck Marker (Visual Representation) -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="relative">
+<div class="absolute -inset-4 bg-amber-500/20 rounded-full animate-ping"></div>
+<div class="bg-amber-500 w-10 h-10 rounded-full border-4 border-white shadow-2xl flex items-center justify-center relative">
+<span class="material-symbols-outlined text-slate-900" data-icon="local_shipping" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Real-time Data Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Current Speed</span>
+<span class="material-symbols-outlined text-primary" data-icon="speed">speed</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-extrabold text-primary">68</span>
+<span class="text-sm font-bold text-slate-400">km/h</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-green-600 font-bold text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_downward">arrow_downward</span>
+                            5% vs avg route speed
+                        </div>
+</div>
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Remaining</span>
+<span class="material-symbols-outlined text-primary" data-icon="distance">distance</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-extrabold text-primary">142</span>
+<span class="text-sm font-bold text-slate-400">km</span>
+</div>
+<div class="mt-4 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+<div class="bg-amber-500 h-full w-[72%]" style="width: 72%;"></div>
+</div>
+</div>
+<!-- Enhanced ETA Section -->
+<div class="bg-primary text-white p-6 rounded-xl border border-primary shadow-lg ring-2 ring-amber-500/20">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-amber-500 uppercase tracking-widest">Estimated Arrival</span>
+<span class="material-symbols-outlined text-amber-500" data-icon="schedule" style="font-variation-settings: 'FILL' 1;">schedule</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-white">14:30</span>
+<span class="text-base font-bold text-slate-300">Today</span>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+                                +15 min delay
+                            </div>
+<div class="text-[10px] bg-white/10 px-2 py-0.5 rounded font-bold uppercase text-slate-300">
+                                On-Schedule
+                            </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Timeline & Telematics -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Delivery Milestones -->
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+<h3 class="text-lg font-bold text-primary mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="route">route</span>
+                        Delivery Milestones
+                    </h3>
+<div class="space-y-6 flex-1">
+<!-- Passed -->
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-[-24px] w-0.5 bg-slate-200"></div>
+<div class="z-10 bg-green-600 w-6 h-6 rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-xs" data-icon="check">check</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-900">Departed Berlin Terminal</p>
+<p class="text-xs text-slate-500">04:15 AM • <span class="text-green-600 font-semibold uppercase tracking-tighter">On-Schedule</span></p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-[-24px] w-0.5 bg-slate-200"></div>
+<div class="z-10 bg-green-600 w-6 h-6 rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-xs" data-icon="check">check</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-900">Frankfurt (Oder) Border</p>
+<p class="text-xs text-slate-500">06:42 AM • No Delay</p>
+</div>
+</div>
+<!-- Current -->
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-[-24px] w-0.5 bg-slate-200"></div>
+<div class="z-10 bg-amber-500 w-6 h-6 rounded-full flex items-center justify-center text-slate-900 ring-4 ring-amber-100">
+<span class="material-symbols-outlined text-xs" data-icon="my_location">my_location</span>
+</div>
+<div>
+<p class="text-sm font-extrabold text-amber-600">A2 Motorway - Poznań</p>
+<p class="text-xs text-slate-500">In Transit • Passing Now</p>
+</div>
+</div>
+<!-- Upcoming -->
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-[-24px] w-0.5 bg-slate-200"></div>
+<div class="z-10 bg-white border-2 border-slate-300 w-6 h-6 rounded-full flex items-center justify-center text-slate-300">
+<span class="material-symbols-outlined text-xs" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-400">Łódź Distribution Center</p>
+<p class="text-xs text-slate-400">Est. Arrival 12:45 PM</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="z-10 bg-white border-2 border-slate-300 w-6 h-6 rounded-full flex items-center justify-center text-slate-300">
+<span class="material-symbols-outlined text-xs" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-400">Warsaw Central Hub</p>
+<p class="text-xs text-slate-400 font-semibold text-amber-600 uppercase tracking-tighter">Est. Delivery 14:30 PM (+15m)</p>
+</div>
+</div>
+</div>
+<button class="mt-8 w-full border-t border-slate-100 pt-4 text-primary text-xs font-bold hover:text-amber-600 transition-colors flex items-center justify-center gap-1">
+                        View Detailed Log <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Live Telematics -->
+<div class="bg-primary text-white p-6 rounded-xl shadow-xl space-y-6">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-500" data-icon="settings_input_component">settings_input_component</span>
+                        Live Telematics
+                    </h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-bold uppercase mb-2">
+<span class="text-on-primary-container">Fuel Level</span>
+<span>64%</span>
+</div>
+<div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-amber-500 h-full w-[64%]" style="width: 64%;"></div>
+</div>
+<p class="text-[10px] text-on-primary-container mt-1">Range: Approx 420km remaining</p>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div class="bg-slate-800/50 p-3 rounded-lg border border-white/5">
+<p class="text-[10px] text-on-primary-container uppercase font-bold">Shift Time</p>
+<p class="text-lg font-bold">04:22<span class="text-xs text-on-primary-container ml-1">hrs</span></p>
+</div>
+<div class="bg-slate-800/50 p-3 rounded-lg border border-white/5">
+<p class="text-[10px] text-on-primary-container uppercase font-bold">Temp (Cargo)</p>
+<p class="text-lg font-bold">4.2<span class="text-xs text-on-primary-container ml-1">°C</span></p>
+</div>
+</div>
+<div class="pt-2">
+<div class="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-slate-700">
+<img class="w-full h-full object-cover" data-alt="Portrait of a truck driver wearing a high-visibility vest and a focused expression, warm natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzQE6wNLr3bqi_5HCmomCZ2KgYkk4i7_je49cThP0kxin6ye0YZp3mu04pEkNmh2ue_-XUupILgP3k6sKyzG4szFs1ufsKRVlZgsb79PePHISlvjtrUbrNyV4LJ9NRR0xS4hW23qmfWVjMDgYaWmEckT1DCsZP-h4qJS4QEBQ85uyFOeNJSgeJT9hVpkZSCQuSZAF67mzLrqBZE6kk8gzSOMAmzE0CDpKP0gC2Nddui20Hojv8g2Irifpyhl-s_KNuD2dRuRUiCEg"/>
+</div>
+<div>
+<p class="text-xs font-bold">Tomasz Wagner</p>
+<p class="text-[10px] text-green-400 font-medium">Status: Rested &amp; Driving</p>
+</div>
+<button class="ml-auto bg-amber-500 text-slate-900 p-1.5 rounded-full hover:bg-amber-400">
+<span class="material-symbols-outlined text-sm" data-icon="message" style="font-variation-settings: 'FILL' 1;">message</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

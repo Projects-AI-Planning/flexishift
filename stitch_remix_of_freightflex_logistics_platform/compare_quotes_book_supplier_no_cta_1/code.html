@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Logistics Core - Book Supplier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-container": "#38260b",
+                    "surface-container-low": "#f3f4f5",
+                    "secondary-fixed": "#ffdcc3",
+                    "on-primary-fixed-variant": "#38485a",
+                    "on-error-container": "#93000a",
+                    "tertiary": "#211200",
+                    "tertiary-fixed": "#feddb5",
+                    "surface-bright": "#f8f9fa",
+                    "error-container": "#ffdad6",
+                    "background": "#f8f9fa",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "primary-fixed-dim": "#b7c8de",
+                    "on-surface": "#191c1d",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-container": "#ffa454",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "outline": "#74777d",
+                    "on-secondary-fixed": "#2f1500",
+                    "on-secondary-container": "#713b00",
+                    "on-primary-fixed": "#0b1d2d",
+                    "primary-fixed": "#d2e4fb",
+                    "on-background": "#191c1d",
+                    "outline-variant": "#c4c6cd",
+                    "inverse-primary": "#b7c8de",
+                    "surface-dim": "#d9dadb",
+                    "on-tertiary": "#ffffff",
+                    "surface-variant": "#e1e3e4",
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-container": "#edeeef",
+                    "primary-container": "#1a2b3c",
+                    "surface-tint": "#4f6073",
+                    "secondary": "#904d00",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "on-error": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "on-tertiary-fixed": "#281802",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-tertiary-container": "#a88c69",
+                    "primary": "#041627",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-primary-container": "#8192a7",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e7e8e9",
+                    "on-surface-variant": "#44474c",
+                    "surface": "#f8f9fa"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-[#041627] border-r border-[#1a2b3c] shadow-xl z-50">
+<div class="flex flex-col h-full py-6">
+<!-- Brand Header -->
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined" style='font-variation-settings: "FILL" 1;'>local_shipping</span>
+</div>
+<div>
+<h1 class="text-lg font-black text-white leading-tight" style="">Global Haulage</h1>
+<p class="text-xs text-[#8192a7] font-medium tracking-tight" style="">Carrier Account</p>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="px-4 mb-6">
+<button class="w-full bg-secondary-container text-on-secondary-container font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary transition-colors cursor-pointer active:opacity-80" style="">
+<span class="material-symbols-outlined" style="">add_circle</span>Post New Job</button>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 space-y-1">
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 hover:translate-x-1 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">dashboard</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Dashboard</span>
+</a>
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 hover:translate-x-1 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">storefront</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Marketplace</span>
+</a><a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 hover:translate-x-1 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">inventory_2</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Shipments</span>
+</a>
+<a class="bg-[#1a2b3c] text-white border-l-4 border-[#904d00] flex items-center gap-3 px-6 py-4 transition-all duration-200 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">request_quote</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Quotes</span>
+</a>
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 hover:translate-x-1 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">local_shipping</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Fleet</span>
+</a>
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 hover:translate-x-1 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">leaderboard</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Analytics</span>
+</a>
+</nav>
+<!-- Footer Tabs -->
+<div class="mt-auto pt-6 border-t border-[#1a2b3c]">
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">settings</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Settings</span>
+</a>
+<a class="text-[#8192a7] flex items-center gap-3 px-6 py-4 hover:bg-[#1a2b3c]/50 hover:text-white transition-all duration-200 cursor-pointer" href="#" style="">
+<span class="material-symbols-outlined" style="">logout</span>
+<span class="font-['Inter'] text-sm tracking-tight" style="">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar Shell -->
+<header class="sticky top-0 z-40 flex items-center justify-between px-8 h-16 w-full bg-white border-b border-[#e1e3e4] shadow-sm">
+<div class="flex items-center gap-6">
+<span class="text-xl font-bold text-[#041627]" style="">Logistics Core</span>
+<div class="h-8 w-px bg-surface-container-highest"></div>
+<div class="flex items-center bg-surface-container-low px-4 py-2 rounded-full w-96">
+<span class="material-symbols-outlined text-outline text-sm mr-2" style="">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-on-surface-variant" placeholder="Search shipments, jobs, or carriers..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-[#f3f4f5] transition-colors cursor-pointer" style="">
+<span class="material-symbols-outlined text-on-surface-variant" style="">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-[#f3f4f5] transition-colors cursor-pointer" style="">
+<span class="material-symbols-outlined text-on-surface-variant" style="">help_outline</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-surface-container-highest overflow-hidden cursor-pointer">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Close up portrait of a professional logistics manager in a modern office setting, bright and clean photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzwWQiG0kNYNtn3F8-kZMyZtFBhaFbjh0-eLPi6M5l1jlzzHKph6jwIaao58IkWndGfrXGFcQigaiLdNbp34_IK-ZAlrsG64qs-VVx41C03mlhaXx0zlAuIEyqRw4KSmbquvQ2FbBQVpi_yEe5YZ3hNBfFeGtZs6ALf7lS2zd7Ozya4q3eQfWXYoXuup-A3XMApzWWJ1Z9DFocgWWL-_ISDnPykPgd0APJfcUOM-hU_kvcIosY_TwMUDhdozJrSUo1htx5CtfK7U0" style=""/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="p-8 max-w-7xl mx-auto w-full">
+<!-- Breadcrumbs & Status Banner -->
+<div class="mb-8">
+<div class="flex items-center gap-2 text-on-surface-variant text-sm mb-4">
+<span class="" style="">Quotes</span>
+<span class="material-symbols-outlined text-xs" style="">chevron_right</span>
+<span class="font-bold text-primary" style="">Job #FR-99203-BX</span>
+</div>
+<div class="bg-secondary-fixed text-on-secondary-fixed-variant px-6 py-4 rounded-xl flex items-center justify-between border-l-4 border-secondary shadow-sm">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary" style='font-variation-settings: "FILL" 1;'>info</span>
+<div>
+<p class="font-bold" style="">Pending Booking Action</p>
+<p class="text-sm opacity-90" style="">Job status will change to <span class="font-bold" style="">Booked</span> immediately upon supplier selection.</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="">schedule</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Expiry in 14:22</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left: Job Summary Section -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-white p-6 rounded-xl shadow-sm border border-surface-container-highest">
+<h2 class="text-xl font-bold text-primary mb-6 flex items-center gap-2" style="">
+<span class="material-symbols-outlined" style="">description</span>
+                            Job Summary
+                        </h2>
+<div class="space-y-6">
+<!-- Route -->
+<div class="relative pl-8">
+<div class="absolute left-3.5 top-2 bottom-2 w-0.5 border-l-2 border-dotted border-outline-variant"></div>
+<div class="absolute left-1.5 top-0 w-4 h-4 rounded-full border-2 border-primary bg-white z-10"></div>
+<div class="absolute left-1.5 bottom-0 w-4 h-4 rounded-full border-2 border-secondary bg-white z-10"></div>
+<div class="mb-6">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Pickup</p>
+<p class="font-bold text-primary" style="">Berlin, Germany</p>
+<p class="text-xs text-on-surface-variant" style="">Lagerhaus Nord, DE-10115</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Destination</p>
+<p class="font-bold text-primary" style="">Warsaw, Poland</p>
+<p class="text-xs text-on-surface-variant" style="">PL-Hub East, WA-00-123</p>
+</div>
+</div>
+<hr class="border-surface-container-high"/>
+<!-- Cargo Details -->
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Cargo Type</p>
+<p class="font-bold text-primary" style="">Industrial Equipment</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Weight</p>
+<p class="font-bold text-primary" style="">18,500 kg</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Dimensions</p>
+<p class="font-bold text-primary" style="">Standard Pallet (24)</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1" style="">Hazmat</p>
+<p class="font-bold text-error" style="">None</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg flex items-start gap-3">
+<span class="material-symbols-outlined text-outline text-xl" style="">priority_high</span>
+<p class="text-xs text-on-surface-variant leading-relaxed" style="">
+<span class="font-bold" style="">Special Requirement:</span> Side-loading required. Must have active CMR insurance verification on arrival.
+                                </p>
+</div>
+</div>
+</div>
+<!-- Map/Visual Insight -->
+<div class="bg-white rounded-xl shadow-sm border border-surface-container-highest overflow-hidden">
+<div class="h-48 bg-surface-container flex items-center justify-center relative">
+<img alt="Route map visualization" class="w-full h-full object-cover" data-alt="Abstract minimalist map showing route from Berlin to Warsaw with a highlighted polyline and logistics nodes" data-location="Berlin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvhfYyZJd-w2748Bg9eUznRkak4M05QXJmpkTwspVKSMttboHZRUJNXJUEx7zvaSGaGY5l1MrZJjEgWK1cUQAChRzV_A9Xr5Jj1Hb7qnnwLXDha-MOgaQXtHS16MWuFIpnQQF7wQl01bmKBocoNYVJlUXmQAs27fauHwvpvvCcLC-81z_nVGIdI464rWSB7luLzUQ_NRGWuM8eIBeAjulKU1ppylJgqX5jCzuQeqELu_E7qjpJ6b8uj_2Kpp-MV1LVXTWwHeXaIq0" style=""/>
+<div class="absolute inset-0 bg-primary/10"></div>
+<div class="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm" style="">distance</span>
+<span class="text-xs font-bold text-primary" style="">573 km</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Quotes Comparison Section -->
+<div class="col-span-12 lg:col-span-8">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold text-primary flex items-center gap-2" style="">
+<span class="material-symbols-outlined" style="">move_to_inbox</span>
+                            Received Quotes (3)
+                        </h2>
+<div class="flex gap-2">
+<button class="px-4 py-2 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors" style="">
+                                Filter
+                            </button>
+<button class="px-4 py-2 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors" style="">
+                                Sort: Lowest Price
+                            </button>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Quote Card 1 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-surface-container-highest flex items-center gap-6 hover:border-secondary transition-all group">
+<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-surface-container">
+<img alt="Supplier headshot" class="w-full h-full object-cover" data-alt="Portrait of a friendly, professional male fleet manager in a crisp blue shirt, corporate headshot style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAC3PmSVwN0-1ut4BAsAKvC15Gf247FYfn3IOjyb-l0J2kJE3ZaUy24FAVXAXMs4mRzJXfPxazYrnGBjD9_Wb6zfc-NsLCNg-vu3oCaywp_L_hT_70EKXEhGzIizW0gnjWDhl5moSZAocuQJmCvXtiqEwbnz6vud2f4mqflSNL1zBglK-3wUpqX2dHk4mnlqvdrWYmnpeX3Lp2nc1hRZXy0ZrXpx-viQxvHO9RFPnDQ_LG2AuzG8r1XJoCeEl10kQG5LTWyWTTSnaQ" style=""/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h3 class="font-bold text-primary text-lg" style="">Pavel Logistics Sp. z o.o.</h3>
+<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style="">Top Carrier</span>
+</div>
+<div class="flex items-center gap-4 text-sm text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-secondary text-base" style='font-variation-settings: "FILL" 1;'>star</span>
+<span class="font-bold text-primary" style="">4.9</span>
+<span class="text-xs" style="">(428 reviews)</span>
+</div>
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-base" style="">local_shipping</span>
+<span class="" style="">Tautliner</span>
+</div>
+</div>
+</div>
+<div class="text-right flex flex-col items-end gap-3">
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest" style="">Total Bid</p>
+<p class="text-2xl font-black text-primary" style="">€1,240.00</p>
+</div>
+<button class="bg-secondary text-on-secondary font-bold px-8 py-2.5 rounded-lg hover:bg-secondary/90 transition-all shadow-md group-hover:scale-105 cursor-pointer" style="">
+                                    Book Now
+                                </button>
+</div>
+</div>
+<!-- Quote Card 2 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-surface-container-highest flex items-center gap-6 hover:border-secondary transition-all group">
+<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-surface-container">
+<img alt="Supplier headshot" class="w-full h-full object-cover" data-alt="Modern professional woman in a light-filled office, smiling with confidence, high-quality corporate headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDp28i9TzMtxUI5NDB8sWHFIj5PXL17iWzEtb5C4pbvco2oGdiUnDRfyHmQoNKsv2aNQrZCODRTJiYgv3oyLsthzC1aaC5n7rYf8OuKAh_auxWmNpvvn2sq4SyiF9Zk08a0OIEHOIr_B-R-kvir47od9ybugUIJBqGWQl4xB5eteaawmZMUHdWluoWcf-AJDgXhDiWW1k1POs_YEh0brz5ONKu3uNb3M5fbaZA2RNrHD_-XOLPjwn9yVKTAHU2_dplGZZayjALtbEM" style=""/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h3 class="font-bold text-primary text-lg" style="">Express Freight Berlin</h3>
+<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style="">Electric Fleet</span>
+</div>
+<div class="flex items-center gap-4 text-sm text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-secondary text-base" style='font-variation-settings: "FILL" 1;'>star</span>
+<span class="font-bold text-primary" style="">4.7</span>
+<span class="text-xs" style="">(1,120 reviews)</span>
+</div>
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-base" style="">local_shipping</span>
+<span class="" style="">Reefer (Frigo)</span>
+</div>
+</div>
+</div>
+<div class="text-right flex flex-col items-end gap-3">
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest" style="">Total Bid</p>
+<p class="text-2xl font-black text-primary" style="">€1,385.00</p>
+</div>
+<button class="bg-primary text-white font-bold px-8 py-2.5 rounded-lg hover:bg-primary-container transition-all shadow-md group-hover:scale-105 cursor-pointer" style="">
+                                    Book Now
+                                </button>
+</div>
+</div>
+<!-- Quote Card 3 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-surface-container-highest flex items-center gap-6 hover:border-secondary transition-all group">
+<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-surface-container">
+<img alt="Supplier headshot" class="w-full h-full object-cover" data-alt="Professional man with glasses in a formal suit, neutral background, sharp business portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqtVcOTQL0iQgqUDd3bez7lJWLhZP3C2xcncHdFTxsdjHpEj5oV9_qdg2KOY3KbtKGiQCndjWBmcND2JeAELaQxqRlGqsdbk77kzchRVzcHFIOadYBLTky28F0N-MVvvQ6Cxdq25WTzaoVJCzlNqs_jja0slHcu6RTAtkue5TIyTgsuYcNSpBQWJj7741zxssGl80pb7m7BLlQ9EgZhvR-PzXjUE-7vhBtzm4UyKkx0C3DkH1CFV3v6erBvDDpyio8wJg_5mhZ5LE" style=""/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h3 class="font-bold text-primary text-lg" style="">Trans-European Rapid</h3>
+</div>
+<div class="flex items-center gap-4 text-sm text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-secondary text-base" style='font-variation-settings: "FILL" 1;'>star</span>
+<span class="font-bold text-primary" style="">4.2</span>
+<span class="text-xs" style="">(89 reviews)</span>
+</div>
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-base" style="">local_shipping</span>
+<span class="" style="">Tautliner</span>
+</div>
+</div>
+</div>
+<div class="text-right flex flex-col items-end gap-3">
+<div>
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest" style="">Total Bid</p>
+<p class="text-2xl font-black text-primary" style="">€1,190.00</p>
+</div>
+<button class="bg-primary text-white font-bold px-8 py-2.5 rounded-lg hover:bg-primary-container transition-all shadow-md group-hover:scale-105 cursor-pointer" style="">
+                                    Book Now
+                                </button>
+</div>
+</div>
+</div>
+<!-- Additional Info Bento Section -->
+<div class="mt-12 grid grid-cols-2 gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl border border-surface-container-high">
+<h4 class="font-bold text-primary mb-3 flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-blue-600" style="">verified_user</span>
+                                Compliance Check
+                            </h4>
+<p class="text-sm text-on-surface-variant mb-4" style="">All listed suppliers have valid CMR insurance and EU transit permits for this route.</p>
+<div class="flex gap-2">
+<span class="bg-white px-2 py-1 rounded text-[10px] font-bold border border-outline-variant" style="">INSURANCE VERIFIED</span>
+<span class="bg-white px-2 py-1 rounded text-[10px] font-bold border border-outline-variant" style="">TAX COMPLIANT</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-surface-container-high">
+<h4 class="font-bold text-primary mb-3 flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-secondary" style="">trending_up</span>
+                                Market Insight
+                            </h4>
+<p class="text-sm text-on-surface-variant mb-4" style="">Bids are currently 4% lower than average for the Berlin-Warsaw corridor this week.</p>
+<button class="text-xs font-bold text-secondary uppercase tracking-wider flex items-center gap-1 hover:underline" style="">
+                                View Corridor Trends
+                                <span class="material-symbols-outlined text-sm" style="">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

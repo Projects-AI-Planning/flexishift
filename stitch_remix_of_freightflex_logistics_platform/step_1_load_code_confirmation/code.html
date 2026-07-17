@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-secondary-fixed": "#2f1500", "inverse-surface": "#2e3132", "secondary-fixed": "#ffdcc3", "inverse-on-surface": "#f0f1f2", "primary-container": "#1a2b3c", "on-primary-fixed": "#0b1d2d", background: "#f8f9fa", "on-error": "#ffffff", "surface-container-high": "#e7e8e9", "on-primary-fixed-variant": "#38485a", "primary-fixed": "#d2e4fb", "tertiary-fixed-dim": "#e1c29b", "on-background": "#191c1d", "inverse-primary": "#b7c8de", "on-tertiary": "#ffffff", "surface-tint": "#4f6073", "on-secondary-fixed-variant": "#6e3900", "on-error-container": "#93000a", "secondary-fixed-dim": "#ffb77d", outline: "#74777d", "on-surface-variant": "#44474c", "on-secondary-container": "#713b00", error: "#ba1a1a", "tertiary-container": "#38260b", "surface-dim": "#d9dadb", "on-surface": "#191c1d", "surface-container": "#edeeef", "surface-container-low": "#f3f4f5", "error-container": "#ffdad6", "outline-variant": "#c4c6cd", primary: "#041627", "on-primary": "#ffffff", "on-secondary": "#ffffff", "surface-variant": "#e1e3e4", secondary: "#904d00", "primary-fixed-dim": "#b7c8de", "tertiary-fixed": "#feddb5", "on-primary-container": "#8192a7", "on-tertiary-fixed": "#281802", tertiary: "#211200", "surface-bright": "#f8f9fa", "on-tertiary-container": "#a88c69", surface: "#f8f9fa", "surface-container-lowest": "#ffffff", "secondary-container": "#ffa454", "surface-container-highest": "#e1e3e4", "on-tertiary-fixed-variant": "#584326"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {md: "24px", lg: "40px", base: "8px", gutter: "16px", xs: "4px", sm: "12px", "margin-mobile": "16px", "margin-desktop": "32px"}, fontFamily: {h3: ["Inter"], "body-lg": ["Inter"], "label-bold": ["Inter"], h2: ["Inter"], "body-md": ["Inter"], h1: ["Inter"], "stats-display": ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-sm docked full-width top-0 z-40 sticky">
+<div class="flex items-center justify-between px-4 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:opacity-70 transition-all text-[#1A2B3C] dark:text-slate-100 p-1">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] font-semibold text-lg text-[#1A2B3C] dark:text-slate-100">Load Verification</h1>
+</div>
+<button class="active:opacity-70 transition-all text-[#1A2B3C] dark:text-slate-100 p-1">
+<span class="material-symbols-outlined" data-icon="info">info</span>
+</button>
+</div>
+</header>
+<main class="max-w-md mx-auto px-margin-mobile pt-sm space-y-md">
+<!-- Progress Stepper -->
+<div class="flex items-center justify-between py-xs">
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center font-label-bold text-label-bold">1</div>
+<span class="text-[10px] mt-1 font-label-bold text-primary-container">Load Code</span>
+</div>
+<div class="h-[2px] bg-surface-container flex-1 -mt-4 mx-2"></div>
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container text-outline flex items-center justify-center font-label-bold text-label-bold">2</div>
+<span class="text-[10px] mt-1 font-label-bold text-outline">Handover</span>
+</div>
+<div class="h-[2px] bg-surface-container flex-1 -mt-4 mx-2"></div>
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container text-outline flex items-center justify-center font-label-bold text-label-bold">3</div>
+<span class="text-[10px] mt-1 font-label-bold text-outline">Delivery</span>
+</div>
+</div>
+<!-- Header Section -->
+<section class="space-y-xs">
+<h2 class="font-h1 text-h1 text-primary">Load Code Verification</h2>
+<div class="inline-flex items-center bg-surface-container-high px-sm py-xs rounded text-primary font-label-bold text-body-sm">
+<span class="material-symbols-outlined text-[18px] mr-1" data-icon="tag">tag</span>
+                #FR-99203-BX
+            </div>
+</section>
+<!-- Cargo Summary Card -->
+<div class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] p-md space-y-sm">
+<div class="flex items-start gap-sm">
+<div class="p-2 bg-primary-fixed rounded-lg">
+<span class="material-symbols-outlined text-primary-container" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<h3 class="font-h3 text-body-md font-bold text-primary">24 Tons Industrial Equipment</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Heavylift Division • Fragile</p>
+</div>
+</div>
+<div class="border-t border-surface-container-high pt-sm flex items-start gap-sm">
+<div class="p-2 bg-secondary-fixed rounded-lg">
+<span class="material-symbols-outlined text-secondary" data-icon="location_on">location_on</span>
+</div>
+<div>
+<h3 class="font-label-bold text-body-sm uppercase text-on-surface-variant">Pickup Location</h3>
+<p class="text-primary font-body-md text-body-md font-semibold">Siemens Logistics Hub, Berlin</p>
+</div>
+</div>
+</div>
+<!-- Main Action Area -->
+<section class="space-y-md">
+<!-- Scan Button -->
+<button class="w-full bg-secondary-container hover:bg-secondary text-on-secondary-fixed py-md rounded-xl font-h2 text-h3 flex items-center justify-center gap-sm shadow-md transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+                Scan Load Code
+            </button>
+<!-- Divider -->
+<div class="flex items-center gap-sm">
+<div class="h-[1px] bg-outline-variant flex-1"></div>
+<span class="text-outline font-label-bold text-[10px] tracking-widest">OR ENTER MANUALLY</span>
+<div class="h-[1px] bg-outline-variant flex-1"></div>
+</div>
+<!-- Manual Input -->
+<div class="space-y-xs">
+<label class="font-label-bold text-body-sm text-on-surface-variant ml-1">Enter Load Code</label>
+<input class="w-full h-14 px-md rounded-xl border border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary-container bg-white text-h3 placeholder:text-outline-variant transition-all" placeholder="#LC-XXXX-XXXX" type="text"/>
+</div>
+</section>
+<!-- Informational Text -->
+<div class="flex gap-sm p-sm bg-surface-container-low rounded-lg border border-surface-container-high">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="info">info</span>
+<p class="text-on-surface-variant font-body-sm text-body-sm leading-snug">
+                Verification required to proceed to <span class="font-bold">Step 2: Handover Check</span>. Ensure you have inspected the container seals.
+            </p>
+</div>
+<!-- Status/Gating CTA -->
+<div class="fixed bottom-20 left-0 w-full px-margin-mobile py-md bg-white/80 backdrop-blur-md z-30">
+<button class="w-full bg-surface-container-high text-outline-variant py-md rounded-xl font-h3 cursor-not-allowed flex items-center justify-center gap-sm" disabled="">
+<span class="material-symbols-outlined" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+                Unlock Next Step
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-6 pb-2 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)]">
+<button class="flex flex-col items-center justify-center text-[#1A2B3C] dark:text-amber-400 bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-medium">Routes</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#1A2B3C] dark:hover:text-white transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium">Scan</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#1A2B3C] dark:hover:text-white transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-['Inter'] text-[12px] font-medium">Profile</span>
+</button>
+</nav>
+</body></html>

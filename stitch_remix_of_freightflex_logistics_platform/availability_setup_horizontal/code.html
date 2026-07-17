@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Availability Setup</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"inverse-surface": "#2e3132", "on-secondary-fixed": "#2f1500", "primary-container": "#1a2b3c", "secondary-fixed": "#ffdcc3", "inverse-on-surface": "#f0f1f2", "surface-container-high": "#e7e8e9", "on-primary-fixed-variant": "#38485a", "on-primary-fixed": "#0b1d2d", background: "#f8f9fa", "on-error": "#ffffff", "tertiary-fixed-dim": "#e1c29b", "primary-fixed": "#d2e4fb", "surface-tint": "#4f6073", "on-secondary-fixed-variant": "#6e3900", "on-error-container": "#93000a", "on-background": "#191c1d", "inverse-primary": "#b7c8de", "on-tertiary": "#ffffff", "on-secondary-container": "#713b00", error: "#ba1a1a", "tertiary-container": "#38260b", "surface-dim": "#d9dadb", "secondary-fixed-dim": "#ffb77d", outline: "#74777d", "on-surface-variant": "#44474c", "on-surface": "#191c1d", "surface-container": "#edeeef", "surface-container-low": "#f3f4f5", "error-container": "#ffdad6", "outline-variant": "#c4c6cd", primary: "#041627", "surface-variant": "#e1e3e4", secondary: "#904d00", "on-primary": "#ffffff", "on-secondary": "#ffffff", "primary-fixed-dim": "#b7c8de", "tertiary-fixed": "#feddb5", tertiary: "#211200", "on-primary-container": "#8192a7", "on-tertiary-fixed": "#281802", "surface-container-lowest": "#ffffff", "secondary-container": "#ffa454", "surface-bright": "#f8f9fa", "on-tertiary-container": "#a88c69", surface: "#f8f9fa", "surface-container-highest": "#e1e3e4", "on-tertiary-fixed-variant": "#584326"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {gutter: "16px", xs: "4px", sm: "12px", "margin-mobile": "16px", "margin-desktop": "32px", lg: "40px", md: "24px", base: "8px"}, fontFamily: {h3: ["Inter"], "body-lg": ["Inter"], "label-bold": ["Inter"], h2: ["Inter"], "body-md": ["Inter"], h1: ["Inter"], "stats-display": ["Inter"], "body-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body-md text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-[0px_4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#1A2B3C] dark:text-slate-100 active:opacity-80 transition-opacity" data-icon="arrow_back">arrow_back</button>
+<h1 class="font-['Inter'] font-semibold text-lg text-[#1A2B3C] dark:text-slate-100">Availability</h1>
+</div>
+<button class="font-['Inter'] font-semibold text-lg text-[#1A2B3C] dark:text-slate-100 active:opacity-80 transition-opacity">Save</button>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile md:px-margin-desktop max-w-4xl mx-auto space-y-md">
+<!-- Global Status Toggle -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container">
+<div class="flex justify-between items-center">
+<div class="flex flex-col">
+<span class="font-label-bold text-on-surface-variant uppercase tracking-wider">Current Status</span>
+<h2 class="font-h2 text-primary">Available for dispatch</h2>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-8 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-1 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+</section>
+<!-- Horizontal Date Picker -->
+<section class="space-y-sm">
+<div class="flex justify-between items-end">
+<h3 class="font-h3 text-primary">This Week</h3>
+<span class="font-body-sm text-on-surface-variant">October 2023</span>
+</div>
+<div class="flex overflow-x-auto gap-base no-scrollbar pb-xs">
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">MON</span>
+<span class="font-h2 text-primary">23</span>
+</div>
+<div class="flex-shrink-0 w-20 bg-primary-container text-on-primary rounded-xl p-sm flex flex-col items-center shadow-lg border border-primary-container">
+<span class="font-label-bold text-on-primary-container">TUE</span>
+<span class="font-h2 text-on-primary">24</span>
+<div class="w-1.5 h-1.5 bg-secondary-container rounded-full mt-1"></div>
+</div>
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">WED</span>
+<span class="font-h2 text-primary">25</span>
+</div>
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">THU</span>
+<span class="font-h2 text-primary">26</span>
+</div>
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">FRI</span>
+<span class="font-h2 text-primary">27</span>
+</div>
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">SAT</span>
+<span class="font-h2 text-primary">28</span>
+</div>
+<div class="flex-shrink-0 w-20 bg-surface-container-lowest border border-surface-container rounded-xl p-sm flex flex-col items-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="font-label-bold text-on-surface-variant">SUN</span>
+<span class="font-h2 text-primary">29</span>
+</div>
+</div>
+</section>
+<!-- Horizontal Time Slots -->
+<section class="space-y-sm">
+<h3 class="font-h3 text-primary">Available Shifts</h3>
+<div class="space-y-sm">
+<!-- Morning Shift -->
+<div class="flex items-center gap-md p-md bg-surface-container-lowest border border-surface-container rounded-xl hover:shadow-md transition-shadow cursor-pointer group">
+<div class="w-12 h-12 bg-primary-fixed flex items-center justify-center rounded-lg text-primary">
+<span class="material-symbols-outlined text-[28px]" data-icon="wb_sunny">wb_sunny</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-body-lg font-bold text-primary">Morning Shift</h4>
+<p class="font-body-sm text-on-surface-variant">06:00 - 14:00</p>
+</div>
+<div class="w-6 h-6 border-2 border-outline rounded-full flex items-center justify-center group-hover:border-primary">
+<div class="w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+</div>
+<!-- Afternoon Shift (Selected) -->
+<div class="flex items-center gap-md p-md bg-surface-container-lowest border-2 border-secondary-container rounded-xl shadow-md cursor-pointer">
+<div class="w-12 h-12 bg-secondary-fixed flex items-center justify-center rounded-lg text-on-secondary-fixed">
+<span class="material-symbols-outlined text-[28px]" data-icon="partly_cloudy_day">partly_cloudy_day</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-body-lg font-bold text-primary">Afternoon Shift</h4>
+<p class="font-body-sm text-on-surface-variant">14:00 - 22:00</p>
+</div>
+<div class="w-6 h-6 border-2 border-secondary-container rounded-full flex items-center justify-center">
+<div class="w-3 h-3 bg-secondary rounded-full"></div>
+</div>
+</div>
+<!-- Night Shift -->
+<div class="flex items-center gap-md p-md bg-surface-container-lowest border border-surface-container rounded-xl hover:shadow-md transition-shadow cursor-pointer group">
+<div class="w-12 h-12 bg-tertiary-fixed flex items-center justify-center rounded-lg text-on-tertiary-fixed">
+<span class="material-symbols-outlined text-[28px]" data-icon="bedtime">bedtime</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-body-lg font-bold text-primary">Night Shift</h4>
+<p class="font-body-sm text-on-surface-variant">22:00 - 06:00</p>
+</div>
+<div class="w-6 h-6 border-2 border-outline rounded-full flex items-center justify-center group-hover:border-primary">
+<div class="w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Custom Hours -->
+<button class="w-full flex items-center justify-center gap-sm p-md border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:border-primary transition-all">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+<span class="font-body-md font-semibold">Set Custom Hours</span>
+</button>
+<!-- Informational Card -->
+<div class="relative overflow-hidden rounded-xl bg-primary-container p-md text-on-primary">
+<div class="relative z-10 space-y-xs">
+<span class="font-label-bold text-on-primary-container uppercase">Pro Tip</span>
+<p class="font-body-sm">Consistent availability increases your dispatch priority by up to 25% for high-value freight.</p>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[100px]" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+</main>
+<!-- Sticky Bottom Action -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 px-margin-mobile py-sm border-t border-slate-200 dark:border-slate-800 flex flex-col gap-sm md:flex-row md:justify-center md:items-center">
+<button class="w-full md:max-w-md bg-secondary-container text-on-secondary-container font-h3 py-md rounded-xl shadow-lg active:scale-95 transition-transform">
+            Save Schedule
+        </button>
+</div>
+<!-- BottomNavBar (Hidden on desktop as per Shell Visibility rules) -->
+<nav class="md:hidden fixed bottom-16 left-0 w-full z-40 flex justify-around items-center px-2 py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)]">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#1A2B3C] dark:hover:text-amber-300 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#1A2B3C] dark:hover:text-amber-300 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A2B3C] dark:text-amber-400 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-1 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-['Inter'] text-[12px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

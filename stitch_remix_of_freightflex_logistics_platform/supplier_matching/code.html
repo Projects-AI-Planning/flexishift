@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"tertiary-fixed": "#feddb5", "tertiary-container": "#38260b", "surface-container-low": "#f3f4f5", "secondary-fixed": "#ffdcc3", "on-primary-fixed-variant": "#38485a", "on-error-container": "#93000a", tertiary: "#211200", background: "#f8f9fa", "surface-bright": "#f8f9fa", "error-container": "#ffdad6", "on-surface": "#191c1d", "on-secondary-fixed-variant": "#6e3900", "surface-container-lowest": "#ffffff", "secondary-container": "#ffa454", "tertiary-fixed-dim": "#e1c29b", "primary-fixed-dim": "#b7c8de", outline: "#74777d", "on-secondary-fixed": "#2f1500", "on-secondary-container": "#713b00", "on-primary-fixed": "#0b1d2d", "on-tertiary-fixed-variant": "#584326", "outline-variant": "#c4c6cd", "inverse-primary": "#b7c8de", "surface-dim": "#d9dadb", "on-tertiary": "#ffffff", "surface-variant": "#e1e3e4", "on-primary": "#ffffff", "primary-fixed": "#d2e4fb", "on-background": "#191c1d", "secondary-fixed-dim": "#ffb77d", error: "#ba1a1a", "surface-container": "#edeeef", "primary-container": "#1a2b3c", "surface-tint": "#4f6073", secondary: "#904d00", "on-tertiary-container": "#a88c69", "on-error": "#ffffff", "inverse-surface": "#2e3132", "on-tertiary-fixed": "#281802", "surface-container-highest": "#e1e3e4", "surface-container-high": "#e7e8e9", "on-surface-variant": "#44474c", surface: "#f8f9fa", primary: "#041627", "inverse-on-surface": "#f0f1f2", "on-primary-container": "#8192a7", "on-secondary": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {xs: "4px", "margin-desktop": "32px", base: "8px", sm: "12px", lg: "40px", gutter: "16px", md: "24px", "margin-mobile": "16px"}, fontFamily: {h3: ["Inter"], "body-sm": ["Inter"], h1: ["Inter"], "body-lg": ["Inter"], "stats-display": ["Inter"], "label-bold": ["Inter"], h2: ["Inter"], "body-md": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        body { background-color: #f8f9fa; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface">
+<!-- Top Navigation Header -->
+<header class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-4 h-14 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-900 active:opacity-70 transition-opacity">menu</span>
+<h1 class="font-['Inter'] text-sm font-semibold tracking-tight text-slate-900">Supplier Finder</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-900 active:opacity-70 transition-opacity">notifications</span>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-20 pb-24 px-4 max-w-md mx-auto">
+<!-- Search & Filter Section -->
+<section class="mb-6 space-y-3">
+<div class="relative group">
+<div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</div>
+<input class="w-full pl-10 pr-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all" placeholder="Location (e.g. Manchester)" type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+<button class="flex items-center gap-1 px-4 py-2 bg-primary text-white rounded-full font-label-bold text-[12px] whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">local_shipping</span>
+                    Tautliner
+                </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white border border-outline-variant text-on-surface-variant rounded-full font-label-bold text-[12px] whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">ac_unit</span>
+                    Reefer
+                </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white border border-outline-variant text-on-surface-variant rounded-full font-label-bold text-[12px] whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">horizontal_distribute</span>
+                    Flatbed
+                </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white border border-outline-variant text-on-surface-variant rounded-full font-label-bold text-[12px] whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">event_available</span>
+                    Today
+                </button>
+</div>
+<!-- Verified Indicator -->
+<div class="flex items-center justify-between bg-amber-50 border border-amber-100 p-3 rounded-lg">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="font-label-bold text-[12px] text-on-secondary-container">ALL SHOWN SUPPLIERS ARE VERIFIED</span>
+</div>
+<div class="w-8 h-4 bg-secondary rounded-full relative">
+<div class="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow-sm"></div>
+</div>
+</div>
+</section>
+<!-- Supplier List -->
+<section class="space-y-4">
+<!-- Supplier Card 1 -->
+<div class="bg-white rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 overflow-hidden">
+<div class="p-4">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-3">
+<img alt="Supplier" class="w-12 h-12 rounded-lg object-cover" data-alt="professional headshot of a logistics fleet manager with a confident smile against a clean blurred office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCL6j7zrVDOIGHtUmRi5djU_GONbrgt4HxvZDjp1DIer4ASaufJcY9vpHrowmQXN-mU0PFJUdeg2eEkv2B2UVMnWODX-gmBe_RXOPTyQtuwP1xJSxbKEnBWkIjLGKAJ6Ffqat3D3sCtlaDVymJAiZAvZEeYomOCF1EZf72Lh7uvVwZwqNsE2xC1VjvGF9nz4_12HWukrvTMjhK4TiIbDIaXvHhnTVNXQE8I915sfDeyTmxsUc00_OX_7xKFrcawVq_beSGh6hQFgQ"/>
+<div>
+<h3 class="font-h3 text-primary">Atlas Logistics Ltd</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-bold text-[12px]">4.9</span>
+<span class="text-body-sm text-on-surface-variant">(124 reviews)</span>
+</div>
+</div>
+</div>
+<span class="bg-green-100 text-green-800 text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider">Available Now</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg mb-4">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-1">Vehicle</span>
+<p class="text-body-sm font-semibold text-primary">Scania R500</p>
+</div>
+<div>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-1">Type</span>
+<p class="text-body-sm font-semibold text-primary">44t Tautliner</p>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-primary text-white py-3 rounded-lg font-label-bold text-[14px] active:scale-95 transition-transform">Invite to Quote</button>
+<button class="px-4 py-3 border border-primary text-primary rounded-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Supplier Card 2 -->
+<div class="bg-white rounded-lg shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-slate-100 overflow-hidden">
+<div class="p-4">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-3">
+<img alt="Supplier" class="w-12 h-12 rounded-lg object-cover" data-alt="portrait of a middle aged male freight contractor wearing a high-visibility vest standing in front of a white truck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVsy_C_iZaIG9G-ct6OS-GzpIaT__MAQNcZSpcAqjnMElVlXKZMXTO6ESE3fnQ8B7sbfqvdSJm3wDFnxHD1PQpuP439rfKE3VytrYhyEHXDNVC9ASLQU1_hSm-yoo7VuGFZlcq92WhaiqYgsvQ14ouP84V2Boh1BbAye97z3ZrXn2xQH9w4cyrlyE1emu-EJv4pkYZSn41OpfQfKGWIPxuAFovPdb8Fg7ZyTPnLcc4RGzvJmOYZ35OTlgfFZdBriEV7fwba3gFtRY"/>
+<div>
+<h3 class="font-h3 text-primary">Swift Freightways</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-bold text-[12px]">4.7</span>
+<span class="text-body-sm text-on-surface-variant">(89 reviews)</span>
+</div>
+</div>
+</div>
+<span class="bg-green-100 text-green-800 text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider">Available Now</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg mb-4">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-1">Vehicle</span>
+<p class="text-body-sm font-semibold text-primary">Volvo FH16</p>
+</div>
+<div>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-1">Type</span>
+<p class="text-body-sm font-semibold text-primary">Refrigerated</p>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-primary text-white py-3 rounded-lg font-label-bold text-[14px] active:scale-95 transition-transform">Invite to Quote</button>
+<button class="px-4 py-3 border border-primary text-primary rounded-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Supplier Card 3 (Bento-style variation for 'Top Pick') -->
+<div class="bg-primary-container p-0.5 rounded-xl shadow-lg">
+<div class="bg-white rounded-lg p-4">
+<div class="flex items-center gap-2 mb-4">
+<div class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded font-black text-[10px] uppercase">Top Match</div>
+</div>
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-3">
+<img alt="Supplier" class="w-12 h-12 rounded-lg object-cover" data-alt="modern industrial office setting with a fleet controller working on multiple screens monitoring logistics routes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLecxL566PnQBX_G0kpB9EZQ8kqGyQLxEugTE6TRMBc-RpGyELb21WdBRpNiHvF_UkLBtItWZbyXKzVaUhOqo6qg031-TV84FG6gRXJ1cU0ksDw7umDNVY2IBschVTqE84OB7Mjc8-c3UYnHJn9AtICdsPSMzFRYUo3qLq1L4sGGJrn9UdIzIuiShUemDwp2_unqZYd6GoOOCDOhj3zaYB_Hh5VRVWk7gT_XCy4SByTdwAjCHj_akp3ayvd5YvYmywwgj5GYVk6A8"/>
+<div>
+<h3 class="font-h3 text-primary">Priority Prime Express</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-bold text-[12px]">5.0</span>
+<span class="text-body-sm text-on-surface-variant">(312 reviews)</span>
+</div>
+</div>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant mb-4">Specializing in time-critical deliveries with 100% on-time guarantee.</p>
+<button class="w-full bg-secondary text-primary py-3 rounded-lg font-label-bold text-[14px] active:scale-95 transition-transform shadow-md">Instant Booking</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 shadow-[0px_-4px_12px_rgba(26,43,60,0.05)] flex justify-around items-center px-4 py-2 pb-safe z-50">
+<div class="flex flex-col items-center justify-center text-slate-400 py-1 px-3 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-900 bg-slate-50 rounded-lg py-1 px-3 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">handshake</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Suppliers</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 py-1 px-3 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 py-1 px-3 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Profile</span>
+</div>
+</nav>
+<!-- Floating Action Button Contextual (Suppressed on this search/detail flow as per rules) -->
+</body></html>

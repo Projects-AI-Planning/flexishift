@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {tertiary: "#211200", "surface-container-high": "#e7e8e9", "on-secondary-fixed-variant": "#6e3900", "on-tertiary-container": "#a88c69", "primary-container": "#1a2b3c", surface: "#f8f9fa", "on-error": "#ffffff", "tertiary-container": "#38260b", "primary-fixed-dim": "#b7c8de", "on-tertiary-fixed-variant": "#584326", "on-background": "#191c1d", outline: "#74777d", "on-primary": "#ffffff", "tertiary-fixed-dim": "#e1c29b", "surface-variant": "#e1e3e4", "on-secondary-container": "#713b00", "on-primary-container": "#8192a7", "tertiary-fixed": "#feddb5", "on-primary-fixed-variant": "#38485a", "inverse-surface": "#2e3132", "inverse-primary": "#b7c8de", "on-secondary-fixed": "#2f1500", secondary: "#904d00", "surface-container": "#edeeef", "secondary-fixed": "#ffdcc3", background: "#f8f9fa", "surface-bright": "#f8f9fa", "outline-variant": "#c4c6cd", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "on-error-container": "#93000a", "on-surface": "#191c1d", "on-primary-fixed": "#0b1d2d", "surface-container-lowest": "#ffffff", "surface-tint": "#4f6073", "primary-fixed": "#d2e4fb", "inverse-on-surface": "#f0f1f2", "on-tertiary": "#ffffff", "on-surface-variant": "#44474c", "on-secondary": "#ffffff", "secondary-container": "#ffa454", "on-tertiary-fixed": "#281802", "error-container": "#ffdad6", "surface-dim": "#d9dadb", primary: "#041627", "surface-container-low": "#f3f4f5", error: "#ba1a1a"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {base: "8px", xs: "4px", "margin-desktop": "32px", gutter: "16px", sm: "12px", "margin-mobile": "16px", lg: "40px", md: "24px"}, fontFamily: {"body-sm": ["Inter"], h1: ["Inter"], h2: ["Inter"], "stats-display": ["Inter"], "body-md": ["Inter"], "label-bold": ["Inter"], h3: ["Inter"], "body-lg": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .signature-pad {
+            background-image: radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0);
+            background-size: 16px 16px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md antialiased min-h-screen pb-32">
+<!-- Top Navigation Anchor (Step 2: Handover Check) -->
+<header class="bg-white fixed top-0 z-50 border-b border-slate-200 shadow-sm flex items-center h-16 px-4 w-full justify-between">
+<div class="flex items-center gap-4">
+<button class="active:opacity-70 scale-95 transition-transform hover:bg-slate-50 p-2 rounded-lg">
+<span class="material-symbols-outlined text-slate-900" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] font-semibold text-lg tracking-tight text-slate-900">Step 2: Handover Check</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-label-bold text-on-primary-container bg-primary-container/10 px-3 py-1 rounded-full">Unit: VOL-882</span>
+</div>
+</header>
+<main class="mt-20 px-4 md:px-margin-desktop max-w-4xl mx-auto">
+<!-- Stepper Visual -->
+<section class="mb-8 mt-6">
+<div class="flex items-center justify-between relative px-2">
+<div class="absolute top-1/2 left-0 w-full h-[2px] bg-surface-container-high -translate-y-1/2 -z-10"></div>
+<div class="absolute top-1/2 left-0 w-1/2 h-[2px] bg-secondary -translate-y-1/2 -z-10"></div>
+<!-- Step 1 Done -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined" data-icon="check">check</span>
+</div>
+<span class="mt-2 font-label-bold text-on-surface-variant">Arrival</span>
+</div>
+<!-- Step 2 Active -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg ring-4 ring-secondary-container">
+<span class="font-bold text-body-lg">2</span>
+</div>
+<span class="mt-2 font-label-bold text-primary">Handover</span>
+</div>
+<!-- Step 3 Pending -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center">
+<span class="font-bold text-body-lg">3</span>
+</div>
+<span class="mt-2 font-label-bold text-on-surface-variant">Departure</span>
+</div>
+</div>
+</section>
+<!-- Main Content Canvas -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-md">
+<!-- Checklist Card -->
+<section class="md:col-span-12">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden">
+<div class="p-4 border-b border-surface-container-high bg-primary-container/5">
+<h2 class="font-h3 text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
+                            Vehicle Checklist
+                        </h2>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+<label class="flex items-center gap-3 p-4 border border-surface-container rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group">
+<input class="w-6 h-6 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-bold text-on-surface">Lights &amp; Signals</span>
+<span class="text-body-sm text-on-surface-variant">Headlamps, indicators, brake lights</span>
+</div>
+</label>
+<label class="flex items-center gap-3 p-4 border border-surface-container rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+<input class="w-6 h-6 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-bold text-on-surface">Tire Pressure</span>
+<span class="text-body-sm text-on-surface-variant">All axles within operating PSI</span>
+</div>
+</label>
+<label class="flex items-center gap-3 p-4 border border-surface-container rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+<input class="w-6 h-6 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-bold text-on-surface">Fluid Levels</span>
+<span class="text-body-sm text-on-surface-variant">Oil, coolant, and wiper fluid</span>
+</div>
+</label>
+<label class="flex items-center gap-3 p-4 border border-surface-container rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+<input class="w-6 h-6 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-bold text-on-surface">Body Damage</span>
+<span class="text-body-sm text-on-surface-variant">No new dents, cracks, or loose panels</span>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Photo Upload Bento Grid -->
+<section class="md:col-span-12">
+<h3 class="font-h3 text-on-surface mb-4 px-2">Required Photo Evidence</h3>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Photo Card 1 -->
+<div class="relative group aspect-square bg-surface-container rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-outline-variant hover:border-secondary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary mb-2" data-icon="photo_camera" style="font-size: 32px;">photo_camera</span>
+<span class="font-label-bold text-on-surface-variant">Vehicle Front</span>
+</div>
+<!-- Photo Card 2 -->
+<div class="relative group aspect-square bg-surface-container rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-outline-variant hover:border-secondary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary mb-2" data-icon="photo_camera" style="font-size: 32px;">photo_camera</span>
+<span class="font-label-bold text-on-surface-variant">Vehicle Side</span>
+</div>
+<!-- Photo Card 3 -->
+<div class="relative group aspect-square bg-surface-container rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-outline-variant hover:border-secondary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary mb-2" data-icon="photo_camera" style="font-size: 32px;">photo_camera</span>
+<span class="font-label-bold text-on-surface-variant">Vehicle Rear</span>
+</div>
+<!-- Photo Card 4 -->
+<div class="relative group aspect-square bg-surface-container rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-outline-variant hover:border-secondary transition-all cursor-pointer overflow-hidden">
+<img alt="Cargo" class="absolute inset-0 w-full h-full object-cover opacity-60" data-alt="Close up of cargo straps securing industrial pallets in the back of a shipping container with natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSVei-7ODFasr3VA5r8W9P3RjEwpeiEnoclO8KYqKdMluTdXF3NvWUm87bSpP51kBqgXbN3b6XZn7g35t2WkNwaV1VHY4bhvXftLjMmcKKxKzVvYYCBayDBSjkgmveemkWciiB7DmeJs7yGK2mRsLN0xVu4M_CYyyF8DWylU8P5923PGn8wRkqv3XMizhXXM82qJ6d0I86U2rOEUjD6b2n6e_ubzowU0-Y_6vbFYqWXtSoYqpO7Ubgv47yqmnKLMsQZHFjoeKES9k"/>
+<div class="relative z-10 flex flex-col items-center">
+<span class="material-symbols-outlined text-on-surface mb-2" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-bold text-on-surface bg-white/80 px-2 py-1 rounded">Cargo Secure</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Signature Section -->
+<section class="md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+<!-- Driver Signature -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4">
+<div class="flex justify-between items-center mb-3">
+<span class="font-label-bold text-primary uppercase">Driver Signature</span>
+<button class="text-secondary text-body-sm font-medium">Clear</button>
+</div>
+<div class="h-32 signature-pad border border-outline-variant rounded-lg flex items-center justify-center relative">
+<span class="text-outline/30 font-body-sm pointer-events-none">Sign Here</span>
+<!-- Mock active signature for visual appeal -->
+<svg class="absolute inset-0 w-full h-full p-4 pointer-events-none" viewbox="0 0 400 100">
+<path d="M50 80 Q 70 20 120 50 T 200 40 Q 250 80 300 50" fill="none" stroke="#041627" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+<p class="mt-2 text-[10px] text-on-surface-variant uppercase tracking-tighter">I confirm that I have inspected the vehicle and load.</p>
+</div>
+<!-- Haulier Signature -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4">
+<div class="flex justify-between items-center mb-3">
+<span class="font-label-bold text-primary uppercase">Haulier Signature</span>
+<button class="text-secondary text-body-sm font-medium">Clear</button>
+</div>
+<div class="h-32 signature-pad border border-outline-variant rounded-lg flex items-center justify-center relative">
+<span class="text-outline/30 font-body-sm pointer-events-none">Awaiting Signature...</span>
+</div>
+<p class="mt-2 text-[10px] text-on-surface-variant uppercase tracking-tighter">Dispatch officer confirmation of vehicle release.</p>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Actions & Navigation Shell -->
+<div class="fixed bottom-0 w-full z-50">
+<!-- Floating Primary Action Button (Conditional Style) -->
+<div class="px-4 pb-4 md:px-margin-desktop flex justify-center">
+<button class="w-full max-w-lg bg-surface-container-high text-on-surface-variant font-bold h-14 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed opacity-80" disabled="">
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+                Confirm &amp; Start Trip
+            </button>
+</div>
+<!-- Bottom Navigation Bar (Mandatory Shell) -->
+<nav class="bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] rounded-t-lg flex justify-around items-center h-20 w-full px-2">
+<button class="flex flex-col items-center justify-center text-amber-600 bg-slate-50 rounded-lg px-6 py-2 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="local_shipping" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-medium uppercase tracking-wider mt-1">Routes</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 px-6 py-2 hover:text-slate-900 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium uppercase tracking-wider mt-1">Scan</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 px-6 py-2 hover:text-slate-900 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-['Inter'] text-[12px] font-medium uppercase tracking-wider mt-1">Profile</span>
+</button>
+</nav>
+</div>
+</body></html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Account Restricted | Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#713b00",
+                        "primary-container": "#1a2b3c",
+                        "on-tertiary-fixed": "#281802",
+                        "secondary": "#904d00",
+                        "inverse-surface": "#2e3132",
+                        "secondary-container": "#ffa454",
+                        "primary": "#041627",
+                        "on-surface": "#191c1d",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#feddb5",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "tertiary-container": "#38260b",
+                        "primary-fixed": "#d2e4fb",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-container": "#a88c69",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-primary-fixed": "#0b1d2d",
+                        "primary-fixed-dim": "#b7c8de",
+                        "on-primary-container": "#8192a7",
+                        "surface-container-high": "#e7e8e9",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "on-error-container": "#93000a",
+                        "outline": "#74777d",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1d",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#4f6073",
+                        "surface-container": "#edeeef",
+                        "tertiary": "#211200",
+                        "outline-variant": "#c4c6cd",
+                        "on-surface-variant": "#44474c",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f8f9fa",
+                        "surface-dim": "#d9dadb",
+                        "on-primary-fixed-variant": "#38485a",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#ffdcc3",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "background": "#f8f9fa",
+                        "surface": "#f8f9fa",
+                        "inverse-primary": "#b7c8de"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar (Shared Component) -->
+<header class="w-full border-b border-slate-200 bg-white sticky top-0 z-50 shadow-sm">
+<nav class="flex justify-between items-center h-16 px-6 max-w-[1920px] mx-auto">
+<div class="text-xl font-bold text-[#041627] tracking-tighter">Logistics Core</div>
+<div class="hidden md:flex items-center gap-8 h-full">
+<a class="font-['Inter'] font-medium text-sm tracking-tight text-slate-500 hover:text-[#041627] transition-colors" href="#">Dashboard</a>
+<a class="font-['Inter'] font-medium text-sm tracking-tight text-slate-500 hover:text-[#041627] transition-colors" href="#">Shipments</a>
+<a class="font-['Inter'] font-medium text-sm tracking-tight text-slate-500 hover:text-[#041627] transition-colors" href="#">Fleet</a>
+<a class="font-['Inter'] font-medium text-sm tracking-tight text-slate-500 hover:text-[#041627] transition-colors" href="#">Reports</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all cursor-pointer">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="p-2 text-[#041627] hover:bg-slate-50 rounded-lg transition-all cursor-pointer">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</nav>
+</header>
+<main class="flex-grow flex items-center justify-center px-4 py-12">
+<div class="max-w-xl w-full">
+<!-- Alert Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] overflow-hidden border border-surface-container-high">
+<!-- Hero Lock Section -->
+<div class="bg-primary pt-12 pb-8 flex flex-col items-center text-center px-6">
+<div class="w-20 h-20 bg-secondary-container rounded-full flex items-center justify-center mb-6 shadow-lg">
+<span class="material-symbols-outlined text-on-secondary-container text-4xl" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<h1 class="text-on-primary text-2xl md:text-3xl font-bold tracking-tight mb-2">Account Status: Restricted</h1>
+<p class="text-on-primary-container text-sm md:text-base max-w-sm">Your dispatch capabilities are currently paused. Profile completion is required to resume fleet operations.</p>
+</div>
+<!-- Content Body -->
+<div class="p-8 md:p-10 space-y-8">
+<!-- Explanation -->
+<div class="space-y-2">
+<h3 class="text-primary text-lg font-semibold">Why is my account restricted?</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">To maintain regulatory compliance and safety standards within the Logistics Core network, all dispatchers must maintain a 100% complete profile including verified documentation and vehicle telemetry setup.</p>
+</div>
+<!-- Checklist -->
+<div class="space-y-4">
+<h4 class="text-on-surface text-xs font-bold uppercase tracking-widest opacity-70">Requirements Checklist</h4>
+<div class="space-y-3">
+<!-- Verified -->
+<div class="flex items-center gap-4 p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+<div class="bg-emerald-500 text-white rounded-full p-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm font-bold">check</span>
+</div>
+<div class="flex-grow">
+<p class="text-emerald-900 text-sm font-semibold">Identity Verified</p>
+<p class="text-emerald-700 text-xs">Government ID validation successful</p>
+</div>
+</div>
+<!-- Missing 1 -->
+<div class="flex items-center gap-4 p-4 bg-orange-50 border border-orange-100 rounded-lg">
+<div class="bg-secondary-container text-on-secondary-container rounded-full p-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm font-bold">priority_high</span>
+</div>
+<div class="flex-grow">
+<p class="text-orange-900 text-sm font-semibold">Vehicle Details</p>
+<p class="text-orange-700 text-xs">Missing: VIN and Trailer capacity specs</p>
+</div>
+<span class="material-symbols-outlined text-orange-400">chevron_right</span>
+</div>
+<!-- Missing 2 -->
+<div class="flex items-center gap-4 p-4 bg-orange-50 border border-orange-100 rounded-lg">
+<div class="bg-secondary-container text-on-secondary-container rounded-full p-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm font-bold">priority_high</span>
+</div>
+<div class="flex-grow">
+<p class="text-orange-900 text-sm font-semibold">Document Upload</p>
+<p class="text-orange-700 text-xs">Missing: Insurance Policy (validity 2024)</p>
+</div>
+<span class="material-symbols-outlined text-orange-400">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-3 pt-4">
+<button class="w-full bg-secondary hover:bg-on-secondary-fixed-variant text-white font-bold py-4 rounded-lg shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+<span>Complete Profile</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="w-full bg-white border border-outline text-primary font-semibold py-4 rounded-lg hover:bg-slate-50 transition-all active:scale-[0.98]">
+                            Contact Support
+                        </button>
+</div>
+</div>
+<!-- Helpful Footer -->
+<div class="bg-surface-container-low p-4 text-center border-t border-surface-container-high">
+<p class="text-on-surface-variant text-xs flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                        Estimated completion time: 5-8 minutes
+                    </p>
+</div>
+</div>
+<!-- Additional Help -->
+<div class="mt-8 text-center">
+<p class="text-slate-500 text-sm">
+                    Having trouble uploading documents? 
+                    <a class="text-secondary font-semibold underline underline-offset-4 decoration-secondary/30 hover:decoration-secondary" href="#">Visit Help Center</a>
+</p>
+</div>
+</div>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center py-8 px-10 max-w-7xl mx-auto gap-4">
+<div class="font-['Inter'] text-xs uppercase tracking-widest text-slate-600">
+                © 2024 Logistics Core Fleet Operations. All rights reserved.
+            </div>
+<div class="flex gap-6">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Terms of Service</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Operational Status</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-500 hover:text-[#904d00] transition-colors underline decoration-[#904d00] underline-offset-4 cursor-pointer" href="#">Driver Support</a>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#d9dadb",
+                    "surface-container-high": "#e7e8e9",
+                    "on-tertiary-container": "#a88c69",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed": "#ffdcc3",
+                    "surface-variant": "#e1e3e4",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#d2e4fb",
+                    "surface-tint": "#4f6073",
+                    "on-secondary-fixed": "#2f1500",
+                    "on-primary-fixed-variant": "#38485a",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "surface-container-low": "#f3f4f5",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "on-background": "#191c1d",
+                    "inverse-primary": "#b7c8de",
+                    "secondary-container": "#ffa454",
+                    "background": "#f8f9fa",
+                    "surface": "#f8f9fa",
+                    "on-error": "#ffffff",
+                    "tertiary-container": "#38260b",
+                    "surface-container": "#edeeef",
+                    "on-secondary-container": "#713b00",
+                    "outline": "#74777d",
+                    "inverse-surface": "#2e3132",
+                    "primary-container": "#1a2b3c",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "on-primary-fixed": "#0b1d2d",
+                    "primary": "#041627",
+                    "inverse-on-surface": "#f0f1f2",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed": "#feddb5",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed": "#281802",
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "secondary": "#904d00",
+                    "primary-fixed-dim": "#b7c8de",
+                    "on-primary-container": "#8192a7",
+                    "outline-variant": "#c4c6cd",
+                    "surface-bright": "#f8f9fa",
+                    "on-surface": "#191c1d",
+                    "tertiary": "#211200",
+                    "on-surface-variant": "#44474c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#041627] dark:bg-slate-950 shadow-md docked full-width top-0 z-50 flex justify-between items-center w-full px-4 h-16">
+<div class="flex items-center gap-3">
+<button class="text-white hover:bg-slate-800 transition-colors p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-['Inter'] text-xl font-black text-white tracking-tight">Logistics Core</h1>
+</div>
+<div class="flex items-center">
+<div class="w-10 h-10 rounded-full border-2 border-slate-700 overflow-hidden active:opacity-80 transition-opacity">
+<img alt="Driver Profile" data-alt="Close-up professional portrait of a confident male truck driver in a collared shirt with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjQpJBY2Xv4U39K6x1xlnns7R7DND9UnzE9nOXQTDqC17OGgs1eYdTi8ols6jRKGo2isCBFlo1-dnfLhxrJ-FaX08Q_UznKp03E7_pl5_lbVBMI29Y0-CT1O9ljPx-zK62jg2EBqmg8IRO0wP9lYHJedlbRKwMNpbuHuIx-o0g7w6VTL9OfL2Soufnje_v83cBFrqn65aAv4NSoSvM3laujEApYAUaxu4b8PyFx9Jflx_MFUeWYblnGrWzcjrSZbKHi5s9AAHSKVg"/>
+</div>
+</div>
+</header>
+<main class="max-w-4xl mx-auto p-4 md:p-8">
+<!-- Rejection Status Hero -->
+<div class="bg-surface-container-lowest rounded-lg shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-8 mb-8 text-center border-t-4 border-error overflow-hidden relative">
+<div class="absolute top-4 right-4 text-error opacity-10">
+<span class="material-symbols-outlined text-9xl select-none" data-icon="cancel">cancel</span>
+</div>
+<div class="inline-flex items-center justify-center w-20 h-20 bg-error-container text-on-error-container rounded-full mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="close">close</span>
+</div>
+<h2 class="text-3xl font-bold text-primary mb-4">Quote Not Selected</h2>
+<p class="text-body-lg text-on-surface-variant max-w-lg mx-auto mb-8">
+                The haulier has moved forward with another quote for <span class="font-bold text-primary">Job #FR-99203-BX</span>. Don't worry, there are plenty of other opportunities waiting for you.
+            </p>
+<button class="bg-primary text-on-primary font-bold py-4 px-8 rounded-lg hover:opacity-90 active:scale-95 transition-all shadow-md inline-flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+                Find New Jobs
+            </button>
+</div>
+<!-- Recommended Jobs Section -->
+<section class="mt-12">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-bold text-primary">Recommended Jobs</h3>
+<span class="text-on-surface-variant text-body-sm font-semibold uppercase tracking-wider">Based on your activity</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Job Card 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-outline-variant hover:border-primary transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="bg-secondary-fixed text-on-secondary-fixed text-[10px] font-black uppercase px-2 py-0.5 rounded-full mb-2 inline-block">High Priority</span>
+<h4 class="font-bold text-lg text-primary">#FR-99551-AZ</h4>
+</div>
+<div class="text-right">
+<span class="text-2xl font-black text-primary">$1,450</span>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Estimated Payout</p>
+</div>
+</div>
+<div class="space-y-3 mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="location_on">location_on</span>
+<p class="text-body-sm"><span class="font-bold">From:</span> Chicago, IL</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="near_me">near_me</span>
+<p class="text-body-sm"><span class="font-bold">To:</span> Nashville, TN</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-surface-container-high">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="weight">weight</span>
+<span class="text-xs font-bold text-on-surface-variant">42,000 lbs</span>
+</div>
+<button class="text-primary font-bold text-sm group-hover:underline flex items-center gap-1">
+                            Quote Now <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Job Card 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-outline-variant hover:border-primary transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="bg-surface-container text-on-surface-variant text-[10px] font-black uppercase px-2 py-0.5 rounded-full mb-2 inline-block">Regional</span>
+<h4 class="font-bold text-lg text-primary">#FR-88122-CQ</h4>
+</div>
+<div class="text-right">
+<span class="text-2xl font-black text-primary">$890</span>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase">Estimated Payout</p>
+</div>
+</div>
+<div class="space-y-3 mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="location_on">location_on</span>
+<p class="text-body-sm"><span class="font-bold">From:</span> Atlanta, GA</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="near_me">near_me</span>
+<p class="text-body-sm"><span class="font-bold">To:</span> Savannah, GA</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-surface-container-high">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="local_shipping">local_shipping</span>
+<span class="text-xs font-bold text-on-surface-variant">Refrigerated</span>
+</div>
+<button class="text-primary font-bold text-sm group-hover:underline flex items-center gap-1">
+                            Quote Now <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Informational Prompt -->
+<div class="mt-8 bg-primary-container rounded-lg p-6 flex flex-col md:flex-row items-center gap-6">
+<div class="flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden shadow-lg">
+<img alt="Supply Chain" data-alt="Wide shot of organized warehouse interior with tall industrial shelving and soft overhead fluorescent lighting in a clean blue tone" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcbDa8e4jKaQASaDcZxlOBvt0P2kwXghSEVlJEJTR0ucZx5CI0vOaQr7D8yuQSsZmxy6xHDlV4ls9qY3oJ7WU-c1nHpMdGnIBUJIhZexeLVuGvDvetXUcocGaNCYq_B2jKQgHGuEXGOvFDUsMNYthPVy3oO_rdc4JQaCoWf8UrHmA7VRKpuaKAgocqF83Y_SRmekf0HCbFtsklOHRcRGXaLLvUR95OETNc03qGVMesrxQjQovdbRyWOaLPbPZIgRi9DiolD5Jfh0o"/>
+</div>
+<div class="flex-1">
+<h4 class="text-white font-bold text-lg mb-2">Want to improve your quote acceptance?</h4>
+<p class="text-on-primary-container text-body-sm mb-4">Complete your driver profile and upload recent safety certifications to stand out to hauliers.</p>
+<button class="bg-secondary-container text-on-secondary-container text-sm font-bold py-2 px-4 rounded-full hover:bg-secondary transition-colors">
+                    Update Profile
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-white dark:bg-slate-900 fixed bottom-0 w-full z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] flex justify-around items-center w-full h-20 pb-safe px-2">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider mt-1">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 text-[#041627] dark:text-amber-500 rounded-xl px-3 py-1 active:scale-95 transition-transform duration-150 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="notifications" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider mt-1">Notifications</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider mt-1">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-[#041627] dark:hover:text-amber-400 active:scale-95 transition-transform duration-150 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[12px] font-bold uppercase tracking-wider mt-1">Profile</span>
+</div>
+</nav>
+</body></html>

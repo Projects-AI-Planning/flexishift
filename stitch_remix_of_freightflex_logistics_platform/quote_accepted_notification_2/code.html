@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Notification: Quote Accepted</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#c4c6cd",
+                    "error": "#ba1a1a",
+                    "outline": "#74777d",
+                    "background": "#f8f9fa",
+                    "inverse-surface": "#2e3132",
+                    "on-error": "#ffffff",
+                    "surface-tint": "#4f6073",
+                    "secondary-container": "#ffa454",
+                    "surface-container-high": "#e7e8e9",
+                    "primary": "#041627",
+                    "on-error-container": "#93000a",
+                    "primary-container": "#1a2b3c",
+                    "on-surface-variant": "#44474c",
+                    "on-secondary-container": "#713b00",
+                    "on-secondary-fixed": "#2f1500",
+                    "tertiary-fixed": "#feddb5",
+                    "on-tertiary-container": "#a88c69",
+                    "on-primary": "#ffffff",
+                    "surface-bright": "#f8f9fa",
+                    "primary-fixed-dim": "#b7c8de",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed": "#281802",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f3f4f5",
+                    "surface": "#f8f9fa",
+                    "primary-fixed": "#d2e4fb",
+                    "surface-variant": "#e1e3e4",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e1e3e4",
+                    "secondary-fixed": "#ffdcc3",
+                    "on-background": "#191c1d",
+                    "surface-container": "#edeeef",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "on-surface": "#191c1d",
+                    "inverse-primary": "#b7c8de",
+                    "on-primary-fixed-variant": "#38485a",
+                    "secondary": "#904d00",
+                    "on-primary-container": "#8192a7",
+                    "tertiary-container": "#38260b",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary": "#211200",
+                    "surface-dim": "#d9dadb",
+                    "on-primary-fixed": "#0b1d2d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.75rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center h-16 px-4 bg-white dark:bg-gray-900 border-b border-[#e1e3e4] dark:border-[#44474c] shadow-sm">
+<div class="flex items-center gap-4">
+<button class="text-[#041627] dark:text-[#b7c8de] active:scale-95 transition-transform hover:bg-[#edeeef] dark:hover:bg-[#2e3132] p-2 rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-['Inter'] text-lg font-bold tracking-tight text-[#041627] dark:text-[#b7c8de]">Notifications</h1>
+</div>
+<button class="text-[#041627] dark:text-[#b7c8de] active:scale-95 transition-transform hover:bg-[#edeeef] dark:hover:bg-[#2e3132] p-2 rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow pt-20 pb-24 px-4 flex flex-col items-center justify-start">
+<!-- Success Hero -->
+<div class="w-full max-w-md bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden mb-6">
+<div class="h-2 bg-secondary"></div>
+<div class="p-8 flex flex-col items-center text-center">
+<div class="w-20 h-20 bg-secondary-container flex items-center justify-center rounded-full mb-6">
+<span class="material-symbols-outlined text-on-secondary-container !text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="text-2xl font-bold text-primary mb-2">Quote Accepted</h2>
+<p class="text-on-surface-variant body-md">Haulier Logistics Pro has confirmed your bid for shipment Job #FR-99203-BX.</p>
+</div>
+</div>
+<!-- Job Details Card -->
+<div class="w-full max-w-md bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-6 mb-8">
+<div class="flex items-center justify-between mb-6">
+<span class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Shipment Details</span>
+<span class="bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Priority</span>
+</div>
+<div class="space-y-6">
+<!-- Route Info -->
+<div class="flex gap-4">
+<div class="flex flex-col items-center pt-1">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-0.5 h-12 bg-outline-variant my-1"></div>
+<div class="w-2 h-2 rounded-full border-2 border-primary bg-white"></div>
+</div>
+<div class="flex-grow space-y-4">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Pickup</p>
+<p class="font-bold text-primary">Manchester Terminal A</p>
+<p class="text-sm text-on-surface-variant">Oct 24, 2023 • 08:00 AM</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Delivery</p>
+<p class="font-bold text-primary">London Gateway Port</p>
+<p class="text-sm text-on-surface-variant">Oct 24, 2023 • 14:30 PM</p>
+</div>
+</div>
+</div>
+<hr class="border-surface-container-highest"/>
+<!-- Meta Data Bento -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Cargo Type</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">inventory_2</span>
+<span class="text-sm font-semibold text-primary">Dry Van</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Weight</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">weight</span>
+<span class="text-sm font-semibold text-primary">12,400 kg</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<div class="w-full max-w-md px-2">
+<button class="w-full bg-secondary text-on-secondary py-4 rounded-xl font-bold flex items-center justify-center gap-3 active:opacity-80 transition-opacity shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+                View Job Details &amp; Start
+            </button>
+<button class="w-full mt-4 text-primary font-bold py-3 active:scale-95 transition-transform">
+                Dismiss
+            </button>
+</div>
+<!-- Decorative Map Background Element -->
+<div class="fixed inset-0 -z-10 opacity-5 pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="faint monochromatic map of Manchester and London highways with logistics route lines drawn across the geography" data-location="Manchester"/>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe flex justify-around items-center h-20 bg-white dark:bg-gray-900 px-2 border-t border-[#e1e3e4] dark:border-[#44474c] shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<div class="flex flex-col items-center justify-center text-[#44474c] dark:text-[#c4c6cd] px-3 py-1.5 hover:text-[#041627] dark:hover:text-white active:opacity-80 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#44474c] dark:text-[#c4c6cd] px-3 py-1.5 hover:text-[#041627] dark:hover:text-white active:opacity-80 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#1a2b3c] text-[#8192a7] rounded-xl px-3 py-1.5 active:opacity-80 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Alerts</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#44474c] dark:text-[#c4c6cd] px-3 py-1.5 hover:text-[#041627] dark:hover:text-white active:opacity-80 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-wider mt-1">Profile</span>
+</div>
+</nav>
+</body></html>

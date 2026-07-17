@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Compare &amp; Select Supplier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-tertiary-container": "#a88c69", "on-surface-variant": "#44474c", "surface-tint": "#4f6073", "primary-fixed": "#d2e4fb", "inverse-surface": "#2e3132", "tertiary-fixed-dim": "#e1c29b", "surface-container": "#edeeef", error: "#ba1a1a", background: "#f8f9fa", "on-tertiary": "#ffffff", tertiary: "#211200", "on-error": "#ffffff", "tertiary-container": "#38260b", "on-secondary": "#ffffff", "on-error-container": "#93000a", "surface-container-high": "#e7e8e9", "on-primary-container": "#8192a7", "on-secondary-fixed": "#2f1500", primary: "#041627", "on-primary": "#ffffff", "on-surface": "#191c1d", "surface-dim": "#d9dadb", "primary-container": "#1a2b3c", "inverse-on-surface": "#f0f1f2", "surface-container-lowest": "#ffffff", secondary: "#904d00", "on-background": "#191c1d", "on-tertiary-fixed-variant": "#584326", "secondary-container": "#ffa454", "on-secondary-container": "#713b00", "inverse-primary": "#b7c8de", "tertiary-fixed": "#feddb5", "surface-container-low": "#f3f4f5", "outline-variant": "#c4c6cd", "surface-variant": "#e1e3e4", "secondary-fixed": "#ffdcc3", "on-tertiary-fixed": "#281802", outline: "#74777d", "surface-bright": "#f8f9fa", "primary-fixed-dim": "#b7c8de", "on-secondary-fixed-variant": "#6e3900", surface: "#f8f9fa", "surface-container-highest": "#e1e3e4", "secondary-fixed-dim": "#ffb77d", "on-primary-fixed-variant": "#38485a", "on-primary-fixed": "#0b1d2d", "error-container": "#ffdad6"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {xs: "4px", gutter: "16px", base: "8px", sm: "12px", md: "24px", "margin-desktop": "32px", "margin-mobile": "16px", lg: "40px"}, fontFamily: {"label-bold": ["Inter"], "body-lg": ["Inter"], h2: ["Inter"], "stats-display": ["Inter"], h3: ["Inter"], h1: ["Inter"], "body-sm": ["Inter"], "body-md": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+<style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .card-shadow {
+            box-shadow: 0px 4px 12px rgba(26, 43, 60, 0.05);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-white border-b border-slate-200 shadow-sm">
+<div class="flex items-center gap-4">
+<button class="transition-colors duration-200 active:opacity-70 p-2 hover:bg-slate-100 rounded-full">
+<span class="material-symbols-outlined text-[#1A2B3C]" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] font-semibold text-lg tracking-tight text-[#1A2B3C]">Compare Quotes</h1>
+</div>
+<button class="transition-colors duration-200 active:opacity-70 p-2 hover:bg-slate-100 rounded-full">
+<span class="material-symbols-outlined text-[#1A2B3C]" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<main class="pt-20 pb-28 px-4 max-w-md mx-auto">
+<!-- Job Reference & Route Summary -->
+<section class="bg-primary-container rounded-xl p-md mb-md text-white overflow-hidden relative">
+<div class="absolute -right-4 -top-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="relative z-10">
+<div class="flex justify-between items-center mb-xs">
+<span class="font-label-bold text-label-bold text-on-primary-container">JOB REFERENCE</span>
+<span class="bg-secondary px-2 py-0.5 rounded text-[10px] font-bold text-white">URGENT</span>
+</div>
+<div class="font-h2 text-h2 mb-4">#FR-99203-BX</div>
+<div class="flex items-center gap-4">
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-secondary-container"></div>
+<div class="w-0.5 h-8 border-l border-dashed border-slate-400 my-1"></div>
+<div class="w-2 h-2 rounded-full border-2 border-secondary-container"></div>
+</div>
+<div class="flex flex-col gap-3">
+<div>
+<div class="text-[10px] uppercase text-slate-400 font-bold">Pickup</div>
+<div class="font-body-md text-body-md font-semibold">Berlin, DE</div>
+</div>
+<div>
+<div class="text-[10px] uppercase text-slate-400 font-bold">Delivery</div>
+<div class="font-body-md text-body-md font-semibold">Warsaw, PL</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Quote List -->
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center px-1">
+<h2 class="font-h3 text-h3 text-primary">Submitted Quotes (4)</h2>
+<button class="text-primary font-label-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                    Sort
+                </button>
+</div>
+<!-- Quote Card 1 (Premium/Recommended) -->
+<div class="bg-white rounded-xl p-4 card-shadow border-l-4 border-secondary relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-secondary-container text-on-secondary-container text-[10px] font-bold px-3 py-1 rounded-bl-lg">
+                    BEST RATED
+                </div>
+<div class="flex gap-4 mb-4">
+<img alt="Driver Profile" class="w-14 h-14 rounded-lg object-cover" data-alt="Professional male driver headshot with friendly expression, wearing a clean company polo shirt, neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdLmXTEF5Z3wYjWUal9GpAHrzp1x0AUchzDoTIg8Kng8uAbGJ-XmPTVM3omzeDnZJ1mOA_7-QV9UjR0KRmnGGp_2gzvw0qSu2TSVpdJz48tVhRRImsz09vw1ffV4E4TEz5Uat-Js4f-Nqif0QxxWM6RE9tA2BmlydHiLwF5A_Xk0IPQoA3PA-GYBR5WGdqILD3Or7dDNN7Jd0PoDlKB58L13AACMzo8EaCoEqAiqnvAungaqUj2L7914oBP_05oGTdxdMLM3qhlE0"/>
+<div>
+<h3 class="font-h3 text-primary text-[18px]">Marco Schmidt</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-bold">4.9</span>
+<span class="text-slate-400 font-normal text-body-sm ml-1">(128 reviews)</span>
+</div>
+<div class="flex items-center gap-1 text-slate-500 text-body-sm mt-1">
+<span class="material-symbols-outlined text-xs" data-icon="apartment">apartment</span>
+<span>Berlin Express Logistics</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-4 py-3 border-y border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="local_shipping">local_shipping</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Vehicle</p>
+<p class="text-body-sm font-semibold">Tautliner 13.6m</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="near_me">near_me</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Distance</p>
+<p class="text-body-sm font-semibold">12 km away</p>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Bid Amount</p>
+<p class="font-stats-display text-[24px] text-primary">€1,100.00</p>
+</div>
+<button class="bg-primary text-white px-6 py-3 rounded-lg font-label-bold transition-transform active:scale-95 shadow-md">
+                        Book Now
+                    </button>
+</div>
+</div>
+<!-- Quote Card 2 -->
+<div class="bg-white rounded-xl p-4 card-shadow">
+<div class="flex gap-4 mb-4">
+<img alt="Driver Profile" class="w-14 h-14 rounded-lg object-cover" data-alt="Experienced truck driver in a reflective vest standing near a logistics warehouse, soft daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiLxwiHg1H0AjGhLHvhe2-ZnHa-tDgkeI9qIfbljdMpLkpfSAUtSpvE1WDhZDo4zp0sbnq2RPtwMXtm85wwLBZDAfWqXfm8ogN_d8RetUXLRFUKT_1yFR8mL5kCW4JZ8OsI7kJkl5d9kLtYOHfHDeeYUa-cjXVz_80zGDF9_ac83bECY2iNMKavL-l06MifL3PNIELta6KEg-sGa-f8Q9soEfp0pO8Vo5DccKUr-n4kyKeCs6wJ-UiUeU7Ce4Q3j74_uNZPziGf3E"/>
+<div>
+<h3 class="font-h3 text-primary text-[18px]">Piotr Nowak</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-bold">4.7</span>
+<span class="text-slate-400 font-normal text-body-sm ml-1">(84 reviews)</span>
+</div>
+<div class="flex items-center gap-1 text-slate-500 text-body-sm mt-1">
+<span class="material-symbols-outlined text-xs" data-icon="apartment">apartment</span>
+<span>Vistula Freight Co.</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-4 py-3 border-y border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="local_shipping">local_shipping</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Vehicle</p>
+<p class="text-body-sm font-semibold">Box Truck 7.5t</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="near_me">near_me</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Distance</p>
+<p class="text-body-sm font-semibold">45 km away</p>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Bid Amount</p>
+<p class="font-stats-display text-[24px] text-primary">€980.00</p>
+</div>
+<button class="bg-primary text-white px-6 py-3 rounded-lg font-label-bold transition-transform active:scale-95">
+                        Select
+                    </button>
+</div>
+</div>
+<!-- Quote Card 3 (Cheapest) -->
+<div class="bg-white rounded-xl p-4 card-shadow border-l-4 border-slate-300">
+<div class="flex gap-4 mb-4">
+<div class="w-14 h-14 rounded-lg bg-primary-container flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-3xl" data-icon="person">person</span>
+</div>
+<div>
+<h3 class="font-h3 text-primary text-[18px]">Hans Weber</h3>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-bold">4.2</span>
+<span class="text-slate-400 font-normal text-body-sm ml-1">(12 reviews)</span>
+</div>
+<div class="flex items-center gap-1 text-slate-500 text-body-sm mt-1">
+<span class="material-symbols-outlined text-xs" data-icon="apartment">apartment</span>
+<span>Weber Independent</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-4 py-3 border-y border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="local_shipping">local_shipping</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Vehicle</p>
+<p class="text-body-sm font-semibold">Sprinter Van</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400" data-icon="near_me">near_me</span>
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Distance</p>
+<p class="text-body-sm font-semibold">8 km away</p>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-[10px] text-slate-400 font-bold uppercase">Bid Amount</p>
+<p class="font-stats-display text-[24px] text-primary">€850.00</p>
+</div>
+<button class="bg-primary text-white px-6 py-3 rounded-lg font-label-bold transition-transform active:scale-95">
+                        Select
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 bg-white border-t border-slate-200 px-4 pb-safe shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<a class="flex flex-col items-center justify-center text-[#1A2B3C] font-bold transition-transform duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter'] text-[12px] font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 transition-transform duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 transition-transform duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+<span class="font-['Inter'] text-[12px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

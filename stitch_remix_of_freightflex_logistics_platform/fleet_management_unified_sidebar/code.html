@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Management | Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#2f1500",
+                        "inverse-surface": "#2e3132",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed": "#ffdcc3",
+                        "primary-container": "#1a2b3c",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed": "#0b1d2d",
+                        "background": "#f8f9fa",
+                        "surface-container-high": "#e7e8e9",
+                        "on-primary-fixed-variant": "#38485a",
+                        "primary-fixed": "#d2e4fb",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#191c1d",
+                        "inverse-primary": "#b7c8de",
+                        "surface-tint": "#4f6073",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474c",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "outline": "#74777d",
+                        "tertiary-container": "#38260b",
+                        "surface-dim": "#d9dadb",
+                        "on-secondary-container": "#713b00",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1d",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f5",
+                        "error-container": "#ffdad6",
+                        "primary": "#041627",
+                        "outline-variant": "#c4c6cd",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "secondary": "#904d00",
+                        "surface-variant": "#e1e3e4",
+                        "tertiary-fixed": "#feddb5",
+                        "primary-fixed-dim": "#b7c8de",
+                        "on-tertiary-fixed": "#281802",
+                        "on-primary-container": "#8192a7",
+                        "tertiary": "#211200",
+                        "surface": "#f8f9fa",
+                        "surface-bright": "#f8f9fa",
+                        "on-tertiary-container": "#a88c69",
+                        "secondary-container": "#ffa454",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary-fixed-variant": "#584326"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased min-h-screen">
+<!-- SideNavBar Execution -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-[#041627] dark:bg-[#020b14] text-white shadow-xl border-r border-[#1a2b3c] z-50">
+<div class="flex flex-col h-full py-6 px-4 space-y-2">
+<div class="px-2 mb-8">
+<div class="text-xl font-bold tracking-tight text-white">Logistics Core</div>
+<div class="text-xs text-[#8192a7] font-medium uppercase tracking-widest">Precision Fleet</div>
+</div>
+<nav class="flex-1 space-y-1"><!-- Dashboard -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<!-- Shipments -->
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="text-sm font-medium">Shipments</span>
+</a>
+<div class="pl-12 space-y-1">
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Active</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Quotes</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Tracking</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Completed</a>
+</div>
+</div>
+<!-- Fleet Management (Active) -->
+<a class="flex items-center gap-3 bg-[#ffa454] text-[#041627] rounded-lg px-4 py-3 mx-2 font-bold transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="forklift">forklift</span>
+<span class="text-sm">Fleet Management</span>
+</a>
+<!-- Load Management -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="text-sm font-medium">Load Management</span>
+</a>
+<!-- Drivers -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="badge">badge</span>
+<span class="text-sm font-medium">Drivers</span>
+</a>
+<!-- Vehicles -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="minor_crash">minor_crash</span>
+<span class="text-sm font-medium">Vehicles</span>
+</a>
+<!-- Analytics -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<!-- Payments -->
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="text-sm font-medium">Payments</span>
+</a>
+<div class="pl-12 space-y-1">
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Escrow</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">History</a>
+<a class="block py-1 text-xs text-slate-500 hover:text-white transition-colors" href="#">Wallet</a>
+</div>
+</div>
+<!-- Documents / Compliance -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="text-sm font-medium">Documents / Compliance</span>
+</a></nav>
+<div class="pt-4 border-t border-[#1a2b3c] space-y-1"><!-- Account Settings -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-sm font-medium">Account Settings</span>
+</a>
+<!-- Support -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="text-sm font-medium">Support</span>
+</a>
+<!-- Logout -->
+<a class="flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-3 mx-2 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="text-sm font-medium">Logout</span>
+</a></div>
+</div>
+</aside>
+<!-- TopAppBar Execution -->
+<header class="fixed top-0 right-0 left-64 h-16 flex items-center bg-white/90 backdrop-blur-md shadow-sm z-40 border-b border-gray-200">
+<div class="flex justify-between items-center w-full px-8 gap-4">
+<div class="flex items-center flex-1">
+<div class="relative w-full max-w-md">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-outline">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</span>
+<input class="block w-full pl-10 pr-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest focus:ring-2 focus:ring-[#ffa454] focus:border-transparent transition-all outline-none text-sm" placeholder="Search assets, drivers, or routes..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-gray-100 rounded-full p-2 transition-all text-[#44474c]">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="h-8 w-px bg-gray-200 mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-semibold text-primary">Operations Lead</p>
+<p class="text-[10px] text-outline font-bold uppercase tracking-wider">Fleet Hub 01</p>
+</div>
+<img alt="User profile" class="h-10 w-10 rounded-full border-2 border-surface-container-high object-cover" data-alt="professional portrait of a logistics manager in a modern office setting, soft professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJuDlIvLAVLVsYFd9mgjauQjjhrR3r7NWAjfgxfjYBmvuHneyGQuQKWEzWg-LVTIvF1IlHBd04-a_s99KkV-36VxLN_1KoPxv8uQiaojrn6TwT1GDFCuU3XM5g6TzbTPRFAzEccDiCPs-10tYI_7e8C023pNlthJ9aOq22OGiUb1rpQ6hqtL3sg2vIJxOnPGmdZ7oxOREiZ41yDIhdCeqFBOsQjYvF9iDnqH1LnRYHTb_OT-_4TAz_8jM_ciI1zn0FeWK_47RJpsQ"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 p-8 min-h-screen">
+<!-- Fleet Overview Header -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+<div>
+<h1 class="text-3xl font-bold tracking-tight text-primary font-headline">Fleet Overview</h1>
+<p class="text-on-surface-variant mt-1">Real-time status and operational health of your global assets.</p>
+</div>
+<button class="bg-primary text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 hover:bg-[#1a2b3c] transition-colors shadow-md">
+<span class="material-symbols-outlined" data-icon="add_box">add_box</span>
+                Register Asset
+            </button>
+</section>
+<!-- Top Level Metrics Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+<!-- Global Fleet Health Card -->
+<div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container flex items-center justify-between overflow-hidden relative">
+<div class="relative z-10">
+<p class="text-sm font-bold text-outline uppercase tracking-wider mb-2">Global Fleet Health</p>
+<h2 class="text-5xl font-black text-primary mb-1">94.2%</h2>
+<div class="flex items-center gap-2 text-green-600 font-bold text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                        +1.4% from last week
+                    </div>
+</div>
+<div class="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-green-50 to-transparent flex items-center justify-center">
+<span class="material-symbols-outlined text-8xl text-green-600/10" data-icon="health_and_safety" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+</div>
+</div>
+<div class="bg-white p-6 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container">
+<p class="text-sm font-bold text-outline uppercase tracking-wider mb-2">Active Assets</p>
+<div class="flex items-baseline gap-2">
+<h2 class="text-3xl font-bold text-primary">128</h2>
+<span class="text-on-surface-variant text-sm">/ 134 total</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 mt-4 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 95%"></div>
+</div>
+</div>
+<div class="bg-[#ffa454] p-6 rounded-xl shadow-lg border border-secondary-container">
+<p class="text-sm font-bold text-on-secondary-container uppercase tracking-wider mb-2">Maintenance Due</p>
+<h2 class="text-3xl font-bold text-on-secondary-container">06</h2>
+<div class="flex items-center gap-2 mt-4 text-on-secondary-container/80 text-sm font-medium">
+<span class="material-symbols-outlined text-sm" data-icon="error">error</span>
+                    Immediate action required
+                </div>
+</div>
+</div>
+<!-- Asset & Driver Management Section -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<!-- Asset Monitoring (Bento Grid Style) -->
+<div class="xl:col-span-2 space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="sensors">sensors</span>
+                        Asset Monitoring
+                    </h3>
+<a class="text-sm font-bold text-primary-container border-b-2 border-[#ffa454] pb-0.5" href="#">View Map View</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Truck Card 1 -->
+<div class="bg-white p-5 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-green-500 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="bg-surface-container-high px-2 py-1 rounded text-[10px] font-black text-primary uppercase tracking-tighter">Heavy Duty</span>
+<h4 class="text-lg font-bold text-primary mt-1">LC-TRK-204</h4>
+</div>
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold uppercase">On Road</span>
+</div>
+<div class="flex items-center gap-3 py-2">
+<img alt="Driver" class="w-10 h-10 rounded-full object-cover border border-surface-container-high" data-alt="close up headshot of a professional truck driver wearing a branded cap and polo shirt, outdoors with blurred vehicle background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZCxVfhJmQJl1qjN3EQ4monHQo0_4RgxqiLZHgBBxBlnNVvxz1q9Y1bCQkNVCmfAPawVwRciumiGtr0jEBqvnPCTDnCwFKUIgYqcbBg6hBMZQxzmyttWXA1q-3f--Hg7AsO_CrJeI7_l-0ZfNWRWTFUHgUND0DQcLD_23cp396m8k-Qh6b0eFJCO4BunS085MUwJE2coa2meJbbWDExriDK_gigraT5CTW6rugu4IRyA2oCpmm_y69KpnQhb0zlWIlVVFnWy9r7VQ"/>
+<div>
+<p class="text-xs text-outline font-medium">Driver</p>
+<p class="text-sm font-bold text-primary">Marcus Holloway</p>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-on-surface-variant">
+<span>Route Completion</span>
+<span>82%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-green-500 h-full rounded-full" style="width: 82%"></div>
+</div>
+</div>
+<div class="flex justify-between items-center pt-2 mt-auto border-t border-surface-container">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="text-xs font-medium">I-95 North, VA</span>
+</div>
+<span class="text-[10px] font-bold text-outline">ETA: 2h 14m</span>
+</div>
+</div>
+<!-- Truck Card 2 -->
+<div class="bg-white p-5 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-[#ffa454] flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="bg-surface-container-high px-2 py-1 rounded text-[10px] font-black text-primary uppercase tracking-tighter">Mid Range</span>
+<h4 class="text-lg font-bold text-primary mt-1">LC-TRK-112</h4>
+</div>
+<span class="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold uppercase">Maintenance</span>
+</div>
+<div class="flex items-center gap-3 py-2 grayscale opacity-60">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-outline" data-icon="person_off">person_off</span>
+</div>
+<div>
+<p class="text-xs text-outline font-medium">Driver</p>
+<p class="text-sm font-bold text-primary">Unassigned</p>
+</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg border border-surface-container">
+<div class="flex items-center gap-2 text-primary font-bold text-sm">
+<span class="material-symbols-outlined text-lg" data-icon="build">build</span>
+                                Engine Calibration
+                            </div>
+<p class="text-xs text-on-surface-variant mt-1">Scheduled completion: Today, 16:30</p>
+</div>
+<div class="flex justify-between items-center pt-2 mt-auto border-t border-surface-container">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="home_work">home_work</span>
+<span class="text-xs font-medium">Bay City Depot</span>
+</div>
+<span class="text-[10px] font-bold text-outline">IDLE: 4h 12m</span>
+</div>
+</div>
+<!-- Truck Card 3 -->
+<div class="bg-white p-5 rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-gray-300 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="bg-surface-container-high px-2 py-1 rounded text-[10px] font-black text-primary uppercase tracking-tighter">Long Haul</span>
+<h4 class="text-lg font-bold text-primary mt-1">LC-TRK-409</h4>
+</div>
+<span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold uppercase">Idle</span>
+</div>
+<div class="flex items-center gap-3 py-2">
+<img alt="Driver" class="w-10 h-10 rounded-full object-cover border border-surface-container-high" data-alt="professional woman driver wearing a neon safety vest over a black jacket, high visibility gear, industrial backdrop" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKSz-SNHYxmYyPxOR-kHgSaDjAiEjUDiayiWDwWGCGsmwrkHhhl6IVO0tC-beDWIb7V82lfF1CHEx7_nBC74QLHfPcLuOjutK5RJ_Ce1opo-W9YvKxiKDC5lqA1gTXzm2ojcS29tZfxol6YeqH3Nk4PLk4PLNjX0GwnlbufUjIBFoiM8_KwmtJRbx8c14b6gKY01RdxvI3zYl5qgpzX3YU049zHjqy-boGQ-6XZF6J6tGG3rBB5Jn-0Ml_mrk9fhuUwJ-Q-2dbbIU"/>
+<div>
+<p class="text-xs text-outline font-medium">Driver</p>
+<p class="text-sm font-bold text-primary">Elena Rodriguez</p>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-on-surface-variant">
+<span>Rest Period</span>
+<span>Completed</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-full rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<div class="flex justify-between items-center pt-2 mt-auto border-t border-surface-container">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="text-xs font-medium">Next: Load #4412-A</span>
+</div>
+<span class="text-[10px] font-bold text-outline">DEPLOY: 1h 05m</span>
+</div>
+</div>
+<!-- Mini Stats Card -->
+<div class="bg-primary text-white p-6 rounded-xl flex flex-col justify-center items-center text-center overflow-hidden relative">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="precision_manufacturing">precision_manufacturing</span>
+</div>
+<h4 class="text-sm font-bold text-[#8192a7] uppercase tracking-widest mb-4">Live Activity</h4>
+<div class="flex gap-4">
+<div>
+<p class="text-2xl font-black">2.4k</p>
+<p class="text-[10px] font-bold text-[#8192a7]">Gallons Saved</p>
+</div>
+<div class="w-px h-10 bg-[#1a2b3c]"></div>
+<div>
+<p class="text-2xl font-black">18k</p>
+<p class="text-[10px] font-bold text-[#8192a7]">Miles Tracked</p>
+</div>
+</div>
+<button class="mt-6 w-full py-2 bg-secondary-container text-primary font-black text-xs uppercase tracking-widest rounded-lg">Real-Time Log</button>
+</div>
+</div>
+</div>
+<!-- Driver Pool section -->
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="badge">badge</span>
+                        Driver Pool
+                    </h3>
+<span class="bg-surface-container-highest text-primary px-2 py-0.5 rounded text-xs font-black">12 Available</span>
+</div>
+<div class="bg-white rounded-xl shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container divide-y divide-surface-container">
+<!-- Driver 1 -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<img alt="Driver" class="w-12 h-12 rounded-full object-cover" data-alt="friendly male truck driver with a short beard smiling, soft natural lighting, logistics background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQuQx4RbUUUGopII_4bTrWDL22rhdakzqfMxiRGMEKHaODxp9jExow7spVMFQB4-oYP8x6Igd1ChxSFZJHAMEkvIahrTdlWKOlEHz1l7Id6G2XkH0djA60oVPr6ftjWBKilLkeiJfLQyVTqZUyZsoz6iYTmVEK_C18Mj1vsNkp8vv_OkGWTaYynMEbvu4NOvcicmk08UJdl3vax3oMXmIYaCFrznh_WaoqZ9nCwVT6KNa9fVG9cSgHX7KZ-nSn8bptO1f_y0mo68Y"/>
+<div>
+<p class="font-bold text-primary group-hover:text-secondary transition-colors">Robert Dawson</p>
+<p class="text-xs text-on-surface-variant">Class A • 8.5yr Exp.</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block text-xs font-bold text-green-600 uppercase">Ready</span>
+<span class="block text-[10px] text-outline">Shift: Morning</span>
+</div>
+</div>
+<!-- Driver 2 -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Driver" class="w-12 h-12 rounded-full object-cover" data-alt="professional female logistics operator with a headset, clean lighting, blurred office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRgQEDQ0Khhy3cM-QfcxTkeSoJu5MikHCWAyQXw9px7Ds9HFJdep2W5HapD8GbkK9FlbnJMtfBNoer5udhvt2rG2dblhahGLcoYR5lFU1BdT2cJL1Jtoy6AlN_CsdJVosTeB-q6xQZfNznM5WbVxQ_Zc42SJnbNr7SB_a5efvadCKW02hOfonkquTyIA400aX7PXNBD4r1zFx6hjP3z9o9sV1Kg8DDgkSr9zY6DhZnbptYk6rKkzCGrsB377_KfVP0XnVT6dQqUPs"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+</div>
+<div>
+<p class="font-bold text-primary group-hover:text-secondary transition-colors">Elena Rodriguez</p>
+<p class="text-xs text-on-surface-variant">Class A • 4yr Exp.</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block text-xs font-bold text-green-600 uppercase">Ready</span>
+<span class="block text-[10px] text-outline">Shift: All-Day</span>
+</div>
+</div>
+<!-- Driver 3 -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<img alt="Driver" class="w-12 h-12 rounded-full object-cover" data-alt="experienced male logistics expert in his 50s, wearing a navy polo, serious and professional look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaFOHxMic5_EIciPSrVFUnxCXTeq27Ckdth4hr7RUH70nZveEj7f31Y19b_tT0P-kAPDaKNB4A9F_47W0sv3tR6KVkDktsq7lHK3eIMheKUOQDDwUYm9-ZXZLcC_q_U0xiJ52tibQnGWIaANVL53_1OmF9dnQ3vLGJpC6kxmJ3jqjqJRsxirjq6-2cF9yC94I5rbGRfI_RfYL4qZvIdNJMdGJdR7cQ3gGgDRzkbx44PYU_e3o_fDihQ6fjCwlaucn5H4uflDMDNQ8"/>
+<div>
+<p class="font-bold text-primary group-hover:text-secondary transition-colors">Simon Vance</p>
+<p class="text-xs text-on-surface-variant">Hazmat • 15yr Exp.</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block text-xs font-bold text-on-surface-variant uppercase">At Terminal</span>
+<span class="block text-[10px] text-outline">Shift: Night</span>
+</div>
+</div>
+<!-- Driver 4 -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<img alt="Driver" class="w-12 h-12 rounded-full object-cover" data-alt="young professional driver leaning against a white cargo van, bright morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCa-PJcZsjIjkK4Wuunxpal8CKcsnkP_rlSr-ic0CPJJGqgBSembNZG5X1CFnw8D0FhDh_te3PRchrCHwdfVsxZlANHlIEproR-7653LFiCOsOQfJwgLsJVrrrxm77AeXbKdE4Hqtz3EMN1OKHGJPKU-R9HNhUKlWYufa6_IG-D9lSPau_pRmWlAxvP300Z2c7OAmCnfNzmf8ZQqM6PqQeJc5yLzsLVqoFij4TdWbpKrZqZe5ChlUvtrRN3eupuW71c95tzt6SaP2c"/>
+<div>
+<p class="font-bold text-primary group-hover:text-secondary transition-colors">Liam Chen</p>
+<p class="text-xs text-on-surface-variant">Class B • 2yr Exp.</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block text-xs font-bold text-[#ffa454] uppercase">In Briefing</span>
+<span class="block text-[10px] text-outline">Shift: Flexible</span>
+</div>
+</div>
+</div>
+<!-- Asset Tracking Map Preview -->
+<div class="bg-white rounded-xl overflow-hidden shadow-[0px_4px_12px_rgba(26,43,60,0.05)] border border-surface-container">
+<div class="p-4 border-b border-surface-container flex justify-between items-center">
+<h4 class="text-sm font-bold text-primary uppercase tracking-wider">Depot Status</h4>
+<span class="material-symbols-outlined text-outline" data-icon="fullscreen">fullscreen</span>
+</div>
+<div class="h-48 relative">
+<img alt="Map" class="w-full h-full object-cover" data-alt="detailed logistics map showing several GPS points of vehicles across a city landscape, digital interface style" data-location="Chicago" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoWq01ESTd7oN2kZ8yWMfJq9m3_cSnhChDJKdqTJz_Y0gsPehtOwICrWcLaWY7pnzyEu0iJpVoOEBAlnM1PMFL9FTbi2j9O0KMSs-h_KoH7vImjcSvlvpJvs6IvDWxKsI10w7BaYFk5eQOi57BJEagI-_egqHl5KU6-CucbhOLtl5baB_FOycfXRsiNZpJmWeYTgdDHQpUWmppSyMwo6Jvb7MhJm-tNG_3ku8CerX0fQPmRiYgfx_Csb6TnxCht-4_02oniCWzETo"/>
+<div class="absolute inset-0 bg-primary/10 flex items-center justify-center">
+<div class="bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+<span class="text-[10px] font-black text-primary uppercase">84 Assets Live Tracked</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

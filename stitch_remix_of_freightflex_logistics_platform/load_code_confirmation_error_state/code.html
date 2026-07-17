@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pickup Confirmation - Step 1</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#e7e8e9",
+                    "on-primary-fixed-variant": "#38485a",
+                    "tertiary-container": "#38260b",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "surface-bright": "#f8f9fa",
+                    "tertiary-fixed-dim": "#e1c29b",
+                    "primary": "#041627",
+                    "on-background": "#191c1d",
+                    "surface-variant": "#e1e3e4",
+                    "primary-fixed-dim": "#b7c8de",
+                    "background": "#f8f9fa",
+                    "secondary": "#904d00",
+                    "surface-container": "#edeeef",
+                    "on-primary": "#ffffff",
+                    "outline": "#74777d",
+                    "tertiary": "#211200",
+                    "on-tertiary-fixed-variant": "#584326",
+                    "inverse-on-surface": "#f0f1f2",
+                    "outline-variant": "#c4c6cd",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed": "#281802",
+                    "on-surface": "#191c1d",
+                    "error": "#ba1a1a",
+                    "inverse-primary": "#b7c8de",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "primary-fixed": "#d2e4fb",
+                    "surface-container-low": "#f3f4f5",
+                    "on-secondary-container": "#713b00",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-secondary-fixed": "#2f1500",
+                    "inverse-surface": "#2e3132",
+                    "tertiary-fixed": "#feddb5",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#0b1d2d",
+                    "on-primary-container": "#8192a7",
+                    "surface-tint": "#4f6073",
+                    "surface-dim": "#d9dadb",
+                    "surface": "#f8f9fa",
+                    "secondary-fixed": "#ffdcc3",
+                    "primary-container": "#1a2b3c",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-container": "#ffa454",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-container": "#a88c69",
+                    "error-container": "#ffdad6",
+                    "on-surface-variant": "#44474c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 docked full-width top-0 sticky z-50 flex items-center justify-between px-4 py-3 w-full">
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-slate-600 dark:text-slate-400 active:opacity-70 transition-opacity p-1" data-icon="arrow_back">arrow_back</button>
+<h1 class="font-inter antialiased font-semibold tracking-tight text-slate-900 dark:text-slate-50 text-lg">Step 1: Load Verification</h1>
+</div>
+<button class="material-symbols-outlined text-slate-600 dark:text-slate-400 active:opacity-70 transition-opacity p-1" data-icon="help">help</button>
+</header>
+<main class="max-w-xl mx-auto px-4 pt-6">
+<!-- Progress Stepper -->
+<nav class="flex items-center justify-between mb-8 px-2">
+<div class="flex flex-col items-center gap-2 flex-1 relative">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm z-10 shadow-md">1</div>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">Load Code</span>
+<div class="absolute top-4 left-1/2 w-full h-0.5 bg-surface-container-highest -z-0"></div>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1 relative">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-outline flex items-center justify-center font-bold text-sm z-10">2</div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">Handover</span>
+<div class="absolute top-4 left-1/2 w-full h-0.5 bg-surface-container-highest -z-0"></div>
+</div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-outline flex items-center justify-center font-bold text-sm z-10">3</div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">Delivery</span>
+</div>
+</nav>
+<!-- Job Summary Card -->
+<section class="bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] p-5 mb-6 border border-surface-container">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest mb-1 block">Active Assignment</span>
+<h2 class="text-xl font-bold text-primary tracking-tight">Job #FR-99203-BX</h2>
+</div>
+<span class="bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase">Priority</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="p-2 bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="text-xs font-bold text-outline uppercase">Cargo</p>
+<p class="text-sm font-semibold text-on-surface">24 Tons Industrial Equipment</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="text-xs font-bold text-outline uppercase">Pickup Location</p>
+<p class="text-sm font-semibold text-on-surface leading-tight">Siemens Logistics Hub<br/>Siemensdamm 50, 13629 Berlin</p>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-surface-container">
+<img class="w-full h-24 object-cover rounded-lg" data-alt="simplified map showing shipping facility location in Berlin with corporate industrial park surroundings" data-location="Berlin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6-9P5k2GR_nPbpKRYfM8uRKR18I7XpF6cB4f7qdnrYUk_TcdDe5qLBjmUnngSgZ3T3Ou0P0Xb4TrJOXZVouO5QnFihk22pF98E5ffp7iZJLAYwew1FZ8Yp630liB24GdNqKf3zvfb3DIeyq9B4dkCE4EqxYUDvgi9dHEpP8czWg_T838bJtYeqYds83KRTFC_M6r04QMA0IwjSPpgy-C-XcHA6miVe2gZEp18YJKcZcD3BN-jdx675_aaEW4UN63qNtANUgvfeQg"/>
+</div>
+</section>
+<!-- Scan Action -->
+<section class="mb-8">
+<button class="w-full bg-secondary hover:bg-secondary-container text-on-secondary font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95 group">
+<span class="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="text-lg">Scan Load Code</span>
+</button>
+</section>
+<!-- Manual Entry Section -->
+<section>
+<div class="flex items-center gap-4 mb-6">
+<div class="h-px bg-surface-container-highest flex-1"></div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-[0.2em]">OR ENTER MANUALLY</span>
+<div class="h-px bg-surface-container-highest flex-1"></div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-outline uppercase ml-1" for="load-code">Load Code Verification</label>
+<div class="relative">
+<input class="w-full bg-white border-2 border-error text-primary font-mono text-lg font-bold p-4 rounded-xl focus:ring-4 focus:ring-error/10 focus:border-error outline-none transition-all" id="load-code" placeholder="#LC-XXXX-XXXX" type="text" value="LC-5582-9901"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-error" data-icon="error" style="font-variation-settings: 'FILL' 1;">error</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 ml-1 mt-1">
+<span class="text-xs font-bold text-error uppercase tracking-wide">Invalid Load Code</span>
+</div>
+</div>
+</section>
+<!-- Help Notice -->
+<div class="mt-10 p-4 bg-surface-container rounded-xl flex gap-3 items-start border border-outline-variant/30">
+<span class="material-symbols-outlined text-outline" data-icon="info">info</span>
+<p class="text-xs text-on-surface-variant leading-relaxed">The load code is located on the primary freight manifest provided by the dispatcher at the bay entrance. Contact dispatch if code is missing.</p>
+</div>
+</main>
+<!-- Bottom Action Area -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 py-4 z-40">
+<button class="w-full bg-slate-200 text-slate-400 font-bold py-4 px-6 rounded-xl cursor-not-allowed flex items-center justify-center gap-2" disabled="">
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+            Unlock Next Step
+        </button>
+</div>
+<!-- Hidden BottomNavBar (Included but filtered for focus as per UX rules) -->
+<footer class="hidden md:hidden fixed bottom-0 w-full z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] flex justify-around items-center w-full px-2 py-3">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-inter text-[11px] font-medium tracking-wide uppercase">Routes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-inter text-[11px] font-medium tracking-wide uppercase">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+<span class="font-inter text-[11px] font-medium tracking-wide uppercase">Logs</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1.5">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-inter text-[11px] font-medium tracking-wide uppercase">Profile</span>
+</div>
+</footer>
+</body></html>

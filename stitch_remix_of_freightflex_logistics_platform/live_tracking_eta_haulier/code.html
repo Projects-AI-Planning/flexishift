@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"secondary-container": "#ffa454", "on-primary-fixed-variant": "#38485a", "error-container": "#ffdad6", "on-secondary-fixed-variant": "#6e3900", "surface-bright": "#f8f9fa", secondary: "#904d00", "on-secondary-container": "#713b00", "inverse-on-surface": "#f0f1f2", "primary-fixed-dim": "#b7c8de", "tertiary-fixed-dim": "#e1c29b", "surface-tint": "#4f6073", "on-surface": "#191c1d", "on-secondary-fixed": "#2f1500", "surface-container-lowest": "#ffffff", "on-error-container": "#93000a", "on-primary": "#ffffff", "surface-container-high": "#e7e8e9", "on-background": "#191c1d", tertiary: "#211200", "surface-variant": "#e1e3e4", "tertiary-fixed": "#feddb5", "inverse-primary": "#b7c8de", "primary-fixed": "#d2e4fb", "inverse-surface": "#2e3132", "surface-container": "#edeeef", "on-tertiary-fixed-variant": "#584326", "on-secondary": "#ffffff", "tertiary-container": "#38260b", "surface-container-highest": "#e1e3e4", "surface-dim": "#d9dadb", "on-tertiary-container": "#a88c69", "on-tertiary": "#ffffff", "on-primary-container": "#8192a7", primary: "#041627", "primary-container": "#1a2b3c", background: "#f8f9fa", error: "#ba1a1a", "secondary-fixed-dim": "#ffb77d", "secondary-fixed": "#ffdcc3", "outline-variant": "#c4c6cd", "on-tertiary-fixed": "#281802", "on-surface-variant": "#44474c", "surface-container-low": "#f3f4f5", outline: "#74777d", "on-primary-fixed": "#0b1d2d", surface: "#f8f9fa", "on-error": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {md: "24px", "margin-mobile": "16px", base: "8px", lg: "40px", gutter: "16px", sm: "12px", xs: "4px", "margin-desktop": "32px"}, fontFamily: {"stats-display": ["Inter"], "label-bold": ["Inter"], h2: ["Inter"], "body-sm": ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"], h3: ["Inter"], h1: ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"stats-display": ["36px", {lineHeight: "44px", letterSpacing: "-0.03em", fontWeight: "700"}], "label-bold": ["12px", {lineHeight: "16px", fontWeight: "700"}], h2: ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], h3: ["20px", {lineHeight: "28px", fontWeight: "600"}], h1: ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-20">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 rounded-full">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100" data-icon="menu">menu</span>
+</button>
+<h1 class="font-['Inter'] font-semibold tracking-tight text-lg text-slate-900 dark:text-slate-50">Live Tracking</h1>
+</div>
+<div class="flex items-center">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
+<img alt="Driver Profile" class="w-full h-full object-cover" data-alt="Close-up professional portrait of a male logistics driver wearing a dark polo shirt with a focused, friendly expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDktpsYWYUf70tM1upSX3CP-krQRdpiUAB4n3m1rw0Sla0Khzib1HXVN_pmq5i2ksIk-Bmg2QFrW3OhdJSQgpyVpACSc3KqaBvJT0tidNJQL6wGsbSm5otrK-Ei0lZi4XguljHFzPbsygFvKXLenP4j3fZC_8GOq2kocQ6c2CzJlLKYOauexyXyxvFAGQP8twlAfRwNiI39Kt3zgtsUjSx8AV_Y90kZpHohEPPFG9Vbc5uwEoNS27bFoqYrBpR1scRLi2iiUCR9FY4"/>
+</div>
+</div>
+</header>
+<main class="pt-16 px-0 md:px-margin-desktop max-w-5xl mx-auto">
+<!-- Hero Map Section -->
+<section class="relative w-full h-[397px] md:h-[500px] md:mt-6 md:rounded-xl overflow-hidden bg-slate-200">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Overhead satellite view of a highway interchange with clear road markings, glowing vehicle navigation path in blue, and map pins." data-location="Birmingham, UK" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAWIGxUCJ8JQL4tV-NO3umafbDuxzPPyBnEbeg8CqnMBDq2YDI4h8gdiLy5UdX05Cf0Gx19HKKBSXJawNjO9G5yuwnTQ-z-cBaGenibxTSyIf0s5QCP0Ky2XLKqLVsAzUfnTBfmj8kBw8UC_IB0XJUzY7NBhQLPRCgo8DYc0BwWZ6PGFERp6710_ip0lYKgAKgZCRjZIXsFjO4sCJ9FXZH2HP9FIF0uWfTB0Q90Qd1p_RFSJWeJ4JvU8omUWi7U_o3WsombxXuwnJY')">
+</div>
+<!-- Overlays on Map -->
+<div class="absolute top-4 left-4 right-4 flex flex-col gap-2">
+<!-- Delay Alert -->
+<div class="bg-error text-on-error px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
+<span class="material-symbols-outlined text-[20px]" data-icon="warning">warning</span>
+<p class="font-label-bold text-body-sm">Delay: +15 min due to traffic</p>
+</div>
+</div>
+<!-- Map Floating Action: Recenter -->
+<button class="absolute bottom-4 right-4 bg-white p-3 rounded-full shadow-lg text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="my_location">my_location</span>
+</button>
+<!-- Vehicle Marker (Simulated) -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="relative">
+<div class="absolute inset-0 bg-secondary-container rounded-full animate-ping opacity-75"></div>
+<div class="relative bg-primary text-secondary-container p-2 rounded-full border-2 border-white shadow-xl">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Content Canvas -->
+<div class="relative -mt-6 px-margin-mobile md:mt-6 md:px-0">
+<!-- Main Status Card -->
+<div class="bg-white rounded-xl p-6 shadow-[0_4px_12px_rgba(26,43,60,0.05)] mb-md">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-on-surface-variant font-label-bold uppercase tracking-wider mb-1">Estimated Arrival</p>
+<h2 class="font-stats-display text-stats-display text-primary">14:45</h2>
+</div>
+<div class="bg-secondary-container text-primary px-3 py-1 rounded-full font-label-bold text-[14px]">
+            IN TRANSIT
+          </div>
+</div>
+<div class="grid grid-cols-3 gap-4 py-4 border-t border-b border-surface-variant">
+<div class="text-center">
+<span class="material-symbols-outlined text-primary-container mb-1" data-icon="speed">speed</span>
+<p class="text-primary font-h3 text-h3">62</p>
+<p class="text-on-surface-variant text-body-sm">mph</p>
+</div>
+<div class="text-center border-x border-surface-variant">
+<span class="material-symbols-outlined text-primary-container mb-1" data-icon="distance">distance</span>
+<p class="text-primary font-h3 text-h3">45</p>
+<p class="text-on-surface-variant text-body-sm">mi left</p>
+</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-primary-container mb-1" data-icon="schedule">schedule</span>
+<p class="text-primary font-h3 text-h3">52</p>
+<p class="text-on-surface-variant text-body-sm">min left</p>
+</div>
+</div>
+<div class="mt-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="badge">badge</span>
+</div>
+<div>
+<p class="text-on-surface-variant text-body-sm font-medium">Marcus J.</p>
+<p class="text-primary font-label-bold">Unit: VOL-882</p>
+</div>
+</div>
+<button class="bg-primary text-on-primary p-3 rounded-xl hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="call">call</span>
+</button>
+</div>
+</div>
+<!-- Route Details List -->
+<div class="space-y-4 mb-10">
+<h3 class="font-h3 text-h3 text-primary px-1">Delivery Milestones</h3>
+<!-- Milestone 1 -->
+<div class="bg-white rounded-xl p-4 flex gap-4 shadow-[0_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-secondary-container">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-secondary" data-icon="radio_button_checked">radio_button_checked</span>
+<div class="w-0.5 h-full bg-surface-variant my-1"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<p class="text-primary font-label-bold">M6 Toll - Junction T4</p>
+<p class="text-on-surface-variant text-body-sm">Passed</p>
+</div>
+<p class="text-on-surface-variant text-body-sm">Expected crossing was 14:02. Actual 14:05.</p>
+</div>
+</div>
+<!-- Milestone 2 -->
+<div class="bg-white rounded-xl p-4 flex gap-4 shadow-[0_4px_12px_rgba(26,43,60,0.05)] border-l-4 border-primary">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-primary" data-icon="adjust" data-weight="fill" style="font-variation-settings: 'FILL' 1;">adjust</span>
+<div class="w-0.5 h-full bg-surface-variant my-1"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<p class="text-primary font-label-bold">A5 Watling St</p>
+<p class="text-primary font-label-bold">14:22</p>
+</div>
+<p class="text-on-surface-variant text-body-sm">Next checkpoint in 12 miles.</p>
+</div>
+</div>
+<!-- Milestone 3 -->
+<div class="bg-white rounded-xl p-4 flex gap-4 shadow-[0_4px_12px_rgba(26,43,60,0.05)] opacity-60">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-outline" data-icon="location_on">location_on</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<p class="text-on-surface-variant font-label-bold">Logistics Hub SE1</p>
+<p class="text-on-surface-variant text-body-sm">14:45</p>
+</div>
+<p class="text-on-surface-variant text-body-sm">Final Destination. Dock 12 assigned.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(26,43,60,0.05)]">
+<!-- Active State: Routes (Live Tracking falls under Routes) -->
+<a class="flex flex-col items-center justify-center bg-amber-400 text-slate-900 rounded-xl px-4 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="route">route</span>
+<span class="font-['Inter'] text-[12px] font-medium">Routes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[12px] font-medium">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[12px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

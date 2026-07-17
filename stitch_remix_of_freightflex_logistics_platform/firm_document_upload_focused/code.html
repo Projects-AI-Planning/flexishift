@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Documents - Logistics Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "tertiary": "#211200",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "error-container": "#ffdad6",
+                        "on-primary-container": "#8192a7",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "on-tertiary-fixed-variant": "#584326",
+                        "tertiary-fixed-dim": "#e1c29b",
+                        "surface-container-low": "#f3f4f5",
+                        "secondary-container": "#ffa454",
+                        "on-surface": "#191c1d",
+                        "outline": "#74777d",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary-fixed": "#281802",
+                        "on-primary-fixed": "#0b1d2d",
+                        "surface-variant": "#e1e3e4",
+                        "on-error-container": "#93000a",
+                        "secondary": "#904d00",
+                        "secondary-fixed": "#ffdcc3",
+                        "on-tertiary-container": "#a88c69",
+                        "primary-container": "#1a2b3c",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#d2e4fb",
+                        "surface-tint": "#4f6073",
+                        "inverse-on-surface": "#f0f1f2",
+                        "tertiary-container": "#38260b",
+                        "tertiary-fixed": "#feddb5",
+                        "primary": "#041627",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#2f1500",
+                        "surface": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "outline-variant": "#c4c6cd",
+                        "surface-dim": "#d9dadb",
+                        "surface-bright": "#f8f9fa",
+                        "on-primary-fixed-variant": "#38485a",
+                        "on-background": "#191c1d",
+                        "inverse-primary": "#b7c8de",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "primary-fixed-dim": "#b7c8de",
+                        "on-secondary-container": "#713b00",
+                        "on-surface-variant": "#44474c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 md:pl-64">
+<!-- Desktop Navigation Drawer -->
+<aside class="hidden lg:flex flex-col h-screen fixed left-0 top-0 h-full w-64 border-r border-slate-800 bg-[#041627] shadow-xl z-50">
+<div class="flex items-center gap-3 p-6 mb-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">business</span>
+</div>
+<div>
+<h2 class="text-white font-bold text-lg leading-tight">Logistics Corp</h2>
+<p class="text-slate-400 text-xs font-medium">Fleet Manager</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="text-slate-300 hover:text-white m-2 p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-colors font-['Inter'] text-sm">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</div>
+<div class="text-slate-300 hover:text-white m-2 p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-colors font-['Inter'] text-sm">
+<span class="material-symbols-outlined">business</span>
+<span>Company Info</span>
+</div>
+<div class="bg-[#ffa454] text-[#041627] font-bold rounded-lg m-2 p-3 flex items-center gap-3 cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span>Fleet Insurance</span>
+</div>
+<div class="text-slate-300 hover:text-white m-2 p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-colors font-['Inter'] text-sm">
+<span class="material-symbols-outlined">gavel</span>
+<span>Compliance</span>
+</div>
+<div class="text-slate-300 hover:text-white m-2 p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-colors font-['Inter'] text-sm">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Archive</span>
+</div>
+</nav>
+<div class="mt-auto p-4 border-t border-slate-800">
+<div class="flex items-center gap-3 px-2">
+<span class="material-symbols-outlined text-secondary-container">verified</span>
+<span class="text-slate-300 text-xs font-medium">Verified Account</span>
+</div>
+</div>
+</aside>
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-4 h-16 bg-white border-b border-slate-200 shadow-sm fixed top-0 z-40 md:w-[calc(100%-256px)]">
+<div class="flex items-center gap-3">
+<button class="lg:hidden p-2 hover:bg-slate-100 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-900">menu</span>
+</button>
+<h1 class="font-['Inter'] font-bold text-xl tracking-tight text-slate-900">Fleet Documents</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-6 mr-6">
+<a class="text-slate-500 font-medium hover:text-[#041627] transition-colors" href="#">Fleet</a>
+<a class="text-[#041627] font-bold" href="#">Upload</a>
+<a class="text-slate-500 font-medium hover:text-[#041627] transition-colors" href="#">Settings</a>
+</div>
+<div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
+<img class="w-full h-full object-cover" data-alt="professional headshot of a logistics manager in a blue button-down shirt with a clean studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBk1QwXZvzATa8cNZA4CJoAlTkbadq1a9-IK-sS-K5H5GP33AXXAH0vPDlOw9fFmD9kNX6RXdg_b7D0Ba3e8XxZYKssjo5-sUYGxsrfxeITebP3pKr-dqgITerI_N1UWe9zmVkaURxoELfoUktUlHv4XYiKRpJ8-1QtXGCTg1hUOXBAXIgmtLyCVWTkOBmrwKZDI9SV4XsCGiezbEfnIBmfFSGKEYU6rPPJTQ4092jFrDyErtoFg1sBk4mx73t00Wx9YlznWhkBP_0"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-24 px-4 md:px-8 max-w-6xl mx-auto space-y-8">
+<!-- Welcome Hero Section (Asymmetric / Modern Layout) -->
+<section class="relative overflow-hidden rounded-xl bg-primary p-8 text-white shadow-lg">
+<div class="relative z-10 md:w-2/3">
+<h2 class="text-2xl font-extrabold mb-2 leading-tight">Maintain Operational Excellence</h2>
+<p class="text-slate-400 mb-6 text-sm md:text-base">Your fleet compliance depends on valid documentation. Ensure your company registration and insurance policies are up-to-date to avoid transit delays.</p>
+<div class="flex flex-wrap gap-4">
+<div class="bg-primary-container border border-slate-700 px-4 py-2 rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="text-sm font-bold">2 Documents Expiring Soon</span>
+</div>
+</div>
+</div>
+<div class="absolute right-0 top-0 h-full w-1/3 hidden md:block">
+<div class="w-full h-full opacity-20 bg-gradient-to-l from-secondary-container to-transparent"></div>
+<span class="material-symbols-outlined absolute right-[-20px] top-[-20px] text-[180px] opacity-10 rotate-12">description</span>
+</div>
+</section>
+<!-- Bento Grid for Sections -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+<!-- Company Registration Section -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden border border-slate-100 flex flex-col">
+<div class="p-6 border-b border-slate-50 flex justify-between items-start">
+<div>
+<h3 class="font-['Inter'] text-xl font-bold text-primary mb-1">Company Registration</h3>
+<p class="text-on-surface-variant text-sm">Official business verification and legal entity status.</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                        Pending Review
+                    </span>
+</div>
+<div class="p-6 flex-1 bg-surface-container-low">
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-8 text-center bg-white flex flex-col items-center justify-center transition-colors hover:border-secondary-container group cursor-pointer">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4 group-hover:bg-secondary-fixed transition-colors">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary-container text-3xl">cloud_upload</span>
+</div>
+<p class="text-on-surface font-bold mb-1">Drop registration files here</p>
+<p class="text-on-surface-variant text-xs mb-4">Maximum file size: 10MB</p>
+<button class="bg-primary text-white px-6 py-2 rounded-lg font-bold text-sm shadow-sm hover:scale-[1.02] active:scale-95 transition-all">
+                            Browse Files
+                        </button>
+</div>
+</div>
+<div class="px-6 py-4 bg-white border-t border-slate-50">
+<p class="text-xs font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Accepted Formats</p>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-surface-container rounded-lg text-xs font-bold text-primary">PDF</span>
+<span class="px-3 py-1 bg-surface-container rounded-lg text-xs font-bold text-primary">PNG</span>
+<span class="px-3 py-1 bg-surface-container rounded-lg text-xs font-bold text-primary">JPG</span>
+</div>
+</div>
+</div>
+<!-- Fleet Insurance Section -->
+<div class="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] overflow-hidden border border-slate-100 flex flex-col">
+<div class="p-6 border-b border-slate-50 flex justify-between items-start">
+<div>
+<h3 class="font-['Inter'] text-xl font-bold text-primary mb-1">Fleet Insurance</h3>
+<p class="text-on-surface-variant text-sm">Policy coverage for vehicles and transported cargo.</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm font-bold">check</span>
+                        Verified
+                    </span>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex items-center gap-4 p-4 rounded-xl bg-surface-container-low border border-slate-100">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">verified_user</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-primary">Public Liability</h4>
+<p class="text-xs text-on-surface-variant">Coverage for third-party injury or damage.</p>
+</div>
+<span class="material-symbols-outlined text-error">error</span>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-xl bg-surface-container-low border border-slate-100">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">inventory</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-primary">Goods-in-Transit</h4>
+<p class="text-xs text-on-surface-variant">Insurance for cargo loss, theft, or damage.</p>
+</div>
+<span class="material-symbols-outlined text-slate-300">check_circle</span>
+</div>
+<button class="w-full mt-2 bg-secondary-container text-on-secondary-container py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm hover:brightness-95 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined">upload_file</span>
+                        Upload Policy Documents
+                    </button>
+</div>
+<div class="mt-auto p-6 pt-0">
+<div class="bg-surface-container-highest p-4 rounded-xl flex items-start gap-3">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">info</span>
+<p class="text-[11px] leading-relaxed text-on-surface-variant">
+                            Renewal is required 30 days before expiration. Late submissions may result in temporary account suspension according to logistics safety standards.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Additional Assistance Section (Premium UI touch) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-20">
+<div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl">help</span>
+<div>
+<h5 class="text-sm font-bold">Need Help?</h5>
+<p class="text-xs text-on-surface-variant">Contact compliance support</p>
+</div>
+</div>
+<div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl">history</span>
+<div>
+<h5 class="text-sm font-bold">History</h5>
+<p class="text-xs text-on-surface-variant">View previous uploads</p>
+</div>
+</div>
+<div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl">print</span>
+<div>
+<h5 class="text-sm font-bold">Export All</h5>
+<p class="text-xs text-on-surface-variant">Download all active policies</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(26,43,60,0.05)] md:hidden">
+<div class="flex flex-col items-center justify-center text-slate-500 font-['Inter'] text-xs font-medium active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">local_shipping</span>
+<span>Fleet</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#1a2b3c] text-white rounded-xl px-6 py-1 active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+<span class="font-['Inter'] text-xs font-medium">Upload</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 font-['Inter'] text-xs font-medium active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</div>
+</nav>
+</body></html>
