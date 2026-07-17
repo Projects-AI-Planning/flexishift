@@ -94,3 +94,4 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 | Integrations | Google Maps Platform · Razorpay/Stripe · Firebase FCM · SendGrid |
 | Target Go-Live | Week 20 |
 "# flexishift" 
+"# flexishift" 
