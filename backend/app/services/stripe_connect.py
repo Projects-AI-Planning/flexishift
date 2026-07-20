@@ -61,8 +61,15 @@ def create_connect_account(db: Session, user: User) -> str:
                 "product_description": "Freight delivery driver on the FlexiShift platform",
             },
             settings={
+                # Automatic daily payouts: once funds land in the driver's connected
+                # account balance they are swept to their bank without any manual step.
+                # (Previously "manual", which left driver funds sitting in the Stripe
+                # balance indefinitely — nothing in this codebase creates Payouts.)
+                # delay_days="minimum" uses the shortest delay Stripe allows for the
+                # account's country; for new GB accounts that starts around 7 days and
+                # shortens as the account builds history.
                 "payouts": {
-                    "schedule": {"interval": "manual"},
+                    "schedule": {"interval": "daily", "delay_days": "minimum"},
                 }
             },
             metadata={"user_id": user.id, "platform": "FlexiShift"},
