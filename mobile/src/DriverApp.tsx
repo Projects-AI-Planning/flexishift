@@ -1890,6 +1890,51 @@ function DriverApp(): React.JSX.Element {
     }
   };
 
+  // Permanent account deletion (App Store guideline 5.1.1(v)). Two confirmation
+  // steps so it can't be triggered by accident, then the user is signed out.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your FlexiShift account and personal data — your profile, documents, vehicles and notifications. You will be signed out on every device and this cannot be undone.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Your account will be deleted immediately. There is no way to restore it.',
+              [
+                {text: 'Cancel', style: 'cancel'},
+                {
+                  text: 'Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await driverApi.profile.deleteAccount();
+                      await handleLogout();
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account and personal data have been permanently deleted.',
+                      );
+                    } catch (err) {
+                      setErrorBanner(
+                        err instanceof Error
+                          ? err.message
+                          : 'Failed to delete account. Please try again.',
+                      );
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
+
   // ─── Job & Quote handlers ────────────────────────────────────────────────────
 
   const handleQuoteSubmit = async (amount: string, notes: string, deliverBy?: string, stopEtas?: Array<{order: number; eta: string}>) => {
@@ -4335,27 +4380,7 @@ function DriverApp(): React.JSX.Element {
             onNotificationPreferences={() => navigate('profile', 'profile.preferences')}
             onTerms={() => navigate('profile', 'legal.terms')}
             onPrivacy={() => navigate('profile', 'legal.privacy')}
-            onDeactivate={() => {
-              Alert.alert(
-                'Deactivate Account',
-                'Are you sure you want to deactivate your account? This will close your account. You can sign up again later with the same email.',
-                [
-                  {text: 'Cancel', style: 'cancel'},
-                  {
-                    text: 'Deactivate',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await driverApi.profile.deactivate();
-                        handleLogout();
-                      } catch {
-                        setErrorBanner('Failed to deactivate account. Please try again.');
-                      }
-                    },
-                  },
-                ],
-              );
-            }}
+            onDeleteAccount={handleDeleteAccount}
           />
         );
       case 'profile.payments':

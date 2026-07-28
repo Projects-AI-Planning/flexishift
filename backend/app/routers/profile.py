@@ -504,6 +504,28 @@ def deactivate_account(
     return ok(data=None, message="Account deactivated")
 
 
+@router.delete("")
+def delete_account(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently delete the signed-in user's account and personal data.
+
+    Irreversible. Required by App Store guideline 5.1.1(v) — see
+    app/services/account_deletion.py for exactly what is erased and what is kept.
+    """
+    from app.services.account_deletion import delete_account as _delete
+
+    _delete(
+        db,
+        current_user,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    return ok(data=None, message="Account deleted")
+
+
 # ─── Vehicle CRUD ──────────────────────────────────────────────────────────────
 
 class VehicleRequest(BaseModel):

@@ -59,10 +59,10 @@ _ACCOUNT_DELETION_HTML = f"""<!DOCTYPE html>
     <h2 style="margin-top:0">Option 1 — Delete from within the app</h2>
     <ol>
       <li>Open the <strong>FlexiShift</strong> app and sign in to your account.</li>
-      <li>Go to the <strong>Profile</strong> tab.</li>
-      <li>Scroll to the bottom and tap <strong>Deactivate / Delete Account</strong>.</li>
-      <li>Confirm by entering your password when prompted.</li>
-      <li>Your account is deactivated immediately and your personal profile is scheduled for deletion.</li>
+      <li>Go to the <strong>Profile</strong> tab, then tap <strong>Settings</strong>.</li>
+      <li>Scroll to <strong>Danger Zone</strong> and tap <strong>Delete Account</strong>.</li>
+      <li>Confirm twice when prompted.</li>
+      <li>Your account and personal data are deleted immediately and you are signed out. This cannot be undone.</li>
     </ol>
   </div>
 
