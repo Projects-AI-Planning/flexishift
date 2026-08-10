@@ -1962,6 +1962,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 minimumDate={new Date(Date.now() + 86400000)}
                 onChange={onModalDateChange}
+                themeVariant="light"
+                textColor="#0F172A"
+                accentColor="#1066B1"
+                style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
               />
             )}
 
@@ -2272,6 +2276,10 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
+  },
+  iosSpinner: {
+    height: 200,
+    backgroundColor: '#FFFFFF',
   },
   modalCard: {
     backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,

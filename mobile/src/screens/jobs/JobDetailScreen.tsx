@@ -317,6 +317,10 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({
                 is24Hour={false}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={onPickerChange}
+                themeVariant="light"
+                textColor="#0F172A"
+                accentColor="#1066B1"
+                style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
               />
               {Platform.OS === 'ios' && (
                 <Pressable onPress={() => setShowTimePicker(false)} style={styles.pickerDoneBtn}>
@@ -731,6 +735,10 @@ const styles = StyleSheet.create({
   },
   paymentSetupBtnText: {color: '#fff', fontSize: 12, fontWeight: '900'},
 
+  iosSpinner: {
+    height: 200,
+    backgroundColor: '#FFFFFF',
+  },
   pickerDoneBtn: {
     alignSelf: 'flex-end',
     marginTop: 4,

@@ -345,6 +345,10 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       minimumDate={new Date(Date.now() + 86400000)}
                       onChange={onDateChange(def.normalKey)}
+                      themeVariant="light"
+                      textColor="#0F172A"
+                      accentColor="#1066B1"
+                      style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
                     />
                   )}
 
@@ -472,6 +476,10 @@ const DocumentVerificationScreen: React.FC<DocumentVerificationScreenProps> = ({
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       minimumDate={new Date(Date.now() + 86400000)}
                       onChange={onDateChange(def.normalKey)}
+                      themeVariant="light"
+                      textColor="#0F172A"
+                      accentColor="#1066B1"
+                      style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
                     />
                   )}
 
@@ -857,6 +865,10 @@ const styles = StyleSheet.create({
   fpPrompt: {color: '#475569', fontSize: 13, fontWeight: '700'},
   fpHint: {color: '#94A3B8', fontSize: 11},
 
+  iosSpinner: {
+    height: 200,
+    backgroundColor: '#FFFFFF',
+  },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',

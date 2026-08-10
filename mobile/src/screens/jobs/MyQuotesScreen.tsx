@@ -76,6 +76,10 @@ function DeliverByPicker({
           display={Platform.OS === 'android' ? 'default' : 'spinner'}
           minimumDate={new Date()}
           onChange={onDateChange}
+          themeVariant="light"
+          textColor="#0F172A"
+          accentColor="#1066B1"
+          style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
         />
       )}
       {step === 'time' && (
@@ -85,6 +89,10 @@ function DeliverByPicker({
           display={Platform.OS === 'android' ? 'default' : 'spinner'}
           is24Hour={false}
           onChange={onTimeChange}
+          themeVariant="light"
+          textColor="#0F172A"
+          accentColor="#1066B1"
+          style={Platform.OS === 'ios' ? styles.iosSpinner : undefined}
         />
       )}
     </View>
@@ -828,6 +836,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   resubmitSaveBtnText: {color: '#fff', fontSize: 13, fontWeight: '800'},
+  iosSpinner: {
+    height: 200,
+    backgroundColor: '#FFFFFF',
+  },
   deliverByBtn: {
     borderWidth: 1,
     borderColor: '#1066B1',
