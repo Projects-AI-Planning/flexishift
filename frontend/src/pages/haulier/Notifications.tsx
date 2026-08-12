@@ -19,12 +19,6 @@ type NotificationListResponse = {
   limit: number;
 };
 
-type NotificationPreferences = {
-  pushNotifications?: Record<string, boolean>;
-  emailNotifications?: Record<string, boolean>;
-  smsNotifications?: Record<string, boolean>;
-};
-
 const FILTER_OPTIONS = [
   { value: '', label: 'All Types' },
   { value: 'job_update', label: 'Job Updates' },
@@ -43,40 +37,14 @@ const typeTone = (value: string) => {
   return 'bg-blue-100 text-blue-700';
 };
 
-const preferenceGroups: Array<{
-  key: keyof NotificationPreferences;
-  title: string;
-  description: string;
-}> = [
-  {
-    key: 'pushNotifications',
-    title: 'Push Notifications',
-    description: 'Control alerts that appear on your device.',
-  },
-  {
-    key: 'emailNotifications',
-    title: 'Email Notifications',
-    description: 'Control notifications sent to your inbox.',
-  },
-  {
-    key: 'smsNotifications',
-    title: 'SMS Notifications',
-    description: 'Control text alerts for time-sensitive events.',
-  },
-];
-
-const asBoolean = (value: unknown) => Boolean(value);
-
 export default function HaulierNotificationsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [type, setType] = useState('');
   const [data, setData] = useState<NotificationListResponse | null>(null);
   const [unread, setUnread] = useState<{ unreadCount: number; breakdown?: Record<string, number> } | null>(null);
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const params = useMemo(() => ({ page, limit, type: type || undefined }), [limit, page, type]);
@@ -84,14 +52,12 @@ export default function HaulierNotificationsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [notifications, unreadCount, prefs] = await Promise.all([
+      const [notifications, unreadCount] = await Promise.all([
         haulierService.getNotifications(params),
         haulierService.getUnreadCount(),
-        haulierService.getNotificationPreferences(),
       ]);
       setData(notifications);
       setUnread(unreadCount);
-      setPreferences(prefs?.preferences ?? prefs ?? null);
       setError(null);
     } catch {
       setError('Failed to load notification data from the backend.');
@@ -144,31 +110,8 @@ export default function HaulierNotificationsPage() {
     }
   };
 
-  const updatePreference = async (group: keyof NotificationPreferences, key: string, value: boolean) => {
-    if (!preferences) return;
-    setPreferencesSaving(true);
-    const nextPreferences = {
-      ...preferences,
-      [group]: {
-        ...(preferences[group] ?? {}),
-        [key]: value,
-      },
-    };
-    setPreferences(nextPreferences);
-    try {
-      await haulierService.updateNotificationPreferences(nextPreferences as Record<string, unknown>);
-      await fetchData();
-    } catch {
-      setError('Failed to update notification preferences.');
-    } finally {
-      setPreferencesSaving(false);
-    }
-  };
-
   const items = data?.notifications ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.totalNotifications ?? 0) / limit));
-
-  const unreadBreakdown = Object.entries(unread?.breakdown ?? {});
 
   return (
     <div className="space-y-8">
@@ -224,78 +167,7 @@ export default function HaulierNotificationsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-black text-primary">Unread Breakdown</h2>
-            <p className="text-sm text-slate-500">Counts returned by the backend unread-count endpoint.</p>
-
-            <div className="mt-5 space-y-3">
-              {unreadBreakdown.length > 0 ? (
-                unreadBreakdown.map(([key, value]) => (
-                  <div key={key} className="rounded-2xl bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{typeLabel(key)}</p>
-                        <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${typeTone(key)}`}>
-                          {key}
-                        </p>
-                      </div>
-                      <span className="text-lg font-black text-primary">{value}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                  No unread notifications yet.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-black text-primary">Delivery Preferences</h2>
-            <p className="text-sm text-slate-500">Toggle how you want to receive alerts from the backend.</p>
-
-            <div className="mt-5 space-y-5">
-              {preferenceGroups.map((group) => {
-                const groupValues = preferences?.[group.key] ?? {};
-                return (
-                  <div key={group.key} className="rounded-2xl bg-slate-50 p-4">
-                    <div>
-                      <h3 className="text-sm font-black text-primary">{group.title}</h3>
-                      <p className="mt-1 text-xs text-slate-500">{group.description}</p>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      {Object.entries(groupValues).map(([prefKey, prefValue]) => (
-                        <label key={prefKey} className="flex items-center justify-between gap-4 rounded-xl bg-white px-4 py-3">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-wider text-slate-500">{typeLabel(prefKey)}</p>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={asBoolean(prefValue)}
-                            disabled={preferencesSaving}
-                            onChange={(e) => void updatePreference(group.key, prefKey, e.target.checked)}
-                            className="h-5 w-5 rounded border-slate-200 text-primary focus:ring-primary"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {!preferences && (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                  Notification preferences are loading.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
+      <section className="grid grid-cols-1 gap-5">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -353,7 +225,19 @@ export default function HaulierNotificationsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-slate-500">
-                      {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : '—'}
+                      {notification.createdAt
+                        ? new Date(
+                            notification.createdAt.endsWith('Z')
+                              ? notification.createdAt
+                              : notification.createdAt + 'Z'
+                          ).toLocaleString(undefined, {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '—'}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex justify-end gap-2">

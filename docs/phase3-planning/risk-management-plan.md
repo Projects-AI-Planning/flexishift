@@ -1,15 +1,15 @@
-# Risk Management Plan – FreightFlex
+# Risk Management Plan – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Risk Management Plan |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 
 ## 2. Purpose
-Defines the approach for identifying, assessing, responding to, and monitoring risks throughout the FreightFlex project lifecycle.
+Defines the approach for identifying, assessing, responding to, and monitoring risks throughout the FlexiShift project lifecycle.
 
 ## 3. Risk Management Approach
 - Risks are identified during sprint planning and retrospectives.

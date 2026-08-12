@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAdminJobs, useAdminStats } from '../../../hooks/useAdmin';
 import type { Job } from '../../../types';
+import { fmtMoney as _fmtMoney } from '../../../utils/currency';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Jobs' },
@@ -13,10 +14,8 @@ const STATUS_OPTIONS = [
   { value: 'DISPUTED', label: 'Disputed' },
 ];
 
-const fmtMoney = (value?: number) =>
-  typeof value === 'number'
-    ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value)
-    : '—';
+const fmtMoney = (value?: number, currency?: string) =>
+  typeof value === 'number' ? _fmtMoney(value, currency) : '—';
 
 const statusTone = (status: string) => {
   const normalized = status.toLowerCase();

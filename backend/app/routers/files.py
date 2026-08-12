@@ -74,7 +74,7 @@ def request_upload_url(
         db.commit()
         upload_url = local_svc.local_upload_endpoint_url(request, record.upload_token)
         file_url = record.public_url
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
     return created(
         data={
             "fileId": file_id,
@@ -87,7 +87,7 @@ def request_upload_url(
             "uploadUrl": upload_url,
             "upload_url": upload_url,
             "urlExpiresAt": expires_at,
-            "uploadedAt": datetime.now(timezone.utc).isoformat(),
+            "uploadedAt": datetime.utcnow().isoformat(),
         },
         message="File uploaded successfully.",
     )
@@ -134,7 +134,7 @@ def request_multiple_upload_urls(
             "uploadedFiles": uploaded_files,
             "totalUploaded": len(uploaded_files),
             "folder": folder,
-            "uploadedAt": datetime.now(timezone.utc).isoformat(),
+            "uploadedAt": datetime.utcnow().isoformat(),
         },
         message="Files uploaded successfully.",
     )
@@ -149,8 +149,8 @@ def get_signed_url(
     if local_svc.azure_available():
         url = s3.generate_presigned_download(settings.AZURE_CONTAINER_DOCS, file_key)
     else:
-        url = str(request.url_for("uploads", path=file_key))
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        url = local_svc.local_upload_url(request, file_key)
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
     filename = file_key.split("/")[-1]
     return ok(
         data={
@@ -186,7 +186,7 @@ def delete_file(
     return ok(
         data={
             "fileId": file_key,
-            "deletedAt": datetime.now(timezone.utc).isoformat(),
+            "deletedAt": datetime.utcnow().isoformat(),
         },
         message="File deleted successfully.",
     )

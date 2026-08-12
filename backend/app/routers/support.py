@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -61,7 +61,7 @@ def _support_help_payload(user: User, db: Session) -> dict:
     return {
         "userId": user.id,
         "contactChannels": [
-            {"label": "Email Support", "value": "support@freightflex.com", "description": "Best for attachments and detailed questions."},
+            {"label": "Email Support", "value": "support@flexishift.com", "description": "Best for attachments and detailed questions."},
             {"label": "Phone Support", "value": "+91 1800 000 123", "description": "Use for urgent operational issues."},
             {"label": "Live Hours", "value": "24/7", "description": "Support team monitors urgent tickets continuously."},
         ],
@@ -109,8 +109,8 @@ def create_support_ticket(
         description=body.description,
         status=SupportTicketStatus.OPEN,
         assigned_admin_id=admin.id,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     db.add(ticket)
     db.commit()
@@ -233,8 +233,8 @@ def update_support_ticket_status(
     ticket.resolution_notes = body.resolution_notes or ticket.resolution_notes
     ticket.assigned_admin_id = admin.id
     if ticket.status in {SupportTicketStatus.RESOLVED, SupportTicketStatus.CLOSED}:
-        ticket.resolved_at = datetime.now(timezone.utc)
-    ticket.updated_at = datetime.now(timezone.utc)
+        ticket.resolved_at = datetime.utcnow()
+    ticket.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(ticket)
     return ok(data=_ticket_dict(ticket), message="Support ticket status updated successfully.")
@@ -300,8 +300,8 @@ def create_haulier_support_ticket(
         subject=body.subject,
         description=body.description,
         status=SupportTicketStatus.OPEN,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     db.add(ticket)
     db.commit()

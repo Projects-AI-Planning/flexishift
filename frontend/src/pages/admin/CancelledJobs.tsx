@@ -1,3 +1,4 @@
+import { fmtMoney } from '../../utils/currency';
 import React, { useState } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
 import type { Job } from '../../types';
@@ -21,10 +22,6 @@ const CancelledJobsPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">cancel</span>
             {data?.total ?? 0} Cancelled
           </div>
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export
-          </button>
         </div>
       </div>
 
@@ -94,7 +91,7 @@ const CancelledJobsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-slate-500 line-through">
-                        {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString()}` : '—'}
+                        {job.agreedAmount != null ? fmtMoney(job.agreedAmount, job.currency) : '—'}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 font-medium whitespace-nowrap">

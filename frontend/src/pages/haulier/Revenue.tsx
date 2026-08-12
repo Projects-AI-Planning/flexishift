@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/currency';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,12 +11,6 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, currency = 'INR') =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
 
 type RevenueReport = {
   period?: string;
@@ -45,6 +41,7 @@ type RevenueReport = {
 };
 
 export default function HaulierRevenuePage() {
+  const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [data, setData] = useState<RevenueReport | null>(null);
@@ -84,6 +81,8 @@ export default function HaulierRevenuePage() {
   const items = data?.items ?? [];
   const chartMax = Math.max(...breakdown.map((item) => item.value), 1);
   const periodLabel = data?.period ?? `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
+  const currency = summary.currency || user?.currency;
+  const fmt = (value: number, cur?: string) => fmtMoney(value, cur ?? currency);
 
   return (
     <div className="space-y-8">
@@ -147,9 +146,9 @@ export default function HaulierRevenuePage() {
           <p className="mt-2 text-xs text-slate-500">Released into your account.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Escrowed</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Secured</p>
           <h3 className="mt-2 text-3xl font-black text-[#0a4a8f]">{fmt(summary.escrowedRevenue ?? 0)}</h3>
-          <p className="mt-2 text-xs text-slate-500">Payments waiting in escrow.</p>
+          <p className="mt-2 text-xs text-slate-500">Payments secured pending delivery approval.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Net Revenue</p>
@@ -203,7 +202,7 @@ export default function HaulierRevenuePage() {
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Currency</p>
-              <p className="mt-1 text-2xl font-black text-primary">{summary.currency ?? 'INR'}</p>
+              <p className="mt-1 text-2xl font-black text-primary">{currency}</p>
             </div>
           </div>
         </div>

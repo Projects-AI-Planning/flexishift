@@ -44,12 +44,15 @@ type LoadCodeStatus = {
 
 type HandoverStatus = {
   checklistSubmitted?: boolean;
+  checklistData?: Record<string, boolean> | null;
   driverSigned?: boolean;
   driverSignedAt?: string | null;
+  driverSignatureUrl?: string | null;
   haulierSigned?: boolean;
   haulierSignedAt?: string | null;
   step1Completed?: boolean;
   step1CompletedAt?: string | null;
+  conditionPhotos?: string[];
 };
 
 type DeliveryStatus = {
@@ -68,7 +71,7 @@ const badge = (ok: boolean) =>
   ok ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-[#44474C]';
 
 const formatDate = (value?: string | null) =>
-  value ? new Date(value).toLocaleString('en-IN') : 'N/A';
+  value ? new Date(value).toLocaleString('en-US') : 'N/A';
 
 const stepTone = (done?: boolean, active?: boolean) => {
   if (done) return 'bg-emerald-500 text-white';
@@ -81,24 +84,26 @@ function SignatureCanvas({
   onSave,
   onCancel,
   loading,
+  savedSignature,
 }: {
   onSave: (dataUrl: string) => void;
   onCancel: () => void;
   loading: boolean;
+  savedSignature?: string | null;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const lastPoint = useRef<Point | null>(null);
+  // 'saved' = show saved sig preview; 'draw' = show canvas
+  const [mode, setMode] = useState<'saved' | 'draw'>(savedSignature ? 'saved' : 'draw');
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const drawing     = useRef(false);
+  const lastPoint   = useRef<Point | null>(null);
+  const pathLen     = useRef(0);
   const [hasStrokes, setHasStrokes] = useState(false);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
     }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
@@ -107,7 +112,6 @@ function SignatureCanvas({
     e.preventDefault();
     drawing.current = true;
     lastPoint.current = getPos(e);
-    setHasStrokes(true);
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -115,14 +119,17 @@ function SignatureCanvas({
     if (!drawing.current || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d')!;
     const pos = getPos(e);
+    const last = lastPoint.current!;
     ctx.beginPath();
-    ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.strokeStyle = '#1e3a5f';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
+    pathLen.current += Math.hypot(pos.x - last.x, pos.y - last.y);
+    if (pathLen.current >= 40) setHasStrokes(true);  // require real pen travel, not a click
     lastPoint.current = pos;
   };
 
@@ -135,77 +142,143 @@ function SignatureCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+    pathLen.current = 0;
     setHasStrokes(false);
   };
 
   const save = () => {
+    if (mode === 'saved' && savedSignature) { onSave(savedSignature); return; }
     if (!canvasRef.current || !hasStrokes) return;
     onSave(canvasRef.current.toDataURL('image/png'));
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">
-              Step 2 · Handover
-            </p>
-            <h2 className="text-xl font-black text-primary">Haulier Signature</h2>
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="bg-gradient-to-r from-[#1066b1] to-[#0a4a8f] px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Step 2 · Handover</p>
+              <h2 className="text-xl font-black text-white">Haulier Signature</h2>
+            </div>
+            <button
+              onClick={onCancel}
+              className="rounded-full p-2 text-white/60 transition hover:bg-white/15"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
           </div>
-          <button
-            onClick={onCancel}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#44474C]"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
         </div>
 
-        <p className="mb-3 text-sm text-slate-500">
-          Sign below to confirm dispatch officer vehicle release approval.
-        </p>
+        <div className="p-6 space-y-4">
 
-        {/* Canvas */}
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-          <canvas
-            ref={canvasRef}
-            width={480}
-            height={180}
-            className="w-full cursor-crosshair touch-none"
-            onMouseDown={startDraw}
-            onMouseMove={draw}
-            onMouseUp={endDraw}
-            onMouseLeave={endDraw}
-            onTouchStart={startDraw}
-            onTouchMove={draw}
-            onTouchEnd={endDraw}
-          />
-          {!hasStrokes && (
-            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
-              Draw your signature here
-            </p>
+          {/* ── MODE: saved signature ── */}
+          {mode === 'saved' && savedSignature ? (
+            <>
+              <p className="text-sm text-slate-500">
+                Your saved e-signature is ready. Tap <strong>Sign with This</strong> to confirm, or draw a new one.
+              </p>
+
+              {/* Saved sig preview */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-[#1066b1]/40 bg-[#f0f7ff]">
+                <img
+                  src={savedSignature}
+                  alt="Your saved e-signature"
+                  className="max-h-36 w-full object-contain p-4"
+                />
+                <span className="absolute right-3 top-3 rounded-md bg-[#1066b1]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#1066b1]">
+                  Saved
+                </span>
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+              </p>
+
+              {/* Action row */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMode('draw')}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Draw New
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading}
+                  className="flex-[2] rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {loading ? 'Submitting…' : '✓  Sign with This'}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── MODE: draw canvas ── */
+            <>
+              <p className="text-sm text-slate-500">
+                Sign below to confirm dispatch officer vehicle release approval.
+              </p>
+
+              {/* "← Use Saved" when a saved sig exists */}
+              {savedSignature && (
+                <button
+                  onClick={() => { clear(); setMode('saved'); }}
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#1066b1]/30 bg-[#1066b1]/5 py-2 text-xs font-black text-[#1066b1] transition hover:bg-[#1066b1]/10 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                  Use Saved E-Signature
+                </button>
+              )}
+
+              {/* Canvas */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
+                <canvas
+                  ref={canvasRef}
+                  width={480}
+                  height={180}
+                  className="w-full cursor-crosshair touch-none"
+                  onMouseDown={startDraw}
+                  onMouseMove={draw}
+                  onMouseUp={endDraw}
+                  onMouseLeave={endDraw}
+                  onTouchStart={startDraw}
+                  onTouchMove={draw}
+                  onTouchEnd={endDraw}
+                />
+                {!hasStrokes && (
+                  <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300 select-none">
+                    Draw your signature here
+                  </p>
+                )}
+              </div>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={clear}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={save}
+                  disabled={loading || !hasStrokes}
+                  className="flex-[2] rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {loading ? 'Submitting…' : 'Confirm Signature'}
+                </button>
+              </div>
+            </>
           )}
-        </div>
 
-        <p className="mt-2 text-center text-[10px] uppercase tracking-[0.25em] text-slate-400">
-          DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE
-        </p>
-
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={clear}
-            disabled={loading}
-            className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50"
-          >
-            Clear
-          </button>
-          <button
-            onClick={save}
-            disabled={loading || !hasStrokes}
-            className="flex-1 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-md shadow-primary/20 transition hover:opacity-90 disabled:opacity-40"
-          >
-            {loading ? 'Submitting…' : 'Confirm Signature'}
-          </button>
         </div>
       </div>
     </div>
@@ -233,6 +306,14 @@ export default function HaulierCompliancePage() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [signLoading, setSignLoading] = useState(false);
   const [signError, setSignError] = useState('');
+  const [savedEsignature, setSavedEsignature] = useState<string | null>(null);
+
+  // Load saved e-signature once on mount
+  useEffect(() => {
+    haulierService.getMe().then((me: { profile?: { esignatureData?: string | null } | null }) => {
+      if (me?.profile?.esignatureData) setSavedEsignature(me.profile.esignatureData);
+    }).catch(() => undefined);
+  }, []);
 
   const loadJobs = async () => {
     setLoading(true);
@@ -342,6 +423,7 @@ export default function HaulierCompliancePage() {
           onSave={handleHaulierSign}
           onCancel={() => { setShowSignModal(false); setSignError(''); }}
           loading={signLoading}
+          savedSignature={savedEsignature}
         />
       )}
 
@@ -456,11 +538,11 @@ export default function HaulierCompliancePage() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className={`rounded-2xl p-4 ${stepTone(loadCodeDone)}`}>
+              {false && <div className={`rounded-2xl p-4 ${stepTone(loadCodeDone)}`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">1. Load Code</p>
                 <p className="mt-1 text-sm font-bold">{loadCodeDone ? 'Verified' : 'Waiting'}</p>
                 <p className="mt-1 text-xs opacity-80">{formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}</p>
-              </div>
+              </div>}
               <div className={`rounded-2xl p-4 ${stepTone(step1Done, !loadCodeDone)}`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">2. Handover</p>
                 <p className="mt-1 text-sm font-bold">{step1Done ? 'Completed' : 'Waiting'}</p>
@@ -546,12 +628,12 @@ export default function HaulierCompliancePage() {
               </div>
 
               <div className="mt-5 space-y-3 text-sm">
-                <div className="rounded-2xl bg-slate-50 p-4">
+                {false && <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="font-black text-[#041627]">Load code verification</p>
                   <p className="mt-1 text-[#44474C]">
                     {loadCodeDone ? `Verified at ${formatDate(detail.loadCode?.verifiedAt ?? detail.full?.load_code_verified_at)}` : 'Not verified yet'}
                   </p>
-                </div>
+                </div>}
 
                 {/* Handover signatures detail */}
                 <div className="rounded-2xl bg-slate-50 p-4">
@@ -595,43 +677,88 @@ export default function HaulierCompliancePage() {
               </div>
             </div>
 
-            {/* ── Evidence ── */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-black text-primary">Evidence</h3>
-              <p className="text-sm text-slate-500">Photos and proof linked to the selected job.</p>
-
-              <div className="mt-5 space-y-3">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Photos</p>
-                  <p className="mt-1 text-2xl font-black text-primary">{detail.photos.length}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Checklist</p>
-                  <p className="mt-1 text-2xl font-black text-primary">{detail.handover?.checklistSubmitted ? 'Yes' : 'No'}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Approval Notes</p>
-                  <p className="mt-1 text-sm font-semibold text-[#44474C]">
-                    {detail.delivery?.notes ?? 'No delivery notes saved'}
-                  </p>
-                </div>
+            {/* ── Handover Details submitted by driver ── */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-primary">Handover Details</h3>
+                <p className="text-sm text-slate-500">Vehicle condition checklist, photos and signature submitted by the driver.</p>
               </div>
 
-              <div className="mt-5 space-y-3">
-                {detailLoading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Loading compliance details...</div>
-                ) : detail.photos.length ? detail.photos.map((photo, index) => (
-                  <div key={`${photo.url ?? 'photo'}-${index}`} className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm font-black text-[#041627]">Photo {index + 1}</p>
-                    <p className="mt-1 break-all text-xs text-slate-500">{photo.url ?? 'No URL'}</p>
-                    <p className="mt-2 text-xs text-slate-500">{photo.note ?? 'No note'}</p>
-                  </div>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                    No evidence available yet.
-                  </div>
-                )}
-              </div>
+              {detailLoading ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Loading handover details...</div>
+              ) : !detail.handover?.checklistSubmitted && !(detail.handover?.conditionPhotos?.length) ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">
+                  Driver has not submitted handover details yet.
+                </div>
+              ) : (
+                <>
+                  {/* Checklist items */}
+                  {detail.handover?.checklistData && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Vehicle Condition Checklist</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {([
+                          { key: 'lightsSignals', label: 'Lights & Signals' },
+                          { key: 'tirePressure',  label: 'Tyre Pressure'   },
+                          { key: 'fluidLevels',   label: 'Fluid Levels'    },
+                          { key: 'bodyDamage',    label: 'Body Damage OK'  },
+                        ] as { key: string; label: string }[]).map(({ key, label }) => {
+                          const checked = Boolean(detail.handover?.checklistData?.[key]);
+                          return (
+                            <div key={key} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${checked ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                              <span className={`material-symbols-outlined text-base ${checked ? 'text-green-600' : 'text-red-500'}`}>
+                                {checked ? 'check_circle' : 'cancel'}
+                              </span>
+                              <span className={`text-sm font-bold ${checked ? 'text-green-800' : 'text-red-700'}`}>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Condition photos */}
+                  {(() => {
+                    const photos = detail.handover?.conditionPhotos?.length
+                      ? detail.handover.conditionPhotos
+                      : detail.photos.map(p => p.url).filter(Boolean) as string[];
+                    return photos.length > 0 ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Condition Photos ({photos.length})</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {photos.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-100 hover:opacity-90 transition-opacity">
+                              <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Driver signature */}
+                  {detail.handover?.driverSignatureUrl && !detail.handover.driverSignatureUrl.startsWith('driver_signed') && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Driver Signature</p>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 inline-block">
+                        {detail.handover.driverSignatureUrl.startsWith('data:image') ? (
+                          <img src={detail.handover.driverSignatureUrl} alt="Driver signature" className="max-h-24 max-w-xs" />
+                        ) : (
+                          <p className="text-sm font-bold text-slate-600">Signed digitally at {formatDate(detail.handover.driverSignedAt)}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delivery notes */}
+                  {detail.delivery?.notes && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Delivery Notes</p>
+                      <p className="text-sm font-semibold text-[#44474C] bg-slate-50 rounded-xl px-4 py-3">{detail.delivery.notes}</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </section>

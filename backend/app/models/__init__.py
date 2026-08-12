@@ -1,4 +1,5 @@
 from app.models.user import User, UserProfile, EmailVerification, PasswordReset, RefreshToken
+from app.models.vehicle import Vehicle
 from app.models.document import Document
 from app.models.local_upload import LocalUpload
 from app.models.availability import AvailabilitySlot, AvailabilityBlock

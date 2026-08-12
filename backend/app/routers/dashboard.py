@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.response import ok, created
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.availability import AvailabilityBlock, AvailabilitySlot
@@ -17,13 +18,15 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.tracking import TrackingPoint
 from app.models.user import User, Role, UserStatus, UserProfile
 from app.models.compliance import ComplianceRecord
+from app.models.shift import Shift, ShiftStatus, ShiftPayment, ShiftPaymentStatus
+from app.models.shift_proof import ShiftDayProof
 from app.models.tracking import TrackingPoint
 from app.services.availability import is_available_on
 from app.services import suppliers as sup_svc
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
-ACTIVE_STATUSES = [JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT]
+ACTIVE_STATUSES = [JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT, JobStatus.DELIVERY_SUBMITTED]
 AdminDep = require_role(Role.ADMIN)
 
 
@@ -87,6 +90,22 @@ def _quote_snippet(quote: Quote) -> dict:
     }
 
 
+def _dispute_evidence(record: Optional[ComplianceRecord]) -> list[str]:
+    if not record or not isinstance(record.checklist_data, dict):
+        return []
+    photos = record.checklist_data.get("incidentPhotos")
+    if isinstance(photos, list):
+        return [str(url) for url in photos if url]
+    reports = record.checklist_data.get("incidentReports")
+    if isinstance(reports, list):
+        urls: list[str] = []
+        for report in reports:
+            if isinstance(report, dict) and isinstance(report.get("photos"), list):
+                urls.extend(str(url) for url in report["photos"] if url)
+        return urls
+    return []
+
+
 def _job_load_snippet(job: Job) -> dict:
     supplier = job.supplier
     payment = job.payment
@@ -132,13 +151,15 @@ def driver_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
+    # DELIVERY_SUBMITTED is excluded — driver has finished the job;
+    # it should no longer appear as an active route in the tracking tab.
     active_job = db.query(Job).filter(
         Job.selected_supplier_id == current_user.id,
-        Job.status.in_(ACTIVE_STATUSES),
+        Job.status.in_([JobStatus.PAYMENT_SECURED, JobStatus.IN_TRANSIT]),
         Job.deleted_at.is_(None),
     ).order_by(Job.updated_at.desc()).first()
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.utcnow().date()
     today_completed = db.query(func.count(Job.id)).filter(
         Job.selected_supplier_id == current_user.id,
         Job.status == JobStatus.COMPLETED,
@@ -146,7 +167,7 @@ def driver_overview(
         Job.deleted_at.is_(None),
     ).scalar() or 0
 
-    today_earnings = db.query(func.sum(Payment.amount)).join(
+    today_earnings = db.query(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).join(
         Job, Job.id == Payment.job_id
     ).filter(
         Job.selected_supplier_id == current_user.id,
@@ -160,6 +181,41 @@ def driver_overview(
         Job.deleted_at.is_(None),
     ).scalar() or 0
 
+    # ── Weekly Loads — jobs + shifts completed in the last 7 days ──────────────
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    weekly_jobs = db.query(func.count(Job.id)).filter(
+        Job.selected_supplier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.updated_at >= week_ago,
+        Job.deleted_at.is_(None),
+    ).scalar() or 0
+    weekly_shifts = db.query(func.count(Shift.id)).filter(
+        Shift.selected_driver_id == current_user.id,
+        Shift.status == ShiftStatus.COMPLETED,
+        Shift.updated_at >= week_ago,
+    ).scalar() or 0
+    weekly_loads = weekly_jobs + weekly_shifts
+
+    # ── On-Time Rate — % of completed jobs delivered on/before their deadline ──
+    # Deadline = explicit "deliver by" datetime, else the computed original ETA.
+    # Completion time is proxied by the job's last-updated timestamp. Only jobs
+    # that actually have a deadline are counted in the denominator.
+    completed_jobs = db.query(Job).filter(
+        Job.selected_supplier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    ).all()
+    assessable = 0
+    on_time = 0
+    for j in completed_jobs:
+        deadline = j.deliver_by_dt or j.original_eta
+        if not deadline:
+            continue
+        assessable += 1
+        if j.updated_at and j.updated_at <= deadline:
+            on_time += 1
+    on_time_rate = round(on_time / assessable * 100) if assessable else 0
+
     active_job_data = None
     if active_job:
         last_point = (
@@ -168,6 +224,7 @@ def driver_overview(
             .order_by(TrackingPoint.recorded_at.desc())
             .first()
         )
+        payment = active_job.payment
         active_job_data = {
             "jobId": active_job.id,
             "jobReference": active_job.job_ref,
@@ -181,12 +238,22 @@ def driver_overview(
             "distanceKm": float(active_job.distance_km) if active_job.distance_km is not None else None,
             "durationMin": int(active_job.duration_min) if active_job.duration_min is not None else None,
             "originalEta": active_job.original_eta.isoformat() if active_job.original_eta else None,
+            "agreedAmount": (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment else None,
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "currentLocation": {
                 "latitude": float(last_point.lat),
                 "longitude": float(last_point.lng),
                 "lastUpdatedAt": last_point.recorded_at.isoformat() if last_point.recorded_at else None,
             } if last_point else None,
             "complianceStep": "delivery_report",
+            "stops": [
+                {
+                    "order": s.get("order") if isinstance(s, dict) else None,
+                    "address": s.get("address") if isinstance(s, dict) else None,
+                    "litres": s.get("litres") or s.get("totalLitres") if isinstance(s, dict) else None,
+                }
+                for s in (active_job.stops or [])
+            ],
         }
 
     return ok(
@@ -198,12 +265,14 @@ def driver_overview(
             "todaySummary": {
                 "jobsCompleted": today_completed,
                 "todayEarnings": float(today_earnings),
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "upcomingJobs": upcoming,
+            "weeklyLoads": weekly_loads,
+            "performance": {"onTimeRate": on_time_rate},
             "rating": float(current_user.avg_rating) if current_user.avg_rating else 0.0,
             "completedJobs": current_user.completed_jobs,
-            "lastUpdatedAt": datetime.now(timezone.utc).isoformat(),
+            "lastUpdatedAt": datetime.utcnow().isoformat(),
         },
         message="Driver dashboard fetched successfully.",
     )
@@ -219,7 +288,7 @@ def driver_earnings(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -228,27 +297,51 @@ def driver_earnings(
         .join(Job, Job.id == Payment.job_id)
         .filter(Job.selected_supplier_id == current_user.id, Payment.status == PaymentStatus.RELEASED)
     )
-    all_time_total = q.with_entities(func.sum(Payment.amount)).scalar() or 0.0
-    all_time_jobs = q.count()
+    # Shifts pay the driver the same way — released shift payments count as earnings too.
+    sq = (
+        db.query(ShiftPayment, Shift)
+        .join(Shift, Shift.id == ShiftPayment.shift_id)
+        .filter(Shift.selected_driver_id == current_user.id, ShiftPayment.status == ShiftPaymentStatus.RELEASED)
+    )
+    all_time_total = (q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0) \
+        + (sq.with_entities(func.sum(func.coalesce(ShiftPayment.driver_amount, ShiftPayment.amount))).scalar() or 0.0)
+    all_time_jobs = q.count() + sq.count()
 
     month_q = q.filter(
         func.extract("month", Payment.released_at) == m,
         func.extract("year", Payment.released_at) == y,
     )
-    month_total = month_q.with_entities(func.sum(Payment.amount)).scalar() or 0.0
-    month_jobs = month_q.count()
+    month_sq = sq.filter(
+        func.extract("month", ShiftPayment.released_at) == m,
+        func.extract("year", ShiftPayment.released_at) == y,
+    )
+    month_total = (month_q.with_entities(func.sum(func.coalesce(Payment.driver_amount, Payment.amount))).scalar() or 0.0) \
+        + (month_sq.with_entities(func.sum(func.coalesce(ShiftPayment.driver_amount, ShiftPayment.amount))).scalar() or 0.0)
+    month_jobs = month_q.count() + month_sq.count()
 
-    recent = month_q.order_by(Payment.released_at.desc()).limit(10).all()
-    recent_payments = [
+    recent_rows = [
         {
             "paymentId": p.id,
             "jobReference": j.job_ref,
-            "amount": float(p.amount),
+            "amount": float(p.driver_amount) if p.driver_amount else float(p.amount),
             "currency": p.currency,
             "paidAt": p.released_at.isoformat() if p.released_at else None,
+            "_ts": p.released_at,
         }
-        for p, j in recent
+        for p, j in month_q.order_by(Payment.released_at.desc()).limit(10).all()
+    ] + [
+        {
+            "paymentId": sp.id,
+            "jobReference": s.shift_ref,
+            "amount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "currency": sp.currency,
+            "paidAt": sp.released_at.isoformat() if sp.released_at else None,
+            "_ts": sp.released_at,
+        }
+        for sp, s in month_sq.order_by(ShiftPayment.released_at.desc()).limit(10).all()
     ]
+    recent_rows.sort(key=lambda r: r["_ts"] or datetime.min, reverse=True)
+    recent_payments = [{k: v for k, v in r.items() if k != "_ts"} for r in recent_rows[:10]]
 
     month_name = datetime(y, m, 1).strftime("%B %Y")
     avg = round(float(month_total) / month_jobs, 0) if month_jobs else 0
@@ -261,7 +354,7 @@ def driver_earnings(
                 "totalEarnings": float(month_total),
                 "totalJobs": month_jobs,
                 "averagePerJob": avg,
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "recentPayments": recent_payments,
             "allTimeEarnings": float(all_time_total),
@@ -297,7 +390,7 @@ def driver_upcoming_jobs(
             Quote.status == QuoteStatus.SELECTED,
         ).first()
         agreed_amount = (
-            float(payment.amount) if payment
+            (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment
             else float(selected_quote.price) if selected_quote
             else None
         )
@@ -313,12 +406,15 @@ def driver_upcoming_jobs(
             "jobDate": j.job_date.isoformat() if j.job_date else None,
             "timeSlot": j.time_slot.value if j.time_slot else None,
             "agreedAmount": agreed_amount,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "haulier": {
                 "name": haulier.full_name if haulier else None,
                 "phone": haulier.phone if haulier else None,
             },
             "paymentSecured": j.status == JobStatus.PAYMENT_SECURED,
+            "deliverBy": j.job_time,
+            "accessCode": j.access_code if j.status == JobStatus.PAYMENT_SECURED else None,
+            "loadCode": j.load_code if j.status == JobStatus.PAYMENT_SECURED else None,
         })
 
     return ok(
@@ -362,8 +458,8 @@ def driver_jobs_history(
             "distanceKm": float(j.distance_km) if j.distance_km else None,
             "goodsType": j.goods_type,
             "jobDate": j.job_date.isoformat() if j.job_date else None,
-            "agreedAmount": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "agreedAmount": (float(payment.driver_amount) if payment.driver_amount else float(payment.amount)) if payment else None,
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "completedAt": j.updated_at.isoformat() if j.updated_at else None,
         })
 
@@ -380,7 +476,7 @@ def haulier_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     profile = current_user.profile
 
     active_jobs = db.query(Job).filter(
@@ -455,7 +551,7 @@ def haulier_overview(
                 "openJobsWithQuotes": open_with_quotes,
                 "totalJobsThisMonth": month_jobs,
                 "totalSpentThisMonth": float(month_spend),
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "activeJobs": active_job_list,
             "quickActions": ["post_new_job", "view_active_map"],
@@ -492,11 +588,19 @@ def haulier_active_jobs(
         )
         jobs.append({
             "jobId": j.id,
+            "jobRef": j.job_ref,
             "jobReference": j.job_ref,
             "status": j.status.value.lower(),
             "driver": _driver_snippet(supplier),
+            "selectedSupplier": _driver_snippet(supplier),
             "pickupLocation": j.pickup_address,
+            "pickupAddress": j.pickup_address,
             "dropLocation": j.drop_address,
+            "dropAddress": j.drop_address,
+            "pickupLat": float(j.pickup_lat) if j.pickup_lat else None,
+            "pickupLng": float(j.pickup_lng) if j.pickup_lng else None,
+            "dropLat": float(j.drop_lat) if j.drop_lat else None,
+            "dropLng": float(j.drop_lng) if j.drop_lng else None,
             "currentLocation": {
                 "latitude": float(last_point.lat),
                 "longitude": float(last_point.lng),
@@ -520,10 +624,15 @@ def haulier_pending_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    q = db.query(Job).filter(
-        Job.haulier_id == current_user.id,
-        Job.status == JobStatus.DELIVERY_SUBMITTED,
-        Job.deleted_at.is_(None),
+    q = (
+        db.query(Job)
+        .join(Payment, Payment.job_id == Job.id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Job.status == JobStatus.DELIVERY_SUBMITTED,
+            Payment.status == PaymentStatus.ESCROWED,
+            Job.deleted_at.is_(None),
+        )
     )
     total = q.count()
     items = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
@@ -536,6 +645,8 @@ def haulier_pending_approval(
         jobs.append({
             "jobId": j.id,
             "jobReference": j.job_ref,
+            "status": j.status.value,
+            "driverId": supplier.id if supplier else None,
             "driver": _driver_snippet(supplier),
             "dropLocation": j.drop_address,
             "deliveryProof": {
@@ -545,13 +656,245 @@ def haulier_pending_approval(
                 "submittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
             },
             "agreedAmount": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "awaitingApprovalSince": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else j.updated_at.isoformat() if j.updated_at else None,
         })
 
     return ok(
         data={"jobs": jobs, "totalPending": total, "page": page, "limit": limit},
         message="Jobs pending approval fetched successfully.",
+    )
+
+
+def _shift_proof_photos(raw) -> list:
+    """Normalise a shift proof_photo_url (single URL or JSON array) into a list of
+    server-accessible URLs — rewrites host:port to BACKEND_URL and drops device-local
+    file:// URIs, exactly like job delivery photos."""
+    import json as _json
+    import re as _re
+    if not raw:
+        return []
+    try:
+        parsed = _json.loads(raw)
+        urls = parsed if isinstance(parsed, list) else [str(parsed)]
+    except Exception:
+        urls = [str(raw)]
+    out = []
+    for u in urls:
+        u = str(u)
+        if not u or u.startswith("file://"):
+            continue
+        if "/uploads/" in u:
+            u = _re.sub(r"https?://[^/]+", settings.BACKEND_URL.rstrip("/"), u)
+        out.append(u)
+    return out
+
+
+@router.get("/haulier/shifts/pending-payment")
+def haulier_shifts_pending_payment(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    """Returns shifts where the driver has submitted end-of-day proof but the
+    haulier has not yet released that day's escrowed payment."""
+
+    # Find all in-progress shifts owned by this haulier
+    shifts = (
+        db.query(Shift)
+        .filter(
+            Shift.haulier_id == current_user.id,
+            Shift.status.in_([ShiftStatus.IN_PROGRESS, ShiftStatus.BOOKED]),
+        )
+        .all()
+    )
+
+    pending = []
+    for shift in shifts:
+        pending_day = shift.days_completed + 1
+
+        # Check driver submitted EOD proof for pending_day
+        proof = (
+            db.query(ShiftDayProof)
+            .filter(
+                ShiftDayProof.shift_id == shift.id,
+                ShiftDayProof.day_number == pending_day,
+            )
+            .first()
+        )
+        if not proof:
+            continue
+
+        # Check escrowed payment exists for that day
+        payment = (
+            db.query(ShiftPayment)
+            .filter(
+                ShiftPayment.shift_id == shift.id,
+                ShiftPayment.day_number == pending_day,
+                ShiftPayment.status == ShiftPaymentStatus.ESCROWED,
+            )
+            .first()
+        )
+        if not payment:
+            continue
+
+        driver = db.query(User).filter(User.id == shift.selected_driver_id).first()
+        pending.append({
+            "shiftId": shift.id,
+            "shiftRef": shift.shift_ref,
+            "dayNumber": pending_day,
+            "totalDays": shift.total_days,
+            "driverId": shift.selected_driver_id,
+            "driver": {
+                "name": driver.full_name if driver else None,
+                "phone": driver.phone if driver else None,
+            },
+            "dailyRate": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else (current_user.currency or settings.PAYMENT_CURRENCY),
+            "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
+            "proofNotes": proof.notes,
+            "recipientName": proof.recipient_name,
+            "proofPhotos": _shift_proof_photos(proof.proof_photo_url),
+            "proofPhotoUrl": (_shift_proof_photos(proof.proof_photo_url) or [None])[0],
+            "signatureData": proof.signature_data,
+            "hasPhoto": bool(_shift_proof_photos(proof.proof_photo_url)),
+            "hasSignature": bool(proof.signature_data),
+        })
+
+    return ok(
+        data={"shifts": pending, "totalPending": len(pending)},
+        message="Shifts pending payment fetched.",
+    )
+
+
+@router.get("/haulier/jobs/completed")
+def haulier_completed_jobs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = db.query(Job).filter(
+        Job.haulier_id == current_user.id,
+        Job.status == JobStatus.COMPLETED,
+        Job.deleted_at.is_(None),
+    )
+    total = q.count()
+    items = q.order_by(Job.updated_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    jobs = []
+    for j in items:
+        supplier = j.supplier
+        payment = j.payment
+        record = j.compliance
+        jobs.append({
+            "jobId": j.id,
+            "jobReference": j.job_ref,
+            "status": j.status.value,
+            "driverId": supplier.id if supplier else None,
+            "driver": _driver_snippet(supplier),
+            "pickupLocation": j.pickup_address,
+            "dropLocation": j.drop_address,
+            "payment": {
+                "amount": float(payment.amount) if payment else None,
+                "currency": payment.currency if payment else None,
+            } if payment else None,
+            "agreedAmount": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else (current_user.currency or settings.PAYMENT_CURRENCY),
+            "deliveryProof": {
+                "deliveryPhotoUrl": record.delivery_photo_url if record else None,
+                "recipientSignatureUrl": record.recipient_signature_url if record else None,
+                "deliveryNotes": record.delivery_notes if record else None,
+                "submittedAt": record.delivery_submitted_at.isoformat() if record and record.delivery_submitted_at else None,
+            } if record else None,
+            "awaitingApprovalSince": None,
+        })
+    return ok(data={"jobs": jobs, "total": total, "page": page, "limit": limit}, message="Completed jobs fetched.")
+
+
+@router.get("/haulier/shifts/completed")
+def haulier_completed_shifts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    shifts = db.query(Shift).filter(
+        Shift.haulier_id == current_user.id,
+        Shift.status == ShiftStatus.COMPLETED,
+    ).order_by(Shift.updated_at.desc()).all()
+    result = []
+    for shift in shifts:
+        driver = db.query(User).filter(User.id == shift.selected_driver_id).first()
+        proofs = db.query(ShiftDayProof).filter(
+            ShiftDayProof.shift_id == shift.id,
+        ).order_by(ShiftDayProof.day_number.asc()).all()
+        for proof in proofs:
+            result.append({
+                "shiftId": shift.id,
+                "shiftRef": shift.shift_ref,
+                "dayNumber": proof.day_number,
+                "totalDays": shift.total_days,
+                "driverId": shift.selected_driver_id,
+                "driver": {"name": driver.full_name if driver else None, "phone": driver.phone if driver else None},
+                "dailyRate": float(shift.daily_rate) if shift.daily_rate else None,
+                "currency": shift.currency or "GBP",
+                "proofSubmittedAt": proof.submitted_at.isoformat() if proof.submitted_at else None,
+                "proofNotes": proof.notes,
+                "recipientName": proof.recipient_name,
+                "proofPhotos": _shift_proof_photos(proof.proof_photo_url),
+                "proofPhotoUrl": (_shift_proof_photos(proof.proof_photo_url) or [None])[0],
+                "signatureData": proof.signature_data,
+                "hasPhoto": bool(_shift_proof_photos(proof.proof_photo_url)),
+                "hasSignature": bool(proof.signature_data),
+                "alreadyPaid": True,
+            })
+    return ok(data={"shifts": result, "total": len(result)}, message="Completed shifts fetched.")
+
+
+@router.get("/haulier/disputes")
+def haulier_disputes(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
+):
+    q = (
+        db.query(Job)
+        .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
+        .filter(
+            Job.haulier_id == current_user.id,
+            Job.status == JobStatus.DISPUTED,
+            ComplianceRecord.disputed_at.isnot(None),
+            Job.deleted_at.is_(None),
+        )
+    )
+    total = q.count()
+    items = q.order_by(ComplianceRecord.disputed_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    disputes = []
+    for job in items:
+        record = job.compliance
+        supplier = job.supplier
+        payment = job.payment
+        disputes.append({
+            "disputeId": record.id if record else job.id,
+            "jobId": job.id,
+            "jobReference": job.job_ref,
+            "status": "under_review",
+            "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
+            "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
+            "paymentOnHold": float(payment.amount) if payment else None,
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
+            "pickupLocation": job.pickup_address,
+            "dropLocation": job.drop_address,
+            "driver": {
+                "name": supplier.full_name if supplier else None,
+                "phone": supplier.phone if supplier else None,
+                "vehicleNumber": supplier.profile.vehicle_registration if supplier and supplier.profile else None,
+            },
+        })
+
+    return ok(
+        data={"items": disputes, "total": total, "page": page, "limit": limit},
+        message="Haulier disputes fetched successfully.",
     )
 
 
@@ -563,7 +906,7 @@ def haulier_spend_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -596,7 +939,7 @@ def haulier_spend_summary(
                 "totalSpent": float(month_total),
                 "totalJobs": month_jobs,
                 "averagePerJob": avg,
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "allTimeSpent": float(all_time_total),
             "allTimeJobs": all_time_jobs,
@@ -615,7 +958,7 @@ def haulier_costs(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -669,7 +1012,7 @@ def haulier_costs(
                 "netSpend": net_spend,
                 "averagePerJob": avg_per_job,
                 "loadsWithSpend": job_count,
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Escrowed", "value": escrowed},
@@ -701,7 +1044,7 @@ def haulier_revenue(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -760,7 +1103,7 @@ def haulier_revenue(
                 "netRevenue": net_revenue,
                 "averagePerLoad": avg_per_load,
                 "completedJobs": completed_jobs,
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Released", "value": released},
@@ -790,7 +1133,7 @@ def haulier_performance(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -875,7 +1218,7 @@ def haulier_performance(
                 "verified": current_user.verified,
                 "profileComplete": current_user.profile_complete,
                 "releasedRevenue": float(released_revenue),
-                "currency": "INR",
+                "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "breakdown": [
                 {"label": "Completed", "value": completed_jobs},
@@ -1153,7 +1496,7 @@ def haulier_list_drivers(
         q = q.filter(UserProfile.vehicle_type == vehicle_type)
 
     candidates = q.order_by(User.created_at.desc()).all()
-    today = datetime.now(timezone.utc).date()
+    today = datetime.utcnow().date()
     rows = []
     for driver in candidates:
         profile = driver.profile
@@ -1285,7 +1628,7 @@ def haulier_assign_driver(
         "vehicleType": driver_profile.vehicle_type if driver_profile else None,
         "vehicleRegistration": driver_profile.vehicle_registration if driver_profile else None,
         "licenseNumber": driver_profile.licence_number if driver_profile else None,
-        "assignedAt": datetime.now(timezone.utc).isoformat(),
+        "assignedAt": datetime.utcnow().isoformat(),
         "note": body.note,
     }
     assignments.insert(0, item)
@@ -1371,9 +1714,9 @@ def haulier_active_map(
 @router.get("/admin/overview")
 def admin_overview(
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     today = now.date()
 
     total_users = db.query(func.count(User.id)).scalar() or 0
@@ -1423,7 +1766,7 @@ def admin_overview(
                 "totalRevenue": float(total_rev),
                 "revenueThisMonth": float(month_rev),
                 "revenueToday": float(today_rev),
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
                 "platformCommission": round(float(total_rev) * 0.05, 2),
             },
             "pendingActions": {
@@ -1435,6 +1778,18 @@ def admin_overview(
         },
         message="Admin dashboard fetched successfully.",
     )
+
+
+def _get_effective_status(u: User) -> str:
+    if u.role == Role.DRIVER:
+        if not u.documents:
+            return "pending_documents"
+        if any(doc.status != DocStatus.APPROVED for doc in u.documents):
+            return "pending_documents"
+    elif u.role == Role.HAULIER:
+        if not u.admin_approved:
+            return "pending_approval"
+    return u.status.value.lower()
 
 
 @router.get("/admin/users/list")
@@ -1475,7 +1830,7 @@ def admin_list_users(
             "role": u.role.value.lower(),
             "isVerified": u.verified,
             "isProfileComplete": u.profile_complete,
-            "accountStatus": u.status.value.lower(),
+            "accountStatus": _get_effective_status(u),
             "totalJobs": u.completed_jobs,
             "rating": float(u.avg_rating) if u.avg_rating else 0.0,
             "joinedAt": u.created_at.isoformat() if u.created_at else None,
@@ -1514,7 +1869,7 @@ def admin_suspend_user(
         raise HTTPException(status_code=404, detail="User not found")
     user.status = UserStatus.SUSPENDED
     db.commit()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     return ok(
         data={
             "userId": user_id,
@@ -1540,7 +1895,7 @@ def admin_activate_user(
         raise HTTPException(status_code=404, detail="User not found")
     user.status = UserStatus.ACTIVE
     db.commit()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     return ok(
         data={
             "userId": user_id,
@@ -1561,21 +1916,36 @@ def admin_pending_verifications(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
-    q = db.query(User).join(Document, Document.user_id == User.id).filter(
-        Document.status == DocStatus.PENDING,
-        User.deleted_at.is_(None),
-    ).distinct()
+    latest_pending = (
+        db.query(
+            Document.user_id.label("user_id"),
+            func.max(Document.updated_at).label("latest_pending_at"),
+        )
+        .filter(Document.status == DocStatus.PENDING)
+        .group_by(Document.user_id)
+        .subquery()
+    )
+    q = (
+        db.query(User, latest_pending.c.latest_pending_at)
+        .join(latest_pending, latest_pending.c.user_id == User.id)
+        .filter(User.deleted_at.is_(None))
+    )
     if role:
         try:
             q = q.filter(User.role == Role(role.upper()))
         except ValueError:
             pass
     total = q.count()
-    users = q.order_by(User.created_at.asc()).offset((page - 1) * limit).limit(limit).all()
+    rows = q.order_by(latest_pending.c.latest_pending_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
     pending = []
-    for u in users:
-        docs = db.query(Document).filter(Document.user_id == u.id, Document.status == DocStatus.PENDING).all()
+    for u, _latest_pending_at in rows:
+        docs = (
+            db.query(Document)
+            .filter(Document.user_id == u.id, Document.status == DocStatus.PENDING)
+            .order_by(Document.updated_at.desc(), Document.created_at.desc())
+            .all()
+        )
         pending.append({
             "supplierId": u.id,
             "name": u.full_name,
@@ -1590,6 +1960,9 @@ def admin_pending_verifications(
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "uploadedAt": d.created_at.isoformat() if d.created_at else None,
+                    "updatedAt": d.updated_at.isoformat() if d.updated_at else None,
+                    "rejectionReason": d.rejection_reason,
+                    "isReapproval": d.status == DocStatus.PENDING and bool(d.rejection_reason),
                 }
                 for d in docs
             ],
@@ -1611,8 +1984,13 @@ def admin_processed_verifications(
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
 ):
+    from datetime import datetime as _dt
+    now = _dt.utcnow()
+    is_expired_filter = status and status.upper() == "EXPIRED"
     statuses = []
-    if status and status.upper() == "APPROVED":
+    if is_expired_filter:
+        statuses = [DocStatus.APPROVED, DocStatus.REJECTED]
+    elif status and status.upper() == "APPROVED":
         statuses = [DocStatus.APPROVED]
     elif status and status.upper() == "REJECTED":
         statuses = [DocStatus.REJECTED]
@@ -1622,7 +2000,10 @@ def admin_processed_verifications(
     q = db.query(User).join(Document, Document.user_id == User.id).filter(
         Document.status.in_(statuses),
         User.deleted_at.is_(None),
-    ).distinct()
+    )
+    if is_expired_filter:
+        q = q.filter(Document.expiry_date.isnot(None), Document.expiry_date < now)
+    q = q.distinct()
     if role:
         try:
             q = q.filter(User.role == Role(role.upper()))
@@ -1633,10 +2014,13 @@ def admin_processed_verifications(
 
     processed = []
     for u in users:
-        docs = db.query(Document).filter(
+        doc_q = db.query(Document).filter(
             Document.user_id == u.id,
             Document.status.in_(statuses),
-        ).all()
+        )
+        if is_expired_filter:
+            doc_q = doc_q.filter(Document.expiry_date.isnot(None), Document.expiry_date < now)
+        docs = doc_q.all()
         processed.append({
             "userId": u.id,
             "name": u.full_name,
@@ -1648,11 +2032,13 @@ def admin_processed_verifications(
                 {
                     "documentId": d.id,
                     "documentType": d.doc_type.value,
+                    "customName": d.custom_name if hasattr(d, 'custom_name') else None,
                     "fileUrl": d.file_url,
                     "status": d.status.value.lower(),
                     "rejectionReason": d.rejection_reason,
                     "reviewedAt": d.reviewed_at.isoformat() if d.reviewed_at else None,
                     "uploadedAt": d.created_at.isoformat() if d.created_at else None,
+                    "expiryDate": d.expiry_date.date().isoformat() if d.expiry_date else None,
                 }
                 for d in docs
             ],
@@ -1740,7 +2126,7 @@ def admin_list_invoices(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job, Payment)
@@ -1793,7 +2179,7 @@ def admin_list_payments(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
     if status:
@@ -1830,6 +2216,7 @@ def admin_list_payments(
             "dropLocation": j.drop_address,
             "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
             "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
         })
 
@@ -1845,9 +2232,9 @@ def admin_revenue(
     month: int = Query(None),
     year: int = Query(None),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     m = month or now.month
     y = year or now.year
 
@@ -1880,7 +2267,7 @@ def admin_revenue(
                 "commissionRate": "5%",
                 "totalRefunds": float(refunded),
                 "netRevenue": round(commission - float(refunded), 2),
-                "currency": "INR",
+                "currency": current_user.currency or settings.PAYMENT_CURRENCY,
             },
             "allTimeRevenue": round(float(all_time_rev) * 0.05, 2),
             "allTimeTransactions": all_time_txns,
@@ -1895,7 +2282,7 @@ def admin_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     total_disputes = db.query(func.count(Job.id)).filter(Job.status == JobStatus.DISPUTED, Job.deleted_at.is_(None)).scalar() or 0
 
@@ -1921,8 +2308,9 @@ def admin_disputes(
                 "phone": supplier.phone if supplier else None,
             },
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "status": "under_review",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
         })
@@ -2000,10 +2388,52 @@ def admin_live_tracking(
             "jobDate": j.job_date.isoformat() if j.job_date else None,
         })
 
+    # ── Ongoing shifts ──────────────────────────────────────────────────────
+    active_shifts = (
+        db.query(Shift)
+        .filter(Shift.status == ShiftStatus.IN_PROGRESS)
+        .order_by(Shift.updated_at.desc())
+        .all()
+    )
+
+    shifts_data = []
+    for s in active_shifts:
+        haulier = s.haulier
+        driver  = s.driver
+        driver_profile = driver.profile if driver else None
+        shifts_data.append({
+            "shiftId":       s.id,
+            "shiftRef":      s.shift_ref,
+            "status":        s.status.value.lower(),
+            "haulier": {
+                "name":  haulier.full_name if haulier else None,
+                "phone": haulier.phone     if haulier else None,
+            },
+            "driver": {
+                "name":          driver.full_name              if driver         else None,
+                "phone":         driver.phone                  if driver         else None,
+                "vehicleNumber": driver_profile.vehicle_registration if driver_profile else None,
+                "vehicleType":   driver_profile.vehicle_type        if driver_profile else None,
+            },
+            "pickupLocation": s.pickup_address,
+            "dropLocation":   s.drop_address,
+            "pickupLat":  float(s.pickup_lat) if s.pickup_lat else None,
+            "pickupLng":  float(s.pickup_lng) if s.pickup_lng else None,
+            "dropLat":    float(s.drop_lat)   if s.drop_lat   else None,
+            "dropLng":    float(s.drop_lng)   if s.drop_lng   else None,
+            "goodsType":  s.goods_type,
+            "startDate":  s.start_date.isoformat() if s.start_date else None,
+            "endDate":    s.end_date.isoformat()   if s.end_date   else None,
+            "totalDays":  s.total_days,
+            "daysCompleted": s.days_completed,
+        })
+
     return ok(
         data={
             "totalActive": len(deliveries),
-            "deliveries": deliveries,
+            "deliveries":  deliveries,
+            "totalShifts": len(shifts_data),
+            "shifts":      shifts_data,
         },
         message="Live tracking data fetched successfully.",
     )
@@ -2015,7 +2445,7 @@ def admin_active_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job)
@@ -2040,8 +2470,9 @@ def admin_active_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "status": "under_review",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "pickupLocation": j.pickup_address,
@@ -2060,7 +2491,7 @@ def admin_resolved_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
     q = (
         db.query(Job)
@@ -2089,8 +2520,9 @@ def admin_resolved_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "status": "resolved",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "resolvedAt": record.step3_approved_at.isoformat() if record and record.step3_approved_at else None,
@@ -2109,9 +2541,9 @@ def admin_escalated_disputes(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(AdminDep),
+    current_user: User = Depends(AdminDep),
 ):
-    threshold = datetime.now(timezone.utc) - timedelta(hours=48)
+    threshold = datetime.utcnow() - timedelta(hours=48)
     q = (
         db.query(Job)
         .join(ComplianceRecord, ComplianceRecord.job_id == Job.id)
@@ -2124,7 +2556,7 @@ def admin_escalated_disputes(
     total = q.count()
     items = q.order_by(ComplianceRecord.disputed_at.asc()).offset((page - 1) * limit).limit(limit).all()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     disputes = []
     for j in items:
         haulier = j.haulier
@@ -2142,8 +2574,9 @@ def admin_escalated_disputes(
             "haulier": {"name": haulier.full_name if haulier else None, "phone": haulier.phone if haulier else None},
             "driver": {"name": supplier.full_name if supplier else None, "phone": supplier.phone if supplier else None},
             "disputeReason": record.dispute_reason if record else None,
+            "evidencePhotos": _dispute_evidence(record),
             "paymentOnHold": float(payment.amount) if payment else None,
-            "currency": "INR",
+            "currency": payment.currency if payment else current_user.currency or settings.PAYMENT_CURRENCY,
             "status": "escalated",
             "raisedAt": record.disputed_at.isoformat() if record and record.disputed_at else None,
             "hoursOpen": hours_open,

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
@@ -225,6 +225,18 @@ def ratings_summary(
     )
     last5_avg = round(sum(r.stars for r in last5) / len(last5), 2) if last5 else 0.0
 
+    reviews = []
+    for r in last5:
+        rater = db.get(User, r.rater_id)
+        reviews.append({
+            "ratingId": r.id,
+            "raterName": rater.full_name if rater else "Anonymous",
+            "rating": r.stars,
+            "comment": r.review_text or "",
+            "jobReference": r.job.job_ref if r.job else None,
+            "createdAt": r.created_at.isoformat() if r.created_at else None,
+        })
+
     return ok(
         data={
             "userId": user_id,
@@ -234,6 +246,7 @@ def ratings_summary(
             "totalRatings": total,
             "ratingBreakdown": _rating_breakdown(db, user_id),
             "last5RatingsAverage": last5_avg,
+            "reviews": reviews,
         },
         message="Rating summary fetched successfully.",
     )
@@ -257,9 +270,73 @@ def report_rating(
             "reportReason": body.report_reason,
             "description": body.description,
             "status": "under_review",
-            "reportedAt": datetime.now(timezone.utc).isoformat(),
+            "reportedAt": datetime.utcnow().isoformat(),
         },
         message="Review reported successfully. Admin will review within 24 hours.",
+    )
+
+
+@router.get("/admin/ratings/all")
+def admin_list_all_ratings(
+    rater_role: str = Query(None),
+    rated_role: str = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(Role.ADMIN)),
+):
+    from sqlalchemy.orm import aliased
+    Rater = aliased(User)
+    Rated = aliased(User)
+
+    q = (
+        db.query(Rating, Rater, Rated)
+        .join(Rater, Rating.rater_id == Rater.id)
+        .join(Rated, Rating.rated_id == Rated.id)
+    )
+    if rater_role:
+        try:
+            q = q.filter(Rater.role == Role(rater_role.upper()))
+        except ValueError:
+            pass
+    if rated_role:
+        try:
+            q = q.filter(Rated.role == Role(rated_role.upper()))
+        except ValueError:
+            pass
+
+    total = q.count()
+    rows = (
+        q.order_by(Rating.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for rating, rater, rated in rows:
+        items.append({
+            "ratingId": rating.id,
+            "jobReference": rating.job.job_ref if rating.job else None,
+            "rater": {
+                "userId": rater.id,
+                "name": rater.full_name,
+                "role": rater.role.value.lower(),
+            },
+            "rated": {
+                "userId": rated.id,
+                "name": rated.full_name,
+                "role": rated.role.value.lower(),
+            },
+            "starRating": rating.stars,
+            "review": rating.review_text,
+            "tags": rating.tags or [],
+            "submittedAt": rating.created_at.isoformat() if rating.created_at else None,
+        })
+
+    return ok(
+        data={"items": items, "total": total, "page": page, "limit": limit},
+        message="All ratings fetched successfully.",
     )
 
 
@@ -280,7 +357,7 @@ def admin_remove_rating(
             "ratingId": rating_id,
             "removedBy": current_admin.id,
             "reason": body.reason if body else None,
-            "removedAt": datetime.now(timezone.utc).isoformat(),
+            "removedAt": datetime.utcnow().isoformat(),
         },
         message="Review removed successfully.",
     )

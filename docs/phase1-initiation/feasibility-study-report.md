@@ -1,7 +1,7 @@
-# Feasibility Study Report – FreightFlex
+# Feasibility Study Report – FlexiShift
 
 ## 1. Purpose
-This report assesses whether FreightFlex can be successfully developed, deployed, and operated given current technical, operational, financial, and legal constraints.
+This report assesses whether FlexiShift can be successfully developed, deployed, and operated given current technical, operational, financial, and legal constraints.
 
 ## 2. Technical Feasibility
 

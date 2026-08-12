@@ -4,7 +4,9 @@ const rawApiUrl = import.meta.env.VITE_API_URL?.trim();
 
 const normalizeBaseUrl = (value?: string) => {
   if (!value) {
-    return 'http://localhost:8000/api/v1';
+    return import.meta.env.PROD
+      ? 'https://freightflex.indian-merchant-navy.com/api/v1'
+      : 'http://localhost:8000/api/v1';
   }
 
   const normalized = value.replace(/\/+$/, '');

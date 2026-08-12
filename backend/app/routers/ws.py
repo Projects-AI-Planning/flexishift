@@ -28,6 +28,28 @@ async def tracking_ws(
         manager.disconnect(job_id, websocket)
 
 
+@router.websocket("/ws/shifts/{shift_id}/tracking")
+async def shift_tracking_ws(
+    shift_id: str,
+    websocket: WebSocket,
+    token: str = Query(...),
+):
+    """Real-time GPS location stream for a shift day. Used by the haulier web dashboard map."""
+    try:
+        decode_access_token(token)
+    except (JWTError, Exception):
+        await websocket.close(code=4001)
+        return
+
+    channel = f"shift:{shift_id}"
+    await manager.connect(channel, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(channel, websocket)
+
+
 @router.websocket("/ws/notifications/live")
 async def notifications_ws(
     websocket: WebSocket,

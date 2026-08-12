@@ -23,7 +23,7 @@ interface SettingsScreenProps {
   onNotificationPreferences: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
-  onDeactivate: () => void;
+  onDeleteAccount: () => void;
 }
 
 function SettingsRow({item}: {item: SettingsItem}) {
@@ -58,7 +58,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onNotificationPreferences,
   onTerms,
   onPrivacy,
-  onDeactivate,
+  onDeleteAccount,
 }) => {
   const accountItems: SettingsItem[] = [
     {
@@ -99,9 +99,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const dangerItems: SettingsItem[] = [
     {
       icon: 'alert-triangle',
-      label: 'Deactivate Account',
-      subtitle: 'Temporarily disable your account',
-      onPress: onDeactivate,
+      label: 'Delete Account',
+      subtitle: 'Permanently delete your account and personal data',
+      onPress: onDeleteAccount,
       danger: true,
     },
   ];
@@ -149,6 +149,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <SettingsRow key={item.label} item={item} />
           ))}
         </View>
+        <Text style={styles.dangerNote}>
+          Deleting your account removes your profile, documents, vehicles and
+          notifications, and signs you out on every device. This cannot be
+          undone. Invoices and payment records are kept for up to 7 years where
+          tax law requires it.
+        </Text>
       </View>
 
       <Text style={styles.version}>FlexiShift Driver App · v1.0.0</Text>
@@ -173,6 +179,13 @@ const styles = StyleSheet.create({
   heroTitle: {color: colors.ink, fontSize: 22, fontWeight: '900', marginBottom: 4},
   heroText: {color: colors.inkSoft, fontSize: 14, lineHeight: 20},
   section: {marginTop: spacing.md},
+  dangerNote: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 10,
+    paddingHorizontal: spacing.lg,
+  },
   sectionLabel: {
     color: colors.inkSoft,
     fontSize: 11,

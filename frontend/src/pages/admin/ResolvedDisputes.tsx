@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useResolvedDisputes } from '../../hooks/useAdmin';
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+import { fmtMoney } from '../../utils/currency';
+
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 export default function ResolvedDisputesPage() {
   const [search, setSearch] = useState('');

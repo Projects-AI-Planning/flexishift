@@ -1,9 +1,9 @@
-# User Requirement Document (URD) – FreightFlex
+# User Requirement Document (URD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | User Requirement Document (URD) |
 | Version | 1.0 |
 | Date | 2026-04-25 |

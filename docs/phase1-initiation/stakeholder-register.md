@@ -1,7 +1,7 @@
-# Stakeholder Register – FreightFlex
+# Stakeholder Register – FlexiShift
 
 ## 1. Purpose
-Records all individuals, groups, and organisations with an interest in or influence over the FreightFlex project. Used to guide communication, engagement, and expectation management throughout the project lifecycle.
+Records all individuals, groups, and organisations with an interest in or influence over the FlexiShift project. Used to guide communication, engagement, and expectation management throughout the project lifecycle.
 
 ## 2. Stakeholder Register
 

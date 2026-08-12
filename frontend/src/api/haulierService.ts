@@ -16,6 +16,8 @@ const mapSpendSummary = (data: {
 const haulierService = {
   // EPIC 1: Auth & Profile
   register: (data: Record<string, unknown>) => client.post('/auth/register', data).then(res => res.data),
+  uploadOrganisationDocument: (formData: FormData) =>
+    client.post('/auth/register/organisation-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data) as Promise<{ fileUrl: string }>,
   verifyEmail: (data: { email: string, otp: string }) => client.post('/auth/verify-email', data).then(res => res.data),
   resendOTP: (email: string) => client.post('/auth/resend-verification', { email }).then(res => res.data),
   login: (data: Record<string, unknown>) => client.post('/auth/login', data).then(res => res.data),
@@ -36,6 +38,8 @@ const haulierService = {
   },
   uploadLogo: (formData: FormData) => client.post('/profile/photo/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data),
   deactivateAccount: (data: Record<string, unknown>) => client.put('/profile/deactivate', data).then(res => res.data),
+  saveEsignature: (esignatureData: string) => client.put('/profile/esignature', { esignatureData }).then(res => res.data),
+  deleteEsignature: () => client.delete('/profile/esignature').then(res => res.data),
 
   // EPIC 2: Supplier Availability View
   getSupplierAvailability: (supplierId: string) => client.get(`/supplier/availability/${supplierId}`).then(res => res.data.data),
@@ -47,10 +51,20 @@ const haulierService = {
   getMyJobs: (params?: Record<string, unknown>) => client.get('/jobs/my-jobs', { params }).then(res => res.data.data),
   updateJob: (jobId: string, data: Record<string, unknown>) => client.put(`/jobs/update/${jobId}`, data).then(res => res.data),
   cancelJob: (jobId: string, data: { reason: string }) => client.put(`/jobs/cancel/${jobId}`, data).then(res => res.data),
+  requestRefund: (jobId: string) => client.post(`/jobs/${jobId}/payment/refund`).then(res => res.data),
   closeJob: (jobId: string, data: { reason: string }) => client.put(`/jobs/close/${jobId}`, data).then(res => res.data),
   validateAddress: (address: string) => client.post('/maps/validate-address', { address }).then(res => res.data.data),
   calculateRoute: (data: Record<string, unknown>) => client.post('/maps/calculate-route', data).then(res => res.data.data),
   addressAutocomplete: (query: string) => client.get(`/maps/autocomplete`, { params: { input: query } }).then(res => res.data.data),
+  getPlaceDetails: (placeId: string) => client.get('/maps/place-details', { params: { place_id: placeId } }).then(res => res.data.data),
+  getRoute: (originLat: number, originLng: number, destLat: number, destLng: number, waypoints?: Array<{ lat: number; lng: number }>) =>
+    client.get('/maps/route', { params: {
+      origin_lat: originLat, origin_lng: originLng,
+      dest_lat: destLat, dest_lng: destLng,
+      ...(waypoints?.length ? { waypoints: JSON.stringify(waypoints) } : {}),
+    }}).then(res => res.data.data),
+  getRouteSuggestions: (pickupAddress: string, dropAddress: string, maxStops = 3) =>
+    client.get('/maps/route-stops', { params: { pickupAddress, dropAddress, maxStops } }).then(res => res.data.data),
   matchSuppliers: (jobId: string) => client.get(`/jobs/match-suppliers/${jobId}`).then(res => res.data.data),
   listQuotesForJob: (jobId: string, params?: Record<string, unknown>) => client.get(`/quotes/list/${jobId}`, { params }).then(res => res.data.data),
   getSingleQuote: (quoteId: string) => client.get(`/quotes/${quoteId}`).then(res => res.data.data),
@@ -63,32 +77,33 @@ const haulierService = {
   listAllBookings: (params?: Record<string, unknown>) => client.get('/bookings/list', { params }).then(res => res.data.data),
   cancelBooking: (bookingId: string, data: { reason: string }) => client.put(`/bookings/cancel/${bookingId}`, data).then(res => res.data),
   initiatePayment: (data: Record<string, unknown>) => client.post('/payments/initiate', data).then(res => res.data.data),
-  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+  verifyPayment: (data: { paymentIntentId: string }) =>
     client.post('/payments/verify', data).then(res => res.data.data),
   checkPaymentStatus: (paymentId: string) => client.get(`/payments/status/${paymentId}`).then(res => res.data.data),
   releasePayment: (bookingId: string, data: { approvalNote: string }) => client.post(`/payments/release/${bookingId}`, data).then(res => res.data),
   getPaymentHistory: (params?: Record<string, unknown>) => client.get('/payments/history', { params }).then(res => res.data.data),
-  addPaymentMethod: (data: Record<string, unknown>) => client.post('/payments/methods/add', data).then(res => res.data),
-  listPaymentMethods: () => client.get('/payments/methods/list').then(res => res.data.data),
-  deletePaymentMethod: (methodId: string) => client.delete(`/payments/methods/delete/${methodId}`).then(res => res.data),
+  createSetupIntent: () => client.post('/payments/setup-intent').then(res => res.data.data),
+  listSavedCards: () => client.get('/payments/saved-cards').then(res => res.data.data),
+  listPaymentMethods: () => client.get('/payments/saved-cards').then(res => res.data.data),
+  deleteSavedCard: (paymentMethodId: string) => client.delete(`/payments/saved-cards/${paymentMethodId}`).then(res => res.data),
   getInvoiceDetails: (invoiceId: string) => client.get(`/invoices/${invoiceId}`).then(res => res.data.data),
   listInvoices: (params?: Record<string, unknown>) => client.get('/invoices/list', { params }).then(res => res.data.data),
   downloadInvoicePDF: (invoiceId: string) => client.get(`/invoices/download/${invoiceId}`, { responseType: 'blob' }).then(res => res.data),
 
   // EPIC 5: Compliance Workflow
   getLoadCodeStatus: (jobId: string) => client.get(`/compliance/load-code/status/${jobId}`).then(res => res.data.data),
-  resendLoadCode: (data: { jobId: string, bookingId: string }) => client.post('/compliance/load-code/resend', data).then(res => res.data),
   viewHandoverPhotos: (jobId: string) => client.get(`/compliance/handover/photos/list/${jobId}`).then(res => res.data.data),
   submitDigitalSignature: (data: Record<string, unknown>) => client.post('/compliance/handover/sign/haulier', data).then(res => res.data),
   getHandoverStatus: (jobId: string) => client.get(`/compliance/handover/status/${jobId}`).then(res => res.data.data),
   approveDelivery: (jobId: string, data: { bookingId: string, approvalNote: string }) => client.post(`/compliance/delivery/approve/${jobId}`, data).then(res => res.data),
   disputeDelivery: (jobId: string, data: Record<string, unknown>) => client.post(`/compliance/delivery/dispute/${jobId}`, data).then(res => res.data),
+  getDeliveryDetails: (jobId: string) => client.get(`/compliance/delivery/status/${jobId}`).then(res => res.data.data),
   getDeliveryStatus: (jobId: string) => client.get(`/compliance/delivery/status/${jobId}`).then(res => res.data.data),
   getFullComplianceStatus: (jobId: string) => client.get(`/compliance/full-status/${jobId}`).then(res => res.data.data),
   listMyDocuments: () => client.get('/users/me/documents').then(res => res.data.data),
   getDocumentUploadUrl: (docType: string) => client.get('/users/me/documents/upload-url', { params: { doc_type: docType } }).then(res => res.data.data),
   submitDocument: (params: { docType: string; fileUrl: string }) => client.post('/users/me/documents', null, { params: { doc_type: params.docType, file_url: params.fileUrl } }).then(res => res.data.data),
-  submitUploadedDocument: (params: { docType: string; key: string }) => client.post('/users/me/documents/submit-upload', null, { params: { doc_type: params.docType, key: params.key } }).then(res => res.data.data),
+  submitUploadedDocument: (params: { docType: string; key: string; expiryDate?: string }) => client.post('/users/me/documents/submit-upload', null, { params: { doc_type: params.docType, key: params.key, ...(params.expiryDate ? { expiry_date: params.expiryDate } : {}) } }).then(res => res.data.data),
 
   // EPIC 6: Live Tracking & ETA
   getLiveDriverLocation: (jobId: string) => client.get(`/tracking/live/${jobId}`).then(res => res.data.data),
@@ -99,6 +114,10 @@ const haulierService = {
   getOverview: () => client.get('/dashboard/haulier/overview').then(res => res.data.data),
   getActiveJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/active', { params }).then(res => res.data.data),
   getPendingApprovalJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/pending-approval', { params }).then(res => res.data.data),
+  getCompletedJobs: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/jobs/completed', { params }).then(res => res.data.data),
+  getPendingShiftPayments: () => client.get('/dashboard/haulier/shifts/pending-payment').then(res => res.data.data),
+  getCompletedShifts: () => client.get('/dashboard/haulier/shifts/completed').then(res => res.data.data),
+  listDisputes: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/disputes', { params }).then(res => res.data.data),
   getSpendSummary: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/spend-summary', { params }).then(res => mapSpendSummary(res.data.data)),
   getRevenueAnalytics: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/revenue', { params }).then(res => res.data.data),
   getPerformanceAnalytics: (params?: Record<string, unknown>) => client.get('/dashboard/haulier/performance', { params }).then(res => res.data.data),
@@ -118,6 +137,8 @@ const haulierService = {
 
   // EPIC 8: Ratings
   submitRating: (data: Record<string, unknown>) => client.post('/ratings/submit', data).then(res => res.data),
+  submitShiftRating: (shiftId: string, data: { ratedUserId: string; stars: number; review?: string }) =>
+    client.post(`/shifts/${shiftId}/rating`, data).then(res => res.data),
   viewDriverRatings: (userId: string, params?: Record<string, unknown>) => client.get(`/ratings/user/${userId}`, { params }).then(res => res.data.data),
   getJobRatings: (jobId: string) => client.get(`/ratings/job/${jobId}`).then(res => res.data.data),
   getDriverRatingSummary: (userId: string) => client.get(`/ratings/summary/${userId}`).then(res => res.data.data),
@@ -145,6 +166,42 @@ const haulierService = {
   listShiftQuotes: (shiftId: string) => client.get(`/shifts/${shiftId}/quotes`).then(res => res.data.data),
   acceptShiftQuote: (shiftId: string, quoteId: string) => client.post(`/shifts/${shiftId}/quotes/${quoteId}/accept`).then(res => res.data.data),
   completeShiftDay: (shiftId: string) => client.post(`/shifts/${shiftId}/days/complete`).then(res => res.data.data),
+  // Shift day payments
+  createShiftDayPayment: (shiftId: string) =>
+    client.post(`/shifts/${shiftId}/days/payment`).then(res => res.data.data) as Promise<{
+      paymentId: string; dayNumber: number; totalDays: number;
+      gatewayOrderId: string; clientSecret: string;
+      amount: number; currency: string; publishableKey: string;
+      driverAmount: number; platformFee: number;
+    }>,
+  verifyShiftDayPayment: (shiftId: string, dayNumber: number, paymentIntentId: string) =>
+    client.post(`/shifts/${shiftId}/days/payment/verify`, { dayNumber, paymentIntentId }).then(res => res.data.data),
+  // Single-day shift payment (job-style — no day numbers)
+  initiateShiftPayment: (shiftId: string) =>
+    client.post(`/shifts/${shiftId}/payment`).then(res => res.data.data) as Promise<{
+      paymentId: string; gatewayOrderId: string; clientSecret: string;
+      amount: number; currency: string; publishableKey: string;
+      driverAmount: number; platformFee: number;
+    }>,
+  verifyShiftPayment: (shiftId: string, paymentIntentId: string) =>
+    client.post(`/shifts/${shiftId}/payment/verify`, { paymentIntentId }).then(res => res.data.data),
+  getShiftDriverLocation: (shiftId: string) =>
+    client.get(`/shifts/${shiftId}/driver-location`).then(res => res.data.data) as Promise<{
+      driverId: string; driverName: string;
+      latitude: number | null; longitude: number | null;
+    }>,
+  signShiftHandover: (shiftId: string, signatureData: string) =>
+    client.post(`/shifts/${shiftId}/handover/sign`, { signatureData }).then(res => res.data),
+  getShiftHandoverStatus: (shiftId: string) =>
+    client.get(`/shifts/${shiftId}/handover/status`).then(res => res.data.data) as Promise<{
+      handoverSubmitted: boolean;
+      handoverSubmittedAt: string | null;
+      checklistData: Record<string, boolean>;
+      photoUrls: string[];
+      driverSignatureData: string | null;
+      handoverHaulierSigned: boolean;
+      handoverHaulierSignedAt: string | null;
+    }>,
 
   // File Management
   uploadFile: (formData: FormData) => client.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data.data),

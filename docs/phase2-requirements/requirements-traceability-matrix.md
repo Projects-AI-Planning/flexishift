@@ -1,9 +1,9 @@
-# Requirements Traceability Matrix (RTM) – FreightFlex
+# Requirements Traceability Matrix (RTM) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Requirements Traceability Matrix (RTM) |
 | Version | 1.0 |
 | Date | 2026-04-25 |

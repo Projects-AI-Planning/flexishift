@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
@@ -112,7 +112,7 @@ def mark_read(
     notif = db.get(Notification, notification_id)
     if not notif or notif.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Notification not found")
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     if not notif.read_at:
         notif.read_at = now
         db.commit()
@@ -131,7 +131,7 @@ def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     count = (
         db.query(Notification)
         .filter(Notification.user_id == current_user.id, Notification.read_at.is_(None))
@@ -158,7 +158,7 @@ def delete_notification(
     return ok(
         data={
             "notificationId": notification_id,
-            "deletedAt": datetime.now(timezone.utc).isoformat(),
+            "deletedAt": datetime.utcnow().isoformat(),
         },
         message="Notification deleted successfully.",
     )
@@ -209,7 +209,7 @@ def update_preferences(
     return ok(
         data={
             "userId": current_user.id,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.utcnow().isoformat(),
         },
         message="Notification preferences updated successfully.",
     )
@@ -228,7 +228,7 @@ def register_fcm_token(
             "userId": current_user.id,
             "deviceId": body.device_id,
             "deviceType": body.device_type,
-            "registeredAt": datetime.now(timezone.utc).isoformat(),
+            "registeredAt": datetime.utcnow().isoformat(),
         },
         message="FCM token registered successfully.",
     )

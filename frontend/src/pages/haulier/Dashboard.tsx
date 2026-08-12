@@ -1,126 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { GoogleMap, Marker, Polyline, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
 import { useHaulierOverview } from '../../hooks/useHaulier';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/currency';
 import type { LiveDelivery } from '../../types';
 
-/* ── Signature Modal ─────────────────────────────────────────────────────────── */
-type SigPoint = { x: number; y: number };
+const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
-const DashboardSignModal: React.FC<{
-  job: { jobId: string; jobReference: string };
-  onClose: () => void;
-  onSigned: (jobId: string) => void;
-}> = ({ job, onClose, onSigned }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const lastPt = useRef<SigPoint | null>(null);
-  const [hasStrokes, setHasStrokes] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const getPos = (e: React.MouseEvent | React.TouchEvent): SigPoint => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const sx = canvasRef.current!.width / rect.width;
-    const sy = canvasRef.current!.height / rect.height;
-    if ('touches' in e) return { x: (e.touches[0].clientX - rect.left) * sx, y: (e.touches[0].clientY - rect.top) * sy };
-    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+function makeGIcon(color: string, emoji?: string): google.maps.Icon {
+  const content = emoji
+    ? `<text x="15" y="20" text-anchor="middle" font-size="13">${emoji}</text>`
+    : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="13" fill="${color}" stroke="white" stroke-width="2.5"/>${content}</svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: { width: 30, height: 30 } as google.maps.Size,
+    anchor: { x: 15, y: 15 } as google.maps.Point,
   };
+}
 
-  const start = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); drawing.current = true; lastPt.current = getPos(e); setHasStrokes(true); };
-  const move = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (!drawing.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const pt = getPos(e);
-    ctx.beginPath(); ctx.moveTo(lastPt.current!.x, lastPt.current!.y); ctx.lineTo(pt.x, pt.y);
-    ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
-    lastPt.current = pt;
-  };
-  const end = () => { drawing.current = false; lastPt.current = null; };
-  const clear = () => { canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); setHasStrokes(false); };
-
-  const submit = async () => {
-    if (!canvasRef.current || !hasStrokes) return;
-    setLoading(true); setError('');
-    try {
-      await haulierService.submitDigitalSignature({ jobId: job.jobId, signatureData: canvasRef.current.toDataURL('image/png') });
-      onSigned(job.jobId);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string; detail?: string } } };
-      setError(e?.response?.data?.message ?? e?.response?.data?.detail ?? 'Failed to submit. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1066b1]">Step 2 · Handover</p>
-            <h2 className="text-xl font-black text-[#041627]">Haulier Signature</h2>
-            <p className="text-sm text-slate-500">Job: <span className="font-bold">{job.jobReference}</span></p>
-          </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <p className="mb-3 text-sm text-[#44474C]">Draw your signature to confirm dispatch officer vehicle release.</p>
-        <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-          <canvas ref={canvasRef} width={560} height={200} className="w-full cursor-crosshair touch-none"
-            onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-            onTouchStart={start} onTouchMove={move} onTouchEnd={end}
-          />
-          {!hasStrokes && <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm italic text-slate-300 select-none">Draw your signature here</p>}
-        </div>
-        <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-slate-400">DISPATCH OFFICER CONFIRMATION OF VEHICLE RELEASE</p>
-        {error && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
-        <div className="mt-5 flex gap-3">
-          <button onClick={clear} disabled={loading} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-black text-[#44474C] transition hover:bg-slate-50 disabled:opacity-40">Clear</button>
-          <button onClick={() => void submit()} disabled={loading || !hasStrokes} className="flex-1 rounded-2xl bg-slate-900 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:opacity-40">
-            {loading ? 'Submitting…' : 'Confirm Signature'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-const truckIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:34px;height:34px;border-radius:999px;background:#2563eb;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(37,99,235,.26);font-size:16px;">🚚</div>',
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -18],
-});
-
-const pickupIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:26px;height:26px;border-radius:999px;background:#f59e0b;border:3px solid #fff;box-shadow:0 8px 20px rgba(245,158,11,.24);"></div>',
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
-  popupAnchor: [0, -14],
-});
-
-const destinationIcon = new L.DivIcon({
-  className: '',
-  html: '<div style="width:26px;height:26px;border-radius:999px;background:#10b981;border:3px solid #fff;box-shadow:0 8px 20px rgba(16,185,129,.24);"></div>',
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
-  popupAnchor: [0, -14],
-});
+const TRUCK_ICON       = makeGIcon('#2563eb', '🚚');
+const PICKUP_ICON      = makeGIcon('#f59e0b');
+const DESTINATION_ICON = makeGIcon('#10b981');
 
 interface DashboardData {
   summary?: {
@@ -153,7 +56,7 @@ type ActiveMapData = {
   deliveries: LiveDelivery[];
 };
 
-const formatCurrency = (value: number) => `£${value.toLocaleString('en-GB')}`;
+const formatCurrency = (value: number, currency?: string) => fmtMoney(value, currency);
 
 const toneForStatus = (status?: string) => {
   if (!status) return 'bg-[#1066b1]/15 text-[#083d7a]';
@@ -170,47 +73,21 @@ const stripLocation = (location?: string | { address?: string | null } | null) =
   return location.address || 'Unknown location';
 };
 
-function FlyToDelivery({ delivery }: { delivery: LiveDelivery | null }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (delivery?.currentLocation) {
-      map.flyTo([delivery.currentLocation.latitude, delivery.currentLocation.longitude], 12, {
-        duration: 1,
-      });
-      return;
-    }
-
-    if (delivery?.pickupLat != null && delivery?.pickupLng != null) {
-      map.flyTo([delivery.pickupLat, delivery.pickupLng], 10, {
-        duration: 1,
-      });
-    }
-  }, [delivery, map]);
-
-  return null;
-}
-
-type HandoverInfo = {
-  jobId: string;
-  jobReference: string;
-  route: string;
-  driverSigned: boolean;
-  haulierSigned: boolean;
-  driverSignedAt?: string | null;
-  haulierSignedAt?: string | null;
-  loading: boolean;
-};
+// Google Maps equivalent of FlyToDelivery — handled via mapRef.panTo() in the main component
 
 const HaulierOverview: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const { data, loading, error, refresh } = useHaulierOverview();
   const [mapData, setMapData] = useState<ActiveMapData | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
-  const [handoverRows, setHandoverRows] = useState<HandoverInfo[]>([]);
-  const [sigModalJob, setSigModalJob] = useState<{ jobId: string; jobReference: string } | null>(null);
+
+  // Recent notifications for Critical Alerts section
+  type RecentNotif = { notificationId: string; type: string; title: string; message: string; createdAt?: string | null; isRead: boolean };
+  const [recentNotifs, setRecentNotifs] = useState<RecentNotif[]>([]);
 
   const dashboardData = useMemo(() => data as DashboardData | null, [data]);
   const summary = dashboardData?.summary ?? {};
@@ -277,75 +154,50 @@ const HaulierOverview: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [loadMap]);
 
-  // Load handover status for every payment-secured / in-transit job
   useEffect(() => {
-    const jobs = (data as DashboardData | null)?.activeJobs ?? [];
-    if (!jobs.length) { setHandoverRows([]); return; }
-    let cancelled = false;
-
-    // seed with loading placeholders
-    const seed: HandoverInfo[] = jobs
-      .filter((j) => j.jobId)
-      .map((j) => ({
-        jobId: j.jobId!,
-        jobReference: j.jobReference,
-        route: `${stripLocation(j.pickupLocation)} → ${stripLocation(j.dropLocation)}`,
-        driverSigned: false,
-        haulierSigned: false,
-        loading: true,
-      }));
-    if (!cancelled) setHandoverRows(seed);
-
-    void Promise.all(
-      seed.map(async (row) => {
-        try {
-          const s = await haulierService.getHandoverStatus(row.jobId) as {
-            driverSigned?: boolean;
-            haulierSigned?: boolean;
-            driverSignedAt?: string | null;
-            haulierSignedAt?: string | null;
-          };
-          return { ...row, driverSigned: Boolean(s?.driverSigned), haulierSigned: Boolean(s?.haulierSigned), driverSignedAt: s?.driverSignedAt, haulierSignedAt: s?.haulierSignedAt, loading: false };
-        } catch {
-          return { ...row, loading: false };
-        }
-      }),
-    ).then((rows) => { if (!cancelled) setHandoverRows(rows); });
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+    haulierService.getNotifications({ page: 1, limit: 5 })
+      .then((res: unknown) => {
+        const r = res as { notifications?: RecentNotif[]; items?: RecentNotif[] };
+        setRecentNotifs(r.notifications ?? r.items ?? []);
+      })
+      .catch(() => { /* silently fail */ });
+  }, []);
 
   const deliveries = mapData?.deliveries ?? [];
   const selectedDelivery = deliveries.find((delivery) => delivery.jobId === selectedDeliveryId) ?? deliveries[0] ?? null;
 
-  const routePoints = useMemo(() => {
-    if (!selectedDelivery) return [] as [number, number][];
-    const points: [number, number][] = [];
-    if (selectedDelivery.pickupLat != null && selectedDelivery.pickupLng != null) {
-      points.push([selectedDelivery.pickupLat, selectedDelivery.pickupLng]);
-    }
-    if (selectedDelivery.currentLocation) {
-      points.push([selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude]);
-    }
-    if (selectedDelivery.dropLat != null && selectedDelivery.dropLng != null) {
-      points.push([selectedDelivery.dropLat, selectedDelivery.dropLng]);
-    }
-    return points;
+  const { isLoaded: mapIsLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: GMAPS_KEY });
+  const dashMapRef = useRef<google.maps.Map | null>(null);
+  const [dashMapReady, setDashMapReady] = useState(false);
+  const [activeMapInfo, setActiveMapInfo] = useState<'pickup' | 'truck' | 'drop' | null>(null);
+
+  const routePoints = useMemo<google.maps.LatLngLiteral[]>(() => {
+    if (!selectedDelivery) return [];
+    const pts: google.maps.LatLngLiteral[] = [];
+    if (selectedDelivery.pickupLat != null && selectedDelivery.pickupLng != null)
+      pts.push({ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng });
+    if (selectedDelivery.currentLocation)
+      pts.push({ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude });
+    if (selectedDelivery.dropLat != null && selectedDelivery.dropLng != null)
+      pts.push({ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng });
+    return pts;
   }, [selectedDelivery]);
 
-  const mapCenter = useMemo<[number, number]>(() => {
-    if (selectedDelivery?.currentLocation) {
-      return [selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude];
-    }
-    if (selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null) {
-      return [selectedDelivery.pickupLat, selectedDelivery.pickupLng];
-    }
-    if (selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null) {
-      return [selectedDelivery.dropLat, selectedDelivery.dropLng];
-    }
-    return [20.5937, 78.9629];
+  const mapCenter = useMemo<google.maps.LatLngLiteral>(() => {
+    if (selectedDelivery?.currentLocation)
+      return { lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude };
+    if (selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null)
+      return { lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng };
+    if (selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null)
+      return { lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng };
+    return { lat: 20.5937, lng: 78.9629 };
   }, [selectedDelivery]);
+
+  // Pan map when selected delivery changes
+  useEffect(() => {
+    if (!dashMapRef.current) return;
+    dashMapRef.current.panTo(mapCenter);
+  }, [mapCenter]);
 
   if (error) {
     return (
@@ -373,86 +225,6 @@ const HaulierOverview: React.FC = () => {
 
   return (
     <div className="relative w-full space-y-4 sm:space-y-6 lg:space-y-8 min-w-0 overflow-x-hidden">
-      {/* Signature modal */}
-      {sigModalJob && (
-        <DashboardSignModal
-          job={sigModalJob}
-          onClose={() => setSigModalJob(null)}
-          onSigned={(jobId) => {
-            setSigModalJob(null);
-            setHandoverRows((prev) =>
-              prev.map((r) => r.jobId === jobId ? { ...r, haulierSigned: true, haulierSignedAt: new Date().toISOString() } : r)
-            );
-          }}
-        />
-      )}
-
-      {/* ── Vehicle Handover Sign ───────────────────────────────────────────── */}
-      {handoverRows.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border-2 border-[#1066b1] bg-white shadow-[0_12px_35px_rgba(245,158,11,0.12)]">
-          <div className="flex flex-wrap items-center gap-3 border-b border-[#1066b1]/15 bg-[#1066b1]/10 px-4 py-3 sm:px-6 sm:py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1066b1] text-white">
-              <span className="material-symbols-outlined text-sm">draw</span>
-            </span>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-black text-[#062f5e] text-base sm:text-lg">Vehicle Handover Signatures</h2>
-              <p className="text-xs sm:text-sm text-[#0a4a8f]">Sign each active job to authorise vehicle release.</p>
-            </div>
-            {handoverRows.filter((r) => !r.haulierSigned).length > 0 && (
-              <span className="rounded-full bg-[#1066b1] px-2.5 py-1 text-xs font-black text-white shrink-0">
-                {handoverRows.filter((r) => !r.haulierSigned).length} pending
-              </span>
-            )}
-          </div>
-          <div className="divide-y divide-slate-100">
-            {handoverRows.map((row) => (
-              <div key={row.jobId} className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6 ${!row.haulierSigned ? 'bg-[#1066b1]/10/30' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-black text-[#041627] text-sm">{row.jobReference}</p>
-                    {row.driverSigned && !row.haulierSigned && (
-                      <span className="rounded-full bg-[#1066b1]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0a4a8f]">Driver signed</span>
-                    )}
-                    {row.haulierSigned && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">Both signed ✓</span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-slate-500 truncate">{row.route}</p>
-                  <div className="mt-1.5 flex gap-3 text-xs">
-                    <span className={`flex items-center gap-1 font-semibold ${row.driverSigned ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      <span className="material-symbols-outlined text-sm">{row.driverSigned ? 'check_circle' : 'radio_button_unchecked'}</span>
-                      Driver
-                    </span>
-                    <span className={`flex items-center gap-1 font-semibold ${row.haulierSigned ? 'text-emerald-600' : 'text-[#1066b1]'}`}>
-                      <span className="material-symbols-outlined text-sm">{row.haulierSigned ? 'check_circle' : 'pending'}</span>
-                      You
-                    </span>
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  {row.loading ? (
-                    <span className="text-xs text-slate-400">Loading…</span>
-                  ) : row.haulierSigned ? (
-                    <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
-                      <span className="material-symbols-outlined text-sm">verified</span>
-                      Signed {row.haulierSignedAt && <span className="font-normal text-emerald-500">{new Date(row.haulierSignedAt).toLocaleDateString('en-GB')}</span>}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setSigModalJob({ jobId: row.jobId, jobReference: row.jobReference })}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1066b1] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#0a4a8f] active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-sm">draw</span>
-                      Sign Now
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-4 py-5 sm:px-6 sm:py-7 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
         <div className="absolute inset-0 opacity-20" style={{
@@ -462,7 +234,7 @@ const HaulierOverview: React.FC = () => {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#1066b1]">Haulier Dashboard</p>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Fleet Overview</h1>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white">Operations Overview</h1>
             <p className="mt-1 text-xs sm:text-sm font-medium text-slate-300">Real-time status of your logistics operations.</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -494,7 +266,7 @@ const HaulierOverview: React.FC = () => {
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">+12.5%</span>
           </div>
           <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Total Spend</p>
-          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627] truncate">{formatCurrency(stats.totalSpend)}</h3>
+          <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627] truncate">{formatCurrency(stats.totalSpend, userCurrency)}</h3>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
@@ -527,7 +299,7 @@ const HaulierOverview: React.FC = () => {
             </div>
             <span className="rounded-full bg-[#1066b1]/10 px-2 py-0.5 text-[10px] font-black text-[#0a4a8f]">Optimal</span>
           </div>
-          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Fleet Use</p>
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">On Time Rate</p>
           <h3 className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-[#041627]">{stats.fleetUtilization}%</h3>
         </article>
       </section>
@@ -541,7 +313,7 @@ const HaulierOverview: React.FC = () => {
                 <span className="material-symbols-outlined text-lg">map</span>
               </span>
               <div className="min-w-0">
-                <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627] truncate">Live Fleet Tracking</h3>
+                <h3 className="text-base sm:text-xl font-black tracking-tight text-[#041627] truncate">Live Tracking</h3>
                 <p className="hidden sm:block text-xs text-slate-500">Live map powered by active delivery coordinates.</p>
               </div>
             </div>
@@ -566,38 +338,40 @@ const HaulierOverview: React.FC = () => {
                   <p className="font-black text-[#041627] text-sm">Loading map…</p>
                 </div>
               </div>
-            ) : (
-              <MapContainer center={mapCenter} zoom={6} className="h-full w-full">
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <FlyToDelivery delivery={selectedDelivery} />
+            ) : mapIsLoaded ? (
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={mapCenter}
+                zoom={6}
+                options={{ mapTypeControl: false, streetViewControl: false, styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }] }}
+                onLoad={(map) => { dashMapRef.current = map; setDashMapReady(true); }}
+              >
+                {dashMapReady && (<>
                 {selectedDelivery?.pickupLat != null && selectedDelivery?.pickupLng != null && (
-                  <Marker position={[selectedDelivery.pickupLat, selectedDelivery.pickupLng]} icon={pickupIcon}>
-                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Pickup</p><p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p></div></Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng }} icon={PICKUP_ICON} onClick={() => setActiveMapInfo('pickup')} />
+                    {activeMapInfo === 'pickup' && <InfoWindow position={{ lat: selectedDelivery.pickupLat, lng: selectedDelivery.pickupLng }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Pickup</p><p className="text-slate-500">{selectedDelivery.pickupLocation ?? 'Pickup location'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {selectedDelivery?.currentLocation && (
-                  <Marker position={[selectedDelivery.currentLocation.latitude, selectedDelivery.currentLocation.longitude]} icon={truckIcon}>
-                    <Popup>
-                      <div className="min-w-[180px] text-sm">
-                        <p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p>
-                        <p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p>
-                        <p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-IN') : 'No ping'}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude }} icon={TRUCK_ICON} onClick={() => setActiveMapInfo('truck')} />
+                    {activeMapInfo === 'truck' && <InfoWindow position={{ lat: selectedDelivery.currentLocation.latitude, lng: selectedDelivery.currentLocation.longitude }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[180px] text-sm"><p className="font-black text-[#041627]">{selectedDelivery.jobRef ?? selectedDelivery.jobId}</p><p className="text-slate-500">{selectedDelivery.driver?.name ?? 'Driver not assigned'}</p><p className="mt-1 text-xs text-slate-500">{selectedDelivery.currentLocation.lastUpdatedAt ? new Date(selectedDelivery.currentLocation.lastUpdatedAt).toLocaleString('en-US') : 'No ping'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {selectedDelivery?.dropLat != null && selectedDelivery?.dropLng != null && (
-                  <Marker position={[selectedDelivery.dropLat, selectedDelivery.dropLng]} icon={destinationIcon}>
-                    <Popup><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Destination</p><p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p></div></Popup>
-                  </Marker>
+                  <>
+                    <Marker position={{ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng }} icon={DESTINATION_ICON} onClick={() => setActiveMapInfo('drop')} />
+                    {activeMapInfo === 'drop' && <InfoWindow position={{ lat: selectedDelivery.dropLat, lng: selectedDelivery.dropLng }} onCloseClick={() => setActiveMapInfo(null)}><div className="min-w-[160px] text-sm"><p className="font-black text-[#041627]">Destination</p><p className="text-slate-500">{selectedDelivery.dropLocation ?? 'Drop location'}</p></div></InfoWindow>}
+                  </>
                 )}
                 {routePoints.length >= 2 && (
-                  <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
+                  <Polyline path={routePoints.filter(p => p != null)} options={{ strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 }} />
                 )}
-              </MapContainer>
+                </>)}
+              </GoogleMap>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading map…</div>
             )}
             <div className="absolute bottom-3 left-3 z-[450] rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur">
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">Legend</p>
@@ -627,22 +401,42 @@ const HaulierOverview: React.FC = () => {
           </div>
 
           <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Critical Alerts</h3>
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-3 rounded-xl border border-rose-100 bg-rose-50 p-3">
-                <span className="material-symbols-outlined text-rose-600 text-base shrink-0">warning</span>
-                <div>
-                  <p className="text-sm font-black text-[#041627]">TRK-119 Delay</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">Severe traffic on M25. ETA +45m.</p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Recent Notifications</h3>
+              <button onClick={() => navigate('/haulier/notifications')} className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline">
+                View All
+              </button>
+            </div>
+            <div className="space-y-3">
+              {recentNotifs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <span className="material-symbols-outlined text-2xl text-slate-300">notifications_none</span>
+                  <p className="mt-2 text-xs text-slate-400">No recent notifications</p>
                 </div>
-              </div>
-              <div className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                <span className="material-symbols-outlined text-[#44474C] text-base shrink-0">info</span>
-                <div>
-                  <p className="text-sm font-black text-[#041627]">Maintenance Due</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[#44474C]">FLT-09 needs oil service in 250mi.</p>
-                </div>
-              </div>
+              ) : (
+                recentNotifs.map((n) => {
+                  const isAlert = /EXPIRE|REJECT|WARN|DISPUTE|CRITICAL/i.test(n.type);
+                  return (
+                    <div key={n.notificationId} className={`flex gap-3 rounded-xl border p-3 ${isAlert ? 'border-rose-100 bg-rose-50' : 'border-slate-100 bg-slate-50'} ${!n.isRead ? 'ring-1 ring-primary/20' : ''}`}>
+                      <span className={`material-symbols-outlined text-base shrink-0 ${isAlert ? 'text-rose-500' : 'text-slate-400'}`}>
+                        {isAlert ? 'warning' : 'notifications'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-black text-[#041627] truncate">{n.title}</p>
+                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                        </div>
+                        <p className="mt-0.5 text-xs leading-relaxed text-[#44474C] line-clamp-2">{n.message}</p>
+                        {n.createdAt && (
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {new Date(n.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </aside>
@@ -703,7 +497,7 @@ const HaulierOverview: React.FC = () => {
                   </td>
                 </tr>
               ) : activeJobs.map((job) => (
-                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? 'bg-[#1066b1]/10/60' : job.paymentRequired ? 'bg-[#1066b1]/10/40' : ''}`}>
+                <tr key={job.id} className={`transition hover:bg-slate-50/70 ${job.paymentRequired ? 'bg-[#1066b1]/10/40' : ''}`}>
                   <td className="px-6 py-5">
                     <p className="font-black text-[#041627] text-sm">{job.id}</p>
                     {job.distanceKm != null && (
@@ -744,14 +538,6 @@ const HaulierOverview: React.FC = () => {
                       >
                         <span className="material-symbols-outlined text-sm">lock</span>
                         Secure Payment
-                      </button>
-                    ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
-                      <button
-                        onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
-                        className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#1066b1] bg-[#1066b1]/10 px-3 py-2 text-xs font-black text-[#083d7a] shadow-sm transition hover:bg-[#1066b1] hover:text-white active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-sm">draw</span>
-                        Sign Handover
                       </button>
                     ) : (
                       <button
@@ -802,14 +588,6 @@ const HaulierOverview: React.FC = () => {
                     <span className="material-symbols-outlined text-sm">lock</span>
                     Pay
                   </button>
-                ) : handoverRows.some((r) => r.jobId === job.jobId && !r.haulierSigned) ? (
-                  <button
-                    onClick={() => { if (job.jobId) setSigModalJob({ jobId: job.jobId, jobReference: job.id }); }}
-                    className="inline-flex items-center gap-1 rounded-xl border-2 border-[#1066b1] bg-white px-3 py-2 text-xs font-black text-[#083d7a] hover:bg-[#1066b1] hover:text-white transition"
-                  >
-                    <span className="material-symbols-outlined text-sm">draw</span>
-                    Sign
-                  </button>
                 ) : (
                   <button
                     onClick={() => navigate('/haulier/tracking')}
@@ -835,6 +613,7 @@ const HaulierOverview: React.FC = () => {
           </button>
         </div>
       </section>
+
     </div>
   );
 };

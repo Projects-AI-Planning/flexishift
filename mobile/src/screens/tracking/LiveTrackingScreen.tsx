@@ -231,7 +231,7 @@ const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
       {/* Floating call button */}
       <Pressable
         style={styles.callBtn}
-        onPress={() => Linking.openURL('tel:9226002903')}>
+        onPress={() => Linking.openURL('tel:8432551414')}>
         <Text style={styles.callBtnIcon}>📞</Text>
       </Pressable>
 

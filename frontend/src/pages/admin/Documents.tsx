@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import adminService from '../../api/adminService';
 
+const BACKEND_ORIGIN = (import.meta.env.VITE_API_URL as string ?? 'http://localhost:8000/api/v1').replace(/\/api\/v1\/?$/, '');
+
+const resolveDocUrl = (fileUrl: string | undefined): string => {
+  if (!fileUrl) return '';
+  if (fileUrl.startsWith('http')) return fileUrl;
+  return `${BACKEND_ORIGIN}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+};
+
 const DOC_TYPE_LABELS: Record<string, string> = {
   DRIVING_LICENCE: 'Driving Licence',
   VEHICLE_REG: 'Vehicle Registration (RC)',
@@ -12,14 +20,34 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 interface PendingDoc {
   documentId: string;
   docType: string;
+  customName?: string;
+  vehicleId?: string;
+  vehicleRegistration?: string;
   fileUrl: string;
   status: string;
   rejectionReason?: string;
   createdAt?: string;
+  updatedAt?: string;
+  expiryDate?: string;
+  isReapproval?: boolean;
+  rejectedDocuments?: RejectedDoc[];
   userName: string;
   userEmail: string;
   userRole: string;
   userPhone?: string;
+}
+
+interface RejectedDoc {
+  documentId: string;
+  docType: string;
+  customName?: string;
+  fileUrl?: string;
+  status: string;
+  rejectionReason?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  reviewedAt?: string | null;
+  isReapproval?: boolean;
 }
 
 interface RejectModalProps {
@@ -143,12 +171,19 @@ const DocumentsPage: React.FC = () => {
   );
 
   // Group documents by user
-  const byUser = docs.reduce<Record<string, { userName: string; userEmail: string; userRole: string; userPhone?: string; docs: PendingDoc[] }>>((acc, doc) => {
+  const byUser = docs.reduce<Record<string, { userName: string; userEmail: string; userRole: string; userPhone?: string; docs: PendingDoc[]; rejectedDocuments: RejectedDoc[] }>>((acc, doc) => {
     const key = doc.userEmail || doc.documentId;
     if (!acc[key]) {
-      acc[key] = { userName: doc.userName, userEmail: doc.userEmail, userRole: doc.userRole, userPhone: doc.userPhone, docs: [] };
+      acc[key] = { userName: doc.userName, userEmail: doc.userEmail, userRole: doc.userRole, userPhone: doc.userPhone, docs: [], rejectedDocuments: [] };
     }
     acc[key].docs.push(doc);
+    const seen = new Set(acc[key].rejectedDocuments.map((item) => item.documentId));
+    (doc.rejectedDocuments ?? []).forEach((item) => {
+      if (!seen.has(item.documentId)) {
+        seen.add(item.documentId);
+        acc[key].rejectedDocuments.push(item);
+      }
+    });
     return acc;
   }, {});
 
@@ -173,7 +208,7 @@ const DocumentsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">error</span>
-            {total} Pending Reviews
+            {total} {total === 1 ? 'Document' : 'Documents'} Pending Review
           </div>
           <button
             onClick={fetchDocs}
@@ -227,7 +262,7 @@ const DocumentsPage: React.FC = () => {
             </div>
           )}
 
-          {userEntries.map(([key, { userName, userEmail, userRole, docs: userDocs }]) => (
+          {userEntries.map(([key, { userName, userEmail, userRole, docs: userDocs, rejectedDocuments }]) => (
             <div key={key} className="bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto">
               {/* User header */}
               <div className="px-4 py-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sm:px-6">
@@ -247,6 +282,55 @@ const DocumentsPage: React.FC = () => {
                 </span>
               </div>
 
+              {rejectedDocuments.length > 0 && (
+                <div className="border-b border-slate-50 bg-red-50/40 px-4 py-4 sm:px-6">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-red-800">Rejected document history</p>
+                      <p className="text-xs font-medium text-red-700/70">Past rejection reasons for this driver.</p>
+                    </div>
+                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-black uppercase text-red-700">
+                      {rejectedDocuments.length} rejected
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {rejectedDocuments.map((history) => (
+                      <div key={history.documentId} className="rounded-xl border border-red-100 bg-white px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-primary">
+                              {history.customName ?? DOC_TYPE_LABELS[history.docType] ?? history.docType.replace(/_/g, ' ')}
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-red-700">
+                              {history.rejectionReason || 'Rejected by admin.'}
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                              {history.isReapproval ? 'Resubmitted ' : 'Rejected '}
+                              {new Date(history.updatedAt ?? history.reviewedAt ?? history.createdAt ?? Date.now()).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${history.isReapproval ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                              {history.isReapproval ? 'For reapproval' : 'Rejected'}
+                            </span>
+                            {resolveDocUrl(history.fileUrl) && (
+                              <a
+                                href={resolveDocUrl(history.fileUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-primary ring-1 ring-slate-200 hover:bg-slate-100"
+                              >
+                                View
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Documents */}
               <div className="px-4 py-4 space-y-4 sm:px-6">
                 {userDocs.map((doc) => (
@@ -257,30 +341,51 @@ const DocumentsPage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-bold text-primary text-sm">
-                          {DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
+                          {doc.customName ?? DOC_TYPE_LABELS[doc.docType] ?? doc.docType.replace(/_/g, ' ')}
                         </h4>
-                        <div className="flex items-center gap-2 mt-1">
+                        {doc.vehicleRegistration && (doc.docType === 'VEHICLE_REG' || doc.docType === 'VEHICLE_INSURANCE') && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '12px' }}>directions_car</span>
+                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">
+                              {doc.vehicleRegistration}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[10px] font-black uppercase text-amber-600">
-                            {doc.status}
+                            {doc.isReapproval ? 'REAPPROVAL' : doc.status}
                           </span>
                           {doc.createdAt && (
                             <span className="text-[10px] text-slate-400">
-                              · {new Date(doc.createdAt).toLocaleDateString()}
+                              · {new Date(doc.updatedAt ?? doc.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
+                          {doc.expiryDate && (
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${new Date(doc.expiryDate) < new Date() ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>event</span>
+                              Expires: {new Date(doc.expiryDate).toLocaleDateString()}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 md:flex-none px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-xs hover:bg-slate-50 transition-all flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">visibility</span>
-                        View Document
-                      </a>
+                      {resolveDocUrl(doc.fileUrl) ? (
+                        <a
+                          href={resolveDocUrl(doc.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 md:flex-none px-4 py-2 border border-slate-200 text-primary font-bold rounded-lg text-xs hover:bg-slate-50 transition-all flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">visibility</span>
+                          View Document
+                        </a>
+                      ) : (
+                        <span className="flex-1 md:flex-none px-4 py-2 border border-slate-100 text-slate-400 font-bold rounded-lg text-xs flex items-center gap-2 cursor-not-allowed">
+                          <span className="material-symbols-outlined text-sm">visibility_off</span>
+                          No File
+                        </span>
+                      )}
                       <button
                         onClick={() => handleApprove(doc.documentId)}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"

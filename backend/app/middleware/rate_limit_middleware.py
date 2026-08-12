@@ -1,5 +1,5 @@
 """
-FreightFlex – Rate Limiting Middleware
+FlexiShift – Rate Limiting Middleware
 Redis-based sliding window rate limiter
 Single Responsibility – only handles rate limiting
 """

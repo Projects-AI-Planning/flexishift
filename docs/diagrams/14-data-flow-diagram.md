@@ -10,7 +10,7 @@ flowchart LR
     GMAPS(["🗺️ Google Maps"])
     PGWY(["💳 Payment Gateway"])
 
-    FF(["⬡ FreightFlex\nPlatform"])
+    FF(["⬡ FlexiShift\nPlatform"])
 
     DRIVER -->|"Registration · Documents\nQuotes · Compliance data\nGPS location · Delivery proof"| FF
     FF -->|"Job offers · Booking confirmations\nPayment notifications · Invoices"| DRIVER
@@ -99,7 +99,7 @@ flowchart TD
     D(["👤 Driver / Firm"])
     GW(["💳 Gateway\n(Razorpay/Stripe)"])
 
-    subgraph FREIGHTFLEX["FreightFlex Platform"]
+    subgraph FLEXISHIFT["FlexiShift Platform"]
         PI["Payment\nInitiation"]
         WH["Webhook\nHandler"]
         ES["Escrow\nManager"]

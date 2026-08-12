@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class JobCreateRequest(BaseModel):
@@ -12,11 +12,22 @@ class JobCreateRequest(BaseModel):
     drop_lat: Optional[float] = Field(None, alias="dropLat")
     drop_lng: Optional[float] = Field(None, alias="dropLng")
     goods_type: str = Field(..., alias="goodsType")
-    weight_kg: float = Field(..., alias="weightKg")
-    vehicle_type: str = Field(..., alias="vehicleType")
+    weight_kg: Optional[float] = Field(None, alias="weightKg")
+    total_capacity: float = Field(..., alias="totalCapacity")
+    compartments: int = Field(..., alias="compartments")
+    compartment_details: Optional[List[dict]] = Field(None, alias="compartmentDetails")
+    special_instructions: Optional[str] = Field(None, alias="specialInstructions")
+    vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     job_date: date = Field(..., alias="jobDate")
     time_slot: str = Field(..., alias="timeSlot")
+    job_time: Optional[str] = Field(None, alias="jobTime")            # exact "Deliver By" time e.g. "15:00"
+    deliver_by_dt: Optional[str] = Field(None, alias="deliverByDt")   # full deliver-by datetime (UTC ISO)
     driver_requirement: Optional[str] = Field("DRIVER_WITH_TRUCK", alias="driverRequirement")
+    stops: Optional[List[dict]] = Field(None, alias="stops")
+    access_code: str = Field(..., alias="accessCode")
+    load_code: str = Field(..., alias="loadCode")
+    estimated_delivery: Optional[date] = Field(None, alias="estimatedDelivery")
+    final_delivery_time: Optional[str] = Field(None, alias="finalDeliveryTime")
 
     model_config = {"populate_by_name": True}
 
@@ -26,6 +37,8 @@ class JobOut(BaseModel):
     haulierId: str = Field(..., alias="haulier_id")
     jobRef: str = Field(..., alias="job_ref")
     loadCode: str = Field(..., alias="load_code")
+    accessCode: Optional[str] = Field(None, alias="access_code")
+    totalLitres: Optional[float] = Field(None, alias="total_litres")
     pickupAddress: str = Field(..., alias="pickup_address")
     pickupLat: float = Field(..., alias="pickup_lat")
     pickupLng: float = Field(..., alias="pickup_lng")
@@ -33,8 +46,8 @@ class JobOut(BaseModel):
     dropLat: float = Field(..., alias="drop_lat")
     dropLng: float = Field(..., alias="drop_lng")
     goodsType: str = Field(..., alias="goods_type")
-    weightKg: float = Field(..., alias="weight_kg")
-    vehicleType: str = Field(..., alias="vehicle_type")
+    weightKg: Optional[float] = Field(None, alias="weight_kg")
+    vehicleType: Optional[str] = Field(None, alias="vehicle_type")
     jobDate: date = Field(..., alias="job_date")
     timeSlot: str = Field(..., alias="time_slot")
     driverRequirement: Optional[str] = Field(None, alias="driver_requirement")
@@ -63,6 +76,9 @@ class JobUpdateRequest(BaseModel):
     job_date: Optional[date] = Field(None, alias="jobDate")
     time_slot: Optional[str] = Field(None, alias="timeSlot")
     driver_requirement: Optional[str] = Field(None, alias="driverRequirement")
+    stops: Optional[List[dict]] = Field(None, alias="stops")
+    access_code: Optional[str] = Field(None, alias="accessCode")
+    total_litres: Optional[float] = Field(None, alias="totalLitres")
 
     model_config = {"populate_by_name": True}
 

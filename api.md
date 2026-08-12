@@ -1,4 +1,4 @@
-# FreightFlex – Admin & Haulier API Requests
+FlexiShift – Admin & Haulier API Requests
 
 ---
 
@@ -811,8 +811,8 @@ Content-Type: application/json
   "disputeReason": "goods_damaged",
   "description": "Three boxes were damaged. Items broken inside packaging.",
   "evidencePhotos": [
-    "https://cdn.freightflex.com/dispute/ph_EV9K2M3X.jpg",
-    "https://cdn.freightflex.com/dispute/ph_EV3M7K9X.jpg"
+    "https://cdn.flexishift.com/dispute/ph_EV9K2M3X.jpg",
+    "https://cdn.flexishift.com/dispute/ph_EV3M7K9X.jpg"
   ]
 }
 ```
@@ -1187,7 +1187,7 @@ Content-Type: application/json
 **Request:**
 ```json
 {
-  "email": "admin@freightflex.com",
+  "email": "admin@flexishift.com",
   "password": "Admin@Secure9876"
 }
 ```

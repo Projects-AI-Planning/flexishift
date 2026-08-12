@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notification
@@ -52,7 +52,7 @@ def mark_read(db: Session, notification_id: str, user_id: str) -> Notification |
     if not notif or notif.user_id != user_id:
         return None
     if not notif.read_at:
-        notif.read_at = datetime.now(timezone.utc)
+        notif.read_at = datetime.utcnow()
         db.flush()
     return notif
 
@@ -62,6 +62,6 @@ def mark_all_read(db: Session, user_id: str) -> int:
     result = db.execute(
         update(Notification)
         .where(Notification.user_id == user_id, Notification.read_at.is_(None))
-        .values(read_at=datetime.now(timezone.utc))
+        .values(read_at=datetime.utcnow())
     )
     return result.rowcount

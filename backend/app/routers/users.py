@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.models.user import User, UserStatus
 from app.models.notification import Notification
 from app.schemas.users import UpdateProfileRequest, UpdateLocationRequest, ChangePasswordRequest
 from app.core.security import verify_password, hash_password
+from app.services import s3
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -28,7 +29,7 @@ def _user_data(user: User) -> dict:
         "completedJobs": user.completed_jobs,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "profile": {
-            "photoUrl": profile.photo_url if profile else None,
+            "photoUrl": s3.presign_url(profile.photo_url) if profile else None,
             "licenceNumber": profile.licence_number if profile else None,
             "vehicleType": profile.vehicle_type if profile else None,
             "vehicleRegistration": profile.vehicle_registration if profile else None,
@@ -80,20 +81,37 @@ def update_me(
         for k, v in profile_updates.items():
             setattr(current_user.profile, k, v)
 
-    _check_profile_complete(current_user)
+    _check_profile_complete(current_user, db)
     db.commit()
     db.refresh(current_user)
     return ok(data=_user_data(current_user), message="Profile updated")
 
 
-def _check_profile_complete(user: User) -> None:
+def _check_profile_complete(user: User, db=None) -> None:
     from app.models.user import Role
+    from app.models.document import Document, DocStatus
+    _REQUIRED_DOCS_BY_AVAIL = {
+        'DRIVER_ONLY':       ['DRIVING_LICENCE'],
+        'TRUCK_ONLY':        ['VEHICLE_REG', 'VEHICLE_INSURANCE'],
+        'DRIVER_WITH_TRUCK': ['DRIVING_LICENCE', 'VEHICLE_REG', 'VEHICLE_INSURANCE'],
+    }
     p = user.profile
     if not p:
         return
     if user.role == Role.DRIVER:
-        if p.licence_number and p.vehicle_type and p.vehicle_registration:
-            user.profile_complete = True
+        driver_avail = p.driver_availability or ''
+        required_doc_types = _REQUIRED_DOCS_BY_AVAIL.get(driver_avail, [])
+        if not driver_avail or not required_doc_types or not db:
+            user.profile_complete = False
+            return
+        user.profile_complete = all(
+            db.query(Document).filter(
+                Document.user_id == user.id,
+                Document.doc_type == dt,
+                Document.status == DocStatus.APPROVED,
+            ).first() is not None
+            for dt in required_doc_types
+        )
     elif user.role in (Role.HAULIER, Role.FIRM):
         if p.company_name and p.company_address:
             user.profile_complete = True
@@ -129,7 +147,7 @@ def delete_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    current_user.deleted_at = datetime.now(timezone.utc)
+    current_user.deleted_at = datetime.utcnow()
     current_user.status = UserStatus.SUSPENDED
     db.commit()
     return ok(data=None, message="Account deactivated")
@@ -176,7 +194,7 @@ def mark_notification_read(
     if not notif or notif.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Notification not found")
     if not notif.read_at:
-        notif.read_at = datetime.now(timezone.utc)
+        notif.read_at = datetime.utcnow()
         db.commit()
     return ok(data={"notificationId": notification_id, "isRead": True}, message="Notification marked as read")
 

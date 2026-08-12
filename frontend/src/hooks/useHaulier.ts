@@ -46,7 +46,7 @@ interface PaymentHistoryItem {
 }
 
 export const useHaulierOverview = () => {
-  const [data, setData] = useState<HaulierOverview | null>(null); 
+  const [data, setData] = useState<HaulierOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,9 +64,9 @@ export const useHaulierOverview = () => {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void fetchOverview();
-    });
+    queueMicrotask(() => void fetchOverview());
+    const id = window.setInterval(() => void fetchOverview(), 60_000);
+    return () => window.clearInterval(id);
   }, [fetchOverview]);
 
   const refresh = useCallback(() => {
@@ -134,7 +134,7 @@ export const useHaulierPayments = (params?: Record<string, unknown>) => {
     try {
       const [history, methods, summary] = await Promise.all([
         haulierService.getPaymentHistory(params),
-        haulierService.listPaymentMethods(),
+        haulierService.listSavedCards(),
         haulierService.getSpendSummary(params)
       ]);
 

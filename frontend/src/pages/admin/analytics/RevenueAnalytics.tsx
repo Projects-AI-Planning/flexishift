@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAdminRevenue, useAdminStats } from '../../../hooks/useAdmin';
+import { fmtMoney } from '../../../utils/currency';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,12 +10,7 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
-const fmt = (value: number, currency = 'INR') =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+const fmt = (value: number, currency?: string) => fmtMoney(value, currency);
 
 export default function RevenueAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);

@@ -57,7 +57,7 @@ def create_admin():
         db.add(admin_user)
         db.flush()
 
-        db.add(UserProfile(user_id=admin_user.id, company_name="FreightFlex Admin"))
+        db.add(UserProfile(user_id=admin_user.id, company_name="FlexiShift Admin"))
         db.commit()
 
         print(f"\nAdmin user created successfully!")

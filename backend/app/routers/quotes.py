@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 from app.core.response import ok, created
 from app.database import get_db
@@ -9,21 +10,33 @@ from app.dependencies import get_current_user, require_role
 from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 from app.services import quotes as quotes_svc
+from app.services import s3
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
 SupplierDep = require_role(Role.DRIVER, Role.FIRM)
 
 
+class StopEtaItem(BaseModel):
+    order: int
+    eta: str
+
+
 class SubmitQuoteRequest(BaseModel):
     job_id: str = Field(..., alias="jobId")
     price: float = Field(..., alias="quoteAmount")
+    deliver_by: Optional[str] = Field(None, alias="deliverBy")
+    stop_etas: Optional[List[StopEtaItem]] = Field(None, alias="stopEtas")
+    notes: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
 
 class EditQuoteRequest(BaseModel):
     price: float = Field(..., alias="quoteAmount")
+    deliver_by: Optional[str] = Field(None, alias="deliverBy")
+    stop_etas: Optional[List[StopEtaItem]] = Field(None, alias="stopEtas")
+    notes: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
@@ -36,33 +49,45 @@ def _supplier_snippet(quote: Quote) -> Optional[dict]:
     return {
         "supplierId": supplier.id,
         "name": supplier.full_name,
-        "photoUrl": profile.photo_url if profile else None,
+        "photoUrl": s3.presign_url(profile.photo_url) if profile else None,
         "vehicleType": profile.vehicle_type if profile else None,
         "vehicleNumber": profile.vehicle_registration if profile else None,
         "avgRating": float(supplier.avg_rating) if supplier.avg_rating is not None else None,
         "completedJobs": supplier.completed_jobs,
+        "driverAvailability": profile.driver_availability if profile else None,
+        "truckCapacity": profile.truck_capacity if profile else None,
+        "equipmentDetails": profile.equipment_details if profile else None,
     }
 
 
 def _quote_dict(quote: Quote, include_job: bool = False) -> dict:
     job = quote.job
     withdrawn_at = (
-        quote.updated_at.isoformat()
+        (quote.updated_at.isoformat() + "Z")
         if quote.status == QuoteStatus.WITHDRAWN and quote.updated_at
         else None
     )
+    driver_amount = float(quote.price)
+    platform_fee = round(driver_amount * 0.125, 2)
+    total_amount = round(driver_amount + platform_fee, 2)
     d = {
         "quoteId": quote.id,
         "jobId": quote.job_id,
         "jobReference": job.job_ref if job else None,
         "supplierId": quote.supplier_id,
         "supplier": _supplier_snippet(quote),
-        "quoteAmount": float(quote.price),
+        "quoteAmount": driver_amount,
+        "driverAmount": driver_amount,
+        "platformFee": platform_fee,
+        "totalAmount": total_amount,
         "currency": quote.currency,
         "status": quote.status,
         "withdrawnAt": withdrawn_at,
-        "createdAt": quote.created_at.isoformat() if quote.created_at else None,
-        "updatedAt": quote.updated_at.isoformat() if quote.updated_at else None,
+        "deliverBy": (quote.deliver_by.isoformat() + "Z") if quote.deliver_by else None,
+        "stopEtas": quote.stop_etas,
+        "notes": quote.notes,
+        "createdAt": (quote.created_at.isoformat() + "Z") if quote.created_at else None,
+        "updatedAt": (quote.updated_at.isoformat() + "Z") if quote.updated_at else None,
     }
     if include_job and job:
         d["job"] = {
@@ -86,7 +111,17 @@ async def submit_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    quote = await quotes_svc.submit_quote(db, body.job_id, current_user, body.price)
+    deliver_by_dt: Optional[datetime] = None
+    if body.deliver_by:
+        try:
+            deliver_by_dt = datetime.fromisoformat(body.deliver_by.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    stop_etas_data = [s.model_dump() for s in body.stop_etas] if body.stop_etas else None
+    quote = await quotes_svc.submit_quote(
+        db, body.job_id, current_user, body.price,
+        deliver_by=deliver_by_dt, stop_etas=stop_etas_data, notes=body.notes,
+    )
     return created(data=_quote_dict(quote), message="Quote submitted successfully")
 
 
@@ -97,7 +132,19 @@ def edit_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(SupplierDep),
 ):
-    quote = quotes_svc.edit_quote(db, quote_id, current_user, body.price)
+    deliver_by_dt: Optional[datetime] = None
+    if body.deliver_by:
+        try:
+            deliver_by_dt = datetime.fromisoformat(body.deliver_by.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    stop_etas_data = [s.model_dump() for s in body.stop_etas] if body.stop_etas else None
+    quote = quotes_svc.edit_quote(
+        db, quote_id, current_user, body.price,
+        deliver_by=deliver_by_dt,
+        notes=body.notes,
+        stop_etas=stop_etas_data,
+    )
     return ok(data=_quote_dict(quote), message="Quote updated")
 
 
@@ -113,7 +160,7 @@ def withdraw_quote(
             "quoteId": quote.id,
             "jobId": quote.job_id,
             "status": quote.status,
-            "withdrawnAt": quote.updated_at.isoformat() if quote.updated_at else None,
+            "withdrawnAt": (quote.updated_at.isoformat() + "Z") if quote.updated_at else None,
         },
         message="Quote withdrawn",
     )

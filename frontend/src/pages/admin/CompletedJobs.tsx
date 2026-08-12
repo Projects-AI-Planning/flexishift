@@ -1,3 +1,4 @@
+import { fmtMoney } from '../../utils/currency';
 import React, { useState } from 'react';
 import { useAdminJobs } from '../../hooks/useAdmin';
 import type { Job } from '../../types';
@@ -25,12 +26,8 @@ const CompletedJobsPage: React.FC = () => {
           </div>
           <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-primary flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">payments</span>
-            £{totalRevenue.toLocaleString()} (this page)
+            ${totalRevenue.toLocaleString()} (this page)
           </div>
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export
-          </button>
         </div>
       </div>
 
@@ -103,7 +100,7 @@ const CompletedJobsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-green-700">
-                        {job.agreedAmount != null ? `£${job.agreedAmount.toLocaleString()}` : '—'}
+                        {job.agreedAmount != null ? fmtMoney(job.agreedAmount, job.currency) : '—'}
                       </p>
                       {job.paymentStatus && (
                         <p className="text-[10px] font-black uppercase text-green-500">{job.paymentStatus}</p>

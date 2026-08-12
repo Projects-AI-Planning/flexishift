@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminPayments } from '../../hooks/useAdmin';
 import type { AdminPayment } from '../../types';
+import { fmtMoney } from '../../utils/currency';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Transactions' },
@@ -19,8 +20,7 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   failed:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-const fmt = (val: number, cur = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur === 'INR' ? 'INR' : 'GBP' }).format(val);
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const TransactionsPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, status: '', search: '', limit: 10 });
@@ -47,10 +47,6 @@ const TransactionsPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">payments</span>
             {fmt(totalVolume)} (this page)
           </div>
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export
-          </button>
         </div>
       </div>
 

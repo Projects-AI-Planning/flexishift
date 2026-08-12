@@ -60,10 +60,6 @@ const DriversPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">badge</span>
             Total: {data?.total ?? 0} Drivers
           </div>
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export CSV
-          </button>
         </div>
       </div>
 

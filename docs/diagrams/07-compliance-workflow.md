@@ -70,7 +70,7 @@ flowchart TD
 sequenceDiagram
     actor Driver
     participant App as Driver App
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
     actor Haulier
     participant HWeb as Haulier Web
@@ -105,7 +105,7 @@ sequenceDiagram
 sequenceDiagram
     actor Driver
     participant App as Driver App
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
 
     Note over Driver,DB: Driver arrives at pickup location

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ValidationError
 from typing import Optional
 import re
 
@@ -10,6 +10,14 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = None
     password: str
     role: str
+    country: Optional[str] = None
+    currency: Optional[str] = None
+    organisation_number: Optional[str] = Field(None, alias="organisationNumber")
+    vat_number: Optional[str] = Field(None, alias="vatNumber")
+    company_name: Optional[str] = Field(None, alias="companyName")
+    address: Optional[str] = None
+    esignature_data: Optional[str] = Field(None, alias="esignatureData")
+    organisation_doc_url: Optional[str] = Field(None, alias="organisationDocUrl")
 
     model_config = {"populate_by_name": True}
 
@@ -34,6 +42,64 @@ class RegisterRequest(BaseModel):
             raise ValueError("Role must be DRIVER, HAULIER, or FIRM")
         return v
 
+    @model_validator(mode="after")
+    def validate_phone_number_by_country(self) -> "RegisterRequest":
+        if not self.phone:
+            return self
+
+        import phonenumbers
+        from phonenumbers import geocoder
+
+        default_region = (self.country or "GB").upper()
+
+        try:
+            parsed = phonenumbers.parse(self.phone, default_region)
+            if phonenumbers.is_possible_number_with_reason(parsed) != phonenumbers.ValidationResult.IS_POSSIBLE:
+                raise ValidationError.from_exception_data(
+                    self.__class__.__name__,
+                    [{
+                        "type": "value_error",
+                        "loc": ("body", "phone"),
+                        "input": self.phone,
+                        "ctx": {"error": ValueError("Please enter a valid phone number.")}
+                    }]
+                )
+
+            detected_region = geocoder.region_code_for_number(parsed)
+
+            if self.country:
+                expected_calling_code = phonenumbers.country_code_for_region(self.country.upper())
+                if parsed.country_code != expected_calling_code:
+                    raise ValidationError.from_exception_data(
+                        self.__class__.__name__,
+                        [{
+                            "type": "value_error",
+                            "loc": ("body", "phone"),
+                            "input": self.phone,
+                            "ctx": {"error": ValueError(f"Phone number does not match the selected country {self.country.upper()}.")}
+                        }]
+                    )
+            else:
+                if detected_region:
+                    self.country = detected_region.upper()
+
+            # Normalize to E.164
+            self.phone = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+        except ValidationError:
+            raise
+        except Exception as e:
+            raise ValidationError.from_exception_data(
+                self.__class__.__name__,
+                [{
+                    "type": "value_error",
+                    "loc": ("body", "phone"),
+                    "input": self.phone,
+                    "ctx": {"error": ValueError(str(e) or "Invalid phone number format.")}
+                }]
+            )
+
+        return self
+
 
 class VerifyEmailRequest(BaseModel):
     token: Optional[str] = None
@@ -55,6 +121,9 @@ class VerifyEmailRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    expected_role: Optional[str] = Field(None, alias="expectedRole")
+
+    model_config = {"populate_by_name": True}
 
 
 class TokenResponse(BaseModel):

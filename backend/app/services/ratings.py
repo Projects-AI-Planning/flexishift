@@ -13,7 +13,7 @@ def create_rating(
     job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != JobStatus.COMPLETED:
+    if job.status not in (JobStatus.COMPLETED, JobStatus.DELIVERY_SUBMITTED, JobStatus.DISPUTED):
         raise HTTPException(status_code=422, detail="Job must be completed to leave a rating")
 
     if rater.id != job.haulier_id and rater.id != job.selected_supplier_id:
@@ -28,6 +28,12 @@ def create_rating(
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="Rating already submitted")
+
+    if stars <= 2 and not (review_text and review_text.strip()):
+        raise HTTPException(
+            status_code=422,
+            detail="A reason is required when giving a rating of 1 or 2 stars. Please explain what went wrong.",
+        )
 
     rating = Rating(job_id=job_id, rater_id=rater.id, rated_id=rated_id, stars=stars, review_text=review_text)
     db.add(rating)

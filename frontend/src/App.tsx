@@ -1,8 +1,32 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, fontFamily: 'monospace' }}>
+          <h2 style={{ color: '#b91c1c' }}>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', color: '#374151', fontSize: 13 }}>
+            {(this.state.error as Error).message}
+            {'\n\n'}
+            {(this.state.error as Error).stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -16,6 +40,7 @@ import LiveTrackingPage from './pages/admin/LiveTracking';
 import AdminJobsPage from './pages/admin/Jobs';
 import DisputesPage from './pages/admin/Disputes';
 import ProcessedVerificationsPage from './pages/admin/ProcessedVerifications';
+import ExpiredDocumentsPage from './pages/admin/ExpiredDocuments';
 import ActiveJobsPage from './pages/admin/ActiveJobs';
 import CompletedJobsPage from './pages/admin/CompletedJobs';
 import CancelledJobsPage from './pages/admin/CancelledJobs';
@@ -39,7 +64,6 @@ import ResolvedSupportTicketsPage from './pages/admin/ResolvedSupportTickets';
 
 // Haulier Pages
 import HaulierOverview from './pages/haulier/Dashboard';
-import FleetPage from './pages/haulier/Fleet';
 import HaulierDriversPage from './pages/haulier/Drivers';
 import HaulierLoadsPage from './pages/haulier/Loads';
 import HaulierCostsPage from './pages/haulier/Costs';
@@ -56,7 +80,12 @@ import HaulierSupportContactPage from './pages/haulier/SupportContact';
 import HaulierTrackingPage from './pages/haulier/Tracking';
 import PostJobPage from './pages/haulier/PostJob';
 import HaulierJobsPage from './pages/haulier/Jobs';
+import HaulierHandoverPage from './pages/haulier/Handover';
 import HaulierShiftsPage from './pages/haulier/Shifts';
+import ShiftsHandoverPage from './pages/haulier/ShiftsHandover';
+import PostShiftPage from './pages/haulier/PostShift';
+import HaulierDisputesPage from './pages/haulier/Disputes';
+import HaulierDeliveryReportsPage from './pages/haulier/DeliveryReports';
 
 // Auth Pages
 import RegisterPage from './pages/haulier/Register';
@@ -64,6 +93,7 @@ import VerifyEmailPage from './pages/haulier/VerifyEmail';
 
 // Shared
 import SettingsPage from './pages/shared/Settings';
+import TermsAndConditionsPage from './pages/TermsAndConditions';
 
 const normalizeRole = (role?: string) => (
   role === 'SUPPLIER' || role === 'FIRM' ? 'HAULIER' : role
@@ -73,7 +103,7 @@ const ProtectedRoute = ({ children, role }: { children: React.ReactNode, role?: 
   const { user, isLoading } = useAuth();
   const userRole = normalizeRole(user?.role);
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FreightFlex...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-navy">Loading FlexiShift...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (role && userRole !== role) return <Navigate to="/" replace />;
 
@@ -90,6 +120,43 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
       <Route path="/verify-email" element={user ? <Navigate to="/" replace /> : <VerifyEmailPage />} />
+      <Route path="/terms" element={<TermsAndConditionsPage />} />
+
+      {/* Stripe Connect return/refresh — accessible without auth so Stripe can redirect here */}
+      <Route path="/stripe-connect/return" element={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-10 max-w-md w-full text-center space-y-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mx-auto">
+              <span className="material-symbols-outlined text-emerald-600 text-3xl">check_circle</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#041627]">Payment Setup Complete</h1>
+            <p className="text-slate-500 text-sm">Your bank account has been connected. You can now receive payments for completed jobs.</p>
+            <button
+              onClick={() => window.location.href = user ? (user.role === 'ADMIN' ? '/admin' : '/haulier') : '/login'}
+              className="mt-2 w-full rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
+            >
+              Return to App
+            </button>
+          </div>
+        </div>
+      } />
+      <Route path="/stripe-connect/refresh" element={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-10 max-w-md w-full text-center space-y-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 mx-auto">
+              <span className="material-symbols-outlined text-amber-600 text-3xl">refresh</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#041627]">Session Expired</h1>
+            <p className="text-slate-500 text-sm">Your Stripe onboarding session expired. Please go back to the app and try again.</p>
+            <button
+              onClick={() => window.location.href = user ? (user.role === 'ADMIN' ? '/admin' : '/haulier') : '/login'}
+              className="mt-2 w-full rounded-xl bg-[#1066b1] py-3 text-sm font-black text-white hover:bg-[#0e57a0] transition"
+            >
+              Return to App
+            </button>
+          </div>
+        </div>
+      } />
 
       {/* Admin Section */}
       <Route 
@@ -106,6 +173,7 @@ function AppRoutes() {
               <Route path="users/*" element={<UsersPage />} />
               <Route path="verifications/pending" element={<DocumentsPage />} />
               <Route path="verifications/processed" element={<ProcessedVerificationsPage />} />
+              <Route path="verifications/expired" element={<ExpiredDocumentsPage />} />
               <Route path="verifications/*" element={<DocumentsPage />} />
               <Route path="documents/*" element={<DocumentsPage />} />
               <Route path="payments/transactions" element={<TransactionsPage />} />
@@ -156,17 +224,23 @@ function AppRoutes() {
       <Route
         path="/haulier/*"
         element={
+          <ErrorBoundary>
           <ProtectedRoute role="HAULIER">
             <Routes>
               <Route index element={<HaulierOverview />} />
               <Route path="post-job" element={<PostJobPage />} />
               <Route path="shifts" element={<HaulierShiftsPage />} />
+              <Route path="shifts/handover" element={<ShiftsHandoverPage />} />
+              <Route path="shifts/post" element={<PostShiftPage />} />
               <Route path="shifts/*" element={<HaulierShiftsPage />} />
               <Route path="jobs" element={<HaulierJobsPage />} />
+              <Route path="jobs/handover" element={<HaulierHandoverPage />} />
+              <Route path="jobs/delivery-reports" element={<HaulierDeliveryReportsPage />} />
               <Route path="jobs/*" element={<HaulierJobsPage />} />
+              <Route path="disputes" element={<HaulierDisputesPage />} />
+              <Route path="disputes/*" element={<HaulierDisputesPage />} />
               <Route path="payments/*" element={<HaulierPaymentsPage />} />
-              <Route path="fleet/*" element={<FleetPage />} />
-              <Route path="drivers/*" element={<HaulierDriversPage />} />
+<Route path="drivers/*" element={<HaulierDriversPage />} />
               <Route path="loads/*" element={<HaulierLoadsPage />} />
               <Route path="analytics/revenue" element={<HaulierRevenuePage />} />
               <Route path="analytics/performance" element={<HaulierPerformancePage />} />
@@ -189,7 +263,8 @@ function AppRoutes() {
               <Route path="*" element={<HaulierOverview />} />
             </Routes>
           </ProtectedRoute>
-        } 
+          </ErrorBoundary>
+        }
       />
 
       <Route path="/" element={

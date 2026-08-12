@@ -1,5 +1,5 @@
 """
-FreightFlex – Application Enums
+FlexiShift – Application Enums
 Centralised enum definitions – Single Responsibility Principle
 All enums used across models, schemas, and services defined here
 """
@@ -43,6 +43,7 @@ class DocumentType(str, Enum):
     VEHICLE_INSURANCE = "VEHICLE_INSURANCE"
     COMPANY_REG       = "COMPANY_REG"
     FLEET_INSURANCE   = "FLEET_INSURANCE"
+    OTHER             = "OTHER"
 
 
 class DocumentStatus(str, Enum):
@@ -87,9 +88,10 @@ class TimeSlot(str, Enum):
     Available time slots for a freight job.
     """
     MORNING   = "MORNING"       # 06:00 – 12:00
-    AFTERNOON = "AFTERNOON"     # 12:00 – 17:00
-    EVENING   = "EVENING"       # 17:00 – 22:00
-    FULL_DAY  = "FULL_DAY"      # 06:00 – 22:00
+    AFTERNOON = "AFTERNOON"     # 12:00 – 18:00
+    EVENING   = "EVENING"       # 18:00 – 22:00
+    NIGHT     = "NIGHT"         # 22:00 – 06:00
+    FULL_DAY  = "FULL_DAY"      # 00:00 – 24:00
 
 
 class VehicleType(str, Enum):
@@ -196,6 +198,8 @@ class NotificationType(str, Enum):
     RATING_PROMPT             = "RATING_PROMPT"
     DISPUTE_RAISED            = "DISPUTE_RAISED"
     DISPUTE_RESOLVED          = "DISPUTE_RESOLVED"
+    HAULIER_REGISTRATION_PENDING = "HAULIER_REGISTRATION_PENDING"
+    DRIVER_DOCUMENT_SUBMITTED    = "DRIVER_DOCUMENT_SUBMITTED"
 
 
 class NotificationChannel(str, Enum):

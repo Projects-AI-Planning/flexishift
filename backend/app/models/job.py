@@ -1,8 +1,9 @@
 import enum
 from uuid import uuid4
 from datetime import datetime, date
+from typing import Optional
 
-from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey
+from sqlalchemy import String, Enum, DECIMAL, Integer, Date, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +25,7 @@ class TimeSlot(str, enum.Enum):
     MORNING = "MORNING"
     AFTERNOON = "AFTERNOON"
     EVENING = "EVENING"
+    NIGHT = "NIGHT"
     FULL_DAY = "FULL_DAY"
 
 
@@ -32,8 +34,10 @@ class Job(Base):
 
     id:                   Mapped[str]       = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     haulier_id:           Mapped[str]       = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    country:              Mapped[str]       = mapped_column(String(2), nullable=True, default="GB")
     job_ref:              Mapped[str]       = mapped_column(String(20), nullable=False, unique=True)
     load_code:            Mapped[str]       = mapped_column(String(10), nullable=False)
+    access_code:          Mapped[str]       = mapped_column(String(50), nullable=True)
     pickup_address:       Mapped[str]       = mapped_column(Text, nullable=False)
     pickup_lat:           Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     pickup_lng:           Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
@@ -41,11 +45,18 @@ class Job(Base):
     drop_lat:             Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     drop_lng:             Mapped[float]     = mapped_column(DECIMAL(10, 7), nullable=False)
     goods_type:           Mapped[str]       = mapped_column(String(100), nullable=False)
-    weight_kg:            Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=False)
-    vehicle_type:         Mapped[str]       = mapped_column(String(50), nullable=False)
+    weight_kg:            Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
+    total_capacity:       Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
+    compartments:         Mapped[int]       = mapped_column(Integer, nullable=True)
+    compartment_details:  Mapped[list]      = mapped_column(JSON, nullable=True)
+    special_instructions: Mapped[str]       = mapped_column(Text, nullable=True)
+    vehicle_type:         Mapped[str]       = mapped_column(String(50), nullable=True)
     driver_requirement:   Mapped[str]       = mapped_column(String(50), nullable=True, default="DRIVER_WITH_TRUCK")
+    stops:                Mapped[list]      = mapped_column(JSON, nullable=True)
     job_date:             Mapped[date]      = mapped_column(Date, nullable=False)
     time_slot:            Mapped[TimeSlot]  = mapped_column(Enum(TimeSlot), nullable=False)
+    job_time:             Mapped[str]       = mapped_column(String(10), nullable=True)   # exact "Deliver By" time e.g. "14:30"
+    deliver_by_dt:        Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # full UTC datetime for deliver-by
     distance_km:          Mapped[float]     = mapped_column(DECIMAL(10, 2), nullable=True)
     duration_min:         Mapped[int]       = mapped_column(Integer, nullable=True)
     status:               Mapped[JobStatus] = mapped_column(Enum(JobStatus), nullable=False, default=JobStatus.OPEN)

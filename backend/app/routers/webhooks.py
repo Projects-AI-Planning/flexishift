@@ -1,6 +1,8 @@
+import json
 import stripe
 import structlog
-from fastapi import APIRouter, Request, HTTPException, Depends
+from datetime import datetime
+from fastapi import APIRouter, BackgroundTasks, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,7 +15,7 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 @router.post("/stripe", status_code=200)
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+async def stripe_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     body = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
@@ -22,30 +24,34 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             event = stripe.Webhook.construct_event(
                 body, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
-        except stripe.error.SignatureVerificationError:
+        except stripe.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid webhook signature")
     else:
-        import json
         event = json.loads(body)
 
     event_id = event.get("id", "unknown")
     event_type = event.get("type", "")
 
+    # Idempotency — skip already-processed events
     if db.query(PaymentEvent).filter(PaymentEvent.gateway_event_id == event_id).first():
         return {"received": True}
 
-    db.add(PaymentEvent(gateway_event_id=event_id, event_type=event_type))
+    db.add(PaymentEvent(
+        gateway_event_id=event_id,
+        event_type=event_type,
+        raw_payload=json.dumps(event),
+    ))
 
     try:
         intent = event.get("data", {}).get("object", {})
         intent_id = intent.get("id")
 
         if event_type == "payment_intent.amount_capturable_updated" and intent_id:
+            # Card authorised — funds held, awaiting capture
             payment = db.query(Payment).filter(
                 Payment.gateway_order_id == intent_id
             ).first()
             if payment and payment.status == PaymentStatus.PENDING:
-                from datetime import datetime
                 payment.status = PaymentStatus.ESCROWED
                 payment.gateway_payment_id = intent_id
                 payment.escrowed_at = datetime.utcnow()
@@ -54,15 +60,25 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 job = db.query(Job).filter(Job.id == payment.job_id).first()
                 if job:
                     job.status = JobStatus.PAYMENT_SECURED
+                    # Generate the haulier invoice now that payment is secured.
+                    from app.routers.payments import _generate_invoice_for_secured
+                    background_tasks.add_task(_generate_invoice_for_secured, payment.job_id)
 
         elif event_type == "payment_intent.succeeded" and intent_id:
+            # Funds captured and transferred
+            from sqlalchemy import or_
             payment = db.query(Payment).filter(
-                Payment.gateway_payment_id == intent_id
+                or_(Payment.gateway_payment_id == intent_id,
+                    Payment.gateway_order_id == intent_id)
             ).first()
             if payment and payment.status == PaymentStatus.ESCROWED:
-                from datetime import datetime
                 payment.status = PaymentStatus.RELEASED
                 payment.released_at = datetime.utcnow()
+
+                from app.models.job import Job, JobStatus
+                job = db.query(Job).filter(Job.id == payment.job_id).first()
+                if job:
+                    job.status = JobStatus.COMPLETED
 
         elif event_type == "payment_intent.payment_failed" and intent_id:
             payment = db.query(Payment).filter(
@@ -70,9 +86,25 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             ).first()
             if payment:
                 payment.status = PaymentStatus.FAILED
+                payment.failed_at = datetime.utcnow()
+
+        elif event_type == "payment_intent.canceled" and intent_id:
+            from sqlalchemy import or_
+            payment = db.query(Payment).filter(
+                or_(Payment.gateway_payment_id == intent_id,
+                    Payment.gateway_order_id == intent_id)
+            ).first()
+            if payment and payment.status not in (PaymentStatus.RELEASED, PaymentStatus.REFUNDED):
+                payment.status = PaymentStatus.REFUNDED
+                payment.refunded_at = datetime.utcnow()
+
+                from app.models.job import Job, JobStatus
+                job = db.query(Job).filter(Job.id == payment.job_id).first()
+                if job and job.status not in (JobStatus.COMPLETED, JobStatus.CANCELLED):
+                    job.status = JobStatus.CANCELLED
 
     except Exception as exc:
-        log.error("stripe_webhook_error", event=event_type, error=str(exc))
+        log.error("stripe_webhook_error", event_id=event_id, event_type=event_type, error=str(exc))
 
     db.commit()
     return {"received": True}

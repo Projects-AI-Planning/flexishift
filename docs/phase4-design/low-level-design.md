@@ -1,9 +1,9 @@
-# Low-Level Design (LLD) – FreightFlex
+# Low-Level Design (LLD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Low-Level Design (LLD) |
 | Version | 2.0 |
 | Date | 2026-04-25 |
@@ -13,7 +13,7 @@
 ## 2. Project Structure
 
 ```
-freightflex-api/
+flexishift-api/
 ├── app/
 │   ├── main.py                 # FastAPI app factory, router mounts, middleware
 │   ├── config.py               # pydantic-settings: env vars, secrets

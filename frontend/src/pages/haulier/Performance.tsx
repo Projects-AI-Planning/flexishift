@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import haulierService from '../../api/haulierService';
+import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/currency';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -46,14 +48,9 @@ type PerformanceReport = {
 };
 
 const pct = (value?: number) => `${(value ?? 0).toFixed(1)}%`;
-const fmt = (value: number, currency = 'INR') =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
 
 export default function HaulierPerformancePage() {
+  const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [data, setData] = useState<PerformanceReport | null>(null);
@@ -89,6 +86,8 @@ export default function HaulierPerformancePage() {
   }, [params]);
 
   const summary = data?.summary ?? {};
+  const currency = summary.currency || user?.currency;
+  const fmt = (value: number) => fmtMoney(value, currency);
   const breakdown = data?.breakdown ?? [];
   const items = data?.items ?? [];
   const chartMax = Math.max(...breakdown.map((item) => item.value), 1);

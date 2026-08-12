@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAdminRevenue } from '../../hooks/useAdmin';
+import { fmtMoney } from '../../utils/currency';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,11 +10,10 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 2 }).format(n);
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 const fmtNum = (n: number) =>
-  new Intl.NumberFormat('en-GB').format(n);
+  new Intl.NumberFormat('en-US').format(n);
 
 interface KpiCardProps {
   label: string;

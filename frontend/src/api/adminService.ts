@@ -1,5 +1,5 @@
 import client from './client';
-import type { AdminStats, Dispute, Job, LiveDelivery, SupportTicket, SystemConfig, User } from '../types';
+import type { AdminStats, Dispute, Job, LiveDelivery, LiveShift, SupportTicket, SystemConfig, User } from '../types';
 
 type SystemConfigUpdatePayload = Partial<SystemConfig> & {
   appEnv?: string;
@@ -41,6 +41,7 @@ type ApiDispute = {
   jobReference?: string | null;
   disputeReason?: string | null;
   paymentOnHold?: number | null;
+  evidencePhotos?: string[] | null;
   raisedAt?: string | null;
   driver?: { name?: string | null } | null;
   haulier?: { name?: string | null } | null;
@@ -58,7 +59,7 @@ const mapUsersResponse = (data: {
     email: user.email ?? '',
     phone: user.phone,
     role: user.role ?? '',
-    status: (user.status ?? user.accountStatus ?? '').toUpperCase(),
+    status: (user.status ?? user.accountStatus ?? '').toUpperCase().replace('INACTIVE', 'PENDING'),
     isVerified: user.isVerified,
     joinedAt: user.joinedAt,
   })),
@@ -132,7 +133,7 @@ const mapDisputesResponse = (data: {
     reason: dispute.disputeReason ?? '',
     description: dispute.disputeReason ?? '',
     status: 'under_review',
-    evidencePhotos: [],
+    evidencePhotos: dispute.evidencePhotos ?? [],
     createdAt: dispute.raisedAt ?? new Date().toISOString(),
     jobReference: dispute.jobReference ?? '',
     disputeReason: dispute.disputeReason ?? '',
@@ -148,6 +149,7 @@ type ApiRichDispute = {
   jobReference?: string | null;
   disputeReason?: string | null;
   paymentOnHold?: number | null;
+  evidencePhotos?: string[] | null;
   raisedAt?: string | null;
   resolvedAt?: string | null;
   hoursOpen?: number | null;
@@ -170,7 +172,7 @@ const mapRichDisputesResponse = (
     reason: d.disputeReason ?? '',
     description: d.disputeReason ?? '',
     status: (d.status as Dispute['status']) ?? defaultStatus,
-    evidencePhotos: [],
+    evidencePhotos: d.evidencePhotos ?? [],
     createdAt: d.raisedAt ?? new Date().toISOString(),
     jobReference: d.jobReference ?? '',
     disputeReason: d.disputeReason ?? '',
@@ -194,7 +196,28 @@ const adminService = {
   changePassword: (data: Record<string, unknown>) => client.put('/auth/change-password', data).then((res) => res.data),
   getMe: () => client.get('/profile/me').then((res) => res.data.data),
   updateProfile: (data: Record<string, unknown>) => client.put('/profile/update', data).then((res) => res.data.data),
-  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then((res) => res.data.data),
+  getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then((res) => {
+    const user = res.data.data;
+    if (user) {
+      const roleLower = user.role?.toLowerCase();
+      if (roleLower === 'haulier' || roleLower === 'firm') {
+        user.haulierProfile = {
+          companyName: user.profile?.companyName || '',
+          gstNumber: user.profile?.vatNumber || '',
+          companyAddress: user.profile?.companyAddress || '',
+          organisationNumber: user.profile?.organisationNumber || '',
+        };
+      } else if (roleLower === 'driver') {
+        user.driverProfile = {
+          vehicleType: user.profile?.vehicleType || '',
+          licenseVerified: !!user.isVerified,
+          licenceNumber: user.profile?.licenceNumber || '',
+          vehicleRegistration: user.profile?.vehicleRegistration || '',
+        };
+      }
+    }
+    return user;
+  }),
 
   // EPIC 2: Supplier Document Verification
   listPendingDocuments: (params?: { page?: number; limit?: number; documentType?: string }) =>
@@ -237,22 +260,29 @@ const adminService = {
   getTrackingHistory: (jobId: string, params?: { page?: number; limit?: number }) =>
     client.get(`/tracking/history/${jobId}`, { params }).then((res) => res.data.data),
   getAdminLiveTracking: () =>
-    client.get('/dashboard/admin/live-tracking').then((res) => res.data.data as { totalActive: number; deliveries: LiveDelivery[] }),
+    client.get('/dashboard/admin/live-tracking').then((res) => res.data.data as { totalActive: number; deliveries: LiveDelivery[]; totalShifts: number; shifts: LiveShift[] }),
 
   // EPIC 7: Admin Dashboard
   getOverview: () => client.get('/dashboard/admin/overview').then((res) => res.data.data),
   getStats: () => client.get('/admin/stats').then((res) => res.data.data as AdminStats),
+  getStripeRevenue: () => client.get('/admin/stripe/revenue').then((res) => res.data.data),
   listUsers: (params?: { page?: number; limit?: number; role?: string; status?: string; search?: string }) =>
     client.get('/dashboard/admin/users/list', {
       params: {
         ...params,
         role: normalizeUppercaseQueryValue(params?.role),
-        status: normalizeUppercaseQueryValue(params?.status),
+        status: normalizeUppercaseQueryValue(params?.status)?.replace('PENDING', 'INACTIVE'),
         search: normalizeQueryValue(params?.search),
       },
     }).then((res) => mapUsersResponse(res.data.data)),
   createUser: (data: { fullName: string; email: string; phone: string; password: string; role: string; status: string }) =>
-    client.post('/admin/users', data).then((res) => res.data),
+    client.post('/admin/users', { ...data, status: data.status === 'PENDING' ? 'INACTIVE' : data.status }).then((res) => res.data),
+  updateUser: (userId: string, data: { fullName?: string; email?: string; phone?: string; role?: string; status?: string }) =>
+    client.put(`/admin/users/${userId}`, data).then((res) => res.data),
+  deleteUser: (userId: string) =>
+    client.delete(`/admin/users/${userId}`).then((res) => res.data),
+  approveHaulier: (userId: string) =>
+    client.patch(`/admin/hauliers/${userId}/approve`).then((res) => res.data),
   suspendUser: (userId: string, data: { reason: string; suspensionDuration: string; notifyUser: boolean }) =>
     client.put(`/dashboard/admin/users/suspend/${userId}`, data).then((res) => res.data),
   activateUser: (userId: string, data: { reason: string; notifyUser: boolean }) =>
@@ -272,6 +302,8 @@ const adminService = {
         status: normalizeUppercaseQueryValue(params?.status),
       },
     }).then((res) => res.data.data),
+  getExpiredDocuments: () =>
+    client.get('/admin/documents/expired').then((res) => res.data.data),
   monitorJobs: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
     client.get('/dashboard/admin/jobs/monitor', { params }).then((res) => mapJobsResponse(res.data.data)),
   getRevenueReport: (params?: { period?: string; month?: string; year?: string }) =>
@@ -288,6 +320,8 @@ const adminService = {
   // EPIC 8: Ratings
   getUserRatings: (userId: string, params?: { page?: number; limit?: number }) =>
     client.get(`/ratings/user/${userId}`, { params }).then((res) => res.data.data),
+  getAllRatings: (params?: { rater_role?: string; rated_role?: string; page?: number; limit?: number }) =>
+    client.get('/admin/ratings/all', { params }).then((res) => res.data.data),
   removeRating: (ratingId: string, data: { reason: string; notifyReporter: boolean; notifyReviewer: boolean }) =>
     client.delete(`/admin/ratings/remove/${ratingId}`, { data }).then((res) => res.data),
 

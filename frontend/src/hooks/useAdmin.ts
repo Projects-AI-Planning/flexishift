@@ -23,9 +23,9 @@ export const useAdminStats = () => {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void fetchStats();
-    });
+    queueMicrotask(() => void fetchStats());
+    const id = window.setInterval(() => void fetchStats(), 60_000);
+    return () => window.clearInterval(id);
   }, [fetchStats]);
 
   const refresh = useCallback(() => {
@@ -33,6 +33,46 @@ export const useAdminStats = () => {
   }, [fetchStats]);
 
   return { stats, loading, error, refresh };
+};
+
+export interface StripeRevenue {
+  stripeConnected: boolean;
+  availableBalance: number;
+  pendingBalance: number;
+  currency: string;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  platformFeeTotal: number;
+  vatTotal: number;
+  escrowedAmount: number;
+  totalEscrowCount: number;
+  totalPaid: number;
+}
+
+export const useAdminStripeRevenue = () => {
+  const [data, setData] = useState<StripeRevenue | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    try {
+      const result = await adminService.getStripeRevenue();
+      setData(result as StripeRevenue);
+      setError(null);
+    } catch {
+      setError('Failed to load Stripe revenue');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => void fetch());
+    const id = window.setInterval(() => void fetch(), 60_000);
+    return () => window.clearInterval(id);
+  }, [fetch]);
+
+  return { data, loading, error };
 };
 
 interface PaginatedResponse<T> {
@@ -152,9 +192,9 @@ export const useAdminVerifications = (params?: Record<string, unknown>) => {
   }, [params]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void fetchVerifications();
-    });
+    queueMicrotask(() => void fetchVerifications());
+    const id = window.setInterval(() => void fetchVerifications(), 30_000);
+    return () => window.clearInterval(id);
   }, [fetchVerifications]);
 
   const refresh = useCallback(() => {
@@ -169,8 +209,8 @@ export const useAdminProcessedVerifications = (params?: Record<string, unknown>)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProcessed = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setLoading(true);
+  const fetchProcessed = useCallback(async (_isRefresh = false) => {
+    setLoading(true);
     try {
       const result = await adminService.getProcessedVerifications(params);
       setData(result);
@@ -194,6 +234,45 @@ export const useAdminProcessedVerifications = (params?: Record<string, unknown>)
 
   return { data, loading, error, refresh };
 };
+
+export const useAdminExpiredDocuments = () => {
+  const [data, setData] = useState<{ items: ExpiredDoc[]; total: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchExpired = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
+    try {
+      const result = await adminService.getExpiredDocuments();
+      setData(result);
+      setError(null);
+    } catch {
+      setError('Failed to load expired documents');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => { void fetchExpired(); });
+  }, [fetchExpired]);
+
+  const refresh = useCallback(() => { void fetchExpired(true); }, [fetchExpired]);
+  return { data, loading, error, refresh };
+};
+
+export interface ExpiredDoc {
+  documentId: string;
+  docType: string;
+  customName?: string;
+  fileUrl: string;
+  status: string;
+  expiryDate?: string;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  userPhone: string;
+}
 
 export const useAdminRevenue = (params?: Record<string, unknown>) => {
   const [data, setData] = useState<RevenueReport | null>(null);

@@ -1,5 +1,5 @@
 """
-FreightFlex – Database Configuration
+FlexiShift – Database Configuration
 SQLAlchemy 2.0 + MySQL 8.0
 Single Responsibility – only handles DB connection and session management
 """

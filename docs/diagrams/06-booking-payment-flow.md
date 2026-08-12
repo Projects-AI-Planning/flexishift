@@ -33,7 +33,7 @@ flowchart TD
     E --> F[Return payment URL\nto frontend]
     F --> G[Redirect haulier to\ngateway payment page]
     G --> H{Payment\noutcome}
-    H -->|User cancels| I[Return to\nFreightFlex\nPayment Pending]
+    H -->|User cancels| I[Return to\nFlexiShift\nPayment Pending]
     H -->|Payment fails| J[Gateway webhook:\npayment.failed]
     H -->|Payment succeeds| K[Gateway webhook:\npayment.captured]
     J --> L[Update payment\nstatus = FAILED]
@@ -144,7 +144,7 @@ flowchart TD
 sequenceDiagram
     actor Driver
     participant App as Driver App
-    participant API as FreightFlex API
+    participant API as FlexiShift API
     participant DB as Database
     actor Haulier
     participant Web as Haulier Web

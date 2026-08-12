@@ -109,7 +109,26 @@ const DisputesPage: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 lg:p-8">
             <h3 className="text-2xl font-black text-primary mb-2">Resolve Dispute</h3>
-            <p className="text-on-surface-variant font-medium mb-8">Job: {selectedDispute.jobReference} | Amount: £{selectedDispute.totalAmount}</p>
+            <p className="text-on-surface-variant font-medium mb-8">Job: {selectedDispute.jobReference} | Amount: ${selectedDispute.totalAmount}</p>
+
+            {!!selectedDispute.evidencePhotos?.length && (
+              <div className="mb-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Issue Images</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDispute.evidencePhotos.map((url, index) => (
+                    <a
+                      key={`${selectedDispute.disputeId}-${url}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-20 w-20 overflow-hidden rounded-lg border border-slate-200 bg-white"
+                    >
+                      <img src={url} alt={`Issue evidence ${index + 1}`} className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-6">
               <div>
@@ -128,7 +147,7 @@ const DisputesPage: React.FC = () => {
               {resolutionData.resolution === 'partial_refund' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Refund to Haulier (£)</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Refund to Haulier ($)</label>
                     <input 
                       type="number"
                       value={resolutionData.refundAmount}
@@ -137,7 +156,7 @@ const DisputesPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Release to Driver (£)</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Release to Driver ($)</label>
                     <input 
                       type="number"
                       value={resolutionData.releaseAmount}

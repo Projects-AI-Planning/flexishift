@@ -2,19 +2,79 @@ import React, { useState } from 'react';
 import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { User } from '../../types';
+import { COUNTRIES, splitPhone, type Country } from '../../utils/countries';
 
 interface ExtendedUser extends User {
   haulierProfile?: {
     companyName: string;
     gstNumber: string;
+    companyAddress?: string;
+    organisationNumber?: string;
   };
   driverProfile?: {
     vehicleType: string;
     licenseVerified: boolean;
+    licenceNumber?: string;
+    vehicleRegistration?: string;
   };
 }
 
 const EMPTY_FORM = { fullName: '', email: '', phone: '', password: '', confirmPassword: '', role: 'DRIVER', status: 'ACTIVE' };
+const EMPTY_EDIT = { fullName: '', email: '', phone: '', role: '', status: '' };
+
+// Statuses the edit form can actually write. Anything else the list returns
+// (PENDING_DOCUMENTS, PENDING_APPROVAL) is derived server-side from documents /
+// approval state, so it is shown read-only rather than offered as a choice.
+const WRITABLE_STATUSES = ['ACTIVE', 'PENDING', 'SUSPENDED'];
+
+const prettyStatus = (s: string) =>
+  s.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+// Shared markup for the country selector + dial-code-prefixed phone input.
+// No country is preselected, so the admin must pick one explicitly.
+const PhoneFields: React.FC<{
+  country: Country | null;
+  local: string;
+  onCountryChange: (c: Country | null) => void;
+  onLocalChange: (v: string) => void;
+}> = ({ country, local, onCountryChange, onLocalChange }) => {
+  const fieldCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none';
+  return (
+    <>
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Country</label>
+        <select
+          required
+          value={country?.iso ?? ''}
+          onChange={(e) => onCountryChange(COUNTRIES.find(c => c.iso === e.target.value) ?? null)}
+          className={fieldCls}
+        >
+          <option value="" disabled>Select country</option>
+          {COUNTRIES.map(c => (
+            <option key={c.iso} value={c.iso}>{c.flag}  {c.name} ({c.code})</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
+        <div className="flex bg-slate-50 border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary">
+          <div className="px-3 py-2 text-sm font-bold text-slate-500 border-r border-slate-200 shrink-0 flex items-center gap-1.5">
+            {country ? <><span>{country.flag}</span><span>{country.code}</span></> : <span className="text-slate-400">—</span>}
+          </div>
+          <input
+            required
+            type="tel"
+            value={local}
+            onChange={(e) => onLocalChange(e.target.value.replace(/[^\d\s-]/g, ''))}
+            className="flex-1 bg-transparent py-2 px-3 text-sm outline-none"
+            placeholder={country ? 'Local number' : 'Select a country first'}
+            disabled={!country}
+          />
+        </div>
+      </div>
+    </>
+  );
+};
 
 const UsersPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, role: '', status: '', search: '', limit: 10 });
@@ -23,8 +83,26 @@ const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createCountry, setCreateCountry] = useState<Country | null>(null);
+  const [createLocalPhone, setCreateLocalPhone] = useState('');
   const [createError, setCreateError] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
+  const [createSuccess, setCreateSuccess] = useState('');
+
+  // Edit state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editUserId, setEditUserId] = useState('');
+  const [editForm, setEditForm] = useState(EMPTY_EDIT);
+  const [editCountry, setEditCountry] = useState<Country | null>(null);
+  const [editLocalPhone, setEditLocalPhone] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete state
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deleteUserName, setDeleteUserName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const selectedRole = selectedUser?.role?.toLowerCase();
 
   const handleStatusUpdate = async (userId: string, newStatus: string) => {
@@ -65,18 +143,31 @@ const UsersPage: React.FC = () => {
       setCreateError('Password must be at least 8 characters');
       return;
     }
+    if (!createCountry) {
+      setCreateError('Select the phone number country');
+      return;
+    }
+    const createDigits = createLocalPhone.replace(/\D/g, '');
+    if (createDigits.length < 6 || createDigits.length > 12) {
+      setCreateError('Enter a valid local phone number (6–12 digits after the country code).');
+      return;
+    }
     setCreateLoading(true);
     try {
       await adminService.createUser({
         fullName: createForm.fullName,
         email: createForm.email,
-        phone: createForm.phone,
+        phone: `${createCountry.code}${createDigits}`,
         password: createForm.password,
         role: createForm.role,
         status: createForm.status,
       });
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
+      setCreateCountry(null);
+      setCreateLocalPhone('');
+      setCreateSuccess(`User "${createForm.fullName}" created successfully.`);
+      setTimeout(() => setCreateSuccess(''), 4000);
       refresh();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -86,10 +177,86 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  const openEdit = (user: ExtendedUser) => {
+    setEditUserId(user.userId);
+    setEditForm({
+      fullName: user.name,
+      email: user.email,
+      phone: user.phone ?? '',
+      role: user.role,
+      status: user.status,
+    });
+    const { country, local } = splitPhone(user.phone);
+    setEditCountry(country);
+    setEditLocalPhone(local);
+    setEditError('');
+    setIsEditOpen(true);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditError('');
+    if (!editCountry) {
+      setEditError('Select the phone number country');
+      return;
+    }
+    const editDigits = editLocalPhone.replace(/\D/g, '');
+    if (editDigits.length < 6 || editDigits.length > 12) {
+      setEditError('Enter a valid local phone number (6–12 digits after the country code).');
+      return;
+    }
+    setEditLoading(true);
+    try {
+      await adminService.updateUser(editUserId, {
+        fullName: editForm.fullName,
+        email: editForm.email,
+        phone: `${editCountry.code}${editDigits}`,
+        role: editForm.role,
+        status: editForm.status,
+      });
+      setIsEditOpen(false);
+      setCreateSuccess('User updated successfully.');
+      setTimeout(() => setCreateSuccess(''), 4000);
+      refresh();
+      if (selectedUser?.userId === editUserId) {
+        setIsModalOpen(false);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setEditError(msg || 'Failed to update user');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteUserId) return;
+    setDeleteLoading(true);
+    try {
+      await adminService.deleteUser(deleteUserId);
+      setDeleteUserId(null);
+      setCreateSuccess(`User "${deleteUserName}" deleted successfully.`);
+      setTimeout(() => setCreateSuccess(''), 4000);
+      if (selectedUser?.userId === deleteUserId) setIsModalOpen(false);
+      refresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Failed to delete user');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (error) return <div className="p-8 text-red-500 font-bold bg-red-50 rounded-xl">{error}</div>;
 
   return (
     <div className="space-y-8 p-4 sm:p-6">
+      {createSuccess && (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 font-bold text-sm px-4 py-3 rounded-xl">
+          <span className="material-symbols-outlined text-green-600 text-base">check_circle</span>
+          {createSuccess}
+        </div>
+      )}
       {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -97,10 +264,7 @@ const UsersPage: React.FC = () => {
           <p className="text-on-surface-variant font-medium">Manage and verify platform participants.</p>
         </div>
         <div className="flex gap-3">
-          <button className="bg-white border border-outline-variant px-4 py-2 rounded-lg text-sm font-bold text-primary hover:bg-slate-50 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export CSV
-          </button>
+
           <button
             onClick={() => { setCreateForm(EMPTY_FORM); setCreateError(''); setIsCreateOpen(true); }}
             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-black hover:opacity-90 transition-colors shadow-md flex items-center gap-2"
@@ -190,25 +354,35 @@ const UsersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button 
+                      <button
                         onClick={() => viewProfile(user.userId)}
                         className="p-2 text-primary hover:bg-slate-100 rounded-lg transition-colors" title="View Profile">
                         <span className="material-symbols-outlined text-sm">visibility</span>
                       </button>
+                      <button
+                        onClick={() => openEdit(user)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit User">
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
                       {user.status !== 'ACTIVE' && (
-                        <button 
+                        <button
                           onClick={() => handleStatusUpdate(user.userId, 'ACTIVE')}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Activate">
                           <span className="material-symbols-outlined text-sm">check_circle</span>
                         </button>
                       )}
                       {user.status !== 'SUSPENDED' && (
-                        <button 
+                        <button
                           onClick={() => handleStatusUpdate(user.userId, 'SUSPENDED')}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Suspend">
                           <span className="material-symbols-outlined text-sm">block</span>
                         </button>
                       )}
+                      <button
+                        onClick={() => { setDeleteUserId(user.userId); setDeleteUserName(user.name); }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete User">
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -272,16 +446,12 @@ const UsersPage: React.FC = () => {
                     placeholder="john@example.com"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
-                  <input
-                    required
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
-                    placeholder="+44 7700 000000"
-                  />
-                </div>
+                <PhoneFields
+                  country={createCountry}
+                  local={createLocalPhone}
+                  onCountryChange={setCreateCountry}
+                  onLocalChange={setCreateLocalPhone}
+                />
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role</label>
                   <select
@@ -291,7 +461,6 @@ const UsersPage: React.FC = () => {
                   >
                     <option value="DRIVER">Driver</option>
                     <option value="HAULIER">Haulier</option>
-                    <option value="FIRM">Firm</option>
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>
@@ -325,7 +494,7 @@ const UsersPage: React.FC = () => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
                   >
                     <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
+                    <option value="PENDING">Pending</option>
                     <option value="SUSPENDED">Suspended</option>
                   </select>
                 </div>
@@ -393,21 +562,25 @@ const UsersPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>
-                    <p className="text-sm font-bold text-primary">{selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleDateString() : 'N/A'}</p>
-                  </div>
                 </div>
                 <div className="space-y-4">
-                  {selectedRole === 'haulier' && (
+                  {(selectedRole === 'haulier' || selectedRole === 'firm') && (
                     <>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Name</p>
                         <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.companyName || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">GST Number</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">GST / VAT Number</p>
                         <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.gstNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Organisation Number</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.organisationNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Company Address</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.haulierProfile?.companyAddress || 'N/A'}</p>
                       </div>
                     </>
                   )}
@@ -418,29 +591,189 @@ const UsersPage: React.FC = () => {
                         <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.vehicleType || 'N/A'}</p>
                       </div>
                       <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Registration</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.vehicleRegistration || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Licence Number</p>
+                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.licenceNumber || 'N/A'}</p>
+                      </div>
+                      <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">License Verified</p>
-                        <p className="text-sm font-bold text-primary">{selectedUser.driverProfile?.licenseVerified ? 'Yes' : 'No'}</p>
+                        <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-lg mt-1 ${
+                          selectedUser.driverProfile?.licenseVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {selectedUser.driverProfile?.licenseVerified ? 'Verified' : 'Pending Verification'}
+                        </span>
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="mt-12 flex justify-end gap-3 pt-6 border-t border-slate-100">
+              <div className="mt-12 flex flex-wrap justify-end gap-3 pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => { setIsModalOpen(false); openEdit(selectedUser); }}
+                  className="bg-blue-50 text-blue-600 px-5 py-2 rounded-xl font-black text-sm hover:bg-blue-100 transition-colors flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">edit</span>
+                  Edit User
+                </button>
                 {selectedUser.status === 'ACTIVE' ? (
-                  <button 
+                  <button
                     onClick={() => handleStatusUpdate(selectedUser.userId, 'SUSPENDED')}
-                    className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-black text-sm hover:bg-red-100 transition-colors">
+                    className="bg-amber-50 text-amber-600 px-5 py-2 rounded-xl font-black text-sm hover:bg-amber-100 transition-colors">
                     Suspend Account
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => handleStatusUpdate(selectedUser.userId, 'ACTIVE')}
-                    className="bg-green-50 text-green-600 px-6 py-2 rounded-xl font-black text-sm hover:bg-green-100 transition-colors">
+                    className="bg-green-50 text-green-600 px-5 py-2 rounded-xl font-black text-sm hover:bg-green-100 transition-colors">
                     Activate Account
                   </button>
                 )}
+                <button
+                  onClick={() => { setIsModalOpen(false); setDeleteUserId(selectedUser.userId); setDeleteUserName(selectedUser.name); }}
+                  className="bg-red-50 text-red-600 px-5 py-2 rounded-xl font-black text-sm hover:bg-red-100 transition-colors flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                  Delete
+                </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit User Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-primary">Edit User</h3>
+              <button onClick={() => setIsEditOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleEdit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Full Name</label>
+                  <input
+                    required
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
+                    placeholder="John Smith"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                  <input
+                    required
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
+                    placeholder="john@example.com"
+                  />
+                </div>
+                <PhoneFields
+                  country={editCountry}
+                  local={editLocalPhone}
+                  onCountryChange={setEditCountry}
+                  onLocalChange={setEditLocalPhone}
+                />
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
+                  >
+                    <option value="DRIVER">Driver</option>
+                    <option value="HAULIER">Haulier</option>
+                    <option value="FIRM">Firm</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
+                  >
+                    {editForm.status && !WRITABLE_STATUSES.includes(editForm.status) && (
+                      <option value={editForm.status} disabled>
+                        {prettyStatus(editForm.status)} (current)
+                      </option>
+                    )}
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="SUSPENDED">Suspended</option>
+                  </select>
+                  {editForm.status && !WRITABLE_STATUSES.includes(editForm.status) && (
+                    <p className="text-[11px] font-semibold text-slate-400 mt-1">
+                      Set by document verification — leave as is to keep it, or pick a status to override.
+                    </p>
+                  )}
+                </div>
+              </div>
+              {editError && (
+                <p className="text-sm text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg">{editError}</p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  className="px-5 py-2 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="px-5 py-2 text-sm font-black text-white bg-[#1066b1] rounded-xl hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {editLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteUserId && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-red-600">delete</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-primary">Delete User</h3>
+                <p className="text-sm text-slate-500 font-medium">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6">
+              Are you sure you want to permanently delete <span className="font-black text-primary">"{deleteUserName}"</span>? All their data will be removed.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteUserId(null)}
+                disabled={deleteLoading}
+                className="px-5 py-2 text-sm font-black text-[#44474C] bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleDelete()}
+                disabled={deleteLoading}
+                className="px-5 py-2 text-sm font-black text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                Delete User
+              </button>
             </div>
           </div>
         </div>

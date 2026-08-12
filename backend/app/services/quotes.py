@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -12,13 +14,18 @@ def _has_admin_approved_documents(db: Session, user_id: str) -> bool:
     return bool(docs) and all(doc.status == DocStatus.APPROVED for doc in docs)
 
 
-async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -> Quote:
+async def submit_quote(
+    db: Session, job_id: str, supplier: User, price: float,
+    deliver_by: Optional[datetime] = None,
+    stop_etas: Optional[list] = None,
+    notes: Optional[str] = None,
+) -> Quote:
     if supplier.role not in (Role.DRIVER, Role.FIRM):
         raise HTTPException(status_code=403, detail="Only drivers or firms can submit quotes")
-    if not supplier.profile_complete:
-        raise HTTPException(status_code=403, detail="Complete your profile before submitting quotes")
     if not supplier.verified:
         raise HTTPException(status_code=403, detail="Your account must be verified before submitting quotes")
+    if not supplier.stripe_onboarding_complete:
+        raise HTTPException(status_code=403, detail="Payment setup required. Complete your payment account setup in Profile → Payments before submitting quotes.")
     if not _has_admin_approved_documents(db, supplier.id):
         raise HTTPException(status_code=403, detail="Admin approval of your documents is required before viewing or applying for jobs")
 
@@ -30,18 +37,41 @@ async def submit_quote(db: Session, job_id: str, supplier: User, price: float) -
     if job.haulier_id == supplier.id:
         raise HTTPException(status_code=403, detail="Cannot quote on your own job")
 
-    existing = db.query(Quote).filter(
+    # Re-apply: reactivate existing withdrawn quote instead of creating a new row
+    withdrawn = db.query(Quote).filter(
         Quote.job_id == job_id,
         Quote.supplier_id == supplier.id,
-        Quote.status == QuoteStatus.ACTIVE,
-    ).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="You already have an active quote on this job")
+        Quote.status == QuoteStatus.WITHDRAWN,
+    ).order_by(Quote.updated_at.desc()).first()
+    if withdrawn:
+        withdrawn.price = price
+        withdrawn.deliver_by = deliver_by
+        withdrawn.stop_etas = stop_etas
+        withdrawn.notes = notes
+        withdrawn.status = QuoteStatus.ACTIVE
+        withdrawn.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(withdrawn)
+        quote = withdrawn
+    else:
+        active = db.query(Quote).filter(
+            Quote.job_id == job_id,
+            Quote.supplier_id == supplier.id,
+            Quote.status == QuoteStatus.ACTIVE,
+        ).first()
+        if active:
+            raise HTTPException(status_code=409, detail="You already have an active quote on this job")
 
-    quote = Quote(job_id=job_id, supplier_id=supplier.id, price=price)
-    db.add(quote)
-    db.commit()
-    db.refresh(quote)
+        quote = Quote(
+            job_id=job_id, supplier_id=supplier.id, price=price,
+            currency=supplier.currency,
+            deliver_by=deliver_by,
+            stop_etas=stop_etas,
+            notes=notes,
+        )
+        db.add(quote)
+        db.commit()
+        db.refresh(quote)
 
     from app.services.notifications import create_notification
     await create_notification(
@@ -69,8 +99,15 @@ def list_quotes(db: Session, job_id: str, current_user: User) -> dict:
             return {"items": quotes, "total": len(quotes)}
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    quotes = db.query(Quote).filter(Quote.job_id == job_id).all()
-    return {"items": quotes, "total": len(quotes)}
+    all_quotes = db.query(Quote).filter(Quote.job_id == job_id).order_by(Quote.updated_at.desc()).all()
+    # Deduplicate: keep only the latest quote per supplier
+    seen: set = set()
+    deduped = []
+    for q in all_quotes:
+        if q.supplier_id not in seen:
+            seen.add(q.supplier_id)
+            deduped.append(q)
+    return {"items": deduped, "total": len(deduped)}
 
 
 async def select_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quote:
@@ -154,7 +191,15 @@ def reject_quote(db: Session, job_id: str, quote_id: str, haulier: User) -> Quot
     return quote
 
 
-def edit_quote(db: Session, quote_id: str, supplier: User, new_price: float) -> Quote:
+def edit_quote(
+    db: Session,
+    quote_id: str,
+    supplier: User,
+    new_price: float,
+    deliver_by: Optional[datetime] = None,
+    notes: Optional[str] = None,
+    stop_etas: Optional[list] = None,
+) -> Quote:
     quote = db.query(Quote).filter(Quote.id == quote_id, Quote.supplier_id == supplier.id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
@@ -164,6 +209,12 @@ def edit_quote(db: Session, quote_id: str, supplier: User, new_price: float) -> 
     if job and job.status != JobStatus.OPEN:
         raise HTTPException(status_code=422, detail="Job is no longer open")
     quote.price = new_price
+    if deliver_by is not None:
+        quote.deliver_by = deliver_by
+    if notes is not None:
+        quote.notes = notes
+    if stop_etas is not None:
+        quote.stop_etas = stop_etas
     db.commit()
     db.refresh(quote)
     return quote

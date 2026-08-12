@@ -1,4 +1,4 @@
-# FreightFlex Frontend
+# FlexiShift Frontend
 
 ## Environment
 
@@ -16,7 +16,7 @@ Examples:
 
 ```env
 VITE_API_URL=http://localhost:8000
-VITE_API_URL=https://api.freightflex.com
+VITE_API_URL=https://api.flexishift.com
 ```
 
 ## Vercel

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
-import { Truck } from 'lucide-react';
 import haulierService from '../api/haulierService';
+import flexishiftAppIcon from '../assets/untitled_design.png';
 
 type LoginMode = 'login' | 'forgot';
 
@@ -28,7 +28,7 @@ const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const loginResponse = await client.post('/auth/login', { email, password });
+      const loginResponse = await client.post('/auth/login', { email: email.trim().toLowerCase(), password, expectedRole: 'HAULIER,ADMIN' });
       const authData = loginResponse.data?.data;
       const accessToken = authData?.accessToken;
       const refreshToken = authData?.refreshToken ?? null;
@@ -51,8 +51,10 @@ const Login: React.FC = () => {
         userId: profile?.userId ?? authData?.userId,
         email: profile?.email ?? email,
         name: profile?.name ?? email.split('@')[0],
+        currency: profile?.currency ?? authData?.currency,
         role: profile?.role ?? authData?.role ?? 'USER',
         status: profile?.status ?? authData?.status ?? 'ACTIVE',
+        isAdminApproved: profile?.isAdminApproved ?? authData?.isAdminApproved ?? true,
       });
     } catch (err) {
       if (axios.isAxiosError(err)) {
@@ -146,10 +148,8 @@ const Login: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface w-full">
         <div className="bg-white p-5 sm:p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md">
-          <div className="flex flex-col items-center mb-8">
-            <div className="bg-navy p-3 rounded-full mb-4">
-              <Truck className="text-amber" size={32} />
-            </div>
+          <div className="flex flex-col items-center mb-4">
+            <img src={flexishiftAppIcon} alt="FlexiShift Logo" className="w-32 h-20 object-contain" />
             <h1 className="text-2xl font-bold text-navy">Reset Password</h1>
             <p className="text-gray-500 text-sm mt-1">
               {forgotOtpSent
@@ -275,11 +275,9 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface w-full">
       <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-navy p-3 rounded-full mb-4">
-            <Truck className="text-amber" size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-navy">FreightFlex Login</h1>
+        <div className="flex flex-col items-center mb-4">
+          <img src={flexishiftAppIcon} alt="FlexiShift Logo" className="w-32 h-20 object-contain" />
+          <h1 className="text-2xl font-bold text-navy">FlexiShift Login</h1>
           <p className="text-gray-500 text-sm">Logistics Management Portal</p>
         </div>
 
@@ -291,7 +289,7 @@ const Login: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-amber focus:ring-2 focus:ring-amber/20 outline-none transition-all"
-              placeholder="admin@freightflex.com"
+              placeholder="admin@flexishift.com"
               required
             />
           </div>
@@ -360,8 +358,13 @@ const Login: React.FC = () => {
           </p>
         </div>
 
-        <div className="mt-6 text-center text-xs text-gray-400">
-          <p>FreightFlex Logistics Platform v1.0</p>
+        <div className="mt-6 text-center text-xs text-gray-400 space-y-1">
+          <p>FlexiShift Logistics Platform v1.0</p>
+          <p>
+            <Link to="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-navy hover:underline transition-colors">
+              Terms &amp; Conditions
+            </Link>
+          </p>
         </div>
       </div>
     </div>

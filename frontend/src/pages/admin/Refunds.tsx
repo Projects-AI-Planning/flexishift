@@ -3,8 +3,9 @@ import { useAdminPayments } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { AdminPayment } from '../../types';
 
-const fmt = (val: number, cur = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur === 'INR' ? 'INR' : 'GBP' }).format(val);
+import { fmtMoney } from '../../utils/currency';
+
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const EMPTY_FORM = { refundAmount: '', reason: '', refundTo: '' };
 
@@ -63,7 +64,7 @@ const RefundsPage: React.FC = () => {
             {data?.total ?? 0} Refunds
           </div>
           <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-primary flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">currency_pound</span>
+            <span className="material-symbols-outlined text-sm">attach_money</span>
             {fmt(totalRefunded)} Refunded
           </div>
         </div>
@@ -127,7 +128,7 @@ const RefundsPage: React.FC = () => {
                     {p.escrowedAt ? new Date(p.escrowedAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500 font-medium whitespace-nowrap">
-                    {p.releasedAt ? new Date(p.releasedAt).toLocaleDateString() : new Date(p.createdAt).toLocaleDateString()}
+                    {p.refundedAt ? new Date(p.refundedAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
@@ -196,7 +197,7 @@ const RefundsPage: React.FC = () => {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Refund Amount</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">£</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
                   <input
                     required
                     type="number"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -33,17 +33,26 @@ class PaymentMethodRequest(BaseModel):
 
 
 def _payment_dict(p: Payment) -> dict:
+    _driver = float(p.driver_amount) if p.driver_amount else float(p.amount)
+    _fee    = float(p.platform_fee)  if p.platform_fee  else round(_driver * 0.125, 2)
+    _total  = round(_driver + _fee, 2)  # haulier pays driver quote + 12.5%
     return {
         "paymentId": p.id,
         "jobId": p.job_id,
         "gatewayOrderId": p.gateway_order_id,
         "gatewayPaymentId": p.gateway_payment_id,
         "gatewayPayoutId": p.gateway_payout_id,
-        "amount": float(p.amount),
+        "amount": _total,       # total charged to haulier
+        "driverAmount": _driver,
+        "platformFee": _fee,
+        "vatAmount": 0.0,
+        "totalAmount": _total,
         "currency": p.currency,
         "status": p.status.value,
         "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
         "releasedAt": p.released_at.isoformat() if p.released_at else None,
+        "failedAt": p.failed_at.isoformat() if p.failed_at else None,
+        "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
         "createdAt": p.created_at.isoformat() if p.created_at else None,
     }
 
@@ -62,7 +71,11 @@ def create_payment_order(
             "paymentId": order["payment_id"],
             "paymentIntentId": order["gateway_order_id"],
             "clientSecret": order["client_secret"],
-            "amount": order["amount"],
+            "amount": order["amount"],          # quoted amount (Stripe charge)
+            "driverAmount": order["driverAmount"],
+            "platformFee": order["platformFee"],
+            "vatAmount": order["vatAmount"],
+            "totalAmount": order["totalAmount"], # invoice total
             "currency": order["currency"],
             "publishableKey": order["publishable_key"],
         },
@@ -70,14 +83,42 @@ def create_payment_order(
     )
 
 
+def _generate_invoice_for_secured(job_id: str) -> None:
+    """Build the haulier's invoice once payment is secured, so it appears in the
+    haulier's Invoices immediately (not only after release). Runs as a sync
+    background task (FastAPI threadpool) — blocking PDF/upload work must stay off
+    the event loop. Idempotent: skips if an invoice already exists."""
+    import structlog
+    from app.database import SessionLocal
+    from app.services.invoice import generate_and_upload_invoice_sync
+
+    log = structlog.get_logger()
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        p = db.query(Payment).filter(Payment.job_id == job_id).first()
+        if not job or not p or job.invoice_url:
+            return
+        try:
+            job.invoice_url = generate_and_upload_invoice_sync(job, p)
+            db.commit()
+        except Exception as exc:
+            log.error("secured_invoice_failed", job_id=job_id, error=str(exc))
+    finally:
+        db.close()
+
+
 @router.post("/{job_id}/payment/verify")
 async def verify_payment(
     job_id: str,
     body: PaymentVerifyRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
     p = pay_svc.verify_payment(db, job_id, body.payment_intent_id)
+    # Generate the haulier invoice now that payment is secured.
+    background_tasks.add_task(_generate_invoice_for_secured, job_id)
 
     # Notify the selected driver that payment is in escrow
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -112,12 +153,30 @@ def get_payment_details(
 
 
 @router.post("/{job_id}/payment/release")
-def release_payment(
+async def release_payment(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
+    if current_user.role not in (Role.ADMIN,):
+        job = db.query(Job).filter(Job.id == job_id, Job.deleted_at.is_(None)).first()
+        if not job or job.haulier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
     p = pay_svc.release_payment(db, job_id)
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if job and p:
+        from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+        driver = job.supplier
+        try:
+            url = await generate_and_upload_invoice(job, p)
+            job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+        try:
+            await send_invoice_to_driver(job, p, driver, db=db)
+        except Exception:
+            pass
     return ok(data=_payment_dict(p), message="Payment released to supplier")
 
 
@@ -157,7 +216,11 @@ def initiate_payment(
             "paymentId": order["payment_id"],
             "paymentIntentId": order["gateway_order_id"],
             "clientSecret": order["client_secret"],
-            "amount": order["amount"],
+            "amount": order["amount"],          # quoted amount (Stripe charge)
+            "driverAmount": order["driverAmount"],
+            "platformFee": order["platformFee"],
+            "vatAmount": order["vatAmount"],
+            "totalAmount": order["totalAmount"], # invoice total
             "currency": order["currency"],
             "publishableKey": order["publishable_key"],
         },
@@ -168,6 +231,7 @@ def initiate_payment(
 @flat.post("/verify")
 async def verify_payment_flat(
     body: PaymentVerifyRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
@@ -177,6 +241,8 @@ async def verify_payment_flat(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     p = pay_svc.verify_payment(db, payment.job_id, body.payment_intent_id)
+    # Generate the haulier invoice now that payment is secured.
+    background_tasks.add_task(_generate_invoice_for_secured, payment.job_id)
 
     job = db.query(Job).filter(Job.id == payment.job_id).first()
     if job and job.selected_supplier_id:
@@ -211,13 +277,54 @@ def get_payment_status(
     return ok(data=_payment_dict(p), message="Payment status retrieved")
 
 
+async def _send_invoice_background(job_id: str) -> None:
+    """Run in background after payment release — avoids blocking the HTTP response."""
+    import asyncio
+    from app.database import SessionLocal
+    from app.models.job import Job
+    from app.models.payment import Payment
+    from app.services.invoice import generate_and_upload_invoice, send_invoice_to_driver
+
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        p = db.query(Payment).filter(Payment.job_id == job_id).first()
+        if not job or not p:
+            return
+        driver = job.supplier
+        try:
+            url = await generate_and_upload_invoice(job, p)
+            job.invoice_url = url
+            db.commit()
+        except Exception:
+            pass
+        try:
+            await send_invoice_to_driver(job, p, driver, db=db)
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
 @flat.post("/release/{booking_id}")
-def release_escrow(
+async def release_escrow(
     booking_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(Role.HAULIER, Role.ADMIN)),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
 ):
+    if current_user.role not in (Role.ADMIN,):
+        job = db.query(Job).filter(Job.id == booking_id, Job.deleted_at.is_(None)).first()
+        if not job or job.haulier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Release the Stripe payment and update DB — must finish before responding.
     p = pay_svc.release_payment(db, booking_id)
+
+    # Schedule invoice generation + email in the background so the response
+    # returns immediately (Stripe invoice creation can take 60–90 seconds).
+    background_tasks.add_task(_send_invoice_background, booking_id)
+
     return ok(data=_payment_dict(p), message="Payment released")
 
 
@@ -242,19 +349,29 @@ def payment_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from datetime import datetime
     from app.models.payment import PaymentStatus
-    q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id)
+    from app.models.shift import Shift, ShiftPayment, ShiftPaymentStatus
+    q = db.query(Payment, Job).join(Job, Job.id == Payment.job_id).filter(Job.deleted_at.is_(None))
+    # Shifts pay through ShiftPayment — include them so the driver's (and haulier's)
+    # payment history reflects shift payments just like jobs.
+    sq = db.query(ShiftPayment, Shift).join(Shift, Shift.id == ShiftPayment.shift_id)
     if current_user.role.value in ("DRIVER", "FIRM"):
         q = q.filter(Job.selected_supplier_id == current_user.id)
+        sq = sq.filter(Shift.selected_driver_id == current_user.id)
     elif current_user.role.value == "HAULIER":
         q = q.filter(Job.haulier_id == current_user.id)
+        sq = sq.filter(Shift.haulier_id == current_user.id)
     if status:
         try:
             q = q.filter(Payment.status == PaymentStatus(status.upper()))
         except ValueError:
             pass
-    total = q.count()
-    rows = q.order_by(Payment.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        try:
+            sq = sq.filter(ShiftPayment.status == ShiftPaymentStatus(status.upper()))
+        except ValueError:
+            pass
+
     items = [
         {
             "paymentId": p.id,
@@ -263,60 +380,106 @@ def payment_history(
             "pickupAddress": j.pickup_address,
             "dropAddress": j.drop_address,
             "goodsType": j.goods_type,
-            "amount": float(p.amount),
+            "amount": float(p.driver_amount) if p.driver_amount else float(p.amount),
+            "driverAmount": float(p.driver_amount) if p.driver_amount else float(p.amount),
             "currency": p.currency,
             "status": p.status.value,
             "escrowedAt": p.escrowed_at.isoformat() if p.escrowed_at else None,
             "releasedAt": p.released_at.isoformat() if p.released_at else None,
+            "failedAt": p.failed_at.isoformat() if p.failed_at else None,
+            "refundedAt": p.refunded_at.isoformat() if p.refunded_at else None,
             "createdAt": p.created_at.isoformat() if p.created_at else None,
+            "_ts": p.created_at,
         }
-        for p, j in rows
+        for p, j in q.all()
+    ] + [
+        {
+            "paymentId": sp.id,
+            "shiftId": s.id,
+            "jobRef": s.shift_ref,
+            "pickupAddress": s.pickup_address or s.reporting_location,
+            "dropAddress": s.drop_address,
+            "goodsType": s.goods_type,
+            "amount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "driverAmount": float(sp.driver_amount) if sp.driver_amount else float(sp.amount),
+            "currency": sp.currency,
+            "status": sp.status.value,
+            "escrowedAt": sp.escrowed_at.isoformat() if sp.escrowed_at else None,
+            "releasedAt": sp.released_at.isoformat() if sp.released_at else None,
+            "failedAt": None,
+            "refundedAt": None,
+            "createdAt": sp.created_at.isoformat() if sp.created_at else None,
+            "isShift": True,
+            "_ts": sp.created_at,
+        }
+        for sp, s in sq.all()
     ]
+    items.sort(key=lambda r: r["_ts"] or datetime.min, reverse=True)
+    total = len(items)
+    paged = [{k: v for k, v in r.items() if k != "_ts"} for r in items[(page - 1) * per_page: page * per_page]]
     return ok(
-        data={"items": items, "total": total, "page": page, "perPage": per_page},
+        data={"items": paged, "total": total, "page": page, "perPage": per_page},
         message="Payment history retrieved",
     )
 
 
 # ── Payment Methods ─────────────────────────────────────────────────────────────
 
+# ── Haulier card management (Stripe SetupIntent flow) ─────────────────────────
+
+@flat.post("/setup-intent", status_code=201)
+def create_setup_intent(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """Create a Stripe SetupIntent so the haulier can save a card for future payments."""
+    from app.services.stripe_customer import create_setup_intent as _create
+    data = _create(db, current_user)
+    return created(data=data, message="Setup intent created")
+
+
+@flat.get("/saved-cards")
+def list_saved_cards(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """List all saved cards for this haulier."""
+    from app.services.stripe_customer import list_saved_cards as _list
+    cards = _list(db, current_user)
+    return ok(data={"cards": cards, "total": len(cards)}, message="Saved cards retrieved")
+
+
+@flat.delete("/saved-cards/{payment_method_id}")
+def detach_saved_card(
+    payment_method_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM, Role.ADMIN)),
+):
+    """Remove a saved card."""
+    from app.services.stripe_customer import detach_card as _detach
+    _detach(db, current_user, payment_method_id)
+    return ok(data=None, message="Card removed")
+
+
+# ── Legacy stubs kept for backward compatibility ───────────────────────────────
+
 @flat.post("/methods/add", status_code=201)
-def add_payment_method(
+def add_payment_method_legacy(
     body: PaymentMethodRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    fund_account_id = f"fa_{current_user.id[:8]}_{body.account_number[-4:]}"
-    current_user.bank_account_id = fund_account_id
-    db.commit()
-    return created(
-        data={
-            "methodId": fund_account_id,
-            "accountName": body.account_name,
-            "accountNumber": f"****{body.account_number[-4:]}",
-            "ifscCode": body.ifsc_code,
-            "accountType": body.account_type,
-        },
-        message="Payment method added",
-    )
+    """Deprecated — use POST /payments/setup-intent instead."""
+    return created(data={}, message="Use POST /payments/setup-intent to save a card via Stripe")
 
 
 @flat.get("/methods/list")
-def list_payment_methods(current_user: User = Depends(get_current_user)):
-    methods = []
-    if current_user.bank_account_id:
-        methods = [{"methodId": current_user.bank_account_id, "type": "bank_account"}]
-    return ok(data={"methods": methods, "total": len(methods)}, message="Payment methods retrieved")
+def list_payment_methods_legacy(current_user: User = Depends(get_current_user)):
+    """Deprecated — use GET /payments/saved-cards instead."""
+    return ok(data={"methods": [], "total": 0}, message="Use GET /payments/saved-cards")
 
 
 @flat.delete("/methods/delete/{method_id}")
-def delete_payment_method(
-    method_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.bank_account_id != method_id:
-        raise HTTPException(status_code=404, detail="Payment method not found")
-    current_user.bank_account_id = None
-    db.commit()
-    return ok(data=None, message="Payment method deleted")
+def delete_payment_method_legacy(method_id: str, current_user: User = Depends(get_current_user)):
+    """Deprecated — use DELETE /payments/saved-cards/{id} instead."""
+    return ok(data=None, message="Use DELETE /payments/saved-cards/{id}")

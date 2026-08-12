@@ -1,6 +1,7 @@
-# FreightFlex – Project Documentation
+# FlexiShift – Project Documentation
 
 Digital freight-brokerage platform connecting Hauliers with verified Drivers and Transport Firms.
+
 
 ## Project Structure
 
@@ -77,7 +78,7 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 ### Storytelling
 | Document | Description |
 |---|---|
-| [FreightFlex Story](docs/storytelling/freightflex-story.md) | Narrative walkthrough of the platform through the eyes of Arjun (Haulier), Priya (Driver), and Meera (Admin) — every epic and user story told as a human story, with the technology mapped at the end |
+| [FlexiShift Story](docs/storytelling/flexishift-story.md) | Narrative walkthrough of the platform through the eyes of Arjun (Haulier), Priya (Driver), and Meera (Admin) — every epic and user story told as a human story, with the technology mapped at the end |
 
 ## Platform Summary
 
@@ -93,6 +94,3 @@ Digital freight-brokerage platform connecting Hauliers with verified Drivers and
 | Infrastructure | AWS ECS Fargate · RDS MySQL · S3 · CloudFront |
 | Integrations | Google Maps Platform · Razorpay/Stripe · Firebase FCM · SendGrid |
 | Target Go-Live | Week 20 |
-"# flexishift" 
-"# flexishift" 
-"# flexishift" 

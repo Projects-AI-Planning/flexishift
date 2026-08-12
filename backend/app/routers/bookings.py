@@ -13,6 +13,7 @@ from app.models.quote import Quote, QuoteStatus
 from app.models.user import User, Role
 from app.services import quotes as quotes_svc
 from app.services.jobs import cancel_job
+from app.services import s3
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
@@ -57,17 +58,20 @@ def _booking_dict(job: Job) -> dict:
 
     payment = job.payment
     payment_status = payment.status.value if payment else None
-    agreed_amount = float(payment.amount) if payment else None
 
     # Selected quote price — always present even before payment is created
     selected_quote = next(
         (q for q in (job.quotes or []) if q.status == QuoteStatus.SELECTED), None
     )
     quote_amount = float(selected_quote.price) if selected_quote else None
-    quote_currency = selected_quote.currency if selected_quote else "INR"
+    quote_currency = selected_quote.currency if selected_quote else None
 
-    # Prefer payment amount (final); fall back to the winning quote price
-    display_amount = agreed_amount if agreed_amount is not None else quote_amount
+    # Driver earns their quoted amount; haulier pays that + 12.5% platform fee
+    driver_amount = (
+        (float(payment.driver_amount) if payment.driver_amount else float(payment.amount))
+        if payment else quote_amount
+    )
+    display_amount = driver_amount
 
     compliance = job.compliance
     compliance_status = _compliance_status(compliance)
@@ -88,7 +92,7 @@ def _booking_dict(job: Job) -> dict:
             "userId": supplier.id,
             "name": supplier.full_name,
             "phone": supplier.phone,
-            "photoUrl": supplier_profile.photo_url if supplier_profile else None,
+            "photoUrl": s3.presign_url(supplier_profile.photo_url) if supplier_profile else None,
             "vehicleType": supplier_profile.vehicle_type if supplier_profile else None,
             "vehicleNumber": supplier_profile.vehicle_registration if supplier_profile else None,
             "avgRating": float(supplier.avg_rating) if supplier.avg_rating is not None else None,

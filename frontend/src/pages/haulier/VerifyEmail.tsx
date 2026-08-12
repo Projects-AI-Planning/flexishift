@@ -77,6 +77,7 @@ const VerifyEmail: React.FC = () => {
           role: data.role ?? 'HAULIER',
           status: 'ACTIVE',
           isVerified: true,
+          isAdminApproved: data.isAdminApproved ?? false,
         });
       }
       setSuccess('Email verified! Redirecting to dashboard...');

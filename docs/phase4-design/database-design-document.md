@@ -1,9 +1,9 @@
-# Database Design Document (DDD) – FreightFlex
+# Database Design Document (DDD) – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Database Design Document (DDD) |
 | Version | 2.0 |
 | Date | 2026-04-25 |
@@ -455,7 +455,7 @@ CREATE TABLE payment_events (
 ## 6. Connection Configuration (SQLAlchemy)
 ```python
 # app/database.py
-DATABASE_URL = "mysql+pymysql://user:password@rds-host:3306/freightflex?charset=utf8mb4"
+DATABASE_URL = "mysql+pymysql://user:password@rds-host:3306/flexishift?charset=utf8mb4"
 
 engine = create_engine(
     DATABASE_URL,

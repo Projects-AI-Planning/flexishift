@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminInvoices } from '../../hooks/useAdmin';
 import type { AdminInvoice } from '../../types';
+import { fmtMoney } from '../../utils/currency';
 
 const PAYMENT_STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
@@ -25,12 +26,7 @@ const jobStatusStyle: Record<string, string> = {
   cancelled:            'text-red-500',
 };
 
-const fmt = (val: number, cur = 'INR') =>
-  new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: cur === 'INR' ? 'INR' : 'GBP',
-    maximumFractionDigits: 2,
-  }).format(val);
+const fmt = (val: number, cur?: string) => fmtMoney(val, cur);
 
 const AllInvoicesPage: React.FC = () => {
   const [params, setParams] = useState({

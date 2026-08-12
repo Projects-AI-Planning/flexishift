@@ -9,6 +9,7 @@ class UserProfileOut(BaseModel):
     licenceNumber: Optional[str] = Field(None, alias="licence_number")
     vehicleType: Optional[str] = Field(None, alias="vehicle_type")
     vehicleRegistration: Optional[str] = Field(None, alias="vehicle_registration")
+    truckCapacity: Optional[str] = Field(None, alias="truck_capacity")
     companyName: Optional[str] = Field(None, alias="company_name")
     companyAddress: Optional[str] = Field(None, alias="company_address")
     coverageArea: Optional[str] = Field(None, alias="coverage_area")
@@ -46,14 +47,19 @@ class UpdateProfileRequest(BaseModel):
     licence_number: Optional[str] = Field(None, alias="licenceNumber")
     vehicle_type: Optional[str] = Field(None, alias="vehicleType")
     vehicle_registration: Optional[str] = Field(None, alias="vehicleRegistration")
+    truck_capacity: Optional[str] = Field(None, alias="truckCapacity")
     company_name: Optional[str] = Field(None, alias="companyName")
     company_address: Optional[str] = Field(None, alias="companyAddress")
+    vat_number: Optional[str] = Field(None, alias="vatNumber")
+    organisation_number: Optional[str] = Field(None, alias="organisationNumber")
     coverage_area: Optional[str] = Field(None, alias="coverageArea")
     driver_availability: Optional[str] = Field(None, alias="driverAvailability")
     equipment_details: Optional[list[dict]] = Field(None, alias="equipmentDetails")
     driver_assignments: Optional[list[dict]] = Field(None, alias="driverAssignments")
     bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
     push_token: Optional[str] = Field(None, alias="pushToken")
+    country: Optional[str] = Field(None, alias="country")
+    currency: Optional[str] = Field(None, alias="currency")
 
     model_config = {"populate_by_name": True}
 

@@ -291,6 +291,11 @@ export const driverApi = {
         method: 'PUT',
         body: jsonBody({}),
       }),
+    // Permanent, irreversible account + data deletion (App Store guideline 5.1.1(v)).
+    deleteAccount: () =>
+      request<Record<string, unknown>>('/profile', {
+        method: 'DELETE',
+      }),
     uploadPhoto: (formData: FormData) =>
       request<Record<string, unknown>>('/profile/photo/upload', {
         method: 'POST',

@@ -167,34 +167,7 @@ export default function NotificationsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-black text-primary">Unread Breakdown</h2>
-          <p className="text-sm text-slate-500">Counts returned by the backend unread-count endpoint.</p>
-
-          <div className="mt-5 space-y-3">
-            {Object.entries(unread?.breakdown ?? {}).length > 0 ? (
-              Object.entries(unread?.breakdown ?? {}).map(([key, value]) => (
-                <div key={key} className="rounded-2xl bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{typeLabel(key)}</p>
-                      <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${typeTone(key)}`}>
-                        {key}
-                      </p>
-                    </div>
-                    <span className="text-lg font-black text-primary">{value}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                No unread notifications yet.
-              </div>
-            )}
-          </div>
-        </div>
-
+      <section className="grid grid-cols-1 gap-5">
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

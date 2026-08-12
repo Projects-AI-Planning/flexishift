@@ -3,8 +3,9 @@ import { useActiveDisputes } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { Dispute } from '../../types';
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+import { fmtMoney } from '../../utils/currency';
+
+const fmt = (n: number, cur?: string) => fmtMoney(n, cur);
 
 export default function ActiveDisputesPage() {
   const [search, setSearch] = useState('');
@@ -164,6 +165,25 @@ export default function ActiveDisputesPage() {
               </div>
             )}
 
+            {!!selected.evidencePhotos?.length && (
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Images</p>
+                <div className="flex flex-wrap gap-2">
+                  {selected.evidencePhotos.map((url, index) => (
+                    <a
+                      key={`${selected.disputeId}-${url}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-20 w-20 overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+                    >
+                      <img src={url} alt={`Issue evidence ${index + 1}`} className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Resolution Type</label>
               <select
@@ -180,12 +200,12 @@ export default function ActiveDisputesPage() {
             {resolution.resolution === 'partial_refund' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier (₹)</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Refund to Haulier ($)</label>
                   <input type="number" value={resolution.refundAmount} onChange={(e) => setResolution((r) => ({ ...r, refundAmount: Number(e.target.value) }))}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Release to Driver (₹)</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Release to Driver ($)</label>
                   <input type="number" value={resolution.releaseAmount} onChange={(e) => setResolution((r) => ({ ...r, releaseAmount: Number(e.target.value) }))}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>

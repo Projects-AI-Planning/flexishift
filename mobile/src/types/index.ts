@@ -134,6 +134,7 @@ export interface ProfileResponse {
   completedJobs?: number;
   isProfileComplete?: boolean;
   isVerified?: boolean;
+  isAdminApproved?: boolean;
   name: string;
   phone?: string;
   profileComplete?: boolean;

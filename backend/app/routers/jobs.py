@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -18,11 +18,13 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
 def _job_dict(job: Job) -> dict:
+    payment = job.payment
     return {
         "jobId": job.id,
         "haulierId": job.haulier_id,
         "jobReference": job.job_ref,
         "loadCode": job.load_code,
+        "accessCode": job.access_code,
         "pickupLocation": job.pickup_address,
         "pickupLat": job.pickup_lat,
         "pickupLng": job.pickup_lng,
@@ -31,15 +33,27 @@ def _job_dict(job: Job) -> dict:
         "dropLng": job.drop_lng,
         "goodsType": job.goods_type,
         "weightKg": job.weight_kg,
+        "totalCapacity": float(job.total_capacity) if job.total_capacity is not None else None,
+        "compartments": job.compartments,
+        "compartmentDetails": job.compartment_details or [],
+        "specialInstructions": job.special_instructions,
         "vehicleTypeRequired": job.vehicle_type,
         "driverRequirement": job.driver_requirement,
+        "stops": job.stops or [],
         "jobDate": job.job_date.isoformat() if job.job_date else None,
         "timeSlot": job.time_slot,
+        "deliverBy": job.job_time,
+        "deliverByDt": (job.deliver_by_dt.isoformat() + "Z") if job.deliver_by_dt else None,
+        "quoteCount": len(job.quotes) if job.quotes is not None else 0,
         "distanceKm": job.distance_km,
         "durationMin": job.duration_min,
         "status": job.status.value,
         "selectedSupplierId": job.selected_supplier_id,
         "originalEta": job.original_eta.isoformat() if job.original_eta else None,
+        "agreedAmount": float(payment.amount) if payment else None,          # total (haulier pays)
+        "driverAmount": float(payment.driver_amount) if payment and payment.driver_amount else (round(float(payment.amount) / 1.125, 2) if payment else None),  # driver's earning
+        "platformFee": float(payment.platform_fee) if payment and payment.platform_fee else (round(float(payment.amount) * 0.125 / 1.125, 2) if payment else None),
+        "currency": payment.currency if payment else None,
         "invoiceUrl": job.invoice_url,
         "createdAt": job.created_at.isoformat() if job.created_at else None,
         "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
@@ -86,6 +100,8 @@ async def create_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.HAULIER, Role.FIRM)),
 ):
+    if not current_user.admin_approved:
+        raise HTTPException(status_code=403, detail="Your account is pending admin approval. You cannot post jobs until approved.")
     job = await jobs_svc.create_job(db, current_user, body.model_dump(by_alias=False))
     return created(data=_job_dict(job), message="Job created successfully")
 
@@ -112,13 +128,16 @@ def list_jobs(
 
 
 @router.get("/available")
-def available_jobs(
+async def available_jobs(
+    background_tasks: BackgroundTasks,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     vehicle_type: str = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(Role.DRIVER, Role.FIRM)),
 ):
+    from app.services.expiry import expire_stale_jobs
+    background_tasks.add_task(expire_stale_jobs, db)
     result = jobs_svc.list_available_jobs(db, current_user, page, per_page, vehicle_type)
     return ok(
         data={

@@ -2,7 +2,7 @@ import enum
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Enum, DECIMAL, DateTime, ForeignKey
+from sqlalchemy import String, Enum, DECIMAL, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,11 +24,17 @@ class Payment(Base):
     gateway_order_id:   Mapped[str]           = mapped_column(String(100), nullable=False)
     gateway_payment_id: Mapped[str]           = mapped_column(String(100), nullable=True)
     gateway_payout_id:  Mapped[str]           = mapped_column(String(100), nullable=True)
-    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)
-    currency:           Mapped[str]           = mapped_column(String(3), nullable=False, default="INR")
+    amount:             Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=False)  # driver's quoted amount — the Stripe-escrowed value
+    driver_amount:      Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # same as amount; driver receives this at release
+    platform_fee:       Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # 12.5% of quote — for invoicing only
+    vat_amount:         Mapped[float]         = mapped_column(DECIMAL(12, 2), nullable=True)   # 25% of quote — for invoicing only
+    currency:           Mapped[str]           = mapped_column(String(3), nullable=True)
     status:             Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
+    stripe_receipt_url: Mapped[str]           = mapped_column(String(500), nullable=True)
     escrowed_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     released_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
+    failed_at:          Mapped[datetime]      = mapped_column(DateTime, nullable=True)
+    refunded_at:        Mapped[datetime]      = mapped_column(DateTime, nullable=True)
     created_at:         Mapped[datetime]      = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:         Mapped[datetime]      = mapped_column(DateTime, default=datetime.utcnow,
                                                                onupdate=datetime.utcnow)
@@ -39,7 +45,8 @@ class Payment(Base):
 class PaymentEvent(Base):
     __tablename__ = "payment_events"
 
-    id:               Mapped[str]      = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    gateway_event_id: Mapped[str]      = mapped_column(String(100), nullable=False, unique=True)
-    event_type:       Mapped[str]      = mapped_column(String(100), nullable=False)
-    processed_at:     Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    id:               Mapped[str]           = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    gateway_event_id: Mapped[str]           = mapped_column(String(100), nullable=False, unique=True)
+    event_type:       Mapped[str]           = mapped_column(String(100), nullable=False)
+    raw_payload:      Mapped[str | None]    = mapped_column(Text, nullable=True)
+    processed_at:     Mapped[datetime]      = mapped_column(DateTime, default=datetime.utcnow)

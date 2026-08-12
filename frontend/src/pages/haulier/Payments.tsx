@@ -1,42 +1,47 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import haulierService from '../../api/haulierService';
+import { fmtMoney as fmtCurrency } from '../../utils/currency';
+import { useAuth } from '../../hooks/useAuth';
 
-// ── Razorpay types ──────────────────────────────────────────────────────────
+// ── Stripe types (CDN-loaded Stripe.js) ─────────────────────────────────────
 
 declare global {
   interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+    Stripe?: (publishableKey: string) => StripeInstance;
   }
 }
 
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  order_id: string;
-  name: string;
-  description: string;
-  handler: (response: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }) => void;
-  modal?: { ondismiss?: () => void };
-  theme?: { color: string };
+interface StripeCardElement {
+  mount: (el: HTMLElement) => void;
+  unmount: () => void;
+  on: (event: string, handler: (e: { error?: { message: string } }) => void) => void;
 }
 
-interface RazorpayInstance {
-  open: () => void;
+interface StripeElements {
+  create: (type: 'card', options?: object) => StripeCardElement;
 }
 
-const loadRazorpayScript = (): Promise<void> => {
-  if (window.Razorpay) return Promise.resolve();
+interface StripePaymentIntentResult {
+  paymentIntent?: { id: string; status: string };
+  error?: { message: string };
+}
+
+interface StripeInstance {
+  elements: (options?: object) => StripeElements;
+  confirmCardPayment: (
+    clientSecret: string,
+    data?: { payment_method: string | { card: StripeCardElement } },
+  ) => Promise<StripePaymentIntentResult>;
+}
+
+const loadStripeScript = (): Promise<void> => {
+  if (window.Stripe) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.src = 'https://js.stripe.com/v3/';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Razorpay SDK failed to load'));
+    script.onerror = () => reject(new Error('Stripe.js failed to load'));
     document.body.appendChild(script);
   });
 };
@@ -66,21 +71,9 @@ interface InvoiceItem {
   currency: string;
 }
 
-interface PaymentMethodItem {
-  methodId: string;
-  type?: string;
-  accountNumber?: string;
-}
-
 interface SpendSummary {
   totalSpent?: number;
   period?: string;
-}
-
-interface MethodFormState {
-  accountName: string;
-  accountNumber: string;
-  ifscCode: string;
 }
 
 interface BookedJob {
@@ -96,30 +89,31 @@ interface BookedJob {
   jobDate?: string;
   timeSlot?: string;
   agreedAmount?: number | null;
+  currency?: string;
   paymentStatus?: string | null;
+  isShift?: boolean;   // true when this payable item is a single-day shift, not a job
 }
 
 interface PaymentOrder {
   paymentId: string;
-  gatewayOrderId: string;
-  amount: number;
+  paymentIntentId: string;
+  clientSecret: string;
+  amount: number;       // driver's quoted amount (Stripe charge)
+  driverAmount?: number;
+  platformFee?: number;
+  vatAmount?: number;
+  totalAmount?: number; // quote + platform fee + VAT (invoice total)
   currency: string;
-  keyId: string;
+  publishableKey: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const fmtMoney = (value?: number | null) =>
-  value != null ? `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
+const fmtMoney = (value?: number | null, currency?: string) =>
+  value != null ? fmtCurrency(value, currency) : '—';
 
 const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-const methodTail = (methodId: string) => {
-  const parts = methodId.split('_');
-  const tail = parts[parts.length - 1] || methodId;
-  return tail.length > 4 ? tail.slice(-4) : tail;
-};
 
 const STATUS_STYLES: Record<string, string> = {
   ESCROWED: 'bg-indigo-100 text-indigo-700',
@@ -145,10 +139,10 @@ type PaymentTab = 'create' | 'escrow' | 'history' | 'invoices' | 'methods';
 
 const PAYMENT_TABS: { key: PaymentTab; label: string; icon: string }[] = [
   { key: 'create',   label: 'Pay Now',  icon: 'payments' },
-  { key: 'escrow',   label: 'Escrow',   icon: 'security' },
+  { key: 'escrow',   label: 'Secured',  icon: 'security' },
   { key: 'history',  label: 'History',  icon: 'receipt_long' },
   { key: 'invoices', label: 'Invoices', icon: 'description' },
-  { key: 'methods',  label: 'Methods',  icon: 'account_balance' },
+  { key: 'methods',  label: 'Payment Setup',  icon: 'add_card' },
 ];
 
 const getTabFromPath = (pathname: string): PaymentTab => {
@@ -159,11 +153,264 @@ const getTabFromPath = (pathname: string): PaymentTab => {
   return 'create';
 };
 
+// ── Stripe Payment Modal ─────────────────────────────────────────────────────
+
+interface StripeModalProps {
+  job: BookedJob;
+  order: PaymentOrder;
+  onSuccess: () => void;
+  onCancel: () => void;
+  onError: (msg: string) => void;
+}
+
+const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess, onCancel, onError }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mountedCardRef = useRef<StripeCardElement | null>(null);
+  const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
+  const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
+  const [elementsInstance, setElementsInstance] = useState<any>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cardError, setCardError] = useState('');
+  const isTest = order.publishableKey.startsWith('pk_test');
+
+  // Saved cards (added in Payment Setup). 'new' = enter a fresh card.
+  type SavedCard = { paymentMethodId: string; brand: string; last4: string; expMonth?: number; expYear?: number };
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState<string>('new');
+
+  useEffect(() => {
+    let active = true;
+    haulierService.listSavedCards()
+      .then((data) => {
+        if (!active) return;
+        const cards: SavedCard[] = (data as { cards?: SavedCard[] })?.cards ?? [];
+        setSavedCards(cards);
+        if (cards.length > 0) setSelectedCard(cards[0].paymentMethodId);  // default to first saved card
+      })
+      .catch(() => { /* no saved cards / not reachable — fall back to new card */ });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      try {
+        await loadStripeScript();
+        if (!active) return;
+        const stripe = window.Stripe!(order.publishableKey);
+        setStripeInstance(stripe);
+        if (cardRef.current) {
+          const elements = stripe.elements({
+            clientSecret: order.clientSecret,
+            appearance: {
+              theme: 'stripe',
+              variables: {
+                colorPrimary: '#6366f1',
+                colorBackground: '#ffffff',
+                colorText: '#041627',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              },
+            },
+          });
+          setElementsInstance(elements);
+          const paymentEl = elements.create('payment', {
+            layout: 'tabs',
+          });
+          paymentEl.mount(cardRef.current);
+          paymentEl.on('change', (e: any) => setCardError(e.error?.message ?? ''));
+          setCardElement(paymentEl);
+          mountedCardRef.current = paymentEl;
+        }
+      } catch {
+        onError('Failed to load payment SDK. Please refresh and try again.');
+      }
+    };
+    void init();
+    return () => {
+      active = false;
+      mountedCardRef.current?.unmount();
+      mountedCardRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleConfirm = async () => {
+    if (!stripeInstance) return;
+    const useNewCard = selectedCard === 'new';
+    if (useNewCard && !cardElement) return;
+    setConfirming(true);
+    setCardError('');
+    try {
+      const result = await (useNewCard
+        ? (stripeInstance as any).confirmPayment({
+            elements: elementsInstance,
+            confirmParams: {
+              return_url: window.location.origin + `/haulier/payments?jobId=${job.bookingId}&isShift=${job.isShift ? 'true' : 'false'}&redirect_status=succeeded`,
+            },
+            redirect: 'if_required',
+          })
+        : stripeInstance.confirmCardPayment(
+            order.clientSecret,
+            { payment_method: selectedCard }
+          )
+      );
+
+      if (result.error) {
+        setCardError(result.error.message);
+        setConfirming(false);
+        return;
+      }
+      const status = result.paymentIntent?.status;
+      if (status === 'requires_capture' || status === 'succeeded') {
+        if (job.isShift) {
+          await haulierService.verifyShiftPayment(job.bookingId, result.paymentIntent!.id);
+        } else {
+          await haulierService.verifyPayment({ paymentIntentId: result.paymentIntent!.id });
+        }
+        onSuccess();
+      } else {
+        setCardError(`Unexpected payment status: ${status ?? 'unknown'}`);
+        setConfirming(false);
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      onError(e.response?.data?.message ?? e.message ?? 'Payment failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-[#041627]">Secure Payment</h3>
+          <button onClick={onCancel} disabled={confirming} className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-40">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Job</span>
+            <span className="font-mono font-black text-[#041627]">{job.jobRef}</span>
+          </div>
+          {order.driverAmount != null && (
+            <div className="flex justify-between text-sm">
+              <span className="font-bold text-slate-500">Driver Quote</span>
+              <span className="font-black text-[#041627]">{fmtMoney(order.driverAmount, order.currency)}</span>
+            </div>
+          )}
+          {order.platformFee != null && (
+            <div className="flex justify-between text-sm">
+              <span className="font-bold text-slate-500">Platform Fee (12.5%)</span>
+              <span className="font-black text-[#44474C]">{fmtMoney(order.platformFee, order.currency)}</span>
+            </div>
+          )}
+          <div className="border-t border-slate-200 pt-2 flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Total You Pay</span>
+            <span className="text-base font-black text-primary">
+              {fmtMoney(order.totalAmount ?? order.amount, order.currency)}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="font-bold text-slate-500">Currency</span>
+            <span className="font-black text-[#041627]">{order.currency.toUpperCase()}</span>
+          </div>
+        </div>
+
+        {isTest && (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <span className="material-symbols-outlined text-amber-500 text-base mt-0.5 shrink-0">science</span>
+            <div className="text-xs text-amber-800">
+              <p className="font-black mb-0.5">Test Mode</p>
+              <p className="font-medium">
+                Use card <span className="font-mono font-black">4242 4242 4242 4242</span>, any future expiry, any 3-digit CVC.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Saved cards (added in Payment Setup) — selectable at payment time */}
+        {savedCards.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pay With</label>
+            <div className="space-y-2">
+              {savedCards.map((c) => (
+                <button
+                  key={c.paymentMethodId}
+                  type="button"
+                  onClick={() => { setSelectedCard(c.paymentMethodId); setCardError(''); }}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                    selectedCard === c.paymentMethodId ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base text-slate-500">credit_card</span>
+                  <span className="flex-1 text-sm font-bold text-[#041627]">
+                    {c.brand} •••• {c.last4}
+                  </span>
+                  {c.expMonth && c.expYear && (
+                    <span className="text-xs font-medium text-slate-400">
+                      {String(c.expMonth).padStart(2, '0')}/{String(c.expYear).slice(-2)}
+                    </span>
+                  )}
+                  {selectedCard === c.paymentMethodId && (
+                    <span className="material-symbols-outlined text-base text-indigo-600">check_circle</span>
+                  )}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => { setSelectedCard('new'); setCardError(''); }}
+                className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                  selectedCard === 'new' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base text-slate-500">add</span>
+                <span className="flex-1 text-sm font-bold text-[#041627]">Use a new card</span>
+                {selectedCard === 'new' && (
+                  <span className="material-symbols-outlined text-base text-indigo-600">check_circle</span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Card entry — kept mounted (Stripe element) but hidden unless adding a new card */}
+        <div className={`space-y-1.5 ${selectedCard !== 'new' ? 'hidden' : ''}`}>
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Details</label>
+          <div ref={cardRef} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3.5 min-h-[46px]" />
+          {cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+        </div>
+        {selectedCard !== 'new' && cardError && <p className="text-xs font-semibold text-red-600">{cardError}</p>}
+
+        <div className="flex items-start gap-2 text-xs text-slate-500">
+          <span className="material-symbols-outlined text-sm text-indigo-400 mt-0.5 shrink-0">lock</span>
+          <span>Funds are held securely and released to the driver only after delivery is approved.</span>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={onCancel} disabled={confirming} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-[#44474C] hover:bg-slate-50 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleConfirm()}
+            disabled={confirming || !stripeInstance || (selectedCard === 'new' && !cardElement)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-base">{confirming ? 'hourglass_top' : 'lock'}</span>
+            {confirming ? 'Processing…' : 'Confirm Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Create Payment Tab ──────────────────────────────────────────────────────
 
 const CreatePaymentTab: React.FC = () => {
   const [searchParams] = useSearchParams();
   const preselectedJobId = searchParams.get('jobId');
+  const preselectedShiftId = searchParams.get('shiftId');
 
   const [jobs, setJobs] = useState<BookedJob[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -172,6 +419,7 @@ const CreatePaymentTab: React.FC = () => {
   const [payingJobId, setPayingJobId] = useState<string | null>(null);
   const [payError, setPayError] = useState('');
   const [successJobIds, setSuccessJobIds] = useState<Set<string>>(new Set());
+  const [activeOrder, setActiveOrder] = useState<{ job: BookedJob; order: PaymentOrder } | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
   const fetchJobs = useCallback(async () => {
@@ -182,13 +430,75 @@ const CreatePaymentTab: React.FC = () => {
         total?: number;
       };
       const all = result.items ?? [];
-      // Show jobs where payment has not yet been secured (BOOKED or stuck PAYMENT_PENDING)
+      
+      // If we have a preselected jobId from URL, we should also check if it's in OPEN jobs
+      let openJob: BookedJob | null = null;
+      if (preselectedJobId) {
+        const found = all.find(j => j.bookingId === preselectedJobId);
+        if (!found) {
+          try {
+            const jobRes = await haulierService.getJobDetails(preselectedJobId);
+            if (jobRes && jobRes.status === 'OPEN') {
+              openJob = {
+                bookingId: jobRes.jobId,
+                jobRef: jobRes.jobReference || jobRes.jobRef,
+                status: 'OPEN',
+                pickupAddress: jobRes.pickupLocation || jobRes.pickupAddress,
+                dropAddress: jobRes.dropLocation || jobRes.dropAddress,
+                goodsType: jobRes.goodsType,
+                vehicleType: jobRes.vehicleTypeRequired || jobRes.vehicleType,
+                weightKg: jobRes.weightKg,
+                distanceKm: jobRes.distanceKm,
+                jobDate: jobRes.jobDate,
+                timeSlot: jobRes.timeSlot,
+                agreedAmount: null,
+                paymentStatus: null
+              };
+            }
+          } catch (e) {
+            console.error("Failed to fetch open job details", e);
+          }
+        }
+      }
+
       const pending = all.filter(
         (j) =>
           (j.status === 'BOOKED' || j.status === 'PAYMENT_PENDING') &&
           j.paymentStatus !== 'ESCROWED' &&
           j.paymentStatus !== 'RELEASED',
       );
+      
+      if (openJob && !pending.find(j => j.bookingId === openJob!.bookingId)) {
+        pending.unshift(openJob);
+      }
+
+      // Single-day shift payment (job-style): if redirected here with ?shiftId=,
+      // load that shift and show it as a payable item alongside jobs.
+      if (preselectedShiftId) {
+        try {
+          const shift = await haulierService.getShiftDetails(preselectedShiftId);
+          const payStatus = shift?.paymentStatus as string | null | undefined;
+          if (shift && payStatus !== 'ESCROWED' && payStatus !== 'RELEASED') {
+            pending.unshift({
+              bookingId: shift.shiftId,
+              jobRef: shift.shiftRef,
+              status: shift.status,
+              pickupAddress: shift.reportingLocation || shift.pickupAddress,
+              dropAddress: shift.dropAddress,
+              goodsType: shift.goodsType,
+              jobDate: shift.startDate,
+              timeSlot: shift.jobTime,
+              agreedAmount: shift.dailyRate ?? null,
+              currency: shift.currency,
+              paymentStatus: payStatus ?? null,
+              isShift: true,
+            });
+          }
+        } catch (e) {
+          console.error('Failed to fetch shift for payment', e);
+        }
+      }
+
       setJobs(pending);
       setTotalJobs(pending.length);
       setFetchError('');
@@ -197,70 +507,78 @@ const CreatePaymentTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preselectedJobId, preselectedShiftId]);
 
   useEffect(() => { void fetchJobs(); }, [fetchJobs]);
 
   useEffect(() => {
-    if (preselectedJobId && !loading && highlightRef.current) {
+    if ((preselectedJobId || preselectedShiftId) && !loading && highlightRef.current) {
       highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [preselectedJobId, loading]);
+  }, [preselectedJobId, preselectedShiftId, loading]);
+
+  // Handle Stripe payment redirect callback
+  useEffect(() => {
+    const redirectStatus = searchParams.get('redirect_status');
+    const paymentIntentId = searchParams.get('payment_intent');
+    const jobId = searchParams.get('jobId');
+    const isShiftVal = searchParams.get('isShift') === 'true';
+
+    if ((redirectStatus === 'succeeded' || redirectStatus === 'requires_capture') && paymentIntentId && jobId) {
+      setLoading(true);
+      const verify = async () => {
+        try {
+          if (isShiftVal) {
+            await haulierService.verifyShiftPayment(jobId, paymentIntentId);
+          } else {
+            await haulierService.verifyPayment({ paymentIntentId });
+          }
+          setSuccessJobIds((prev) => new Set(prev).add(jobId));
+          setJobs((prev) => prev.filter((j) => j.bookingId !== jobId));
+        } catch (e: any) {
+          setPayError(e?.response?.data?.message ?? e?.message ?? 'Payment verification failed after redirect.');
+        } finally {
+          setLoading(false);
+          // Clear search params to avoid re-triggering verify on page refreshes
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      };
+      void verify();
+    }
+  }, [searchParams]);
 
   const handleSecurePayment = async (job: BookedJob) => {
     setPayingJobId(job.bookingId);
     setPayError('');
     try {
-      const order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
-
-      if (order.keyId === 'mock_rzp_key') {
-        // Razorpay not configured — simulate payment in sandbox mode
-        await haulierService.verifyPayment({
-          razorpayOrderId: order.gatewayOrderId,
-          razorpayPaymentId: `mock_pay_${Date.now()}`,
-          razorpaySignature: 'mock_signature',
-        });
-        setSuccessJobIds((prev) => new Set(prev).add(job.bookingId));
-        setJobs((prev) => prev.filter((j) => j.bookingId !== job.bookingId));
-        setPayingJobId(null);
-        return;
+      let order: PaymentOrder;
+      if (job.isShift) {
+        const s = await haulierService.initiateShiftPayment(job.bookingId);
+        // Map the shift order into the shared PaymentOrder shape used by the modal.
+        order = {
+          paymentId: s.paymentId,
+          paymentIntentId: s.gatewayOrderId,
+          clientSecret: s.clientSecret,
+          amount: s.amount,
+          driverAmount: s.driverAmount,
+          platformFee: s.platformFee,
+          totalAmount: s.amount,
+          currency: s.currency,
+          publishableKey: s.publishableKey,
+        };
+      } else {
+        order = await haulierService.initiatePayment({ bookingId: job.bookingId }) as PaymentOrder;
       }
-
-      await loadRazorpayScript();
-
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: Math.round(order.amount * 100),
-        currency: order.currency || 'INR',
-        order_id: order.gatewayOrderId,
-        name: 'FreightFlex',
-        description: `Secure payment for job ${job.jobRef}`,
-        handler: async (response) => {
-          try {
-            await haulierService.verifyPayment({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            setSuccessJobIds((prev) => new Set(prev).add(job.bookingId));
-            setJobs((prev) => prev.filter((j) => j.bookingId !== job.bookingId));
-          } catch {
-            setPayError(`Payment verification failed for ${job.jobRef}. Contact support if amount was deducted.`);
-          } finally {
-            setPayingJobId(null);
-          }
-        },
-        modal: { ondismiss: () => setPayingJobId(null) },
-        theme: { color: '#1A2B3C' },
-      });
-      rzp.open();
+      setActiveOrder({ job, order });
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string; detail?: string } } };
+      const axiosErr = err as { response?: { data?: { message?: string; detail?: string } }; message?: string };
       const detail =
         axiosErr?.response?.data?.message ||
         axiosErr?.response?.data?.detail ||
+        axiosErr?.message ||
         'Please try again.';
       setPayError(`Failed to initiate payment: ${detail}`);
+    } finally {
       setPayingJobId(null);
     }
   };
@@ -269,6 +587,19 @@ const CreatePaymentTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {activeOrder && (
+        <StripePaymentModal
+          job={activeOrder.job}
+          order={activeOrder.order}
+          onSuccess={() => {
+            setSuccessJobIds((prev) => new Set(prev).add(activeOrder.job.bookingId));
+            setJobs((prev) => prev.filter((j) => j.bookingId !== activeOrder.job.bookingId));
+            setActiveOrder(null);
+          }}
+          onCancel={() => setActiveOrder(null)}
+          onError={(msg) => { setPayError(msg); setActiveOrder(null); }}
+        />
+      )}
       {/* Header stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 relative overflow-hidden">
@@ -295,8 +626,8 @@ const CreatePaymentTab: React.FC = () => {
       <div className="flex items-start gap-3 bg-white border border-[#1066b1]/25 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-[#1066b1] shrink-0 text-base mt-0.5">info</span>
         <div className="text-xs text-[#083d7a] font-medium leading-relaxed">
-          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds in escrow via Razorpay.
-          Once secured, the driver can enter the load code and begin the trip. Payment releases to the driver after delivery is approved.
+          <strong>How it works:</strong> Click &ldquo;Secure Payment&rdquo; on a job to lock funds via Stripe.
+          Once secured, the driver can begin the trip. Payment releases to the driver after delivery is approved.
         </div>
       </div>
 
@@ -308,9 +639,9 @@ const CreatePaymentTab: React.FC = () => {
             <p className="text-sm font-black text-emerald-700">
               {successJobIds.size} payment{successJobIds.size > 1 ? 's' : ''} secured successfully
             </p>
-            <p className="text-xs text-emerald-600 mt-0.5">
+            {false && <p className="text-xs text-emerald-600 mt-0.5">
               The driver(s) can now verify the load code and start their trip.
-            </p>
+            </p>}
           </div>
         </div>
       )}
@@ -335,7 +666,7 @@ const CreatePaymentTab: React.FC = () => {
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-black text-[#041627]">Booked Jobs — Payment Pending</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Razorpay</p>
+            <p className="text-xs text-slate-400 mt-0.5">Select a job below to secure payment via Stripe</p>
           </div>
           <button
             onClick={() => void fetchJobs()}
@@ -363,8 +694,10 @@ const CreatePaymentTab: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {pendingJobs.map((job) => {
-              const isHighlighted = job.bookingId === preselectedJobId;
+              const isHighlighted = job.bookingId === preselectedJobId || job.bookingId === preselectedShiftId;
               const isPaying = payingJobId === job.bookingId;
+              const isOpen = job.status === 'OPEN';
+              
               return (
                 <div
                   key={job.bookingId}
@@ -387,8 +720,8 @@ const CreatePaymentTab: React.FC = () => {
                               Selected
                             </span>
                           )}
-                          <span className="rounded-full bg-[#1066b1]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#0a4a8f]">
-                            Payment Pending
+                          <span className={`rounded-full ${isOpen ? 'bg-amber-100 text-amber-700' : 'bg-[#1066b1]/15 text-[#0a4a8f]'} px-2 py-0.5 text-[10px] font-black uppercase tracking-widest`}>
+                            {isOpen ? 'Awaiting Bids' : 'Payment Pending'}
                           </span>
                         </div>
                         <div className="mt-2 space-y-0.5">
@@ -402,6 +735,11 @@ const CreatePaymentTab: React.FC = () => {
                             <p className="text-sm text-slate-500">{job.dropAddress ?? 'Drop N/A'}</p>
                           </div>
                         </div>
+                        {isOpen && (
+                          <p className="mt-2 text-xs font-medium text-amber-600 italic">
+                            Next step: Accept a bid to secure payment.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -411,25 +749,24 @@ const CreatePaymentTab: React.FC = () => {
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Goods</p>
                           <p className="font-bold text-[#44474C]">{job.goodsType ?? '—'}</p>
                         </div>
-                        <div>
-                          <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Vehicle</p>
-                          <p className="font-bold text-[#44474C]">{job.vehicleType ?? '—'}</p>
-                        </div>
+
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Date</p>
                           <p className="font-bold text-[#44474C]">{fmtDate(job.jobDate)}</p>
                         </div>
                         <div>
                           <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Amount</p>
-                          <p className="font-bold text-[#44474C]">{job.agreedAmount != null ? fmtMoney(job.agreedAmount) : '—'}</p>
+                          <p className="font-bold text-[#44474C]">{job.agreedAmount != null ? fmtMoney(job.agreedAmount, job.currency) : '—'}</p>
                         </div>
                       </div>
 
                       <button
                         onClick={() => void handleSecurePayment(job)}
-                        disabled={isPaying || payingJobId !== null}
+                        disabled={isPaying || payingJobId !== null || isOpen}
                         className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition-all shadow-md ${
-                          isPaying
+                          isOpen
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            : isPaying
                             ? 'bg-indigo-400 text-white cursor-wait'
                             : payingJobId !== null
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -437,9 +774,9 @@ const CreatePaymentTab: React.FC = () => {
                         }`}
                       >
                         <span className="material-symbols-outlined text-base">
-                          {isPaying ? 'hourglass_top' : 'lock'}
+                          {isPaying ? 'hourglass_top' : isOpen ? 'info' : 'lock'}
                         </span>
-                        {isPaying ? 'Opening…' : 'Secure Payment'}
+                        {isPaying ? 'Opening…' : isOpen ? 'Awaiting Bids' : 'Secure Payment'}
                       </button>
                     </div>
                   </div>
@@ -456,12 +793,16 @@ const CreatePaymentTab: React.FC = () => {
 // ── Escrow Tab ───────────────────────────────────────────────────────────────
 
 const EscrowTab: React.FC = () => {
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const [items, setItems] = useState<EscrowPaymentItem[]>([]);
   const [summary, setSummary] = useState<SpendSummary>({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+  const [refundError, setRefundError] = useState('');
   const PER_PAGE = 15;
 
   const fetchData = useCallback(async () => {
@@ -491,6 +832,26 @@ const EscrowTab: React.FC = () => {
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
+  const handleRefund = async (jobId: string, jobRef: string) => {
+    if (!window.confirm(`Request a refund for job #${jobRef}? This will cancel the escrow and return funds to your account.`)) return;
+    setRefundingId(jobId);
+    setRefundError('');
+    try {
+      await haulierService.requestRefund(jobId);
+      void fetchData();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? 'Refund request failed. Please try again.';
+      setRefundError(msg);
+    } finally {
+      setRefundingId(null);
+    }
+  };
+
+  // Refund action is intentionally retained but its column is currently hidden.
+  void refundingId; void handleRefund;
+
   const escrowTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   return (
@@ -500,21 +861,27 @@ const EscrowTab: React.FC = () => {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
             Total Spent {summary.period ? `- ${summary.period}` : ''}
           </p>
-          <p className="text-4xl font-black text-primary">{loading ? '...' : fmtMoney(summary.totalSpent)}</p>
+          <p className="text-4xl font-black text-primary">{loading ? '...' : fmtMoney(summary.totalSpent, items[0]?.currency ?? userCurrency)}</p>
           <p className="text-xs text-slate-400 mt-1 font-medium">Spend summary from backend</p>
         </div>
         <div className="md:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 relative overflow-hidden">
           <span className="material-symbols-outlined absolute -bottom-6 -right-6 text-white/10 text-[140px] pointer-events-none">lock</span>
-          <p className="text-indigo-200 text-xs font-black uppercase tracking-widest mb-1">Funds in Escrow</p>
-          <p className="text-4xl font-black">{loading ? '...' : fmtMoney(escrowTotal)}</p>
-          <p className="text-indigo-200 text-xs mt-2 font-medium">Held until delivery is approved — {total} active escrow record{total !== 1 ? 's' : ''}.</p>
+          <p className="text-indigo-200 text-xs font-black uppercase tracking-widest mb-1">Secured Funds</p>
+          <p className="text-4xl font-black">{loading ? '...' : fmtMoney(escrowTotal, items[0]?.currency ?? userCurrency)}</p>
+          <p className="text-indigo-200 text-xs mt-2 font-medium">Held until delivery is approved — {total} active record{total !== 1 ? 's' : ''}.</p>
         </div>
       </div>
+
+      {refundError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          {refundError}
+        </div>
+      )}
 
       <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-4">
         <span className="material-symbols-outlined text-indigo-500 shrink-0 text-base mt-0.5">info</span>
         <p className="text-xs text-indigo-800 font-medium leading-relaxed">
-          Payments are held in escrow once a job is fully paid. Funds are released to the driver after you approve delivery.
+          Payments are secured once a job is fully paid. Funds are released to the driver after you approve delivery.
         </p>
       </div>
 
@@ -522,13 +889,13 @@ const EscrowTab: React.FC = () => {
         {error ? (
           <div className="p-6 text-red-600 text-sm font-semibold">{error}</div>
         ) : items.length === 0 && !loading ? (
-          <Empty icon="security" title="No funds in escrow" sub="Escrow payments appear here once you secure payment for a booked job." />
+          <Empty icon="security" title="No secured payments" sub="Secured payments appear here once you pay for a booked job." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Escrowed On', 'Status'].map((header) => (
+                  {['Job Ref', 'Route', 'Goods', 'Amount', 'Secured On', 'Status' /* , 'Actions' — refund column hidden, not removed */].map((header) => (
                     <th key={header} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                       {header}
                     </th>
@@ -544,13 +911,29 @@ const EscrowTab: React.FC = () => {
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
                     <td className="px-5 py-4 text-xs text-[#44474C] font-medium">{item.goodsType || '—'}</td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount, item.currency)}</td>
                     <td className="px-5 py-4 text-xs text-slate-500">{fmtDate(item.escrowedAt)}</td>
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
                         {item.status}
                       </span>
                     </td>
+                    {/* Refund column hidden (kept for future use, not removed)
+                    <td className="px-5 py-4">
+                      {item.status?.toUpperCase() === 'ESCROWED' && (
+                        <button
+                          onClick={() => void handleRefund(item.jobId, item.jobRef)}
+                          disabled={refundingId === item.jobId}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                        >
+                          {refundingId === item.jobId
+                            ? <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                            : <span className="material-symbols-outlined text-xs">undo</span>}
+                          Refund
+                        </button>
+                      )}
+                    </td>
+                    */}
                   </tr>
                 ))}
               </tbody>
@@ -573,6 +956,8 @@ const EscrowTab: React.FC = () => {
 // ── History Tab ─────────────────────────────────────────────────────────────
 
 const HistoryTab: React.FC = () => {
+  const { user } = useAuth();
+  const userCurrency = user?.currency;
   const [items, setItems] = useState<EscrowPaymentItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -608,13 +993,13 @@ const HistoryTab: React.FC = () => {
         {[
           { label: 'Total Transactions', value: total, money: false, color: 'text-primary' },
           { label: 'Released', value: totalPaid, money: true, color: 'text-emerald-600' },
-          { label: 'In Escrow', value: totalEscrowed, money: true, color: 'text-indigo-600' },
+          { label: 'Secured', value: totalEscrowed, money: true, color: 'text-indigo-600' },
           { label: 'This Page', value: items.length, money: false, color: 'text-[#44474C]' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-[0_1px_4px_rgba(26,43,60,0.04)]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
             <p className={`text-2xl font-black ${stat.color}`}>
-              {loading ? '...' : stat.money ? fmtMoney(stat.value as number) : stat.value}
+              {loading ? '...' : stat.money ? fmtMoney(stat.value as number, items[0]?.currency ?? userCurrency) : stat.value}
             </p>
           </div>
         ))}
@@ -622,13 +1007,19 @@ const HistoryTab: React.FC = () => {
 
       <div className="flex items-center gap-3 flex-wrap">
         <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Filter</label>
-        {['', 'ESCROWED', 'RELEASED', 'REFUNDED', 'PENDING'].map((status) => (
+        {[
+          {value: '',          label: 'All'},
+          {value: 'ESCROWED',  label: 'Secured'},
+          {value: 'RELEASED',  label: 'Released'},
+          {value: 'REFUNDED',  label: 'Refunded'},
+          {value: 'PENDING',   label: 'Pending'},
+        ].map(({value, label}) => (
           <button
-            key={status || 'ALL'}
-            onClick={() => { setStatusFilter(status); setPage(1); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === status ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-[#44474C] hover:border-slate-300'}`}
+            key={value || 'ALL'}
+            onClick={() => { setStatusFilter(value); setPage(1); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${statusFilter === value ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-white border border-slate-200 text-[#44474C] hover:border-slate-300'}`}
           >
-            {status || 'All'}
+            {label}
           </button>
         ))}
       </div>
@@ -643,7 +1034,7 @@ const HistoryTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['Job Ref', 'Route', 'Amount', 'Currency', 'Status', 'Escrowed', 'Released', 'Created'].map((h) => (
+                  {['Job Ref', 'Route', 'Amount', 'Currency', 'Status', 'Secured On', 'Released', 'Created'].map((h) => (
                     <th key={h} className="px-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
@@ -656,7 +1047,7 @@ const HistoryTab: React.FC = () => {
                       <p className="text-xs font-bold text-[#44474C] truncate">{item.pickupAddress || '—'}</p>
                       <p className="text-xs text-slate-400 truncate">→ {item.dropAddress || '—'}</p>
                     </td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(item.amount, item.currency)}</td>
                     <td className="px-5 py-4 text-sm text-slate-500 font-mono">{item.currency}</td>
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status?.toUpperCase()] || 'bg-slate-100 text-[#44474C]'}`}>
@@ -748,7 +1139,7 @@ const InvoicesTab: React.FC = () => {
                 {items.map((invoice) => (
                   <tr key={invoice.jobId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-4 font-mono text-sm font-bold text-primary">#{invoice.jobRef}</td>
-                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(invoice.amount)}</td>
+                    <td className="px-5 py-4 text-sm font-black text-primary">{fmtMoney(invoice.amount, invoice.currency)}</td>
                     <td className="px-5 py-4 text-sm text-slate-500 font-mono">{invoice.currency}</td>
                     <td className="px-5 py-4">
                       {invoice.invoiceUrl ? (
@@ -808,61 +1199,123 @@ const InvoicesTab: React.FC = () => {
 
 // ── Methods Tab ──────────────────────────────────────────────────────────────
 
+// ── Saved card type ──────────────────────────────────────────────────────────
+
+interface SavedCard {
+  paymentMethodId: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  funding: string;
+}
+
+const CARD_BRAND_ICON: Record<string, string> = {
+  Visa: 'credit_card',
+  Mastercard: 'credit_card',
+  Amex: 'credit_card',
+  Discover: 'credit_card',
+};
+
 const MethodsTab: React.FC = () => {
-  const [methods, setMethods] = useState<PaymentMethodItem[]>([]);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mountedCardRef = useRef<StripeCardElement | null>(null);
+  const [stripeInstance, setStripeInstance] = useState<StripeInstance | null>(null);
+  const [cardElement, setCardElement] = useState<StripeCardElement | null>(null);
+
+  const [cards, setCards] = useState<SavedCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [formError, setFormError] = useState('');
-  const [formSuccess, setFormSuccess] = useState('');
-  const [form, setForm] = useState<MethodFormState>({ accountName: '', accountNumber: '', ifscCode: '' });
+  const [cardError, setCardError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
 
-  const fetchMethods = useCallback(async () => {
+  const fetchCards = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await haulierService.listPaymentMethods() as { methods?: PaymentMethodItem[] };
-      setMethods(res.methods ?? []);
+      const res = await haulierService.listSavedCards() as { cards?: SavedCard[] };
+      setCards(res.cards ?? []);
     } catch {
-      setFormError('Failed to load payment methods.');
+      setError('Failed to load saved cards.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void fetchMethods(); }, [fetchMethods]);
+  useEffect(() => { void fetchCards(); }, [fetchCards]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
-    if (!form.accountName.trim() || !form.accountNumber.trim() || !form.ifscCode.trim()) {
-      setFormError('All three fields are required.');
+  // Mount Stripe card element when form opens
+  useEffect(() => {
+    if (!showForm) {
+      mountedCardRef.current?.unmount();
+      mountedCardRef.current = null;
+      setCardElement(null);
+      setStripeInstance(null);
+      setCardError('');
       return;
     }
+    let cancelled = false;
+    void (async () => {
+      try {
+        await loadStripeScript();
+        if (cancelled) return;
+        const intent = await haulierService.createSetupIntent() as { clientSecret: string; publishableKey: string };
+        if (cancelled || !cardRef.current) return;
+        const stripe = window.Stripe!(intent.publishableKey);
+        setStripeInstance(stripe);
+        // Store client_secret for confirmCardSetup
+        (cardRef.current as any).__clientSecret = intent.clientSecret;
+        const elements = stripe.elements();
+        const card = elements.create('card', {
+          style: { base: { fontSize: '15px', color: '#041627', fontFamily: 'inherit', '::placeholder': { color: '#94a3b8' } } },
+          hidePostalCode: true,
+        });
+        card.mount(cardRef.current);
+        card.on('change', (e) => setCardError(e.error?.message ?? ''));
+        setCardElement(card);
+        mountedCardRef.current = card;
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Failed to load card form.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showForm]);
+
+  const handleSaveCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripeInstance || !cardElement || !cardRef.current) return;
+    const clientSecret = (cardRef.current as any).__clientSecret as string;
     setSaving(true);
+    setCardError('');
+    setError('');
     try {
-      await haulierService.addPaymentMethod({
-        accountName: form.accountName.trim(),
-        accountNumber: form.accountNumber.trim(),
-        ifscCode: form.ifscCode.trim().toUpperCase(),
+      const result = await (stripeInstance as any).confirmCardSetup(clientSecret, {
+        payment_method: { card: cardElement },
       });
-      setForm({ accountName: '', accountNumber: '', ifscCode: '' });
-      setFormSuccess('Payment method added successfully.');
-      await fetchMethods();
+      if (result.error) {
+        setCardError(result.error.message ?? 'Card setup failed.');
+      } else {
+        setSuccess('Card saved successfully.');
+        setShowForm(false);
+        await fetchCards();
+      }
     } catch {
-      setFormError('Failed to add payment method.');
+      setCardError('An error occurred. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (methodId: string) => {
-    setDeleting(methodId);
+  const handleDelete = async (pmId: string) => {
+    setDeleting(pmId);
+    setError('');
     try {
-      await haulierService.deletePaymentMethod(methodId);
-      await fetchMethods();
+      await haulierService.deleteSavedCard(pmId);
+      await fetchCards();
     } catch {
-      setFormError('Failed to remove payment method.');
+      setError('Failed to remove card.');
     } finally {
       setDeleting(null);
     }
@@ -870,52 +1323,92 @@ const MethodsTab: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* ── Header card ────────────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
-        <h3 className="text-lg font-black text-[#041627] mb-1">Add Bank Account</h3>
-        <p className="text-xs text-slate-500 mb-5">
-          Add a bank account to receive released payments after delivery approval.
-        </p>
-
-        <form onSubmit={(e) => void handleAdd(e)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { key: 'accountName' as const, label: 'Account Name', placeholder: 'Company / holder name' },
-              { key: 'accountNumber' as const, label: 'Account Number', placeholder: '1234567890' },
-              { key: 'ifscCode' as const, label: 'IFSC Code', placeholder: 'ABCD0123456' },
-            ].map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">{label}</label>
-                <input
-                  value={form[key]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-[#041627] placeholder:text-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 transition-colors"
-                />
-              </div>
-            ))}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-lg font-black text-[#041627] mb-1">Payment Setup</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Save a card to pay for jobs. Your card details are encrypted and stored securely by Stripe — FlexiShift never sees your full card number.
+            </p>
           </div>
+          <div className="flex items-center gap-1.5 shrink-0 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+            <span className="material-symbols-outlined text-sm text-slate-400">lock</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stripe Secured</span>
+          </div>
+        </div>
 
-          {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
-          {formSuccess && <p className="text-xs font-semibold text-emerald-600">{formSuccess}</p>}
+        {success && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 mb-4">
+            <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+            <p className="text-xs font-semibold text-emerald-700">{success}</p>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 mb-4">
+            <span className="material-symbols-outlined text-sm text-red-500">error</span>
+            <p className="text-xs font-semibold text-red-600">{error}</p>
+          </div>
+        )}
 
+        {!showForm ? (
           <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-50"
+            onClick={() => { setSuccess(''); setError(''); setShowForm(true); }}
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity"
           >
-            <span className="material-symbols-outlined text-base">{saving ? 'hourglass_top' : 'add_circle'}</span>
-            {saving ? 'Saving…' : 'Add Account'}
+            <span className="material-symbols-outlined text-base">add_card</span>
+            Add New Card
           </button>
-        </form>
+        ) : (
+          <form onSubmit={(e) => void handleSaveCard(e)} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Card Details</label>
+              <div
+                ref={cardRef}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 min-h-[46px] transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10"
+              />
+              {cardError && <p className="mt-1.5 text-xs font-semibold text-red-600">{cardError}</p>}
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-medium">
+              Test card: <span className="font-mono font-black text-slate-600">4242 4242 4242 4242</span> · any future date · any 3-digit CVC
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving || !stripeInstance || !cardElement}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-md shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">{saving ? 'hourglass_top' : 'save'}</span>
+                {saving ? 'Saving…' : !stripeInstance ? 'Loading…' : 'Save Card'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-black text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
+      {/* ── Saved cards list ───────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(26,43,60,0.04)]">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black text-[#041627]">Saved Accounts</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{loading ? '…' : methods.length} bank account{methods.length !== 1 ? 's' : ''} linked</p>
+            <h3 className="text-lg font-black text-[#041627]">Saved Cards</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {loading ? '…' : `${cards.length} card${cards.length !== 1 ? 's' : ''} saved`}
+            </p>
           </div>
-          <button onClick={() => void fetchMethods()} disabled={loading} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50">
+          <button
+            onClick={() => void fetchCards()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-[#44474C] hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50"
+          >
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
           </button>
@@ -926,30 +1419,36 @@ const MethodsTab: React.FC = () => {
             <span className="material-symbols-outlined animate-spin">progress_activity</span>
             <span className="text-sm font-bold">Loading…</span>
           </div>
-        ) : methods.length === 0 ? (
-          <Empty icon="account_balance" title="No accounts linked" sub="Add a bank account above to receive payouts when jobs complete." />
+        ) : cards.length === 0 ? (
+          <Empty icon="credit_card" title="No cards saved" sub="Add a card above to pay for jobs quickly." />
         ) : (
           <div className="divide-y divide-slate-100">
-            {methods.map((method) => (
-              <div key={method.methodId} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+            {cards.map((card) => (
+              <div key={card.paymentMethodId} className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                    <span className="material-symbols-outlined text-lg text-indigo-600">account_balance</span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <span className="material-symbols-outlined text-lg text-primary">
+                      {CARD_BRAND_ICON[card.brand] ?? 'credit_card'}
+                    </span>
                   </div>
                   <div>
-                    <p className="font-black text-[#041627] text-sm">**** **** {methodTail(method.methodId)}</p>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
-                      {(method.type || 'bank_account').replace('_', ' ')}
+                    <p className="font-black text-[#041627] text-sm">
+                      {card.brand} •••• {card.last4}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                      {card.funding} · Expires {String(card.expMonth).padStart(2, '0')}/{card.expYear}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => void handleDelete(method.methodId)}
-                  disabled={deleting === method.methodId}
+                  onClick={() => void handleDelete(card.paymentMethodId)}
+                  disabled={deleting === card.paymentMethodId}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                 >
-                  <span className="material-symbols-outlined text-sm">{deleting === method.methodId ? 'hourglass_top' : 'delete'}</span>
-                  {deleting === method.methodId ? 'Removing…' : 'Remove'}
+                  <span className="material-symbols-outlined text-sm">
+                    {deleting === card.paymentMethodId ? 'hourglass_top' : 'delete'}
+                  </span>
+                  {deleting === card.paymentMethodId ? 'Removing…' : 'Remove'}
                 </button>
               </div>
             ))}
@@ -970,7 +1469,7 @@ const HaulierPaymentsPage: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Payments</h2>
-        <p className="text-slate-500 font-medium mt-1">Secure job payments, manage escrow, view history, and configure bank accounts.</p>
+        <p className="text-slate-500 font-medium mt-1">Secure job payments, view payment history, and configure bank accounts.</p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-1.5 inline-flex gap-1 shadow-[0_2px_8px_rgba(26,43,60,0.05)] flex-wrap">

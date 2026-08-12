@@ -17,6 +17,15 @@ class UpdateUserStatusRequest(BaseModel):
     status: str
 
 
+class AdminUpdateUserRequest(BaseModel):
+    full_name: Optional[str] = Field(None, alias="fullName")
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
+    model_config = {"populate_by_name": True}
+
+
 class ApproveDocumentRequest(BaseModel):
     remarks: Optional[str] = None
 

@@ -27,15 +27,17 @@ const ProcessedVerificationsPage: React.FC = () => {
   };
 
   const getStatusCounts = () => {
-    if (!data?.processedVerifications) return { approved: 0, rejected: 0 };
-    let approved = 0, rejected = 0;
+    if (!data?.processedVerifications) return { approved: 0, rejected: 0, expired: 0 };
+    let approved = 0, rejected = 0, expired = 0;
+    const now = new Date();
     data.processedVerifications.forEach((u) => {
       u.documents.forEach((d) => {
         if (d.status === 'approved') approved++;
         else if (d.status === 'rejected') rejected++;
+        if (d.expiryDate && new Date(d.expiryDate) < now) expired++;
       });
     });
-    return { approved, rejected };
+    return { approved, rejected, expired };
   };
 
   const counts = getStatusCounts();
@@ -59,6 +61,12 @@ const ProcessedVerificationsPage: React.FC = () => {
             <span className="material-symbols-outlined text-sm">cancel</span>
             {counts.rejected} Rejected
           </div>
+          {counts.expired > 0 && (
+            <div className="bg-rose-50 border border-rose-100 text-rose-700 px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">event_busy</span>
+              {counts.expired} Expired
+            </div>
+          )}
         </div>
       </div>
 
@@ -82,6 +90,7 @@ const ProcessedVerificationsPage: React.FC = () => {
             <option value="">All Outcomes</option>
             <option value="approved">Approved Only</option>
             <option value="rejected">Rejected Only</option>
+            <option value="expired">Expired Only</option>
           </select>
         </div>
         <p className="text-xs text-slate-400 font-bold md:ml-auto">
@@ -144,7 +153,7 @@ const ProcessedVerificationsPage: React.FC = () => {
                           <span className={`material-symbols-outlined text-xl ${cfg.text}`}>{cfg.icon}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-primary text-sm">{doc.documentType}</p>
+                          <p className="font-bold text-primary text-sm">{doc.customName ?? doc.documentType}</p>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
                               {cfg.label}
@@ -152,6 +161,12 @@ const ProcessedVerificationsPage: React.FC = () => {
                             {doc.reviewedAt && (
                               <span className="text-[10px] text-slate-400 font-medium">
                                 Reviewed {new Date(doc.reviewedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                            {doc.expiryDate && (
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${new Date(doc.expiryDate) < new Date() ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>event</span>
+                                Expires: {new Date(doc.expiryDate).toLocaleDateString()}
                               </span>
                             )}
                           </div>

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A([User opens FreightFlex]) --> B[/Fill registration form:\nName · Email · Phone\nPassword · Role/]
+    A([User opens FlexiShift]) --> B[/Fill registration form:\nName · Email · Phone\nPassword · Role/]
     B --> TC{Terms and\nConditions\naccepted?}
     TC -->|No - checkbox not ticked| TCD[Show: 'You must accept\nTerms and Conditions\nto register']
     TCD --> B

@@ -2,7 +2,7 @@ import enum
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, Enum, DECIMAL, Integer, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Boolean, Enum, DECIMAL, Integer, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,8 +37,14 @@ class User(Base):
     completed_jobs:   Mapped[int]   = mapped_column(Integer, default=0)
     location_lat:     Mapped[float] = mapped_column(DECIMAL(10, 7), nullable=True)
     location_lng:     Mapped[float] = mapped_column(DECIMAL(10, 7), nullable=True)
-    bank_account_id:  Mapped[str]   = mapped_column(String(100), nullable=True)
-    push_token:       Mapped[str]   = mapped_column(String(500), nullable=True)
+    bank_account_id:            Mapped[str]   = mapped_column(String(100), nullable=True)
+    stripe_account_id:          Mapped[str]   = mapped_column(String(100), nullable=True)
+    stripe_onboarding_complete: Mapped[bool]  = mapped_column(Boolean, nullable=False, default=False)
+    stripe_customer_id:         Mapped[str]   = mapped_column(String(100), nullable=True)
+    admin_approved:             Mapped[bool]  = mapped_column(Boolean, nullable=False, default=False)
+    push_token:                 Mapped[str]   = mapped_column(String(500), nullable=True)
+    currency:                   Mapped[str]   = mapped_column(String(3), nullable=True)
+    country:                    Mapped[str]   = mapped_column(String(2), nullable=True, default="GB")
     created_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:       Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                         onupdate=datetime.utcnow)
@@ -51,6 +57,7 @@ class User(Base):
     ratings_given:    Mapped[list["Rating"]]       = relationship("Rating", foreign_keys="Rating.rater_id", back_populates="rater")
     ratings_received: Mapped[list["Rating"]]       = relationship("Rating", foreign_keys="Rating.rated_id", back_populates="rated")
     notifications:    Mapped[list["Notification"]] = relationship("Notification", back_populates="user")
+    vehicles:         Mapped[list["Vehicle"]]       = relationship("Vehicle", back_populates="user")
 
 
 class UserProfile(Base):
@@ -62,12 +69,16 @@ class UserProfile(Base):
     licence_number:       Mapped[str] = mapped_column(String(50), nullable=True)
     vehicle_type:         Mapped[str] = mapped_column(String(50), nullable=True)
     vehicle_registration: Mapped[str] = mapped_column(String(20), nullable=True)
+    truck_capacity:       Mapped[str] = mapped_column(String(100), nullable=True)
     company_name:         Mapped[str] = mapped_column(String(200), nullable=True)
     company_address:      Mapped[str] = mapped_column(String(500), nullable=True)
+    vat_number:           Mapped[str | None] = mapped_column(String(50), nullable=True)
+    organisation_number:  Mapped[str | None] = mapped_column(String(50), nullable=True)
     coverage_area:        Mapped[str] = mapped_column(String(500), nullable=True)
     driver_availability:  Mapped[str] = mapped_column(String(50), nullable=True)
     equipment_details:    Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     driver_assignments:   Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    esignature_data:      Mapped[str | None]        = mapped_column(Text, nullable=True)
     created_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at:           Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow,
                                                             onupdate=datetime.utcnow)

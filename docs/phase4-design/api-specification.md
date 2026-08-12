@@ -1,9 +1,9 @@
-# API Specification Document – FreightFlex
+# API Specification Document – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | API Specification Document |
 | Version | 1.0 |
 | Date | 2026-04-25 |
@@ -14,8 +14,8 @@
 
 ### 2.1 Base URL
 ```
-Production:  https://api.freightflex.io/api/v1
-Staging:     https://staging-api.freightflex.io/api/v1
+Production:  https://api.flexishift.io/api/v1
+Staging:     https://staging-api.flexishift.io/api/v1
 Development: http://localhost:3000/api/v1
 ```
 
@@ -345,7 +345,7 @@ Get invoice download URL.
 Response 200:
 {
   "success": true,
-  "data": { "invoiceUrl": "https://{account}.blob.core.windows.net/freightflex-invoices/invoices/FF-XXXX.pdf?{sas_token}" }
+  "data": { "invoiceUrl": "https://{account}.blob.core.windows.net/flexishift-invoices/invoices/FF-XXXX.pdf?{sas_token}" }
 }
 ```
 
@@ -508,7 +508,7 @@ Response 200:
 
 ### Connection
 ```
-URL: wss://api.freightflex.io
+URL: wss://api.flexishift.io
 Auth: Handshake query param: ?token=<accessToken>
 ```
 

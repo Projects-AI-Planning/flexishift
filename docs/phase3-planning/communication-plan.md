@@ -1,15 +1,15 @@
-# Communication Plan – FreightFlex
+# Communication Plan – FlexiShift
 
 ## 1. Document Information
 | Field | Detail |
 |---|---|
-| Project | FreightFlex |
+| Project | FlexiShift |
 | Document | Communication Plan |
 | Version | 1.0 |
 | Date | 2026-04-25 |
 
 ## 2. Purpose
-Defines what information is communicated, to whom, by whom, how, and how often throughout the FreightFlex project. Ensures all stakeholders have the right information at the right time.
+Defines what information is communicated, to whom, by whom, how, and how often throughout the FlexiShift project. Ensures all stakeholders have the right information at the right time.
 
 ## 3. Communication Principles
 1. Default to written communication (Slack / email) so there is a searchable record.
