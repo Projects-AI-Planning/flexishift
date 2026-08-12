@@ -208,7 +208,7 @@ const DocumentsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">error</span>
-            {total} Pending Reviews
+            {total} {total === 1 ? 'Document' : 'Documents'} Pending Review
           </div>
           <button
             onClick={fetchDocs}

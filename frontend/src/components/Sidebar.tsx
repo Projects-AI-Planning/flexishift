@@ -133,9 +133,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, isMobileOpen, onCloseMob
       icon: 'verified_user',
       label: 'Verifications',
       children: [
-        { to: '/admin/verifications/pending', label: 'Pending' },
-        { to: '/admin/verifications/processed', label: 'Processed' },
+        { to: '/admin/verifications/pending', label: 'Driver Approvals' },
         { to: '/admin/users/hauliers?tab=pending', label: 'Haulier Approvals' },
+        { to: '/admin/verifications/processed', label: 'Processed' },
       ],
     },
     {

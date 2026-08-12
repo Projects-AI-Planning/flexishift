@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { User } from '../../types';
+import { COUNTRIES, splitPhone, type Country } from '../../utils/countries';
 
 interface ExtendedUser extends User {
   haulierProfile?: {
@@ -21,6 +22,60 @@ interface ExtendedUser extends User {
 const EMPTY_FORM = { fullName: '', email: '', phone: '', password: '', confirmPassword: '', role: 'DRIVER', status: 'ACTIVE' };
 const EMPTY_EDIT = { fullName: '', email: '', phone: '', role: '', status: '' };
 
+// Statuses the edit form can actually write. Anything else the list returns
+// (PENDING_DOCUMENTS, PENDING_APPROVAL) is derived server-side from documents /
+// approval state, so it is shown read-only rather than offered as a choice.
+const WRITABLE_STATUSES = ['ACTIVE', 'PENDING', 'SUSPENDED'];
+
+const prettyStatus = (s: string) =>
+  s.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+// Shared markup for the country selector + dial-code-prefixed phone input.
+// No country is preselected, so the admin must pick one explicitly.
+const PhoneFields: React.FC<{
+  country: Country | null;
+  local: string;
+  onCountryChange: (c: Country | null) => void;
+  onLocalChange: (v: string) => void;
+}> = ({ country, local, onCountryChange, onLocalChange }) => {
+  const fieldCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none';
+  return (
+    <>
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Country</label>
+        <select
+          required
+          value={country?.iso ?? ''}
+          onChange={(e) => onCountryChange(COUNTRIES.find(c => c.iso === e.target.value) ?? null)}
+          className={fieldCls}
+        >
+          <option value="" disabled>Select country</option>
+          {COUNTRIES.map(c => (
+            <option key={c.iso} value={c.iso}>{c.flag}  {c.name} ({c.code})</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
+        <div className="flex bg-slate-50 border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary">
+          <div className="px-3 py-2 text-sm font-bold text-slate-500 border-r border-slate-200 shrink-0 flex items-center gap-1.5">
+            {country ? <><span>{country.flag}</span><span>{country.code}</span></> : <span className="text-slate-400">—</span>}
+          </div>
+          <input
+            required
+            type="tel"
+            value={local}
+            onChange={(e) => onLocalChange(e.target.value.replace(/[^\d\s-]/g, ''))}
+            className="flex-1 bg-transparent py-2 px-3 text-sm outline-none"
+            placeholder={country ? 'Local number' : 'Select a country first'}
+            disabled={!country}
+          />
+        </div>
+      </div>
+    </>
+  );
+};
+
 const UsersPage: React.FC = () => {
   const [params, setParams] = useState({ page: 1, role: '', status: '', search: '', limit: 10 });
   const { data, loading, error, refresh } = useAdminUsers(params);
@@ -28,6 +83,8 @@ const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createCountry, setCreateCountry] = useState<Country | null>(null);
+  const [createLocalPhone, setCreateLocalPhone] = useState('');
   const [createError, setCreateError] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createSuccess, setCreateSuccess] = useState('');
@@ -36,6 +93,8 @@ const UsersPage: React.FC = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editUserId, setEditUserId] = useState('');
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
+  const [editCountry, setEditCountry] = useState<Country | null>(null);
+  const [editLocalPhone, setEditLocalPhone] = useState('');
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
 
@@ -84,18 +143,29 @@ const UsersPage: React.FC = () => {
       setCreateError('Password must be at least 8 characters');
       return;
     }
+    if (!createCountry) {
+      setCreateError('Select the phone number country');
+      return;
+    }
+    const createDigits = createLocalPhone.replace(/\D/g, '');
+    if (createDigits.length < 6 || createDigits.length > 12) {
+      setCreateError('Enter a valid local phone number (6–12 digits after the country code).');
+      return;
+    }
     setCreateLoading(true);
     try {
       await adminService.createUser({
         fullName: createForm.fullName,
         email: createForm.email,
-        phone: createForm.phone,
+        phone: `${createCountry.code}${createDigits}`,
         password: createForm.password,
         role: createForm.role,
         status: createForm.status,
       });
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
+      setCreateCountry(null);
+      setCreateLocalPhone('');
       setCreateSuccess(`User "${createForm.fullName}" created successfully.`);
       setTimeout(() => setCreateSuccess(''), 4000);
       refresh();
@@ -116,6 +186,9 @@ const UsersPage: React.FC = () => {
       role: user.role,
       status: user.status,
     });
+    const { country, local } = splitPhone(user.phone);
+    setEditCountry(country);
+    setEditLocalPhone(local);
     setEditError('');
     setIsEditOpen(true);
   };
@@ -123,12 +196,21 @@ const UsersPage: React.FC = () => {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError('');
+    if (!editCountry) {
+      setEditError('Select the phone number country');
+      return;
+    }
+    const editDigits = editLocalPhone.replace(/\D/g, '');
+    if (editDigits.length < 6 || editDigits.length > 12) {
+      setEditError('Enter a valid local phone number (6–12 digits after the country code).');
+      return;
+    }
     setEditLoading(true);
     try {
       await adminService.updateUser(editUserId, {
         fullName: editForm.fullName,
         email: editForm.email,
-        phone: editForm.phone,
+        phone: `${editCountry.code}${editDigits}`,
         role: editForm.role,
         status: editForm.status,
       });
@@ -364,16 +446,12 @@ const UsersPage: React.FC = () => {
                     placeholder="john@example.com"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
-                  <input
-                    required
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
-                    placeholder="+44 7700 000000"
-                  />
-                </div>
+                <PhoneFields
+                  country={createCountry}
+                  local={createLocalPhone}
+                  onCountryChange={setCreateCountry}
+                  onLocalChange={setCreateLocalPhone}
+                />
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role</label>
                   <select
@@ -383,7 +461,6 @@ const UsersPage: React.FC = () => {
                   >
                     <option value="DRIVER">Driver</option>
                     <option value="HAULIER">Haulier</option>
-                    <option value="FIRM">Firm</option>
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>
@@ -598,15 +675,12 @@ const UsersPage: React.FC = () => {
                     placeholder="john@example.com"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone</label>
-                  <input
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
-                    placeholder="+44 7700 000000"
-                  />
-                </div>
+                <PhoneFields
+                  country={editCountry}
+                  local={editLocalPhone}
+                  onCountryChange={setEditCountry}
+                  onLocalChange={setEditLocalPhone}
+                />
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role</label>
                   <select
@@ -627,10 +701,20 @@ const UsersPage: React.FC = () => {
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
                   >
+                    {editForm.status && !WRITABLE_STATUSES.includes(editForm.status) && (
+                      <option value={editForm.status} disabled>
+                        {prettyStatus(editForm.status)} (current)
+                      </option>
+                    )}
                     <option value="ACTIVE">Active</option>
                     <option value="PENDING">Pending</option>
                     <option value="SUSPENDED">Suspended</option>
                   </select>
+                  {editForm.status && !WRITABLE_STATUSES.includes(editForm.status) && (
+                    <p className="text-[11px] font-semibold text-slate-400 mt-1">
+                      Set by document verification — leave as is to keep it, or pick a status to override.
+                    </p>
+                  )}
                 </div>
               </div>
               {editError && (

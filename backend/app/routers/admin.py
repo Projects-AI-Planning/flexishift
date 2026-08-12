@@ -240,6 +240,30 @@ def list_users(
     )
 
 
+# Statuses the admin UI shows but that are derived at read time
+# (see dashboard._get_effective_status) rather than stored on the user row.
+# They are display-only projections, so a write carrying one means
+# "leave the stored status alone".
+_DERIVED_STATUSES = {"PENDING_DOCUMENTS", "PENDING_APPROVAL"}
+
+
+def _parse_user_status(raw: str) -> UserStatus | None:
+    """Map a status coming from the admin UI onto a real UserStatus.
+
+    Returns None when the value is a derived, display-only status, so callers
+    keep the stored status unchanged. Raises 400 (never 500) on junk.
+    """
+    value = (raw or "").strip().upper()
+    if value in _DERIVED_STATUSES:
+        return None
+    if value == "PENDING":  # the UI's label for INACTIVE
+        value = "INACTIVE"
+    try:
+        return UserStatus(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status '{raw}'")
+
+
 @router.post("/users")
 def create_user(
     body: AdminCreateUserRequest,
@@ -257,7 +281,7 @@ def create_user(
         phone=body.phone,
         password_hash=hash_password(body.password),
         role=Role(body.role.upper()),
-        status=UserStatus(body.status.upper() if body.status else "ACTIVE"),
+        status=(_parse_user_status(body.status) if body.status else None) or UserStatus.ACTIVE,
         verified=True,
         profile_complete=False,
     )
@@ -367,9 +391,11 @@ def update_user_status(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.status = UserStatus(body.status)
+    parsed = _parse_user_status(body.status)
+    if parsed is not None:
+        user.status = parsed
     db.commit()
-    return ok(data={"userId": user_id, "status": body.status}, message="User status updated")
+    return ok(data={"userId": user_id, "status": user.status.value}, message="User status updated")
 
 
 @router.put("/users/{user_id}")
@@ -394,7 +420,9 @@ def update_user(
     if body.role is not None:
         user.role = Role(body.role.upper())
     if body.status is not None:
-        user.status = UserStatus(body.status.upper().replace("PENDING", "INACTIVE"))
+        parsed = _parse_user_status(body.status)
+        if parsed is not None:
+            user.status = parsed
     db.commit()
     return ok(
         data={"userId": user.id, "name": user.full_name, "email": user.email, "role": user.role.value, "status": user.status.value},
