@@ -213,7 +213,7 @@ const StripePaymentModal: React.FC<StripeModalProps> = ({ job, order, onSuccess,
             },
           });
           setElementsInstance(elements);
-          const paymentEl = elements.create('payment', {
+          const paymentEl = elements.create('payment' as any, {
             layout: 'tabs',
           });
           paymentEl.mount(cardRef.current);

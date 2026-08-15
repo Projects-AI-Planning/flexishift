@@ -134,7 +134,7 @@ class Settings(BaseSettings):
     MATCHING_MAX_RESULTS: int = 20          # top N suppliers
 
     # ── File Upload ───────────────────────────────────────────────────────────
-    MAX_UPLOAD_SIZE_MB: int = 10
+    MAX_UPLOAD_SIZE_MB: int = 50
     ALLOWED_UPLOAD_TYPES: List[str] = [
         "application/pdf",
         "image/jpeg",

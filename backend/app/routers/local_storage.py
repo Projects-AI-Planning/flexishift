@@ -17,14 +17,23 @@ async def store_local_upload(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    body = await request.body()
-    content_type = request.headers.get("content-type") or "application/octet-stream"
     try:
-        record = local_svc.store_upload_bytes(db, upload_token, body, content_type=content_type)
+        record = local_svc.get_upload_by_token(db, upload_token)
     except ValueError:
         raise HTTPException(status_code=404, detail="Upload token not found")
 
+    file_path = Path(record.local_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(file_path, "wb") as f:
+        async for chunk in request.stream():
+            f.write(chunk)
+            
+    content_type = request.headers.get("content-type") or "application/octet-stream"
+    record.content_type = content_type
+    record.status = LocalUploadStatus.STORED
     record.public_url = f"{settings.BACKEND_URL.rstrip('/')}/uploads/{record.storage_key}"
+    
     db.commit()
     db.refresh(record)
 

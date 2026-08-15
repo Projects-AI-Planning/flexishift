@@ -81,6 +81,13 @@ def mark_upload_deleted(db: Session, storage_key: str) -> None:
     db.commit()
 
 
+def get_upload_by_token(db: Session, upload_token: str) -> LocalUpload:
+    record = db.query(LocalUpload).filter(LocalUpload.upload_token == upload_token).first()
+    if not record:
+        raise ValueError("Upload token not found")
+    return record
+
+
 def get_upload_by_key(db: Session, storage_key: str, user_id: str | None = None) -> LocalUpload | None:
     query = db.query(LocalUpload).filter(LocalUpload.storage_key == storage_key)
     if user_id:
