@@ -1,2 +1,6 @@
 backend/app/static/uploads/
 backend/logs/
+
+# Python virtual environments
+backend/venv/
+backend/venv_linux_backup/
