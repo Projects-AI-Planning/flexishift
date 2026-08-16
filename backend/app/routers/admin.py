@@ -7,15 +7,21 @@ from app.core.response import ok
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_role
-from app.models.user import User, UserStatus, Role
+from app.models.user import User, UserStatus, Role, UserProfile, RefreshToken
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.document import Document, DocStatus, DocType
 from app.models.vehicle import Vehicle
 from app.schemas.documents import DocumentReviewRequest
-from app.schemas.admin import AdminCreateUserRequest, AdminUpdateUserRequest, UpdateUserStatusRequest, ApproveDocumentRequest, RejectDocumentRequest
+from app.schemas.admin import (
+    AdminCreateUserRequest,
+    AdminUpdateUserRequest,
+    AdminSetUserPasswordRequest,
+    UpdateUserStatusRequest,
+    ApproveDocumentRequest,
+    RejectDocumentRequest,
+)
 from app.core.security import hash_password
-from app.models.user import UserProfile
 from app.services import documents as doc_svc
 from app.services.notifications import create_notification
 from app.routers.profile import _presigned_photo_url
@@ -86,6 +92,7 @@ def _refresh_driver_profile_complete(db: Session, user_id: str) -> None:
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 AdminDep = require_role(Role.ADMIN)
+_PASSWORD_MANAGED_ROLES = {Role.DRIVER, Role.HAULIER, Role.FIRM}
 
 
 def _doc_dict(d: Document) -> dict:
@@ -396,6 +403,38 @@ def update_user_status(
         user.status = parsed
     db.commit()
     return ok(data={"userId": user_id, "status": user.status.value}, message="User status updated")
+
+
+@router.put("/users/{user_id}/password")
+async def set_user_password(
+    user_id: str,
+    body: AdminSetUserPasswordRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(AdminDep),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Use account settings to change your own password")
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role not in _PASSWORD_MANAGED_ROLES:
+        raise HTTPException(status_code=400, detail="Admin can only set passwords for drivers and hauliers")
+
+    user.password_hash = hash_password(body.new_password)
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"revoked": True})
+    await create_notification(
+        db,
+        user.id,
+        "system",
+        "Password updated",
+        "An administrator has set a new password for your account. Sign in with the new password. Contact support if you did not expect this change.",
+        {},
+    )
+    db.commit()
+    return ok(
+        data={"userId": user.id, "role": user.role.value},
+        message="Password updated successfully",
+    )
 
 
 @router.put("/users/{user_id}")

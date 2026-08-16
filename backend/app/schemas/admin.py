@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, List
-from pydantic import BaseModel, Field
+import re
+from pydantic import BaseModel, Field, field_validator
 
 
 class AdminCreateUserRequest(BaseModel):
@@ -24,6 +25,24 @@ class AdminUpdateUserRequest(BaseModel):
     role: Optional[str] = None
     status: Optional[str] = None
     model_config = {"populate_by_name": True}
+
+
+class AdminSetUserPasswordRequest(BaseModel):
+    new_password: str = Field(..., alias="newPassword")
+    model_config = {"populate_by_name": True}
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v.encode()) > 72:
+            raise ValueError("Password must be 72 characters or fewer")
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain an uppercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain a digit")
+        return v
 
 
 class ApproveDocumentRequest(BaseModel):

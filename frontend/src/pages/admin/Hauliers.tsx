@@ -4,6 +4,7 @@ import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import client from '../../api/client';
 import type { User } from '../../types';
+import SetUserPasswordModal, { AdminPasswordField } from '../../components/SetUserPasswordModal';
 
 interface HaulierUser extends User {
   haulierProfile?: {
@@ -50,6 +51,8 @@ const HauliersPage: React.FC = () => {
   const { data, loading, error, refresh } = useAdminUsers(params);
   const [selectedUser, setSelectedUser] = useState<HaulierUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<HaulierUser | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Pending approval hauliers
   const [pendingData, setPendingData] = useState<{ items: PendingHaulier[]; total: number } | null>(null);
@@ -150,6 +153,12 @@ const HauliersPage: React.FC = () => {
 
   return (
     <div className="space-y-8 p-4 sm:p-6">
+      {successMessage && (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-100 text-green-800 px-4 py-3 rounded-xl text-sm font-bold">
+          <span className="material-symbols-outlined text-green-600">check_circle</span>
+          {successMessage}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -216,9 +225,9 @@ const HauliersPage: React.FC = () => {
             </select>
           </div>
 
-          <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-x-auto ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`bg-white rounded-xl shadow-[0_4px_12px_rgba(26,43,60,0.05)] border border-slate-50 overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left">
+              <table className="w-full table-fixed text-left">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Haulier Details</th>
@@ -226,7 +235,7 @@ const HauliersPage: React.FC = () => {
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Company</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Coverage Area</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                    <th className="w-40 px-3 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -263,25 +272,30 @@ const HauliersPage: React.FC = () => {
                           {user.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-3 py-4 text-right">
+                        <div className="inline-flex flex-nowrap items-center justify-end">
                           <button
                             onClick={() => viewProfile(user.userId)}
-                            className="p-2 text-primary hover:bg-slate-100 rounded-lg transition-colors" title="View Profile">
-                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            className="p-1.5 text-primary hover:bg-slate-100 rounded-lg transition-colors shrink-0" title="View Profile">
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
+                          <button
+                            onClick={() => setPasswordUser(user)}
+                            className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0" title="Set Password">
+                            <span className="material-symbols-outlined text-[18px]">key</span>
                           </button>
                           {user.status !== 'ACTIVE' && (
                             <button
                               onClick={() => handleStatusUpdate(user.userId, 'ACTIVE')}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Activate">
-                              <span className="material-symbols-outlined text-sm">check_circle</span>
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors shrink-0" title="Activate">
+                              <span className="material-symbols-outlined text-[18px]">check_circle</span>
                             </button>
                           )}
                           {user.status !== 'SUSPENDED' && (
                             <button
                               onClick={() => handleStatusUpdate(user.userId, 'SUSPENDED')}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
-                              <span className="material-symbols-outlined text-sm">block</span>
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0" title="Suspend">
+                              <span className="material-symbols-outlined text-[18px]">block</span>
                             </button>
                           )}
                         </div>
@@ -427,6 +441,7 @@ const HauliersPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
+                  <AdminPasswordField onChangePassword={() => setPasswordUser(selectedUser)} />
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleDateString() : 'N/A'}</p>
@@ -477,6 +492,12 @@ const HauliersPage: React.FC = () => {
                 )}
               </div>
               <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => setPasswordUser(selectedUser)}
+                  className="bg-slate-50 text-slate-700 px-6 py-2 rounded-xl font-black text-sm hover:bg-slate-100 transition-colors flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">key</span>
+                  Set Password
+                </button>
                 {selectedUser.status === 'ACTIVE' ? (
                   <button onClick={() => handleStatusUpdate(selectedUser.userId, 'SUSPENDED')}
                     className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-black text-sm hover:bg-red-100 transition-colors">
@@ -639,6 +660,18 @@ const HauliersPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {passwordUser && (
+        <SetUserPasswordModal
+          userId={passwordUser.userId}
+          userName={passwordUser.name}
+          roleLabel="Haulier"
+          onClose={() => setPasswordUser(null)}
+          onSuccess={(message) => {
+            setSuccessMessage(message);
+            setTimeout(() => setSuccessMessage(''), 4000);
+          }}
+        />
       )}
     </div>
   );

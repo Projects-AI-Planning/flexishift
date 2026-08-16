@@ -279,6 +279,8 @@ const adminService = {
     client.post('/admin/users', { ...data, status: data.status === 'PENDING' ? 'INACTIVE' : data.status }).then((res) => res.data),
   updateUser: (userId: string, data: { fullName?: string; email?: string; phone?: string; role?: string; status?: string }) =>
     client.put(`/admin/users/${userId}`, data).then((res) => res.data),
+  setUserPassword: (userId: string, newPassword: string) =>
+    client.put(`/admin/users/${userId}/password`, { newPassword }).then((res) => res.data),
   deleteUser: (userId: string) =>
     client.delete(`/admin/users/${userId}`).then((res) => res.data),
   approveHaulier: (userId: string) =>
