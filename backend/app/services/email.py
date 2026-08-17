@@ -169,6 +169,33 @@ async def send_verification_email(to: str, full_name: str, otp: str) -> bool:
     return await send_email(to, "Your FlexiShift verification code", html)
 
 
+async def send_admin_create_otp_email(to: str, full_name: str, otp: str) -> bool:
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <h2 style="color:#0B1E3E;margin:0;">FlexiShift</h2>
+        <p style="color:#64748B;font-size:13px;margin:4px 0 0;">Admin account setup</p>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:28px 24px;border:1px solid #E2E8F0;">
+        <p style="color:#0B1E3E;font-size:16px;font-weight:600;margin:0 0 8px;">Hi {full_name},</p>
+        <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;">
+          A FlexiShift administrator is creating an account with this email.
+          Use the one-time code below to verify the address. This code expires in <strong>10 minutes</strong>.
+        </p>
+        <div style="text-align:center;margin:24px 0;">
+          <span style="display:inline-block;background:#EAF3FD;color:#1D4ED8;font-size:36px;font-weight:900;letter-spacing:12px;padding:16px 28px;border-radius:10px;border:2px dashed #93C5FD;">
+            {otp}
+          </span>
+        </div>
+        <p style="color:#94A3B8;font-size:12px;text-align:center;margin:16px 0 0;">
+          If you were not expecting this, you can ignore this email.
+        </p>
+      </div>
+    </div>
+    """
+    return await send_email(to, "Your FlexiShift email verification code", html)
+
+
 async def send_password_reset_email(to: str, full_name: str, otp: str) -> bool:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#F4F7FB;border-radius:12px;">

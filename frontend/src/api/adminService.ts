@@ -213,6 +213,7 @@ const adminService = {
           licenseVerified: !!user.isVerified,
           licenceNumber: user.profile?.licenceNumber || '',
           vehicleRegistration: user.profile?.vehicleRegistration || '',
+          driverAvailability: user.profile?.driverAvailability || '',
         };
       }
     }
@@ -275,8 +276,47 @@ const adminService = {
         search: normalizeQueryValue(params?.search),
       },
     }).then((res) => mapUsersResponse(res.data.data)),
-  createUser: (data: { fullName: string; email: string; phone: string; password: string; role: string; status: string }) =>
+  createUser: (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    role: string;
+    status: string;
+    driverAvailability?: string;
+    licenceNumber?: string;
+    vehicleRegistration?: string;
+    emailVerificationToken?: string;
+  }) =>
     client.post('/admin/users', { ...data, status: data.status === 'PENDING' ? 'INACTIVE' : data.status }).then((res) => res.data),
+  sendCreateUserEmailOtp: (data: { email: string; fullName?: string }) =>
+    client.post('/admin/users/email-otp', data).then((res) => res.data as {
+      data?: { email?: string; emailSent?: boolean; expiresInSeconds?: number; devOtp?: string };
+      message?: string;
+    }),
+  confirmCreateUserEmailOtp: (data: { email: string; otp: string }) =>
+    client.post('/admin/users/email-otp/confirm', data).then((res) => res.data as {
+      data?: { email?: string; emailVerificationToken?: string; verified?: boolean };
+      message?: string;
+    }),
+  listUserDocuments: (userId: string) =>
+    client.get(`/admin/users/${userId}/documents`).then((res) => res.data.data as {
+      items: Array<{
+        documentId: string;
+        docType: string;
+        status: string;
+        expiryDate?: string | null;
+        fileUrl?: string;
+        rejectionReason?: string | null;
+      }>;
+      driverAvailability?: string | null;
+      requiredTypes: string[];
+      vehicleId?: string | null;
+    }),
+  uploadUserDocument: (userId: string, formData: FormData) =>
+    client.post(`/admin/users/${userId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((res) => res.data),
   updateUser: (userId: string, data: { fullName?: string; email?: string; phone?: string; role?: string; status?: string }) =>
     client.put(`/admin/users/${userId}`, data).then((res) => res.data),
   setUserPassword: (userId: string, newPassword: string) =>

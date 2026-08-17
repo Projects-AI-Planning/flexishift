@@ -3,6 +3,7 @@ import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { User } from '../../types';
 import SetUserPasswordModal, { AdminPasswordField } from '../../components/SetUserPasswordModal';
+import DriverDocumentsPanel from '../../components/admin/DriverDocumentsPanel';
 
 interface DriverUser extends User {
   driverProfile?: {
@@ -278,6 +279,13 @@ const DriversPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-8">
+                <DriverDocumentsPanel
+                  userId={selectedUser.userId}
+                  onUploaded={refresh}
+                />
               </div>
 
               <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100">

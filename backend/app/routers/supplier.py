@@ -1,6 +1,4 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, UploadFile
-from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.core.response import ok, created
@@ -9,12 +7,8 @@ from app.dependencies import get_current_user, require_role
 from app.models.document import Document, DocType, DocStatus
 from app.models.user import User, Role
 from app.schemas.availability import AvailabilitySlotIn, AvailabilityBlockIn
-from app.models.local_upload import LocalUploadKind, LocalUploadStatus
 from app.services import documents as doc_svc
 from app.services import availability as avail_svc
-from app.services import local_storage as local_svc
-from app.services import s3
-from app.config import settings
 
 router = APIRouter(prefix="/supplier", tags=["Supplier"])
 
@@ -61,49 +55,18 @@ async def upload_document_direct(
             detail=f"Invalid documentType '{raw_type}'. Must be one of: {[e.value for e in DocType]}",
         )
 
-    suffix = {
-        "image/jpeg": "jpg", "image/jpg": "jpg",
-        "image/png": "png", "image/webp": "webp",
-        "application/pdf": "pdf",
-    }.get(file.content_type or "", (file.filename or "").rsplit(".", 1)[-1] or "pdf")
-
     contents = await file.read()
-
-    if local_svc.azure_available():
-        key = f"documents/{current_user.id}/{raw_type}/{str(uuid4())[:8]}.{suffix}"
-        s3.upload_bytes(settings.AZURE_CONTAINER_DOCS, key, contents, file.content_type or "application/pdf")
-        file_url = f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_CONTAINER_DOCS}/{key}"
-    else:
-        local_svc.ensure_local_upload_root()
-        key = f"documents/{current_user.id}/{raw_type}/{str(uuid4())[:8]}.{suffix}"
-        file_path = local_svc.LOCAL_UPLOAD_ROOT / key
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_bytes(contents)
-        file_url = local_svc.local_upload_url(None, key)
-        record = local_svc.create_pending_upload(
-            db,
-            user_id=current_user.id,
-            kind=LocalUploadKind.DOCUMENT,
-            original_name=file.filename or f"doc.{suffix}",
-            content_type=file.content_type or "application/pdf",
-            storage_key=key,
-        )
-        record.public_url = file_url
-        record.status = LocalUploadStatus.STORED
-        db.commit()
+    file_url = doc_svc.store_document_bytes(
+        db,
+        current_user.id,
+        raw_type,
+        contents,
+        file.content_type,
+        file.filename,
+    )
 
     resolved_custom_name = customName.strip() if customName and customName.strip() else None
-
-    # Parse expiry date (accepts YYYY-MM-DD or DD-MM-YYYY)
-    parsed_expiry = None
-    if expiryDate:
-        for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
-            try:
-                parsed_expiry = datetime.strptime(expiryDate.strip(), fmt)
-                break
-            except ValueError:
-                continue
-
+    parsed_expiry = doc_svc.parse_expiry_date(expiryDate)
     resolved_vehicle_id = vehicleId.strip() if vehicleId and vehicleId.strip() else None
 
     doc = doc_svc.upsert_document(

@@ -1,12 +1,12 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, File, Form, Query, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.core.response import ok
+from app.core.response import ok, created
 from app.config import settings
 from app.database import get_db
-from app.dependencies import require_role
+from app.dependencies import get_redis, require_role
 from app.models.user import User, UserStatus, Role, UserProfile, RefreshToken
 from app.models.job import Job, JobStatus
 from app.models.payment import Payment, PaymentStatus
@@ -15,6 +15,8 @@ from app.models.vehicle import Vehicle
 from app.schemas.documents import DocumentReviewRequest
 from app.schemas.admin import (
     AdminCreateUserRequest,
+    AdminSendEmailOtpRequest,
+    AdminConfirmEmailOtpRequest,
     AdminUpdateUserRequest,
     AdminSetUserPasswordRequest,
     UpdateUserStatusRequest,
@@ -23,6 +25,7 @@ from app.schemas.admin import (
 )
 from app.core.security import hash_password
 from app.services import documents as doc_svc
+from app.services import auth as auth_svc
 from app.services.notifications import create_notification
 from app.routers.profile import _presigned_photo_url
 
@@ -271,30 +274,100 @@ def _parse_user_status(raw: str) -> UserStatus | None:
         raise HTTPException(status_code=400, detail=f"Invalid status '{raw}'")
 
 
+_OTP_REQUIRED_ROLES = {Role.DRIVER, Role.HAULIER, Role.FIRM}
+
+
+@router.post("/users/email-otp")
+async def send_create_user_email_otp(
+    body: AdminSendEmailOtpRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+    r=Depends(get_redis),
+):
+    email_sent, dev_otp = await auth_svc.send_admin_create_email_otp(
+        db, body.email, body.full_name, r=r
+    )
+    data: dict = {"email": body.email, "emailSent": email_sent, "expiresInSeconds": 600}
+    if dev_otp and settings.APP_ENV == "development":
+        data["devOtp"] = dev_otp
+    return ok(
+        data=data,
+        message=(
+            "A 6-digit OTP has been sent. Ask the user to check inbox and spam."
+            if email_sent
+            else "OTP generated. Email delivery failed — resend or use the development code."
+        ),
+    )
+
+
+@router.post("/users/email-otp/confirm")
+def confirm_create_user_email_otp(
+    body: AdminConfirmEmailOtpRequest,
+    _: User = Depends(AdminDep),
+    r=Depends(get_redis),
+):
+    token = auth_svc.confirm_admin_create_email_otp(r, body.email, body.otp)
+    return ok(
+        data={"email": body.email, "emailVerificationToken": token, "verified": True},
+        message="Email verified. You can now create the user.",
+    )
+
+
 @router.post("/users")
 def create_user(
     body: AdminCreateUserRequest,
     db: Session = Depends(get_db),
     _: User = Depends(AdminDep),
+    r=Depends(get_redis),
 ):
-    if db.query(User).filter(User.email == body.email).first():
+    if db.query(User).filter(User.email == body.email, User.deleted_at.is_(None)).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     if len(body.password.encode()) > 72:
         raise HTTPException(status_code=400, detail="Password must be 72 characters or fewer")
+
+    try:
+        role = Role(body.role.upper())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid role '{body.role}'")
+
+    if role in _OTP_REQUIRED_ROLES:
+        auth_svc.consume_admin_email_verification(r, body.email, body.email_verification_token)
 
     new_user = User(
         full_name=body.full_name,
         email=body.email,
         phone=body.phone,
         password_hash=hash_password(body.password),
-        role=Role(body.role.upper()),
+        role=role,
         status=(_parse_user_status(body.status) if body.status else None) or UserStatus.ACTIVE,
         verified=True,
         profile_complete=False,
+        admin_approved=(role != Role.HAULIER),
     )
     db.add(new_user)
     db.flush()
-    db.add(UserProfile(user_id=new_user.id))
+
+    availability = body.driver_availability if role == Role.DRIVER else None
+    licence_number = (body.licence_number or "").strip() or None if role == Role.DRIVER else None
+    vehicle_registration = (body.vehicle_registration or "").strip() or None if role == Role.DRIVER else None
+    db.add(UserProfile(
+        user_id=new_user.id,
+        driver_availability=availability,
+        licence_number=licence_number,
+        vehicle_registration=vehicle_registration,
+    ))
+
+    vehicle_id = None
+    if role == Role.DRIVER and availability in ("TRUCK_ONLY", "DRIVER_WITH_TRUCK") and vehicle_registration:
+        vehicle = Vehicle(
+            user_id=new_user.id,
+            vehicle_registration=vehicle_registration,
+            is_active=True,
+        )
+        db.add(vehicle)
+        db.flush()
+        vehicle_id = vehicle.id
+
     db.commit()
     return ok(
         data={
@@ -303,9 +376,130 @@ def create_user(
             "email": new_user.email,
             "role": new_user.role.value,
             "status": new_user.status.value,
+            "vehicleId": vehicle_id,
+            "driverAvailability": availability,
         },
         message="User created successfully",
     )
+
+
+def _ensure_driver_vehicle(db: Session, user: User, vehicle_id: str | None) -> str | None:
+    if vehicle_id:
+        vehicle = db.query(Vehicle).filter(
+            Vehicle.id == vehicle_id,
+            Vehicle.user_id == user.id,
+            Vehicle.is_active == True,
+        ).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found for this driver")
+        return vehicle.id
+    vehicle = (
+        db.query(Vehicle)
+        .filter(Vehicle.user_id == user.id, Vehicle.is_active == True)
+        .order_by(Vehicle.created_at.asc())
+        .first()
+    )
+    if vehicle:
+        return vehicle.id
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+    vehicle = Vehicle(
+        user_id=user.id,
+        vehicle_registration=profile.vehicle_registration if profile else None,
+        is_active=True,
+    )
+    db.add(vehicle)
+    db.flush()
+    return vehicle.id
+
+
+@router.get("/users/{user_id}/documents")
+def list_user_documents(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(AdminDep),
+):
+    user = db.get(User, user_id)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role != Role.DRIVER:
+        raise HTTPException(status_code=400, detail="Documents are only managed for drivers")
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    availability = (profile.driver_availability if profile else None) or ""
+    required = _REQUIRED_DOCS_BY_AVAIL.get(availability, _REQUIRED_DOCS_BY_AVAIL["DRIVER_WITH_TRUCK"])
+    docs = (
+        db.query(Document)
+        .filter(Document.user_id == user_id)
+        .order_by(Document.updated_at.desc())
+        .all()
+    )
+    vehicle = (
+        db.query(Vehicle)
+        .filter(Vehicle.user_id == user_id, Vehicle.is_active == True)
+        .order_by(Vehicle.created_at.asc())
+        .first()
+    )
+    return ok(
+        data={
+            "items": [_doc_dict(d) for d in docs],
+            "driverAvailability": availability or None,
+            "requiredTypes": required,
+            "vehicleId": vehicle.id if vehicle else None,
+        },
+        message="Documents retrieved",
+    )
+
+
+@router.post("/users/{user_id}/documents", status_code=201)
+async def upload_user_document(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(AdminDep),
+    documentType: str = Form(None),
+    doc_type: str = Form(None),
+    customName: str = Form(None),
+    expiryDate: str = Form(None),
+    vehicleId: str = Form(None),
+    file: UploadFile = File(...),
+):
+    user = db.get(User, user_id)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role != Role.DRIVER:
+        raise HTTPException(status_code=400, detail="Documents can only be uploaded for drivers")
+
+    raw_type = (documentType or doc_type or "").strip().upper()
+    try:
+        DocType(raw_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid documentType '{raw_type}'. Must be one of: {[e.value for e in DocType]}",
+        )
+
+    contents = await file.read()
+    file_url = doc_svc.store_document_bytes(
+        db, user.id, raw_type, contents, file.content_type, file.filename,
+    )
+    resolved_custom_name = customName.strip() if customName and customName.strip() else None
+    parsed_expiry = doc_svc.parse_expiry_date(expiryDate)
+    resolved_vehicle_id = vehicleId.strip() if vehicleId and vehicleId.strip() else None
+    if raw_type in ("VEHICLE_REG", "VEHICLE_INSURANCE"):
+        resolved_vehicle_id = _ensure_driver_vehicle(db, user, resolved_vehicle_id)
+
+    doc = doc_svc.upsert_document(
+        db,
+        user.id,
+        raw_type,
+        file_url,
+        custom_name=resolved_custom_name,
+        expiry_date=parsed_expiry,
+        vehicle_id=resolved_vehicle_id,
+        status=DocStatus.APPROVED,
+        reviewed_by=admin.id,
+    )
+    _refresh_driver_profile_complete(db, user.id)
+    db.commit()
+    return created(data=_doc_dict(doc), message="Document uploaded and approved")
 
 
 @router.get("/hauliers/pending")

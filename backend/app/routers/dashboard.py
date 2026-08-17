@@ -3,7 +3,7 @@ from calendar import monthrange
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, subqueryload
 from typing import Optional
 
 from app.core.response import ok, created
@@ -1782,10 +1782,24 @@ def admin_overview(
 
 def _get_effective_status(u: User) -> str:
     if u.role == Role.DRIVER:
-        if not u.documents:
-            return "pending_documents"
-        if any(doc.status != DocStatus.APPROVED for doc in u.documents):
-            return "pending_documents"
+        availability = ""
+        if u.profile and u.profile.driver_availability:
+            availability = u.profile.driver_availability.upper()
+        required = {
+            "DRIVER_ONLY": ["DRIVING_LICENCE"],
+            "TRUCK_ONLY": ["VEHICLE_REG", "VEHICLE_INSURANCE"],
+            "DRIVER_WITH_TRUCK": ["DRIVING_LICENCE", "VEHICLE_REG", "VEHICLE_INSURANCE"],
+        }.get(availability, ["DRIVING_LICENCE", "VEHICLE_REG", "VEHICLE_INSURANCE"])
+        docs = u.documents or []
+        for doc_type in required:
+            shared = False
+            for d in docs:
+                dtype = d.doc_type.value if hasattr(d.doc_type, "value") else str(d.doc_type)
+                if dtype == doc_type and d.status in (DocStatus.PENDING, DocStatus.APPROVED):
+                    shared = True
+                    break
+            if not shared:
+                return "pending_documents"
     elif u.role == Role.HAULIER:
         if not u.admin_approved:
             return "pending_approval"
@@ -1819,7 +1833,13 @@ def admin_list_users(
         )
     total = q.count()
     total_pages = (total + limit - 1) // limit
-    items = q.order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    items = (
+        q.options(subqueryload(User.documents), subqueryload(User.profile))
+        .order_by(User.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
 
     users = [
         {

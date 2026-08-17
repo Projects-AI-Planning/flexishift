@@ -10,7 +10,7 @@ from app.core.security import (
     generate_token, hash_token,
 )
 from app.config import settings
-from app.services.email import send_verification_email, send_password_reset_email
+from app.services.email import send_verification_email, send_password_reset_email, send_admin_create_otp_email
 from app.utils.phone_country import phone_to_country_currency
 
 
@@ -26,11 +26,16 @@ REFRESH_PREFIX = "refresh:"
 PHONE_OTP_PREFIX = "phone_otp:"
 EMAIL_OTP_PREFIX = "email_otp:"
 PENDING_REG_PREFIX = "pending_reg:"
+ADMIN_EMAIL_OTP_PREFIX = "admin_email_otp:"
+ADMIN_EMAIL_OK_PREFIX = "admin_email_ok:"
+ADMIN_EMAIL_OK_TTL = 900  # 15 minutes to finish creating the user
 
 # In-memory fallback stores (used when Redis is unavailable)
 _otp_store: dict[str, str] = {}           # phone → otp
 _email_otp_store: dict[str, str] = {}     # email → otp
 _pending_store: dict[str, dict] = {}      # email → pending registration data
+_admin_otp_store: dict[str, str] = {}     # email → admin-create OTP
+_admin_ok_store: dict[str, str] = {}      # email → verification token
 
 
 def _store_refresh(r, user_id: str, token: str, db=None) -> None:
@@ -469,3 +474,98 @@ def reset_password(db: Session, email: str, otp: str, new_password: str) -> None
         user.verified = True
         user.status = UserStatus.ACTIVE
     db.commit()
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _redis_get(r, key: str) -> str | None:
+    if r is None:
+        return None
+    try:
+        value = r.get(key)
+        return value.decode() if isinstance(value, bytes) else value
+    except Exception:
+        return None
+
+
+def _redis_setex(r, key: str, ttl: int, value: str) -> None:
+    if r is None:
+        return
+    try:
+        r.setex(key, ttl, value)
+    except Exception:
+        pass
+
+
+def _redis_delete(r, key: str) -> None:
+    if r is None:
+        return
+    try:
+        r.delete(key)
+    except Exception:
+        pass
+
+
+async def send_admin_create_email_otp(
+    db: Session,
+    email: str,
+    full_name: str | None = None,
+    r=None,
+) -> tuple[bool, str | None]:
+    """Send a 6-digit OTP that must be confirmed before admin creates a driver/haulier."""
+    email = _normalize_email(email)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    otp = _generate_otp()
+    _admin_otp_store[email] = otp
+    _admin_ok_store.pop(email, None)
+    _redis_setex(r, f"{ADMIN_EMAIL_OTP_PREFIX}{email}", OTP_TTL, otp)
+    _redis_delete(r, f"{ADMIN_EMAIL_OK_PREFIX}{email}")
+
+    greeting = (full_name or "").strip() or "there"
+    email_sent = await send_admin_create_otp_email(email, greeting, otp)
+    return email_sent, (otp if not email_sent else None)
+
+
+def confirm_admin_create_email_otp(r, email: str, otp: str) -> str:
+    """Consume the OTP and return a short-lived token required by create_user."""
+    email = _normalize_email(email)
+    code = (otp or "").strip()
+    if not email or not code:
+        raise HTTPException(status_code=400, detail="Email and OTP are required")
+
+    stored = _redis_get(r, f"{ADMIN_EMAIL_OTP_PREFIX}{email}") or _admin_otp_store.get(email)
+    if not stored or stored != code:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    _admin_otp_store.pop(email, None)
+    _redis_delete(r, f"{ADMIN_EMAIL_OTP_PREFIX}{email}")
+
+    token = generate_token()
+    _admin_ok_store[email] = token
+    _redis_setex(r, f"{ADMIN_EMAIL_OK_PREFIX}{email}", ADMIN_EMAIL_OK_TTL, token)
+    return token
+
+
+def consume_admin_email_verification(r, email: str, token: str | None) -> None:
+    """Require a confirmed admin-create OTP for this email, then consume it."""
+    email = _normalize_email(email)
+    supplied = (token or "").strip()
+    if not supplied:
+        raise HTTPException(
+            status_code=400,
+            detail="Verify this email with the OTP sent before creating the user",
+        )
+    stored = _redis_get(r, f"{ADMIN_EMAIL_OK_PREFIX}{email}") or _admin_ok_store.get(email)
+    if not stored or stored != supplied:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is not verified or the verification has expired. Send a new OTP.",
+        )
+    _admin_ok_store.pop(email, None)
+    _redis_delete(r, f"{ADMIN_EMAIL_OK_PREFIX}{email}")

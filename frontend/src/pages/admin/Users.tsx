@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAdminUsers } from '../../hooks/useAdmin';
 import adminService from '../../api/adminService';
 import type { User } from '../../types';
 import { COUNTRIES, splitPhone, type Country } from '../../utils/countries';
 import SetUserPasswordModal, { AdminPasswordField, canAdminSetPassword } from '../../components/SetUserPasswordModal';
+import DriverDocumentsPanel, { requiredDocsFor } from '../../components/admin/DriverDocumentsPanel';
 
 interface ExtendedUser extends User {
   haulierProfile?: {
@@ -17,11 +18,26 @@ interface ExtendedUser extends User {
     licenseVerified: boolean;
     licenceNumber?: string;
     vehicleRegistration?: string;
+    driverAvailability?: string;
   };
 }
 
-const EMPTY_FORM = { fullName: '', email: '', phone: '', password: '', confirmPassword: '', role: 'DRIVER', status: 'ACTIVE' };
+const EMPTY_FORM = {
+  fullName: '',
+  email: '',
+  phone: '',
+  password: '',
+  confirmPassword: '',
+  role: 'DRIVER',
+  status: 'ACTIVE',
+  driverAvailability: '',
+  licenceNumber: '',
+  vehicleRegistration: '',
+};
 const EMPTY_EDIT = { fullName: '', email: '', phone: '', role: '', status: '' };
+const OTP_REQUIRED_ROLES = ['DRIVER', 'HAULIER'];
+const EMPTY_OTP = ['', '', '', '', '', ''];
+const OTP_RESEND_COOLDOWN = 60;
 
 // Statuses the edit form can actually write. Anything else the list returns
 // (PENDING_DOCUMENTS, PENDING_APPROVAL) is derived server-side from documents /
@@ -89,6 +105,18 @@ const UsersPage: React.FC = () => {
   const [createError, setCreateError] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createSuccess, setCreateSuccess] = useState('');
+  const [createDocFiles, setCreateDocFiles] = useState<Record<string, File | null>>({});
+  const [createDocExpiry, setCreateDocExpiry] = useState<Record<string, string>>({});
+  const [createOtp, setCreateOtp] = useState<string[]>(EMPTY_OTP);
+  const [createOtpSent, setCreateOtpSent] = useState(false);
+  const [createEmailVerified, setCreateEmailVerified] = useState(false);
+  const [createEmailToken, setCreateEmailToken] = useState('');
+  const [createOtpCooldown, setCreateOtpCooldown] = useState(0);
+  const [createOtpSending, setCreateOtpSending] = useState(false);
+  const [createOtpVerifying, setCreateOtpVerifying] = useState(false);
+  const [createDevOtp, setCreateDevOtp] = useState('');
+  const createOtpRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const needsCreateEmailOtp = OTP_REQUIRED_ROLES.includes(createForm.role);
 
   // Edit state
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -105,7 +133,125 @@ const UsersPage: React.FC = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [passwordUser, setPasswordUser] = useState<ExtendedUser | null>(null);
 
-  const selectedRole = selectedUser?.role?.toLowerCase();
+  const selectedRole = (selectedUser?.role || '').toLowerCase();
+
+  const resetCreateDocs = () => {
+    setCreateDocFiles({});
+    setCreateDocExpiry({});
+  };
+
+  const resetCreateOtp = () => {
+    setCreateOtp(EMPTY_OTP);
+    setCreateOtpSent(false);
+    setCreateEmailVerified(false);
+    setCreateEmailToken('');
+    setCreateOtpCooldown(0);
+    setCreateOtpSending(false);
+    setCreateOtpVerifying(false);
+    setCreateDevOtp('');
+  };
+
+  useEffect(() => {
+    if (createOtpCooldown <= 0) return;
+    const timer = window.setTimeout(() => setCreateOtpCooldown((c) => c - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [createOtpCooldown]);
+
+  const createOtpApiError = (err: unknown, fallback: string) => {
+    const fromResponse = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    if (fromResponse) return fromResponse;
+    return err instanceof Error ? err.message : fallback;
+  };
+
+  const handleCreateEmailChange = (email: string) => {
+    setCreateForm({ ...createForm, email });
+    if (createOtpSent || createEmailVerified) {
+      resetCreateOtp();
+    }
+  };
+
+  const handleSendCreateOtp = async () => {
+    const email = createForm.email.trim().toLowerCase();
+    if (!email) {
+      setCreateError('Enter the email address first');
+      return;
+    }
+    setCreateError('');
+    setCreateOtpSending(true);
+    try {
+      const result = await adminService.sendCreateUserEmailOtp({
+        email,
+        fullName: createForm.fullName.trim() || undefined,
+      });
+      setCreateForm({ ...createForm, email });
+      setCreateOtp(EMPTY_OTP);
+      setCreateOtpSent(true);
+      setCreateEmailVerified(false);
+      setCreateEmailToken('');
+      setCreateOtpCooldown(OTP_RESEND_COOLDOWN);
+      setCreateDevOtp(result.data?.devOtp || '');
+      window.setTimeout(() => createOtpRefs.current[0]?.focus(), 0);
+    } catch (err: unknown) {
+      setCreateError(createOtpApiError(err, 'Failed to send OTP'));
+    } finally {
+      setCreateOtpSending(false);
+    }
+  };
+
+  const handleConfirmCreateOtp = async () => {
+    const email = createForm.email.trim().toLowerCase();
+    const code = createOtp.join('');
+    if (code.length < 6) {
+      setCreateError('Enter the complete 6-digit OTP');
+      return;
+    }
+    setCreateError('');
+    setCreateOtpVerifying(true);
+    try {
+      const result = await adminService.confirmCreateUserEmailOtp({ email, otp: code });
+      const token = result.data?.emailVerificationToken || '';
+      if (!token) {
+        throw new Error('Verification succeeded but no token was returned');
+      }
+      setCreateEmailVerified(true);
+      setCreateEmailToken(token);
+      setCreateDevOtp('');
+    } catch (err: unknown) {
+      setCreateError(createOtpApiError(err, 'Invalid or expired OTP'));
+      setCreateOtp(EMPTY_OTP);
+      createOtpRefs.current[0]?.focus();
+    } finally {
+      setCreateOtpVerifying(false);
+    }
+  };
+
+  const handleCreateOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...createOtp];
+    next[index] = digit;
+    setCreateOtp(next);
+    if (digit && index < 5) {
+      createOtpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleCreateOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !createOtp[index] && index > 0) {
+      createOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleCreateOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasted) return;
+    e.preventDefault();
+    const next = [...EMPTY_OTP];
+    pasted.split('').forEach((digit, i) => {
+      next[i] = digit;
+    });
+    setCreateOtp(next);
+    createOtpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  };
 
   const handleStatusUpdate = async (userId: string, newStatus: string) => {
     try {
@@ -154,25 +300,65 @@ const UsersPage: React.FC = () => {
       setCreateError('Enter a valid local phone number (6–12 digits after the country code).');
       return;
     }
+    if (needsCreateEmailOtp && !createEmailVerified) {
+      setCreateError('Verify the email address with the OTP before creating this user');
+      return;
+    }
     setCreateLoading(true);
     try {
-      await adminService.createUser({
+      const created = await adminService.createUser({
         fullName: createForm.fullName,
-        email: createForm.email,
+        email: createForm.email.trim().toLowerCase(),
         phone: `${createCountry.code}${createDigits}`,
         password: createForm.password,
         role: createForm.role,
         status: createForm.status,
+        ...(needsCreateEmailOtp && createEmailToken
+          ? { emailVerificationToken: createEmailToken }
+          : {}),
+        ...(createForm.role === 'DRIVER' && createForm.driverAvailability
+          ? { driverAvailability: createForm.driverAvailability }
+          : {}),
+        ...(createForm.role === 'DRIVER' && createForm.licenceNumber
+          ? { licenceNumber: createForm.licenceNumber }
+          : {}),
+        ...(createForm.role === 'DRIVER' && createForm.vehicleRegistration
+          ? { vehicleRegistration: createForm.vehicleRegistration }
+          : {}),
       });
+      const userId = created?.data?.userId as string | undefined;
+      const vehicleId = created?.data?.vehicleId as string | undefined;
+      if (createForm.role === 'DRIVER' && userId) {
+        const required = requiredDocsFor(createForm.driverAvailability);
+        for (const doc of required) {
+          const file = createDocFiles[doc.backendKey];
+          if (!file) continue;
+          const expiry = createDocExpiry[doc.backendKey];
+          if (!expiry) {
+            throw new Error(`Enter an expiry date for ${doc.label}. The user was created — add remaining documents from their profile.`);
+          }
+          const formData = new FormData();
+          formData.append('documentType', doc.backendKey);
+          formData.append('expiryDate', expiry);
+          formData.append('file', file);
+          if (doc.truck && vehicleId) formData.append('vehicleId', vehicleId);
+          await adminService.uploadUserDocument(userId, formData);
+        }
+      }
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
       setCreateCountry(null);
       setCreateLocalPhone('');
+      resetCreateDocs();
+      resetCreateOtp();
       setCreateSuccess(`User "${createForm.fullName}" created successfully.`);
       setTimeout(() => setCreateSuccess(''), 4000);
       refresh();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const msg =
+        err instanceof Error && !('response' in err)
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setCreateError(msg || 'Failed to create user');
     } finally {
       setCreateLoading(false);
@@ -268,7 +454,15 @@ const UsersPage: React.FC = () => {
         <div className="flex gap-3">
 
           <button
-            onClick={() => { setCreateForm(EMPTY_FORM); setCreateError(''); setIsCreateOpen(true); }}
+            onClick={() => {
+              setCreateForm(EMPTY_FORM);
+              setCreateError('');
+              setCreateCountry(null);
+              setCreateLocalPhone('');
+              resetCreateDocs();
+              resetCreateOtp();
+              setIsCreateOpen(true);
+            }}
             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-black hover:opacity-90 transition-colors shadow-md flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-sm">person_add</span>
@@ -423,7 +617,7 @@ const UsersPage: React.FC = () => {
       {/* Create User Modal */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-xl font-black text-primary">Create New User</h3>
               <button onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
@@ -448,11 +642,86 @@ const UsersPage: React.FC = () => {
                     required
                     type="email"
                     value={createForm.email}
-                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    onChange={(e) => handleCreateEmailChange(e.target.value)}
+                    disabled={createEmailVerified}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none disabled:bg-slate-100 disabled:text-slate-500"
                     placeholder="john@example.com"
                   />
                 </div>
+                {needsCreateEmailOtp && (
+                  <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50/70 p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Email verification</p>
+                        <p className="text-xs text-slate-600 font-medium mt-1">
+                          Send a 6-digit OTP to this address and verify it before creating the {createForm.role.toLowerCase()}.
+                        </p>
+                      </div>
+                      {createEmailVerified ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                          <span className="material-symbols-outlined text-sm">verified</span>
+                          Email verified
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleSendCreateOtp()}
+                          disabled={createOtpSending || createOtpCooldown > 0 || !createForm.email.trim()}
+                          className="px-4 py-2 text-xs font-black text-white bg-primary rounded-lg hover:opacity-90 disabled:opacity-50 shrink-0"
+                        >
+                          {createOtpSending
+                            ? 'Sending...'
+                            : createOtpSent
+                              ? (createOtpCooldown > 0 ? `Resend in ${createOtpCooldown}s` : 'Resend OTP')
+                              : 'Send OTP'}
+                        </button>
+                      )}
+                    </div>
+                    {createOtpSent && !createEmailVerified && (
+                      <>
+                        <div className="flex justify-center gap-2" onPaste={handleCreateOtpPaste}>
+                          {createOtp.map((digit, i) => (
+                            <input
+                              key={i}
+                              ref={(el) => { createOtpRefs.current[i] = el; }}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={digit}
+                              onChange={(e) => handleCreateOtpChange(i, e.target.value)}
+                              onKeyDown={(e) => handleCreateOtpKeyDown(i, e)}
+                              className="w-10 h-12 text-center text-lg font-black text-primary rounded-lg border-2 border-blue-200 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                            />
+                          ))}
+                        </div>
+                        {createDevOtp && (
+                          <p className="text-xs text-amber-800 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Email was not delivered. Development OTP: {createDevOtp}
+                          </p>
+                        )}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void handleConfirmCreateOtp()}
+                            disabled={createOtpVerifying || createOtp.join('').length < 6}
+                            className="px-4 py-2 text-xs font-black text-white bg-primary rounded-lg hover:opacity-90 disabled:opacity-50"
+                          >
+                            {createOtpVerifying ? 'Verifying...' : 'Verify OTP'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {createEmailVerified && (
+                      <button
+                        type="button"
+                        onClick={resetCreateOtp}
+                        className="text-xs font-bold text-blue-700 hover:underline"
+                      >
+                        Use a different email
+                      </button>
+                    )}
+                  </div>
+                )}
                 <PhoneFields
                   country={createCountry}
                   local={createLocalPhone}
@@ -471,6 +740,43 @@ const UsersPage: React.FC = () => {
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>
+                {createForm.role === 'DRIVER' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Driver availability</label>
+                      <select
+                        value={createForm.driverAvailability}
+                        onChange={(e) => setCreateForm({ ...createForm, driverAvailability: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                      >
+                        <option value="">Not set yet</option>
+                        <option value="DRIVER_ONLY">Driver only</option>
+                        <option value="TRUCK_ONLY">Truck only</option>
+                        <option value="DRIVER_WITH_TRUCK">Driver with truck</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Licence number</label>
+                      <input
+                        value={createForm.licenceNumber}
+                        onChange={(e) => setCreateForm({ ...createForm, licenceNumber: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                        placeholder="Optional"
+                      />
+                    </div>
+                    {(createForm.driverAvailability === 'TRUCK_ONLY' || createForm.driverAvailability === 'DRIVER_WITH_TRUCK' || !createForm.driverAvailability) && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle registration</label>
+                        <input
+                          value={createForm.vehicleRegistration}
+                          onChange={(e) => setCreateForm({ ...createForm, vehicleRegistration: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                          placeholder="Required if uploading vehicle documents"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Password</label>
                   <input
@@ -506,6 +812,36 @@ const UsersPage: React.FC = () => {
                   </select>
                 </div>
               </div>
+              {createForm.role === 'DRIVER' && (
+                <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver documents</p>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Optional. If skipped, the driver stays Pending Documents until files are added here or on mobile.</p>
+                  </div>
+                  {requiredDocsFor(createForm.driverAvailability).map((doc) => (
+                    <div key={doc.backendKey} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{doc.label}</label>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          onChange={(e) => setCreateDocFiles({ ...createDocFiles, [doc.backendKey]: e.target.files?.[0] ?? null })}
+                          className="w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-black file:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Expiry</label>
+                        <input
+                          type="date"
+                          value={createDocExpiry[doc.backendKey] || ''}
+                          onChange={(e) => setCreateDocExpiry({ ...createDocExpiry, [doc.backendKey]: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {createError && (
                 <p className="text-sm text-red-600 font-bold bg-red-50 px-3 py-2 rounded-lg">{createError}</p>
               )}
@@ -519,7 +855,7 @@ const UsersPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={createLoading}
+                  disabled={createLoading || (needsCreateEmailOtp && !createEmailVerified)}
                   className="px-5 py-2 text-sm font-black text-white bg-primary rounded-xl hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {createLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
@@ -616,10 +952,32 @@ const UsersPage: React.FC = () => {
                           {selectedUser.driverProfile?.licenseVerified ? 'Verified' : 'Pending Verification'}
                         </span>
                       </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Availability</p>
+                        <p className="text-sm font-bold text-primary">
+                          {selectedUser.driverProfile?.driverAvailability
+                            ? prettyStatus(selectedUser.driverProfile.driverAvailability)
+                            : 'N/A'}
+                        </p>
+                      </div>
                     </>
                   )}
                 </div>
               </div>
+
+              {selectedRole === 'driver' && (
+                <div className="mt-8">
+                  <DriverDocumentsPanel
+                    userId={selectedUser.userId}
+                    driverAvailability={selectedUser.driverProfile?.driverAvailability}
+                    onUploaded={() => {
+                      refresh();
+                      setCreateSuccess('Documents uploaded successfully.');
+                      setTimeout(() => setCreateSuccess(''), 4000);
+                    }}
+                  />
+                </div>
+              )}
 
               <div className="mt-12 flex flex-wrap justify-end gap-3 pt-6 border-t border-slate-100">
                 <button

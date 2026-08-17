@@ -1,7 +1,40 @@
 from __future__ import annotations
 from typing import Optional, List
 import re
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+_DRIVER_AVAILABILITIES = {"DRIVER_ONLY", "TRUCK_ONLY", "DRIVER_WITH_TRUCK"}
+
+
+class AdminSendEmailOtpRequest(BaseModel):
+    email: EmailStr
+    full_name: Optional[str] = Field(None, alias="fullName")
+    model_config = {"populate_by_name": True}
+
+    @field_validator("email")
+    @classmethod
+    def normalize_otp_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+
+class AdminConfirmEmailOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    model_config = {"populate_by_name": True}
+
+    @field_validator("email")
+    @classmethod
+    def normalize_confirm_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def six_digit_otp(cls, v: str) -> str:
+        code = (v or "").strip()
+        if not re.fullmatch(r"\d{6}", code):
+            raise ValueError("OTP must be a 6-digit code")
+        return code
 
 
 class AdminCreateUserRequest(BaseModel):
@@ -11,7 +44,28 @@ class AdminCreateUserRequest(BaseModel):
     password: str
     role: str
     status: Optional[str] = "ACTIVE"
+    driver_availability: Optional[str] = Field(None, alias="driverAvailability")
+    licence_number: Optional[str] = Field(None, alias="licenceNumber")
+    vehicle_registration: Optional[str] = Field(None, alias="vehicleRegistration")
+    email_verification_token: Optional[str] = Field(None, alias="emailVerificationToken")
     model_config = {"populate_by_name": True}
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return (v or "").strip().lower()
+
+    @field_validator("driver_availability")
+    @classmethod
+    def valid_availability(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not str(v).strip():
+            return None
+        value = str(v).strip().upper()
+        if value not in _DRIVER_AVAILABILITIES:
+            raise ValueError(
+                f"driverAvailability must be one of: {sorted(_DRIVER_AVAILABILITIES)}"
+            )
+        return value
 
 
 class UpdateUserStatusRequest(BaseModel):
