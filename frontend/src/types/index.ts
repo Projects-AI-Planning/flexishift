@@ -28,6 +28,8 @@ export interface User {
   isVerified?: boolean;
   isAdminApproved?: boolean;
   joinedAt?: string;
+  stripeAccountId?: string | null;
+  stripeOnboardingComplete?: boolean;
 }
 
 export interface AdminStats {

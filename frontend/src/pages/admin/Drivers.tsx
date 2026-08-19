@@ -4,6 +4,7 @@ import adminService from '../../api/adminService';
 import type { User } from '../../types';
 import SetUserPasswordModal, { AdminPasswordField } from '../../components/SetUserPasswordModal';
 import DriverDocumentsPanel from '../../components/admin/DriverDocumentsPanel';
+import StripeAccountField from '../../components/admin/StripeAccountField';
 
 interface DriverUser extends User {
   driverProfile?: {
@@ -251,6 +252,10 @@ const DriversPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
+                  <StripeAccountField
+                    accountId={selectedUser.stripeAccountId}
+                    onboardingComplete={selectedUser.stripeOnboardingComplete}
+                  />
                   <AdminPasswordField onChangePassword={() => setPasswordUser(selectedUser)} />
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>

@@ -177,12 +177,13 @@ def _user_data(user: User, db=None) -> dict:
     from app.models.user import Role
     profile = user.profile
     stripe_connect = None
-    if user.role in (Role.DRIVER, Role.FIRM):
+    if user.role in (Role.DRIVER, Role.FIRM, Role.HAULIER):
         stripe_connect = {
             "hasAccount": bool(user.stripe_account_id),
             "onboardingComplete": bool(user.stripe_onboarding_complete),
             "chargesEnabled": bool(user.stripe_onboarding_complete),
             "payoutsEnabled": bool(user.stripe_onboarding_complete),
+            "stripeAccountId": user.stripe_account_id,
         }
 
     # Build vehicles list for drivers
@@ -228,6 +229,8 @@ def _user_data(user: User, db=None) -> dict:
         "locationLat": user.location_lat,
         "locationLng": user.location_lng,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
+        "stripeAccountId": user.stripe_account_id,
+        "stripeOnboardingComplete": bool(user.stripe_onboarding_complete),
         "stripeConnect": stripe_connect,
         "bankAccountId": user.bank_account_id or None,
         "vehicles": vehicles_data,

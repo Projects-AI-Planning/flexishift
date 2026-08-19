@@ -5,6 +5,7 @@ import adminService from '../../api/adminService';
 import client from '../../api/client';
 import type { User } from '../../types';
 import SetUserPasswordModal, { AdminPasswordField } from '../../components/SetUserPasswordModal';
+import StripeAccountField from '../../components/admin/StripeAccountField';
 
 interface HaulierUser extends User {
   haulierProfile?: {
@@ -441,6 +442,10 @@ const HauliersPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
+                  <StripeAccountField
+                    accountId={selectedUser.stripeAccountId}
+                    onboardingComplete={selectedUser.stripeOnboardingComplete}
+                  />
                   <AdminPasswordField onChangePassword={() => setPasswordUser(selectedUser)} />
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Member Since</p>

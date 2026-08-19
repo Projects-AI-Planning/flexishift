@@ -5,6 +5,7 @@ import type { User } from '../../types';
 import { COUNTRIES, splitPhone, type Country } from '../../utils/countries';
 import SetUserPasswordModal, { AdminPasswordField, canAdminSetPassword } from '../../components/SetUserPasswordModal';
 import DriverDocumentsPanel, { requiredDocsFor } from '../../components/admin/DriverDocumentsPanel';
+import StripeAccountField from '../../components/admin/StripeAccountField';
 
 interface ExtendedUser extends User {
   haulierProfile?: {
@@ -905,6 +906,10 @@ const UsersPage: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-primary">{selectedUser.phone || 'N/A'}</p>
                   </div>
+                  <StripeAccountField
+                    accountId={selectedUser.stripeAccountId}
+                    onboardingComplete={selectedUser.stripeOnboardingComplete}
+                  />
                   {canAdminSetPassword(selectedUser.role) && (
                     <AdminPasswordField onChangePassword={() => setPasswordUser(selectedUser)} />
                   )}

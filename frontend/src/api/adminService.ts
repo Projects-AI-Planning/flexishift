@@ -199,6 +199,10 @@ const adminService = {
   getUserProfile: (userId: string) => client.get(`/profile/${userId}`).then((res) => {
     const user = res.data.data;
     if (user) {
+      user.stripeAccountId = user.stripeAccountId ?? user.stripeConnect?.stripeAccountId ?? null;
+      user.stripeOnboardingComplete = Boolean(
+        user.stripeOnboardingComplete ?? user.stripeConnect?.onboardingComplete,
+      );
       const roleLower = user.role?.toLowerCase();
       if (roleLower === 'haulier' || roleLower === 'firm') {
         user.haulierProfile = {
